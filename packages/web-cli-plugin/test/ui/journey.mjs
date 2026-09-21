@@ -865,27 +865,73 @@ async function main() {
       const visibleIn = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
       const visibleInputs = [...document.querySelectorAll('input, textarea, select, [contenteditable="true"]')]
         .filter(visibleIn).map((el) => el.id || el.tagName);
-      return JSON.stringify({ composerExists: Boolean(composer), composerHidden: composer ? composer.hidden === true : null, visibleInputs });
+      // V4.5-1（TASK-V45-113 八步 ③，**加严**）：composer 出流（ADR-V45-003）之后，
+      // 「不在流内」这一半必须可机核 —— 父节点 == body ⇒ 它不可能是某个宿主/流内子节点。
+      // （本段代码在 evaluate 的模板字符串里，注释内不得出现反引号。）
+      const siblings = composer ? [...composer.parentElement.children] : [];
+      return JSON.stringify({
+        composerExists: Boolean(composer),
+        composerHidden: composer ? composer.hidden === true : null,
+        composerParentIsBody: composer ? composer.parentElement === document.body : null,
+        composerInStream: composer ? document.getElementById('stream').contains(composer) : null,
+        composerIsBodyTailLayout: composer ? siblings.filter((el) => el.tagName !== 'SCRIPT').indexOf(composer) === [...siblings].filter((el) => el.tagName !== 'SCRIPT').length - 1 : null,
+        visibleInputs,
+      });
     })()`);
     const f4 = JSON.parse(fa4);
-    check(f4.composerExists === true && f4.composerHidden === true && f4.visibleInputs.length === 0, '#15c 默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden（法四；显式取代 v3「composer 贴底」）', `${fa4} | gap=${layout.composerGapToBottom}px`);
+    check(
+      f4.composerExists === true && f4.composerHidden === true && f4.visibleInputs.length === 0
+        && f4.composerParentIsBody === true && f4.composerInStream === false && f4.composerIsBodyTailLayout === true,
+      '#15c 默认屏无可见常驻输入框 ∧ `#composer` 出流（父节点 == body ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素）∧ hidden（法四；显式取代 v3「composer 贴底」）',
+      `${fa4} | gap=${layout.composerGapToBottom}px`,
+    );
     check(layout.docOverflowX === 0, '#15d 文档级无水平溢出', `${layout.docOverflowX}`);
     check(layout.hasToolbar && layout.hasStatusbar && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));
+    // V4.5-1（TASK-V45-113 八步 ③，**新增判据**）：卡序不被宿主切段 —— `#stream` 的直接
+    // 子节点只允许「卡」或空态占位；任意深度零 `li[data-host]`；产品自断言同源通过
+    // （`window.__v3.testing.assertStreamPureCardOrder()` 抛错即判无效，与 RP-V4-06 同一模式）。
+    const orderRaw = await evaluate(sp, `(() => {
+      const selfAssert = (() => { try { return window.__v3.testing.assertStreamPureCardOrder() === true; } catch (err) { return String(err && err.message || err); } })();
+      return JSON.stringify(Object.assign({ selfAssert }, window.__v3.testing.streamShape()));
+    })()`);
+    const ord = JSON.parse(orderRaw);
+    check(
+      ord.hostNodes === 0 && ord.foreignChildren === 0 && ord.emptyPlaceholders <= 1,
+      '#15e-1 卡序不被宿主切段（`#stream` 子树零宿主 ∧ 零非卡子节点 ∧ 空态占位 ≤1）',
+      orderRaw,
+    );
+    check(
+      ord.selfAssert === true && ord.cardChildren >= 1,
+      '#15e-2 流为纯卡序（产品自断言 assertStreamPureCardOrder 通过 ∧ 卡子节点 ≥1，卡序不被任何固定宿主切开）',
+      orderRaw,
+    );
 
-    // #15b: steady-state (first-run strips hidden) the message zone takes the
-    // flexible majority — measured with the strips hidden because this hermetic
-    // journey has no bound/authorized site, so guidance strips are visible.
-    const opPct = await evaluate(
+    // #15b: steady-state the message zone takes the flexible majority.
+    //
+    // V4.5-1（TASK-V45-113 八步 ③，同编号等价改写）：v4-1 的「先把三条引导带
+    // `style.display='none'` 再量」前置随 **5 条提示带的 DOM 真退役**（ADR-V45-001）
+    // 而不再需要 —— 节点已不存在，前置本身是 no-op。判据**不降反升**：先机核三条退役
+    // 节点确实为零（把「前置是 no-op」这句话变成可机核事实，而不是注释里的声明），
+    // 再量 `#region-stream` 的高度占比；门槛 `STREAM_HEIGHT_RATIO_MIN = 0.65` 逐字不动
+    // （只允许上调）。
+    const opRaw = await evaluate(
       sp,
       `(() => {
-        const ids = ['site-hint','onboarding','discovery-notice'];
-        const prev = ids.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });
+        const retired = ['site-hint','onboarding','discovery-notice'];
+        const retiredAbsent = retired.every((id) => document.getElementById(id) === null);
+        const prev = retired.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });
         const pct = Math.round((document.getElementById('region-stream').getBoundingClientRect().height / window.innerHeight) * 1000) / 10;
-        ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
-        return pct;
+        retired.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });
+        return JSON.stringify({ pct, retiredAbsent });
       })()`,
     );
-    check(opPct >= 65, '#15b 稳态聊天流（#region-stream）高度占比 ≥ 65.0%（v4 三区骨架；TASK-501 spike 12/12 最差格 0.7273 背书，门槛 45→65 收紧）', `${opPct}%`);
+    const opState = JSON.parse(opRaw);
+    check(
+      opState.retiredAbsent === true,
+      '#15b-0 三条引导带节点已真退役（等价改写的前置因此可机核为 no-op，而非「删标记留节点」）',
+      opRaw,
+    );
+    check(opState.pct >= 65, '#15b 稳态聊天流（#region-stream）高度占比 ≥ 65.0%（v4 三区骨架；TASK-501 spike 12/12 最差格 0.7273 背书，门槛 45→65 收紧）', `${opState.pct}%`);
 
     // inject a long tool result (with hostile HTML), a command line and an error
     const longTool = JSON.stringify(

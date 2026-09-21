@@ -116,6 +116,20 @@ interface V4LedgerShape {
     supersededFrom?: string;
     /** V4-1：旧 pin 的复核版本（`git show <leafBase>:<file>`）。 */
     leafBase?: string;
+    /**
+     * V4.5-1（TASK-V45-113 / ADR-V45-004 裁决 A）：**pin 链**。每节自带
+     * `sha256` / `supersededFrom` / `supersededOn` / `leafBase` / `note`，
+     * `supersededFrom` 指向直接前驱（首节 `null`）——「链式前驱语义」与
+     * 「任意历史 pin 仍可逐字节复算」因此同时成立（`supersededFrom` 只指直接前驱，
+     * 更早的 pin 由链节承载）。
+     */
+    supersessionChain?: Array<{
+      sha256: string;
+      supersededFrom: string | null;
+      supersededOn: string;
+      leafBase: string;
+      note: string;
+    }>;
   }>;
   protectedSupersession?: {
     old: { file: string; sha256: string };
@@ -126,6 +140,23 @@ interface V4LedgerShape {
     knownGap?: string;
     /** review 修复轮 I1：历史现场（R2 阶段）逐字保留字段。 */
     knownGapHistory?: string;
+    /** V4.5-1（TASK-V45-113 八步 ⑤）：本轮的 new pin（与 protectedRanges[0] 同源）。 */
+    newPin?: { file: string; sha256: string; startByte: number; endByte: number };
+    /**
+     * V4.5-1：被取代轮的**逐字记录**（八步 ①「先记录 old 再更新顶层字段」）。
+     * `history[0]` = v4-1 段原文，其中 `old.sha256` 即 v3 pin。
+     */
+    history?: Array<{
+      round: string;
+      recordedOn: string;
+      note: string;
+      pin: { file: string; sha256: string; startByte: number; endByte: number };
+      old: { file: string; sha256: string };
+      decision?: string;
+      eightSteps?: string[];
+      status?: string;
+      knownGap?: string;
+    }>;
   };
   redlineRemap?: Array<{ redline: string; from: string; to: string; reason: string; status?: string; evidence?: string }>;
   zeroDiffFiles?: string[];
@@ -699,8 +730,17 @@ test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定；v4 �
     // `supersededFrom` == 本 pin 的 sha256）。这不是「放宽」，而是换锚 + 补一条**更强**的
     // 机核：旧 pin 仍必须能从 v4 台账的 `leafBase` 版本逐字节复算出来（历史事实不是纸面
     // 声明），且当前字节必须命中 v4 的新 pin（旧 pin 与当前字节的关系被显式声明为「已被取代」）。
+    //
+    // V4.5-1（TASK-V45-113 / ADR-V45-004 §「门禁判据的等价升级」）：第二次取代后顶层
+    // `supersededFrom` 指向**直接前驱**（v4-1 pin），v3 pin 不再等于它 —— 查找因此升级为
+    // **链式**：`supersededFrom === range.sha256` ∨ `supersessionChain` 中任一节命中。
+    // 判据只增不减：命中链节时，旧 pin 的复算版本取**该链节自己的 `leafBase`**（而不是顶层
+    // `leafBase`），否则第二次取代后 v3 复算会用错版本 ⇒ 把「历史可复算」变成纸面声明。
+    const legacyEqual = (r: { supersededFrom?: string }) => r.supersededFrom === range.sha256;
+    const chainHit = (r: { supersessionChain?: Array<{ sha256: string }> }) =>
+      (r.supersessionChain ?? []).some((l) => l.sha256 === range.sha256);
     const superseder = (v4?.protectedRanges ?? []).find(
-      (r) => r.file === range.file && r.status === 'active' && r.supersededFrom === range.sha256,
+      (r) => r.file === range.file && r.status === 'active' && (legacyEqual(r) || chainHit(r)),
     );
     if (!superseder) {
       assert.equal(
@@ -716,7 +756,10 @@ test('ledger: protectedRanges 字节区间 hash 不变（禁行号锚定；v4 �
       continue;
     }
     // (1) 旧 pin 必须可机核：从 leafBase 版本按同一锚点复算。
-    const leafBase = (superseder as { leafBase?: string }).leafBase;
+    // V4.5-1：复算版本取**命中链节的 `leafBase`**（多链节时，顶层 `leafBase` 只描述
+    // 「最近一次取代发生在哪里」，对更早的 pin 不再正确）。
+    const matchedLink = (superseder.supersessionChain ?? []).find((l) => l.sha256 === range.sha256);
+    const leafBase = matchedLink?.leafBase ?? (superseder as { leafBase?: string }).leafBase;
     assert.ok(leafBase, `${range.file} 的 v4 取代条目必须写明 leafBase（旧 pin 的复核版本）`);
     const oldText = runGit(['show', `${leafBase}:${range.file}`]);
     assert.ok(oldText.length > 0, `无法从 ${leafBase} 取出 ${range.file}（旧 pin 复核失败）`);
@@ -760,6 +803,194 @@ test('ledger(V4 段): v4 protectedRanges 新 pin（status:active）必须命中�
   }
   assert.ok(judged > 0, '本判据必须真的判到至少一个保护段');
   console.log(`  ℹ v4 保护段新 pin：${judged} 段逐字节命中（含 journey 的 supersededFrom 换锚）`);
+});
+
+/**
+ * V4.5-1（TASK-V45-113 / ADR-V45-004 §「门禁判据的等价升级」）—— **`supersessionChain` 判据**。
+ *
+ * 第二次取代把顶层 `supersededFrom` 改为指向**直接前驱**（v4-1 pin），于是「v3 pin 是否能
+ * 找到 superseder」不再由 `supersededFrom` 等值承载，而由**链**承载。本判据逐条机核：
+ *
+ *   ① 链长 ≥2；② 链连续性 `chain[i].supersededFrom === chain[i-1].sha256`（首节 `null`）；
+ *   ③ 链覆盖 v3 pin 与 v4-1 pin；④ 前任同源 `protectedRanges[0].supersededFrom === chain.at(-2).sha256`；
+ *   ⑤ 末节 == 当前 pin == `protectedSupersession.newPin.sha256`（同源）；
+ *   ⑥ `protectedSupersession.history` 保留 v4-1 段（`old.sha256 === v3 pin`）；
+ *   ⑦ **链不是装饰**：v3 pin 用「仅 legacy 等值」找不到（若还能找到 ⇒ 链可被删掉而判据仍绿 = 恒真）；
+ *   ⑧ 每个链节的 sha 都能从**该链节自己的 `leafBase`** 逐字节复算（历史事实不是纸面声明）。
+ */
+test('ledger(V4 段): supersessionChain 链长/连续性/覆盖/同源 + v3 段查找由链承载（非恒真）', () => {
+  const v4 = readV4Ledger();
+  const range = (v4.protectedRanges ?? [])[0];
+  assert.ok(range, 'protectedRanges[0] 必须存在（链判据的对象）');
+  const V3_PIN = '6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63';
+  const V41_PIN = 'e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f';
+  const chain = range.supersessionChain ?? [];
+
+  // ① 链长 ≥2
+  assert.ok(chain.length >= 2, `supersessionChain 链长必须 ≥2（实测 ${chain.length}）`);
+
+  // ② 链连续性（首节 null）
+  assert.equal(chain[0].supersededFrom, null, '链首节的 supersededFrom 必须为 null');
+  for (let i = 1; i < chain.length; i += 1) {
+    assert.equal(
+      chain[i].supersededFrom,
+      chain[i - 1].sha256,
+      `链节 ${i} 不连续（supersededFrom ≠ 上一节 sha256）—— 链式语义失真`,
+    );
+    assert.ok(chain[i].supersededOn.length >= 10, `链节 ${i} 必须写明 supersededOn（实测日期）`);
+    assert.ok(chain[i].note.trim().length >= 10, `链节 ${i} 必须写明 note（该次取代是什么）`);
+  }
+
+  // ③ 链覆盖 v3 pin 与 v4-1 pin
+  for (const sha of [V3_PIN, V41_PIN]) {
+    assert.ok(
+      chain.some((l) => l.sha256 === sha),
+      `链必须覆盖历史 pin ${sha.slice(0, 8)}…（否则「v3 段仍可机核」只是纸面声明）`,
+    );
+  }
+
+  // ④ 前任同源
+  assert.equal(
+    range.supersededFrom,
+    chain[chain.length - 2].sha256,
+    'protectedRanges[0].supersededFrom 必须等于链的倒数第二节（直接前驱语义）',
+  );
+
+  // ⑤ 末节 == 当前 pin == newPin（同源）
+  assert.equal(chain[chain.length - 1].sha256, range.sha256, '链末节必须是当前 pin');
+  assert.equal(
+    v4.protectedSupersession?.newPin?.sha256,
+    range.sha256,
+    'protectedSupersession.newPin.sha256 必须与 protectedRanges[0].sha256 同源',
+  );
+
+  // ⑥ history 保留 v4-1 段（逐字记录，old.sha256 === v3 pin）
+  const history = v4.protectedSupersession?.history ?? [];
+  assert.ok(history.length >= 1, 'protectedSupersession.history 必须保留 v4-1 段（八步 ① 的记录）');
+  assert.equal(history[0].old?.sha256, V3_PIN, 'history[0] 必须是 v4-1 段（其 old = v3 pin）');
+  assert.equal(history[0].pin?.sha256, V41_PIN, 'history[0].pin 必须是被取代的 v4-1 pin');
+  assert.ok(Array.isArray(history[0].eightSteps) && history[0].eightSteps.length >= 8, 'history[0] 必须逐字保留上一轮八步证据');
+
+  // ⑦ 反证（非恒真）：v3 pin 已不能由 legacy 等值命中 ⇒ 链是**唯一**的承载。
+  const legacyOnly = (v4.protectedRanges ?? []).find(
+    (r) => r.file === range.file && r.status === 'active' && r.supersededFrom === V3_PIN,
+  );
+  assert.equal(
+    legacyOnly,
+    undefined,
+    '第二次取代后 legacy 等值不得再命中 v3 pin（否则链可被删掉而判据仍绿 = 恒真判据）',
+  );
+  const chainOnly = (v4.protectedRanges ?? []).find(
+    (r) =>
+      r.file === range.file &&
+      r.status === 'active' &&
+      (r.supersessionChain ?? []).some((l) => l.sha256 === V3_PIN),
+  );
+  assert.ok(chainOnly, 'v3 pin 必须由链命中（legacy 等值命不中）—— 链式查找是判据的唯一入口');
+
+  // ⑧ 每个**已取代**链节都能从自己的 `leafBase` 逐字节复算（不依赖顶层 leafBase）。
+  // 末节 = 当前 pin：它在仓库里没有「更早的版本」可言，其正确性由「v4 保护段新 pin 必须
+  // 命中当前字节」那条判据对**工作区**逐字节判定（不能拿一个不存在的 revision 去伪造复算）。
+  const supersededLinks = chain.slice(0, -1);
+  let reverified = 0;
+  for (const link of supersededLinks) {
+    const oldText = runGit(['show', `${link.leafBase}:${range.file}`]);
+    if (oldText.length === 0) continue; // 该版本不可达时跳过（不制造假绿）
+    const i = oldText.indexOf(range.startAnchor);
+    const j = oldText.indexOf(range.endAnchor, i);
+    if (i < 0 || j < 0) continue;
+    const sha = createHash('sha256').update(oldText.slice(i, j + range.endAnchor.length), 'utf8').digest('hex');
+    assert.equal(sha, link.sha256, `链节 ${link.sha256.slice(0, 8)}… 无法从其 leafBase ${link.leafBase} 逐字节复算`);
+    reverified += 1;
+  }
+  assert.ok(reverified >= 1, `链节复算必须真的覆盖到已取代链节（实测 ${reverified}）`);
+  assert.equal(chain[chain.length - 1].sha256, range.sha256, '链末节必须等于当前 pin（其验收面 = 工作区逐字节判定）');
+  console.log(
+    `  ℹ pin 链：${chain.map((l) => l.sha256.slice(0, 8)).join(' → ')} · 已取代链节逐节复算 ${reverified}/${supersededLinks.length} · legacy 等值命不中 v3 pin（链承载非恒真）`,
+  );
+});
+
+/**
+ * V4.5-1（TASK-V45-114 / ADR-V45-005）—— **binding 保段**判据 + 段外逐行登记判据。
+ *
+ * binding 保护段**没有 superseder**（`decision:"keep"`，`supersededFrom:null`），因此走 v3
+ * 段判据的**严格路径**：当前 chunk 的 sha 必须等于 `be9ad0e9…` **且** `startAnchor` 的字节
+ * 偏移必须逐字节等于 `107780`。本轮 binding.mjs 有**两处**读退役面的改写（段前 `#4b/#4c`
+ * 字节中立避让 / 段后 `AP#4b`），所以：
+ *
+ *   ① 双绿（sha + 双字节偏移）；② `startByte === 107780` 显式断言；
+ *   ③ 两条改写必须**逐行登记**（`modifiedRanges` 的 base 行号命中 ∧ `entries[].newTitle` 可在目标文件定位）；
+ *   ④ 三反证：段内改 1 byte ⇒ sha 红；段前多加 1 byte 不补偿 ⇒ `startByte` 红；
+ *      登记的删除行**改一字**（或换一条未登记行）⇒ hunk↔台账判据红。
+ */
+test('ledger(V4 段): binding 保段双绿（sha + startByte 107780）+ 两处段外改写逐行登记 + 3 反证', () => {
+  const v4 = readV4Ledger();
+  const bindingFile = 'packages/web-cli-plugin/test/ui/binding.mjs';
+  const binding = (v4.protectedRanges ?? []).find((r) => r.file === bindingFile);
+  assert.ok(binding, 'binding 保护段必须登记在 protectedRanges');
+  const abs = resolve(REPO, bindingFile);
+  const text = readFileSync(abs, 'utf8');
+
+  // ① 双绿：段本体 sha + 双字节偏移（与 v3 段判据同一个 `protectedPinFailures` 实现）
+  assert.deepEqual(
+    protectedPinFailures(binding as never, text),
+    [],
+    'binding 保段双绿失败（段本体字节已变 / 起始或结束字节偏移已漂）',
+  );
+  assert.equal(binding.sha256, 'be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936', 'binding 段 sha 必须是登记值');
+  assert.equal(binding.supersededFrom, null, 'binding 是保段（无 superseder），supersededFrom 必须为 null');
+
+  // ② `startByte === 107780` 显式断言（段前等长补偿的**唯一**验收面）
+  const i = text.indexOf(binding.startAnchor);
+  assert.ok(i >= 0, 'binding 段 startAnchor 必须存在');
+  assert.equal(byteOffsetOf(text, i), 107780, 'binding 段前补偿失败：startAnchor 字节偏移 ≠ 107780');
+
+  // ③ 两条段外改写必须逐行登记（newTitle 可在目标文件定位）
+  const bindingEntries = (v4.entries ?? []).filter((e) => e.file === bindingFile && e.id.startsWith('V45W2-E-1'));
+  assert.ok(bindingEntries.length >= 2, `binding 的两处改写必须各有 entries 登记（实测 ${bindingEntries.length}）`);
+  for (const e of bindingEntries) {
+    assert.ok(text.includes(e.newTitle), `${e.id}: newTitle 在 ${bindingFile} 中定位不到 → 橡皮图章`);
+    assert.ok(e.reason.trim().length >= 40, `${e.id}: reason 必须 ≥40 字符`);
+  }
+  const bindingRanges = (v4.modifiedRanges ?? []).filter((r) => r.file === bindingFile && String((r as { oldId?: string }).oldId ?? '').includes('V45W2-MR'));
+  assert.ok(bindingRanges.length >= 2, 'binding 的两处改写必须在 modifiedRanges 留有 base 相对行号登记');
+
+  // ④-a 反证：段内改 1 byte ⇒ sha 判据必须红（锚点保持完整）
+  const insideToken = "'#22a 树内检索定位到可覆盖命令节点 tabs list（真实 DOM，逐层可操作）'";
+  assert.ok(text.includes(insideToken), '段内扰动锚点必须存在（否则反证空转）');
+  const insideMutated = text.replace(insideToken, "'#22A 树内检索定位到可覆盖命令节点 tabs list（真实 DOM，逐层可操作）'");
+  assert.notEqual(insideMutated, text, '段内扰动必须真的改变字节');
+  assert.ok(
+    protectedPinFailures(binding as never, insideMutated).length > 0,
+    'RP-V45-114(a) 段内改 1 byte 必须判 FAIL',
+  );
+
+  // ④-b 反证：段前多加 1 byte 且不补偿 ⇒ `startByte` 判据必须红
+  const preMutated = `// +1 byte 段前扰动\n${text}`;
+  const preFails = protectedPinFailures(binding as never, preMutated);
+  assert.ok(
+    preFails.some((f) => f.includes('起始字节偏移变化')),
+    `RP-V45-114(b) 段前多加 1 byte 不补偿必须判 startByte FAIL（实测 ${JSON.stringify(preFails)}）`,
+  );
+  assert.ok(
+    !preFails.some((f) => f.includes('受保护区间字节已变')),
+    'RP-V45-114(b) 段前扰动不得改变段本体 sha（判据必须只锚保护段本身）',
+  );
+
+  // ④-c 反证：登记的删除行**改一字** ⇒ hunk↔台账判据必须红（登记不是橡皮图章）
+  const coveredByLedger = (line: string) =>
+    (v4.entries ?? [])
+      .filter((e) => e.file === bindingFile)
+      .some((e) => e.oldTitle !== null && line.includes(e.oldTitle));
+  const realDeleted = "    const authNotice = await waitFor(ext, `(() => { const t = document.getElementById('notice').textContent; return /已授权/.test(t) ? t : ''; })()`, 40, 200);";
+  assert.equal(coveredByLedger(realDeleted), true, '登记必须真的覆盖真实删除行（否则登记无效）');
+  const verbatimPerturbed = realDeleted.replace('getElementById', 'getElementByID');
+  assert.equal(
+    coveredByLedger(verbatimPerturbed),
+    false,
+    'RP-V45-114(c) 删除行改一字后必须**不再**被登记覆盖（hunk↔台账判据非恒真）',
+  );
+  console.log('  ℹ binding 保段：sha be9ad0e9… + startByte 107780 双绿 · 两处段外改写逐行登记 · 3 反证实跑');
 });
 
 /**

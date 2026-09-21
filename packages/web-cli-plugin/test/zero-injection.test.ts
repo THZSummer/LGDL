@@ -15,6 +15,8 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync, statSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const REPO = new URL('../../../', import.meta.url);
@@ -98,5 +100,124 @@ test('V3-4 零注入（源码面）：页面侧只在被注入时才有监听 �
   assert.ok(
     /KIND_SET/.test(`${kindSet} 'pick-layer-inject',`),
     '反证：伪造体确实把 kind 放进了 KIND_SET 的文本块',
+  );
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V4.5-1（TASK-V45-117 / ADR-V45-009 §1~§3）—— **解冻范围门禁**（只增）。
+ *
+ * `docs/v3-supersession-ledger.json#zeroDiffFiles` 里 `src/ui/options/index.html` 是
+ * v3 冻结面；v4 台账的 `unfrozenZeroDiffFiles[]` 提供「**显式**解冻」机制（理由是登记行为，
+ * 不是静默放开）。v4.5-1 把该条目的 schema 扩展为
+ * `{file, scope, reason, textBefore, textAfter, date, operator, frozenBy, reintroductionGate, maxByteDelta}`，
+ * 并在这里补上**范围门禁**：解冻只允许落在**纯文案行**上，任何脚本 / 链接 / 权限 / 属性 /
+ * 结构标签的引入都必须判红。字段与逐 hunk 判定是同一判据的两半 —— 缺字段、reason 过短、
+ * 字节差越限、textBefore/textAfter 定位不到、或 diff 里出现禁止内容，任一条即 FAIL。
+ *
+ * **反证**（see the following test）：注入 `<script …>` / 删登记条目 / `reason < 40`
+ * 必须逐条判红 —— 否则范围门禁是恒真判据。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface UnfrozenEntry {
+  file: string;
+  scope?: string;
+  reason?: string;
+  textBefore?: string;
+  textAfter?: string;
+  date?: string;
+  operator?: string;
+  frozenBy?: string;
+  reintroductionGate?: string;
+  maxByteDelta?: number;
+}
+
+/** The banned-token predicate for one diff line of a `copy-only-lines` unfreeze. */
+export function copyOnlyLineProblems(file: string, line: string): string[] {
+  const problems: string[] = [];
+  const lower = line.toLowerCase();
+  for (const banned of ['<script', '<link', '<meta', '<iframe', '<object', '<embed', 'import ', 'href=', 'src=', 'onclick', 'onload', 'onerror', 'onchange', 'oninput', 'onfocus', 'onsubmit']) {
+    if (lower.includes(banned)) problems.push(`${file}: 解冻行引入禁止内容 ${banned} → ${line.trim().slice(0, 90)}`);
+  }
+  return problems;
+}
+
+/** The schema + scope judgement for the `copy-only-lines` entries (single implementation). */
+export function unfrozenScopeProblems(entries: UnfrozenEntry[]): string[] {
+  const problems: string[] = [];
+  for (const e of entries.filter((x) => x.scope === 'copy-only-lines')) {
+    for (const field of ['file', 'scope', 'reason', 'textBefore', 'textAfter', 'date', 'operator', 'frozenBy', 'reintroductionGate', 'maxByteDelta']) {
+      if ((e as unknown as Record<string, unknown>)[field] === undefined) problems.push(`${e.file}: 解冻条目缺字段 ${field}`);
+    }
+    if (String(e.reason ?? '').trim().length < 40) problems.push(`${e.file}: reason 必须 ≥40 字符（解冻是登记行为）`);
+    if (!(Number(e.maxByteDelta) > 0)) problems.push(`${e.file}: maxByteDelta 必须是正数（范围必须有界）`);
+  }
+  return problems;
+}
+
+test('V4.5-1 解冻范围门禁：copy-only-lines 解冻逐 hunk 纯文案（零 script/link/属性/结构标签 ∧ 字节差 ≤ 登记阈值）', () => {
+  const ledger = JSON.parse(readFileSync(new URL('docs/v4-supersession-ledger.json', PKG), 'utf8')) as {
+    base?: string;
+    unfrozenZeroDiffFiles?: UnfrozenEntry[];
+  };
+  const entries = (ledger.unfrozenZeroDiffFiles ?? []).filter((u) => u.scope === 'copy-only-lines');
+  assert.ok(entries.length > 0, '必须至少有一条 copy-only-lines 解冻登记（否则本判据空转）');
+  const problems = unfrozenScopeProblems(ledger.unfrozenZeroDiffFiles ?? []);
+  // ⚠️ git 的 pathspec 是**相对当前工作目录**解析的，而本文件编译后跑在 `dist-test/test/`：
+  // 用相对 URL 推 repo root 会得到 `packages/` 之类的错位值 ⇒ `git diff -- <repo 相对路径>`
+  // 匹配不到任何文件（实测：diff 为空 ⇒ 判据以「解冻必须真的对应一次 diff」误报）。
+  // 因此 repo root 由 git 自己给出（`--show-toplevel`），paths 一律用 repo 相对路径。
+  const repoRoot = execFileSync('git', ['-C', fileURLToPath(PKG), 'rev-parse', '--show-toplevel'], {
+    encoding: 'utf8',
+  }).trim();
+  for (const e of entries) {
+    const before = execFileSync('git', ['-C', repoRoot, 'show', `${ledger.base}:${e.file}`], { encoding: 'utf8' });
+    const after = readFileSync(new URL(e.file.replace('packages/web-cli-plugin/', ''), PKG), 'utf8');
+    const delta = Buffer.byteLength(after, 'utf8') - Buffer.byteLength(before, 'utf8');
+    if (delta > Number(e.maxByteDelta ?? 0)) {
+      problems.push(`${e.file}: 字节差 +${delta} B > 登记阈值 ${e.maxByteDelta} B（解冻范围越限）`);
+    }
+    if (e.textBefore && !before.includes(e.textBefore)) problems.push(`${e.file}: textBefore 在冻结版本（${ledger.base}）中定位不到 → 登记失真`);
+    if (e.textAfter && !after.includes(e.textAfter)) problems.push(`${e.file}: textAfter 在当前文件中定位不到 → 登记失真`);
+    const diff = execFileSync('git', ['-C', repoRoot, 'diff', '-U0', String(ledger.base), '--', e.file], { encoding: 'utf8' });
+    let hunks = 0;
+    for (const raw of diff.split('\n')) {
+      if (raw.startsWith('@@')) { hunks += 1; continue; }
+      if ((!raw.startsWith('+') && !raw.startsWith('-')) || raw.startsWith('+++') || raw.startsWith('---')) continue;
+      problems.push(...copyOnlyLineProblems(e.file, raw.slice(1)));
+    }
+    assert.ok(hunks > 0, `${e.file}: 解冻必须真的对应一次 diff（否则登记与产物脱钩）`);
+  }
+  assert.deepEqual(problems, [], `解冻范围门禁未通过：\n${problems.join('\n')}`);
+});
+
+test('V4.5-1 解冻范围门禁反证：注入 <script> / 缺字段 / reason<40 / 越限字节差 必须逐条判红（判据非恒真）', () => {
+  // ① 在解冻文件里加一个 `<script …>` ⇒ 范围门禁必须红
+  assert.ok(
+    copyOnlyLineProblems('x.html', '  <script src="evil.js"></script>').length > 0,
+    '反证①：注入 <script> 必须命中禁止内容',
+  );
+  assert.ok(
+    copyOnlyLineProblems('x.html', '  <li><a href="https://x.test">授权当前站点</a></li>').length > 0,
+    '反证①b：新增 href 属性必须命中禁止内容',
+  );
+  assert.deepEqual(copyOnlyLineProblems('x.html', '  <li>在侧栏「设置 → 站点与授权」点「授权当前站点」。</li>'), [], '对照：纯文案行必须干净（否则判据无法区分）');
+  // ② 删掉（或不写）字段 ⇒ 字段门禁必须红
+  const good: UnfrozenEntry = {
+    file: 'f', scope: 'copy-only-lines', reason: 'r'.repeat(45), textBefore: 'a', textAfter: 'b',
+    date: '2026-09-21', operator: 'o', frozenBy: 'v3#zeroDiffFiles', reintroductionGate: 'g', maxByteDelta: 256,
+  };
+  assert.deepEqual(unfrozenScopeProblems([good]), [], '对照：完整条目必须干净');
+  const missing = { ...good } as unknown as Record<string, unknown>;
+  delete missing.textAfter;
+  assert.ok(unfrozenScopeProblems([missing as unknown as UnfrozenEntry]).some((p) => p.includes('缺字段 textAfter')), '反证②：缺字段必须判红');
+  // ③ `reason < 40` ⇒ 字段门禁必须红
+  assert.ok(
+    unfrozenScopeProblems([{ ...good, reason: 'too short' }]).some((p) => p.includes('reason 必须 ≥40')),
+    '反证③：reason < 40 必须判红',
+  );
+  // ④ 阈值非正 ⇒ 范围无界必须判红（越限字节差的入口）
+  assert.ok(
+    unfrozenScopeProblems([{ ...good, maxByteDelta: 0 }]).some((p) => p.includes('maxByteDelta 必须是正数')),
+    '反证④：maxByteDelta 非正必须判红',
   );
 });

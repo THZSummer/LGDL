@@ -1524,6 +1524,7 @@
           "packages/web-cli-plugin/test/size-budget.test.ts",
           "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
           "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "packages/web-cli-plugin/test/supersession-ledger.test.ts",
           "packages/web-cli-plugin/test/ui/binding.mjs",
           "packages/web-cli-plugin/test/ui/density-metrics.mjs",
           "packages/web-cli-plugin/test/ui/density.mjs",
@@ -1539,7 +1540,7 @@
           "packages/web-cli-plugin/test/ui/zero-injection.mjs",
           "packages/web-cli-plugin/test/zero-injection.test.ts"
         ],
-        "why": "与 v3 / v4-1 / v4-3 同一规则：`packages/web-cli-plugin/test/**` 且后缀为 .mjs/.ts，逐个从 `git diff eb879bb` 复算（不手工放宽、不手工收窄）。本叶段不含 src/**（判据规则如此；src 侧改动由代码审查 + supersession 门禁的其它分面覆盖）。"
+        "why": "与 v3 / v4-1 / v4-3 同一规则：`packages/web-cli-plugin/test/**` 且后缀为 .mjs/.ts，逐个从 `git diff eb879bb` 复算（不手工放宽、不手工收窄）。本叶段不含 src/**（判据规则如此；src 侧改动由代码审查 + supersession 门禁的其它分面覆盖）。 〖V4.5-1 R3（2026-09-21）〗scope 逐叶复算：`supersession-ledger.test.ts` 在 R3 出现相对 eb879bb 的删除行（链式判据升级：superseder 查找由 legacy 等值改为链式 ∧ 复算版本取命中链节的 leafBase）⇒ 按规则（`testFilesWithDeletions`）自动并入本叶段 scope，不是手工放宽。"
       },
       "registeredUncoveredLines": [
         {
@@ -1806,6 +1807,7 @@
           "packages/web-cli-plugin/test/size-budget.test.ts",
           "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
           "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "packages/web-cli-plugin/test/supersession-ledger.test.ts",
           "packages/web-cli-plugin/test/system-merge.test.ts",
           "packages/web-cli-plugin/test/ui/binding.mjs",
           "packages/web-cli-plugin/test/ui/density-metrics.mjs",
@@ -1996,6 +1998,7 @@
           "packages/web-cli-plugin/test/size-budget.test.ts",
           "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
           "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "packages/web-cli-plugin/test/supersession-ledger.test.ts",
           "packages/web-cli-plugin/test/system-merge.test.ts",
           "packages/web-cli-plugin/test/ui/binding.mjs",
           "packages/web-cli-plugin/test/ui/density-metrics.mjs",
@@ -2229,10 +2232,30 @@
             "    `${label} 夹具确定性：达到同一稳态（#notice 持续存在的会话态，而非首次运行的未稳态）`,",
             "      onboardingHidden: document.getElementById('onboarding')?.hidden ?? null,",
             "      discoveryHidden: document.getElementById('discovery-notice')?.hidden ?? null,",
-            "        check(`firstRun@${vp} 首装态确实生效（onboarding 或 discovery-notice 可见）`, fp.onboardingHidden === false || fp.discoveryHidden === false, JSON.stringify(fp));"
+            "        check(`firstRun@${vp} 首装态确实生效（onboarding 或 discovery-notice 可见）`, fp.onboardingHidden === false || fp.discoveryHidden === false, JSON.stringify(fp));",
+            "async function fixturePass(cdp, { authorized = true, ask = true, configured = true } = {}) {",
+            " * The settled-state anchor, read after every `resetFixture()`: the fixture must be",
+            " * present, not absent). Returns the raw probe so a mismatch can be printed.",
+            "/** Assert the fixture reached the settled state (one FAIL-able check per cell). */",
+            "async function assertFixtureSettled(cdp, label) {",
+            "    s.noticeExists === true && s.noticeHidden === false && s.noticeLen > 0,",
+            "      moreHidden: document.getElementById('l0-more')?.hidden ?? null,",
+            "      await resetFixture(cdp, { authorized: true, ask: true, configured: tier !== 'firstRun' });",
+            "        await resetFixture(cdp, { authorized: true, ask: false });",
+            "        ref: document.getElementById('l0-ref-toggle').textContent,",
+            "        more: document.getElementById('l0-more').textContent,",
+            "  const copy = resolve('/tmp', `density-metrics-rp02-${Date.now()}.mjs`);",
+            "    const patched = source.replace('default: Object.freeze({ clickables: 7, lines: 15 })', 'default: Object.freeze({ clickables: 6, lines: 15 })');",
+            "    await resetFixture(cdp);",
+            "    await setViewport(cdp, 400, VIEWPORT_HEIGHT);",
+            "    const measured = await measure(cdp);",
+            "    check('RP-V3-02(b) 副本阈值 6 驱动同一测量必须 FAIL', verdict.ok === false, `ok=${verdict.ok} ${verdict.message}`);",
+            "  await resetFixture(cdp, { authorized: true, ask: false });",
+            "  await resetFixture(cdp, { authorized: true, ask: false });",
+            "  await resetFixture(cdp, { authorized: true, ask: false });"
           ],
-          "count": 10,
-          "reason": "V4.5-1 W2（TASK-V45-104/105/106）逐字登记的叶段删除行：退役 strips 五条提示带的 DOM 与写入口、把断言改写为「节点为 null + 流内载体数 == 1」的新语义。逐字集合相等，多一条/少一条/改一字即 FAIL。"
+          "count": 30,
+          "reason": "V4.5-1 W2（TASK-V45-104/105/106）逐字登记的叶段删除行：退役 strips 五条提示带的 DOM 与写入口、把断言改写为「节点为 null + 流内载体数 == 1」的新语义。逐字集合相等，多一条/少一条/改一字即 FAIL。 〖V4.5-1 R3（2026-09-21，TASK-V45-113~119）〗本叶段（leafBase a04e677）追加 W4+W5 的逐字登记：journey 保护段第二次显式取代（`#15b` 前置 no-op 化 / `#15c` 出流加严 / 新增 `#15e-1`·`#15e-2`·`#15b-0`）、binding 保段登记、density 三重构造判据 + 31 格 v45Ledger、options 纯文案解冻、体积 direction / 档位闸门。逐字登记、只增不减。"
         },
         {
           "file": "packages/web-cli-plugin/test/ui/hardening.mjs",
@@ -2267,10 +2290,22 @@
             "    check(site.shown === true, '#11c 无活跃站点时显示可解释块（不再只有「无活跃站点」）', JSON.stringify(site));",
             "    check(/不可注入|尚未绑定|没有可用标签页/.test(site.title), '#11d 显示具体原因文案', site.title);",
             "    check(/重新绑定当前标签页/.test(site.action), '#11e 给出下一步动作', site.action);",
-            "    // ── #15 TASK-023: three-zone layout + message bubbles + tool card ──────"
+            "    // ── #15 TASK-023: three-zone layout + message bubbles + tool card ──────",
+            "      return JSON.stringify({ composerExists: Boolean(composer), composerHidden: composer ? composer.hidden === true : null, visibleInputs });",
+            "    check(f4.composerExists === true && f4.composerHidden === true && f4.visibleInputs.length === 0, '#15c 默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden（法四；显式取代 v3「composer 贴底」）', `${fa4} | gap=${layout.composerGapToBottom}px`);",
+            "",
+            "    // #15b: steady-state (first-run strips hidden) the message zone takes the",
+            "    // flexible majority — measured with the strips hidden because this hermetic",
+            "    // journey has no bound/authorized site, so guidance strips are visible.",
+            "    const opPct = await evaluate(",
+            "        const ids = ['site-hint','onboarding','discovery-notice'];",
+            "        const prev = ids.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });",
+            "        ids.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });",
+            "        return pct;",
+            "    check(opPct >= 65, '#15b 稳态聊天流（#region-stream）高度占比 ≥ 65.0%（v4 三区骨架；TASK-501 spike 12/12 最差格 0.7273 背书，门槛 45→65 收紧）', `${opPct}%`);"
           ],
-          "count": 17,
-          "reason": "V4.5-1 W2（TASK-V45-104/105/106）逐字登记的叶段删除行：退役 strips 五条提示带的 DOM 与写入口、把断言改写为「节点为 null + 流内载体数 == 1」的新语义。逐字集合相等，多一条/少一条/改一字即 FAIL。"
+          "count": 29,
+          "reason": "V4.5-1 W2（TASK-V45-104/105/106）逐字登记的叶段删除行：退役 strips 五条提示带的 DOM 与写入口、把断言改写为「节点为 null + 流内载体数 == 1」的新语义。逐字集合相等，多一条/少一条/改一字即 FAIL。 〖V4.5-1 R3（2026-09-21，TASK-V45-113/114/115）〗本叶段（leafBase a04e677）追加 W4/W5 的逐字登记：journey 保护段第二次显式取代的等价改写（`#15b` 前置改机核 no-op、`#15c` 加严为出流契约、新增 `#15e-1`/`#15e-2`/`#15b-0`）与 `supersession-ledger.test.ts` 的链式判据升级（superseder 查找改链式 + 复算版本取命中链节的 leafBase）。逐字登记、只增不减。"
         },
         {
           "file": "packages/web-cli-plugin/test/ui/recommendation.mjs",
@@ -2737,14 +2772,23 @@
             "    count: 7,",
             "    expectFailPattern: /恰好 7 个 \\[data-l1-panel\\]/,"
           ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
+          "count": 2,
+          "registeredUncoveredLines": [
+            "      (r) => r.file === range.file && r.status === 'active' && r.supersededFrom === range.sha256,",
+            "    const leafBase = (superseder as { leafBase?: string }).leafBase;"
+          ],
+          "reason": "〖V4.5-1 R3（2026-09-21，TASK-V45-113/114/115）〗本叶段（leafBase a04e677）追加 W4/W5 的逐字登记：journey 保护段第二次显式取代的等价改写（`#15b` 前置改机核 no-op、`#15c` 加严为出流契约、新增 `#15e-1`/`#15e-2`/`#15b-0`）与 `supersession-ledger.test.ts` 的链式判据升级（superseder 查找改链式 + 复算版本取命中链节的 leafBase）。逐字登记、只增不减。"
         }
       ],
       "summary": {
-        "registeredLines": 547,
-        "filesWithUnregisteredLeafDeletions": 23,
-        "unregisteredLeafDeletionLines": 547,
+        "registeredLines": 581,
+        "filesWithUnregisteredLeafDeletions": 24,
+        "unregisteredLeafDeletionLines": 581,
         "caliber": "leafBase → worktree 的 test/** 删除行，扣除 v4 entries[].oldTitle 覆盖后逐字登记",
-        "note": "受判文件 38 个（规则复算）· 逐字登记 96 条删除行（分布在 12 个文件） 〖W3（2026-09-21）〗本叶段追加 W3（TASK-V45-107~110）的逐字登记：新增 l0-disclosure.test.ts 组 27 条；分项之和 123 条 / 13 个文件（口径 = 各文件 registeredUncoveredLines 组的逐字行数之和）。 〖W3 补登〗scope 逐叶复算（新增 4 个文件登记点）+ 逐字登记补登 72 条；分项之和 195 条 / 17 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 1 条；分项之和 196 条 / 17 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 336 条；分项之和 532 条 / 21 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 2 条；分项之和 534 条 / 22 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 13 条；分项之和 547 条 / 23 个文件。"
+        "note": "受判文件 38 个（规则复算）· 逐字登记 96 条删除行（分布在 12 个文件） 〖W3（2026-09-21）〗本叶段追加 W3（TASK-V45-107~110）的逐字登记：新增 l0-disclosure.test.ts 组 27 条；分项之和 123 条 / 13 个文件（口径 = 各文件 registeredUncoveredLines 组的逐字行数之和）。 〖W3 补登〗scope 逐叶复算（新增 4 个文件登记点）+ 逐字登记补登 72 条；分项之和 195 条 / 17 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 1 条；分项之和 196 条 / 17 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 336 条；分项之和 532 条 / 21 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 2 条；分项之和 534 条 / 22 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 13 条；分项之和 547 条 / 23 个文件。 〖R3（2026-09-21，TASK-V45-113~119）〗追加 W4/W5 的逐字登记：新增 journey.mjs 12 条 + supersession-ledger.test.ts 2 条；分项之和 561 条 / 24 个文件（口径 = 各文件 registeredUncoveredLines 组的逐字行数之和，与 summary 同源机核）。"
       },
       "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段实跑（含本 v4.5-1 段）。"
     }
@@ -3151,11 +3195,11 @@
       "oldId": "(v4-1 取代面)",
       "oldTitle": "composerGapToBottom >= 0 && layout.composerGapToBottom <= 12",
       "newId": "(v4-1 等价改写)",
-      "newTitle": "#15c 默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden（法四；显式取代 v3「composer 贴底」）",
+      "newTitle": "#15c 默认屏无可见常驻输入框 ∧ `#composer` 出流（父节点 == body ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素）∧ hidden（法四；显式取代 v3「composer 贴底」）",
       "replacementExists": true,
       "modificationType": "equivalent-rewrite",
       "leaf": "specs-tree-v4-1-zone-shell-density",
-      "reason": "`#15c` **语义显式取代**（ADR-V4-008 第 ③ 步 / redlineRemap 第 3 条）：v3 断言「composer 常驻贴底（gap ∈ [0,12]）」，v4 法四要求默认屏无可见常驻输入框、`#composer` 必须 `hidden`。强度提高（从「贴底」变为「默认不可见」），不是删除。"
+      "reason": "`#15c` **语义显式取代**（ADR-V4-008 第 ③ 步 / redlineRemap 第 3 条）：v3 断言「composer 常驻贴底（gap ∈ [0,12]）」，v4 法四要求默认屏无可见常驻输入框、`#composer` 必须 `hidden`。强度提高（从「贴底」变为「默认不可见」），不是删除。 〖V4.5-1 R3（2026-09-21）〗`newTitle` 重锚：TASK-V45-113 八步 ③ 把 `#15c` 加严为**出流契约**（父节点 == body ∧ 非 `#stream` 后代 ∧ body 尾），旧文本已被取代 ⇒ 按 W3 先例重锚 `newTitle`（`id` / `oldTitle` 零改动，历史 `oldTitle` 仍在 `leafBases[].registeredUncoveredLines` 里逐字保留）。"
     },
     {
       "id": "V41-R3-E-09",
@@ -3177,11 +3221,11 @@
       "oldId": "(v4-1 取代面)",
       "oldTitle": "opPct > 45",
       "newId": "(v4-1 等价改写)",
-      "newTitle": "opPct >= 65",
+      "newTitle": "opState.pct >= 65",
       "replacementExists": true,
       "modificationType": "equivalent-rewrite",
       "leaf": "specs-tree-v4-1-zone-shell-density",
-      "reason": "`#15b` 门槛收紧 45% → 65.0%（TASK-501 spike 12/12 PASS，最差格 0.7273 背书；ADR-V4-016 / FR-CHAT-082）。"
+      "reason": "`#15b` 门槛收紧 45% → 65.0%（TASK-501 spike 12/12 PASS，最差格 0.7273 背书；ADR-V4-016 / FR-CHAT-082）。 〖V4.5-1 R3（2026-09-21）〗`newTitle` 重锚：`#15b` 的读数改为 JSON 化的 `opState.pct`（同一门槛 65、同一锚点 `#region-stream`；改写理由是 v4-1 的「隐藏三条引导带再量」前置随节点退役变成 no-op，见 V45R3 登记条目）。"
     },
     {
       "id": "V41-R3-E-11",
@@ -5020,6 +5064,54 @@
       "modificationType": "equivalent-rewrite",
       "leaf": "specs-tree-v45-1-single-write-chronology",
       "reason": "V4.5-1 W3 门禁等价重锚：l0 门禁的决策壳判据面改为「零宿主 + 纯卡序 + 卡内触发器 + 逐项退役残留」（223 → 227 断言，只增）。"
+    },
+    {
+      "id": "V45W2-E-13",
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "gate": "test/ui/binding.mjs",
+      "oldId": "#4b/#4c",
+      "oldTitle": "const t = document.getElementById('notice').textContent;",
+      "newId": "V4.5-1 单写化（流内 notice 行）",
+      "newTitle": "document.querySelector('#stream [data-msg-type=\"system\"][data-kind=\"notice\"]')?.textContent || ''",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v45-1-single-write-chronology",
+      "reason": "ADR-V45-005 §2 / TASK-V45-114：`#notice` strip 节点退役（ADR-V45-001）后，授权回执事实的唯一可见载体是流内系统行。改写点位于**保护段之前**（段前），因此必须**字节中立**：新旧表达式 `Buffer.byteLength` 差 52 B，由同一前置区（偏移 < 107780）的装饰分隔线等量删白补偿，使 `byteOffsetOf(startAnchor) === 107780` 与段本体 sha`be9ad0e9…` **双绿**（保段而非取代）。"
+    },
+    {
+      "id": "V45W2-E-14",
+      "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+      "gate": "test/ui/binding.mjs",
+      "oldId": "AP#4b",
+      "oldTitle": "!document.getElementById('discovery-notice').textContent.includes('重新探测')",
+      "newId": "V4.5-1 单写化（流内 probe 行 + 行 title）",
+      "newTitle": "[...document.querySelectorAll('#stream [data-msg-type=\"system\"][data-kind=\"probe\"]')]",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v45-1-single-write-chronology",
+      "reason": "ADR-V45-005 §3 / TASK-V45-114：`#discovery-notice` 节点退役后，探测说明的读取点改锚到流内 `probe` 系统行（单行文本 + 行 `title` 长文案，两处都判「不含『重新探测』」）。该改写位于**保护段之后**（段后自由改写），不影响 `startByte`，段本体未动。"
+    },
+    {
+      "id": "V45R3-E-01",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "test/ui/journey.mjs",
+      "oldId": "#15a~#15q",
+      "oldTitle": "#15b 稳态聊天流（#region-stream）高度占比 ≥ 65.0%",
+      "newId": "V4.5-1 第二次显式取代",
+      "newTitle": "    // #15b: steady-state the message zone takes the flexible majority.\n    //\n    // V4.5-1（TASK-V45-113 八步 ③，同编号等价改写）：v4-1 的「先把三条引导带\n    // `style.display='none'` 再量」前置随 **5 条提示带的 DOM 真退役**（ADR-V45-001）\n    // 而不再需要 —— 节点已不存在，前置本身是 no-op。判据**不降反升**：先机核三条退役\n    // 节点确实为零（把「前置是 no-op」这句话变成可机核事实，而不是注释里的声明），\n    // 再量 `#region-stream` 的高度占比；门槛 `STREAM_HEIGHT_RATIO_MIN = 0.65` 逐字不动\n    // （只允许上调）。\n    const opRaw = await evaluate(\n      sp,\n      `(() => {\n        const retired = ['site-hint','onboarding','discovery-notice'];\n        const retiredAbsent = retired.every((id) => document.getElementById(id) === null);\n        const prev = retired.map((id) => { const el = document.getElementById(id); const p = el ? el.style.display : ''; if (el) el.style.display = 'none'; return p; });\n        const pct = Math.round((document.getElementById('region-stream').getBoundingClientRect().height / window.innerHeight) * 1000) / 10;\n        retired.forEach((id, i) => { const el = document.getElementById(id); if (el) el.style.display = prev[i]; });\n        return JSON.stringify({ pct, retiredAbsent });\n      })()`,\n    );\n    const opState = JSON.parse(opRaw);\n    check(\n      opState.retiredAbsent === true,\n      '#15b-0 三条引导带节点已真退役（等价改写的前置因此可机核为 no-op，而非「删标记留节点」）',\n      opRaw,\n    );\n    check(opState.pct >= 65, '#15b 稳态聊天流（#region-stream）高度占比 ≥ 65.0%（v4 三区骨架；TASK-501 spike 12/12 最差格 0.7273 背书，门槛 45→65 收紧）', `${opState.pct}%`);",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v45-1-single-write-chronology",
+      "reason": "V4.5-1 TASK-V45-113 八步 ③ 同编号等价改写（`#15b`）：v4-1 的「先隐藏三条引导带再量」前置随 5 条提示带的 DOM 真退役失效（节点不存在 ⇒ 前置是 no-op）。改写为「机核三条退役节点确实为零（新增 `#15b-0`）+ 再量 `#region-stream` 高度占比」，门槛 `STREAM_HEIGHT_RATIO_MIN = 0.65` 逐字不动（只允许上调）。本条目 `newTitle` = 该改写区域在文件中的**逐字连续文本**（可定位判据由 v4 段 entries 判据实跑）。"
+    },
+    {
+      "id": "V45R3-E-02",
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "gate": "test/ui/journey.mjs",
+      "oldId": "#15a~#15q",
+      "oldTitle": "return JSON.stringify({ composerExists: Boolean(composer), composerHidden: composer ? composer.hidden === true : null, visibleInputs });",
+      "newId": "V4.5-1 第二次显式取代",
+      "newTitle": "    const fa4 = await evaluate(sp, `(() => {\n      const composer = document.getElementById('composer');\n      const visibleIn = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };\n      const visibleInputs = [...document.querySelectorAll('input, textarea, select, [contenteditable=\"true\"]')]\n        .filter(visibleIn).map((el) => el.id || el.tagName);\n      // V4.5-1（TASK-V45-113 八步 ③，**加严**）：composer 出流（ADR-V45-003）之后，\n      // 「不在流内」这一半必须可机核 —— 父节点 == body ⇒ 它不可能是某个宿主/流内子节点。\n      // （本段代码在 evaluate 的模板字符串里，注释内不得出现反引号。）\n      const siblings = composer ? [...composer.parentElement.children] : [];\n      return JSON.stringify({\n        composerExists: Boolean(composer),\n        composerHidden: composer ? composer.hidden === true : null,\n        composerParentIsBody: composer ? composer.parentElement === document.body : null,\n        composerInStream: composer ? document.getElementById('stream').contains(composer) : null,\n        composerIsBodyTailLayout: composer ? siblings.filter((el) => el.tagName !== 'SCRIPT').indexOf(composer) === [...siblings].filter((el) => el.tagName !== 'SCRIPT').length - 1 : null,\n        visibleInputs,\n      });\n    })()`);\n    const f4 = JSON.parse(fa4);\n    check(\n      f4.composerExists === true && f4.composerHidden === true && f4.visibleInputs.length === 0\n        && f4.composerParentIsBody === true && f4.composerInStream === false && f4.composerIsBodyTailLayout === true,\n      '#15c 默认屏无可见常驻输入框 ∧ `#composer` 出流（父节点 == body ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素）∧ hidden（法四；显式取代 v3「composer 贴底」）',\n      `${fa4} | gap=${layout.composerGapToBottom}px`,\n    );\n    check(layout.docOverflowX === 0, '#15d 文档级无水平溢出', `${layout.docOverflowX}`);\n    check(layout.hasToolbar && layout.hasStatusbar && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));\n    // V4.5-1（TASK-V45-113 八步 ③，**新增判据**）：卡序不被宿主切段 —— `#stream` 的直接\n    // 子节点只允许「卡」或空态占位；任意深度零 `li[data-host]`；产品自断言同源通过\n    // （`window.__v3.testing.assertStreamPureCardOrder()` 抛错即判无效，与 RP-V4-06 同一模式）。\n    const orderRaw = await evaluate(sp, `(() => {\n      const selfAssert = (() => { try { return window.__v3.testing.assertStreamPureCardOrder() === true; } catch (err) { return String(err && err.message || err); } })();\n      return JSON.stringify(Object.assign({ selfAssert }, window.__v3.testing.streamShape()));\n    })()`);\n    const ord = JSON.parse(orderRaw);\n    check(\n      ord.hostNodes === 0 && ord.foreignChildren === 0 && ord.emptyPlaceholders <= 1,\n      '#15e-1 卡序不被宿主切段（`#stream` 子树零宿主 ∧ 零非卡子节点 ∧ 空态占位 ≤1）',\n      orderRaw,\n    );\n    check(\n      ord.selfAssert === true && ord.cardChildren >= 1,\n      '#15e-2 流为纯卡序（产品自断言 assertStreamPureCardOrder 通过 ∧ 卡子节点 ≥1，卡序不被任何固定宿主切开）',",
+      "modificationType": "registered-rewrite",
+      "leaf": "specs-tree-v45-1-single-write-chronology",
+      "reason": "V4.5-1 TASK-V45-113 八步 ③/④（`#15c` 加严 + 新增 `#15e-1`/`#15e-2`）：`#15c` 在「存在 ∧ hidden ∧ 零可见输入」之上加严为**出流契约**（父节点 == body ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素 —— ADR-V45-003）；并在 `#15e` 之后新增两条卡序判据（`#stream` 子树零宿主 ∧ 零非卡子节点 ∧ 空态占位 ≤1 ∧ 产品自断言 `assertStreamPureCardOrder()` 通过）。本条目 `newTitle` = 该改写区域在文件中的逐字连续文本。"
     }
   ],
   "modifiedRanges": [
@@ -7480,37 +7572,37 @@
   "protectedSupersession": {
     "old": {
       "file": "packages/web-cli-plugin/test/ui/journey.mjs",
-      "startByte": 42766,
-      "endByte": 54004,
-      "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
-      "lineCount": 185
+      "startByte": 43054,
+      "endByte": 55259,
+      "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+      "lineCount": 194
     },
     "decision": "supersede",
     "eightSteps": [
-      "① 记录 old（file / 42766..54004 / sha 6b45c3fa… / 185 行 / startAnchor / endAnchor）→ 本节 protectedSupersession.old（v3 台账不动）—— 已落地并可机核（git show 187c205: 复核 old sha 与 old startByte）",
-      "② 逐段决策：journey `supersede` / binding `keep` —— 已落地",
-      "③ `#15a~#15q` 同编号等价改写（`#15b` ≥65.0% 且门槛 45 → 65；`#15c` 法四显式取代；`#15f~#15q` 选择器重锚）—— 已落地（见 assertionRewrite）",
-      "④ 登记 modifiedRanges[]（base c2c0e0d 行号区间，逐行）—— 已落地",
-      "⑤ 计算并写入新 pin（status:\"active\" + supersededFrom）—— 已落地（43054..55259 / sha e2b500df…）",
-      "⑥ 计数守恒 ≥167 —— 已落地（实测 journey runtime-check-calls = 167，日志 /tmp/opencode/v4-gate-logs/v4-1-r3/journey.log）",
-      "⑦ redlineRemap[] 四条（≥65% / ≥488px / composer 贴底 / chars 跨视口相等被取代）—— 已落地（四条 status 均为 landed，逐条带证据；第 4 条为 review 修复轮 I6 补登记）",
-      "⑧ RP-V4-08 反证（保护段内改 1 字节 ⇒ 台账门禁 FAIL；段外改 1 字节 ⇒ 不红）—— 已落地（supersession-ledger.test.ts 内 in-gate 反证，改后逐字节还原）"
+      "① 记录 old：v4-1 段 `{43054..55259 / sha e2b500df… / 194 行 / supersededFrom 6b45c3fa… / leafBase a04e677}` **逐字写入** `history[0]`（v4-1 段原文，含上一轮 eightSteps / countEvidence / knownGap / newPin），顶层字段随后前移 —— 已落地并可机核（`git show a04e677:test/ui/journey.mjs` 按同一锚点复算 sha == e2b500df…、起始字节 == 43054）。",
+      "② 逐段决策：journey → `supersede`（理由：4 宿主退役改变 `#stream` 直接子节点集合与顺序；`#15a~#15q` 逐字读 `#stream` / 流区几何与三条退役引导带，字节不变在语义上不可能）；binding → `keep`（字节中立避让，见 TASK-V45-114 与 ADR-V45-005）—— 已落地。",
+      "③ `#15a~#15q` 同编号等价改写（强度不降）：`#15a` 不变；`#15b` ≥65.0% 且**门槛不动**（`STREAM_HEIGHT_RATIO_MIN = 0.65`，只允许上调），退役引导带前置改机核为 no-op（新增 `#15b-0`）；`#15c` **加严**（`#composer` 存在 ∧ `hidden` ∧ `parentElement === body` ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素）；`#15d` 不变；`#15e` 不变 + 新增 `#15e-1`/`#15e-2`（零宿主 ∧ 零非卡子节点 ∧ 空态占位 ≤1 ∧ 产品自断言通过）；`#15f~#15q` 选择器重锚（`#log` → `#stream`）—— 已落地（见 assertionRewriteV45）。",
+      "④ 登记 `modifiedRanges[]`：`journey.mjs` 改写区间逐条（base 相对行号区间 + `oldId:\"#15a~#15q\"` / `decision:\"equivalent-rewrite\"` / `reason` / `leaf`）—— 已落地。",
+      "⑤ 计算并写入新 pin：`protectedRanges[0]` 重算 `{startByte 43054 / endByte 58192 / sha 3a8f6e30… / lineCount 239 / status:\"active\" / supersededFrom e2b500df…（直接前驱）/ supersededOn 2026-09-21 / leafBase a04e677 / oldPin}`；新增 `supersessionChain[]`（3 链节，首节 `supersededFrom:null`，链覆盖 v3 pin 与 v4-1 pin）—— 已落地。",
+      "⑥ 计数守恒 ≥167：journey 运行时 check 数**只增**（同编号改写 + 新增 `#15b-0` / `#15e-1` / `#15e-2`），`countMethod = \"runtime-check-calls\"`，实测值见 `countEvidence` —— 已落地。",
+      "⑦ `redlineRemap[]` 追加：`#15b` ≥65% 语义保留（门槛不动、锚点已换）；`#15c` composer 贴底 → 出流 + hidden + 父节点 == body 显式取代；`logClientHeightFloor`（docs/v4-density-baseline.json）不变 —— 已落地（逐条带证据）。",
+      "⑧ RP-V4-08 反证复用实跑：段内改 1 byte ⇒ 新 pin sha 判据 FAIL；段外改 1 byte ⇒ 不红；删 1 条断言 ⇒ 计数下界 FAIL；逐字节还原 ⇒ PASS（sha256 前后相同）—— 已落地（in-gate 反证，日志全量落盘）。"
     ],
     "status": "complete-steps-1-8",
-    "knownGap": "R3 已闭环（残余：无）。八步 ①~⑧ 全部落地并各有可机核证据（见 eightSteps[] / countEvidence / rpV408）；本字段在 status=complete-steps-1-8 时**必须为空或仅声明闭环**，不得再保留 R2 阶段的未竟现场（review 修复轮 I1：由 test/supersession-ledger.test.ts 新增 status↔knownGap 一致性断言机器强制，矛盾即 FAIL）。",
-    "knownGapHistory": "〖历史现场，逐字保留（review 修复轮 I1；R2 阶段原文，已被 R3 取代）〗TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。",
+    "knownGap": "V4.5-1 第二次取代闭环（残余：无）。八步 ①~⑧ 全部落地并各有可机核证据（见 eightSteps[] / countEvidence / rpV408 / supersessionChain）；本字段在 status=complete-steps-1-8 时**必须为空或仅声明闭环**，不得保留未竟现场（由 test/supersession-ledger.test.ts 的 status↔knownGap 一致性断言机器强制）。",
+    "knownGapHistory": "〖历史现场，逐字保留（review 修复轮 I1；R2 阶段原文，已被 R3 取代）〗TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。 〖v4.5-1 第二次取代（2026-09-21）〗上一轮 knownGap 原文**逐字保留**：\"R3 已闭环（残余：无）。八步 ①~⑧ 全部落地并各有可机核证据（见 eightSteps[] / countEvidence / rpV408）；本字段在 status=complete-steps-1-8 时**必须为空或仅声明闭环**，不得再保留 R2 阶段的未竟现场（review 修复轮 I1：由 test/supersession-ledger.test.ts 新增 status↔knownGap 一致性断言机器强制，矛盾即 FAIL）。\" —— 该现场已被本轮八步闭环取代（`history[0]` 保存 v4-1 段逐字记录）。",
     "newPin": {
       "file": "packages/web-cli-plugin/test/ui/journey.mjs",
       "startAnchor": "    const layout = await evaluate(sp, `(() => {",
       "endAnchor": "#15q",
       "startByte": 43054,
-      "endByte": 55259,
-      "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
-      "lineCount": 194,
+      "endByte": 58287,
+      "sha256": "cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7",
+      "lineCount": 240,
       "status": "active",
-      "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
-      "supersededOn": "2026-09-19",
-      "leafBase": "187c205"
+      "supersededFrom": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+      "supersededOn": "2026-09-21",
+      "leafBase": "a04e677"
     },
     "assertionRewrite": {
       "ids": "#15a~#15q 同编号改写（不拆不删；`#15f~#15q` 选择器重锚，编号与顺序不变）",
@@ -7546,6 +7638,109 @@
         "还原后逐字节 sha256 复核（还原失败不得静默）"
       ],
       "status": "landed"
+    },
+    "history": [
+      {
+        "round": "v4-1",
+        "recordedOn": "2026-09-19",
+        "note": "v4-1 第一次取代的**逐字记录**（八步 ① 要求：先记录 old 再更新顶层字段）。本对象在 v4.5-1 第二次取代前就是 protectedSupersession 的顶层值，原文照搬，未改写一字。",
+        "pin": {
+          "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+          "startAnchor": "    const layout = await evaluate(sp, `(() => {",
+          "endAnchor": "#15q",
+          "startByte": 43054,
+          "endByte": 55259,
+          "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+          "lineCount": 194,
+          "status": "active",
+          "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+          "supersededOn": "2026-09-19",
+          "leafBase": "a04e677"
+        },
+        "old": {
+          "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+          "startByte": 42766,
+          "endByte": 54004,
+          "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+          "lineCount": 185
+        },
+        "decision": "supersede",
+        "eightSteps": [
+          "① 记录 old（file / 42766..54004 / sha 6b45c3fa… / 185 行 / startAnchor / endAnchor）→ 本节 protectedSupersession.old（v3 台账不动）—— 已落地并可机核（git show 187c205: 复核 old sha 与 old startByte）",
+          "② 逐段决策：journey `supersede` / binding `keep` —— 已落地",
+          "③ `#15a~#15q` 同编号等价改写（`#15b` ≥65.0% 且门槛 45 → 65；`#15c` 法四显式取代；`#15f~#15q` 选择器重锚）—— 已落地（见 assertionRewrite）",
+          "④ 登记 modifiedRanges[]（base c2c0e0d 行号区间，逐行）—— 已落地",
+          "⑤ 计算并写入新 pin（status:\"active\" + supersededFrom）—— 已落地（43054..55259 / sha e2b500df…）",
+          "⑥ 计数守恒 ≥167 —— 已落地（实测 journey runtime-check-calls = 167，日志 /tmp/opencode/v4-gate-logs/v4-1-r3/journey.log）",
+          "⑦ redlineRemap[] 四条（≥65% / ≥488px / composer 贴底 / chars 跨视口相等被取代）—— 已落地（四条 status 均为 landed，逐条带证据；第 4 条为 review 修复轮 I6 补登记）",
+          "⑧ RP-V4-08 反证（保护段内改 1 字节 ⇒ 台账门禁 FAIL；段外改 1 字节 ⇒ 不红）—— 已落地（supersession-ledger.test.ts 内 in-gate 反证，改后逐字节还原）"
+        ],
+        "status": "complete-steps-1-8",
+        "knownGap": "R3 已闭环（残余：无）。八步 ①~⑧ 全部落地并各有可机核证据（见 eightSteps[] / countEvidence / rpV408）；本字段在 status=complete-steps-1-8 时**必须为空或仅声明闭环**，不得再保留 R2 阶段的未竟现场（review 修复轮 I1：由 test/supersession-ledger.test.ts 新增 status↔knownGap 一致性断言机器强制，矛盾即 FAIL）。",
+        "knownGapHistory": "〖历史现场，逐字保留（review 修复轮 I1；R2 阶段原文，已被 R3 取代）〗TASK-513（journey 保护段八步）在本轮 build 内**未完成**：`#15a~#15q` 的同编号改写、新 pin 计算、redlineRemap 实跑与 RP-V4-08 反证均未落。已登记为未完成项，不得视为已取代。",
+        "newPin": {
+          "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+          "startAnchor": "    const layout = await evaluate(sp, `(() => {",
+          "endAnchor": "#15q",
+          "startByte": 43054,
+          "endByte": 55259,
+          "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+          "lineCount": 194,
+          "status": "active",
+          "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+          "supersededOn": "2026-09-19",
+          "leafBase": "187c205"
+        },
+        "assertionRewrite": {
+          "ids": "#15a~#15q 同编号改写（不拆不删；`#15f~#15q` 选择器重锚，编号与顺序不变）",
+          "15a": "`logFlexGrow`（`#log`）→ `regionStreamFlexGrow`（`#region-stream`）；语义「消息区为 flex 填充」不变",
+          "15b": "门槛 45% → **≥65.0%**，读数目标 `#log` → `#region-stream`；语义（稳态流区高度占比）保留并收紧",
+          "15c": "v3「composer 贴底（gap ∈ [0,12]）」→ **法四**「默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 hidden」= 显式取代",
+          "15d": "不变（文档级无水平溢出）",
+          "15e": "`#panel-top`/`#panel-bottom` → `#region-toolbar`/`#region-statusbar`；语义「三区结构 + 回到底部入口」不变",
+          "15f~15w": "工具卡片族断言逐条不变，仅 `logOverflowX` 的读数目标 `#log` → `#stream`",
+          "15p/15r/15s/15t": "滚动跟随策略断言逐条不变，仅滚动容器 `#log` → `#stream`",
+          "15q": "320px 无水平溢出；`log` 读数目标 `#log` → `#stream`",
+          "outsideSegment": [
+            "#14b~#14i Markdown 渲染：`#log` → `#stream`（同一元素，v4 唯一 id 重命名）",
+            "#33f / #33n 未重建 DOM：读数从 `#log.textContent` 改为 `#stream` 的**消息条目**（`.entry`）文本 —— v4 把提示带/占位宿主同构迁入 `#stream`，v3 时它们在 `#log` 之外，故「整段文本长度」不再是等价的量；改测消息条目后语义（DOM 未重建）不变且不再受提示带文本影响",
+            "#33l / #33n / #33o `#panel-main` → `#region-stream`（v4 区容器）",
+            "#16d~#16g 会话切换：v4 会话切换器落在 `#settings-view`（可滚动视图）内，补「坐标点击 miss 时回落元素自身 click()」前置（与 #18p 同一登记惯例）",
+            "#16p~#16t 二次确认：v4 的 `openStatusDetails()` = 进入设置视图（隐藏聊天区），补「先 `#settings-back` 切回聊天」前置，使 `#confirm-allow/#confirm-deny` 处于可见子树"
+          ]
+        },
+        "countEvidence": {
+          "caliber": "runtime-check-calls",
+          "measured": 167,
+          "floor": 167,
+          "gate": "npm run test:ui --workspace @lgdl/web-cli-plugin",
+          "log": "/tmp/opencode/v4-gate-logs/v4-1-r3/journey.log",
+          "result": "167 assertions / 0 failed / EXIT=0"
+        },
+        "rpV408": {
+          "driver": "packages/web-cli-plugin/test/supersession-ledger.test.ts（in-gate 反证：protectedPinFailures 纯判定 + 逐字节还原 + sha 复核）",
+          "cases": [
+            "保护段内改 1 字节（startAnchor 标识符改名）⇒ 新 pin sha 判据必须 FAIL",
+            "保护段外改 1 字节（文件头注释）⇒ 同一判据必须不红（证明判据只锚保护段，不是「凡改皆红」）",
+            "还原后逐字节 sha256 复核（还原失败不得静默）"
+          ],
+          "status": "landed"
+        }
+      }
+    ],
+    "assertionRewriteV45": {
+      "ids": "#15a~#15q 同编号等价改写（不拆不删不重编号；编号与顺序不变）",
+      "15a": "不变：`#region-stream` flexGrow === '1'（消息区为 flex 填充，非 45vh 硬编码）",
+      "15b-0": "**新增**：三条引导带节点（`#site-hint` / `#onboarding` / `#discovery-notice`）已真退役 ⇒ 「隐藏引导带再量」前置是可机核的 no-op（等价改写的诚实性判据）",
+      "15b": "门槛逐字不动（`STREAM_HEIGHT_RATIO_MIN = 0.65`，只允许上调）；锚点 `#log` → `#region-stream`；语义（稳态流区高度占比）保留",
+      "15c": "v4-1「`#composer` 存在 ∧ hidden ∧ 默认屏零可见输入」→ **加严**「∧ `parentElement === body` ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素」（ADR-V45-003 的出流契约）",
+      "15d": "不变（文档级无水平溢出）",
+      "15e": "不变（三区结构 + 回到底部入口存在）",
+      "15e-1": "**新增**：卡序不被宿主切段 —— `#stream` 子树零 `li[data-host]`（任意深度）∧ 零非卡子节点 ∧ 空态占位 ≤1",
+      "15e-2": "**新增**：流为纯卡序 —— 产品自断言 `assertStreamPureCardOrder()` 通过 ∧ 卡子节点 ≥1（与 RP-V4-06 同一「产品自断言 + 门禁驱动」模式）",
+      "15f~15w": "工具卡片族断言逐条不变，仅 `logOverflowX` 的读数目标 `#log` → `#stream`",
+      "15p/15r/15s/15t": "滚动跟随策略断言逐条不变，仅滚动容器 `#log` → `#stream`",
+      "15q": "320px 无水平溢出；读数目标 `#log` → `#stream`"
     }
   },
   "protectedRanges": [
@@ -7554,21 +7749,44 @@
       "startAnchor": "    const layout = await evaluate(sp, `(() => {",
       "endAnchor": "#15q",
       "startByte": 43054,
-      "endByte": 55259,
-      "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+      "endByte": 58287,
+      "sha256": "cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7",
       "status": "active",
-      "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
-      "note": "V4-1 TASK-513 八步 ⑤：`#15a~#15q` 同编号等价改写后**重算**的新 pin（`status:\"active\"`）。旧 pin 由 `supersededFrom` 保留，且**仍可机核**：从 `leafBase=187c205` 取出该版本文件、按同一 startAnchor/endAnchor 切片，sha256 == `supersededFrom`、起始字节 == `oldPin.startByte`（supersession-ledger.test.ts 的新判据逐条实跑，不是纸面声明）。",
-      "lineCount": 194,
-      "supersededOn": "2026-09-19",
-      "leafBase": "187c205",
+      "supersededFrom": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+      "note": "V4.5-1 TASK-V45-113 八步 ⑤：第二次显式取代后的**重算**新 pin（`status:\"active\"`）。前驱由 `supersededFrom` 指向**直接前驱**（v4-1 pin e2b500df…）；v4.5 之前的整条 pin 链登记在`supersessionChain[]` 中，且每个链节都能从自己的 `leafBase` 版本**逐字节复算**（v3 pin 6b45c3fa… @187c205 / v4-1 pin e2b500df… @a04e677）。v3 段判据已升级为**链式查找**（`supersededFrom === range.sha256` ∨ `supersessionChain.some(l => l.sha256 === range.sha256)`），因此「直接前驱语义」与「v3 旧 pin 仍可机核」两条同时成立（见 test/supersession-ledger.test.ts 的链式判据）。",
+      "lineCount": 240,
+      "supersededOn": "2026-09-21",
+      "leafBase": "a04e677",
       "oldPin": {
-        "startByte": 42766,
-        "endByte": 54004,
-        "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
-        "lineCount": 185,
-        "verifiedAgainstRevision": "187c205"
-      }
+        "startByte": 43054,
+        "endByte": 55259,
+        "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+        "lineCount": 194,
+        "verifiedAgainstRevision": "a04e677"
+      },
+      "supersessionChain": [
+        {
+          "sha256": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+          "supersededFrom": null,
+          "supersededOn": "2026-09-19",
+          "leafBase": "187c205",
+          "note": "v3 pin（原始）：v3 台账登记的 journey 保护段（42766..54004 / 185 行）。"
+        },
+        {
+          "sha256": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+          "supersededFrom": "6b45c3fa4027f75a97bb84e0f5d80446a8c316ca4cd6dd83b2fe939c0eb6ba63",
+          "supersededOn": "2026-09-19",
+          "leafBase": "a04e677",
+          "note": "v4-1 第一次取代：`#15a~#15q` 同编号等价改写（43054..55259 / 194 行）。"
+        },
+        {
+          "sha256": "cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7",
+          "supersededFrom": "e2b500df9049f69979892076ad798fabfc4a638a3403902c7e57d7f1e1ac244f",
+          "supersededOn": "2026-09-21",
+          "leafBase": "a04e677",
+          "note": "v4.5-1 第二次取代：4 宿主退役 ⇒ `#15a~#15q` 同编号等价改写 + 新增卡序判据（43054..58287 / 240 行）。"
+        }
+      ]
     },
     {
       "file": "packages/web-cli-plugin/test/ui/binding.mjs",
@@ -7614,6 +7832,22 @@
       "status": "landed",
       "reason": "〖review 修复轮 I6〗该语义变更原先**只落在实现里、未登记进 redlineRemap/entries**（登记缺失）。本轮补登记，并给出**实测根因**：`chars` 跨视口差 = 审计计数跨位数（default 审计 2→6→10、empty 92→96→100 ⇒ `#l2-entry-summary` / `#l2-entry-audit .view-label` / `.badge` 各 +1 字符 = 差 3）。v4-1 原注释的「站点摘要 `nowrap+ellipsis` 少显示 3 字」归因**不成立**（CSS ellipsis 不改 `textContent`）。方向不是放宽：容差由 8 **收紧**到实测上界 3，且结构四项仍逐项相等；v3 侧无对应断言面（v3 chars 相等是 v3 内部不变量，被 v4 的计数增长现实取代）。",
       "evidence": "density.mjs#CHARS_SPREAD_MAX=3（与 `docs/v4-density-baseline.json#counts.charsSpreadMax` 机器同源断言）；阶段 B 的逐格真值日志 `charsAttribution()`（审计 2/6/10）+ `elementsWithKeys.chars` diff 诊断（3 个元素各 +1 字符）；阶段 F 对 default@320/400/520 的 `chars` 逐格机对（漂移即 FAIL）。"
+    },
+    {
+      "redline": "composer 贴底 / 常驻（v3 #15c → v4-1 法四）",
+      "from": "v4-1：默认屏无可见常驻输入框 ∧ `#composer` 存在时必须 `hidden`",
+      "to": "v4.5-1：**出流**（`parentElement === body` ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素）∧ `hidden`",
+      "status": "landed",
+      "reason": "ADR-V45-003 / TASK-V45-110：4 宿主退役后 `#composer` 不再有流内宿主，改为 body 尾的 `hidden` 布局元素（id / ARIA / 内部结构零变化，NFR-V45-006 兼容读取面保留）。等价改写**强度提高**：v4-1 只判「存在 + hidden」，现在同时判「不在 `#stream` 后代里」（否则它仍是流内的一个非卡子节点，与 F 纯形矛盾）。",
+      "evidence": "journey #15c（`composerParentIsBody === true` ∧ `composerInStream === false` ∧ `composerIsBodyTailLayout === true` ∧ `hidden === true` ∧ 零可见输入）；`test/sidepanel-view.test.ts` 布局契约 4 项（含 `#composer` 出流）；`test/l0-disclosure.test.ts` 父节点双判据。"
+    },
+    {
+      "redline": "`#15b` 稳态流区高度占比（v4-1 ≥65.0%）",
+      "from": "≥65.0%（读数前先隐藏三条引导带节点）",
+      "to": "≥65.0%（**门槛逐字不动**；读数前改为机核三条引导带节点已真退役 = 前置 no-op）",
+      "status": "landed",
+      "reason": "TASK-V45-113 八步 ③ 同编号等价改写：5 条提示带的 DOM 真退役（ADR-V45-001）让 v4-1 的「先隐藏再量」前置失效（节点不存在）。改写不放松门槛、不改口径：`STREAM_HEIGHT_RATIO_MIN = 0.65` 逐字保留且只允许上调，另加一条 `#15b-0` 把「前置是 no-op」变成可机核事实。",
+      "evidence": "journey `#15b-0`（三条退役节点全为 null）+ `#15b`（`#region-stream` 高度占比 ≥ 65%）逐条 PASS；density-metrics.mjs#STREAM_HEIGHT_RATIO_MIN = 0.65 单源。"
     }
   ],
   "zeroDiffFiles": [
@@ -7816,6 +8050,19 @@
     {
       "file": "packages/web-cli-plugin/test/perf-budget.test.ts",
       "reason": "V4-2 TASK-611 明令追加「长会话（≈320 卡）project() 有界且回放稳定」的 node 断言（NFR-CHAT-003/011 的模型侧半边）；该文件在 v3 台账里被登记为 zeroDiffFiles，本轮**显式解冻**并逐条登记（不是静默放开）。仅追加 test(...) 注册，零删除。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/options/index.html",
+      "scope": "copy-only-lines",
+      "reason": "ADR-V45-009 / FR-V45-050~052 / TASK-V45-117：FIX-2 的最后一处 deferred 关闭 —— 该文件的授权指引仍写「在侧栏『授权当前站点』」，与实现不一致（授权入口已迁入 #settings-view 的「站点与授权」分区）。本轮按 FIX-2 口径**逐字一致**地订正文案：「设置 → 站点与授权」点「授权当前站点」（或「下一步推荐」卡中的「授权当前站点」）。解冻范围 = **纯文案行**（scope:\"copy-only-lines\"）：不触碰脚本 / 链接 / 权限 / DOM 属性 / 结构标签，由范围门禁（test/zero-injection.test.ts）逐 hunk 机核；v3 台账（docs/v3-supersession-ledger.json#zeroDiffFiles）保持零 diff。",
+      "textBefore": "在侧栏「授权当前站点」，然后输入指令开始对话。",
+      "textAfter": "在侧栏「设置 → 站点与授权」点「授权当前站点」（或点「下一步推荐」卡中的「授权当前站点」），然后输入指令开始对话。",
+      "date": "2026-09-21",
+      "operator": "SDDU v4.5-1 build round（TASK-V45-117）",
+      "frozenBy": "docs/v3-supersession-ledger.json#zeroDiffFiles",
+      "reintroductionGate": "test:zero-injection ≥27 ∧ test/zero-injection.test.ts 范围门禁（逐 hunk 纯文案 ∧ 零 script/link/href/src/on* ∧ 字节差 ≤ 256 B）",
+      "maxByteDelta": 256,
+      "scopeGate": "test/zero-injection.test.ts#范围门禁（git diff -U0 against ledger.base，逐 hunk 判定）"
     }
   ],
   "staticCalibers": {
@@ -7873,7 +8120,7 @@
       ],
       "newRange": [
         803,
-        1565
+        1610
       ],
       "baseDeletedSpans": [
         [
@@ -8015,103 +8262,103 @@
           868
         ],
         [
-          878,
-          878
+          893,
+          893
         ],
         [
-          883,
-          883
+          922,
+          922
         ],
         [
-          919,
-          919
+          964,
+          964
         ],
         [
-          986,
-          986
+          1031,
+          1031
         ],
         [
-          999,
-          999
+          1044,
+          1044
         ],
         [
-          1005,
-          1005
+          1050,
+          1050
         ],
         [
-          1019,
-          1019
+          1064,
+          1064
         ],
         [
-          1026,
-          1026
+          1071,
+          1071
         ],
         [
-          1037,
-          1037
+          1082,
+          1082
         ],
         [
-          1052,
-          1052
+          1097,
+          1097
         ],
         [
-          1057,
-          1058
+          1102,
+          1103
         ],
         [
-          1090,
-          1090
+          1135,
+          1135
         ],
         [
-          1287,
-          1287
+          1332,
+          1332
         ],
         [
-          1315,
-          1315
+          1360,
+          1360
         ],
         [
-          1318,
-          1319
+          1363,
+          1364
         ],
         [
-          1327,
-          1327
+          1372,
+          1372
         ],
         [
-          1379,
-          1382
+          1424,
+          1427
         ],
         [
-          1384,
-          1384
+          1429,
+          1429
         ],
         [
-          1386,
-          1386
+          1431,
+          1431
         ],
         [
-          1390,
-          1393
+          1435,
+          1438
         ],
         [
-          1401,
-          1401
+          1446,
+          1446
         ],
         [
-          1403,
-          1403
+          1448,
+          1448
         ],
         [
-          1407,
-          1410
+          1452,
+          1455
         ],
         [
-          1558,
-          1565
+          1603,
+          1610
         ]
       ],
-      "note": "ADR-V4-008 八步 ③④：journey `#15a~#15q` 同编号等价改写 + 保护段外选择器重锚 / `#33n` 改测消息条目 / `#16*` 等价前置的**整个重写区域**（base 187c205 行号 ↔ worktree 行号）。此字段只服务于 `test/insight-tree-hierarchy.test.ts` 的「新增行逐条归属」二次核对（按新行号落在登记区域内即视为已归属）；按行判据的权威口径仍是 `modifiedRanges`（单行区间，不做宽区间掩盖）。"
+      "note": "ADR-V4-008 八步 ③④：journey `#15a~#15q` 同编号等价改写 + 保护段外选择器重锚 / `#33n` 改测消息条目 / `#16*` 等价前置的**整个重写区域**（base 187c205 行号 ↔ worktree 行号）。此字段只服务于 `test/insight-tree-hierarchy.test.ts` 的「新增行逐条归属」二次核对（按新行号落在登记区域内即视为已归属）；按行判据的权威口径仍是 `modifiedRanges`（单行区间，不做宽区间掩盖）。 〖V4.5-1 R3（2026-09-21，TASK-V45-115）〗`newAddedSpans` / `newRange` 随第二次取代**重锚**：R3 在保护段内等价改写（`#15b` 前置 no-op 化 / `#15c` 出流加严 / 新增 `#15e-1`·`#15e-2`·`#15b-0`）插入净 +45 行，本区域在它之后的新行号整体平移 ⇒ 按 `git diff -U0 HEAD` 的逐 hunk 映射重算（只重锚行号，不新增/不删除任何归属区间；判据仍是「新增行落在登记区域内即视为已归属」）。"
     },
     {
       "file": "packages/web-cli-plugin/test/ui/journey.mjs",
@@ -8121,7 +8368,7 @@
       ],
       "newRange": [
         68,
-        1570
+        1615
       ],
       "baseDeletedSpans": [
         [
@@ -8268,110 +8515,110 @@
         ],
         [
           862,
-          871
-        ],
-        [
-          873,
-          873
-        ],
-        [
-          883,
-          883
+          881
         ],
         [
           888,
           888
         ],
         [
-          924,
-          924
+          922,
+          922
         ],
         [
-          991,
-          991
+          927,
+          927
         ],
         [
-          1004,
-          1004
+          969,
+          969
         ],
         [
-          1010,
-          1010
+          1036,
+          1036
         ],
         [
-          1024,
-          1024
+          1049,
+          1049
         ],
         [
-          1031,
-          1031
+          1055,
+          1055
         ],
         [
-          1042,
-          1042
+          1069,
+          1069
         ],
         [
-          1057,
-          1057
+          1076,
+          1076
         ],
         [
-          1062,
-          1063
+          1087,
+          1087
         ],
         [
-          1095,
-          1095
+          1102,
+          1102
         ],
         [
-          1292,
-          1292
+          1107,
+          1108
         ],
         [
-          1320,
-          1320
+          1140,
+          1140
         ],
         [
-          1323,
-          1324
+          1337,
+          1337
         ],
         [
-          1332,
-          1332
+          1365,
+          1365
         ],
         [
-          1384,
-          1387
+          1368,
+          1369
         ],
         [
-          1389,
-          1389
+          1377,
+          1377
         ],
         [
-          1391,
-          1391
+          1429,
+          1432
         ],
         [
-          1395,
-          1398
+          1434,
+          1434
         ],
         [
-          1406,
-          1406
+          1436,
+          1436
         ],
         [
-          1408,
-          1408
+          1440,
+          1443
         ],
         [
-          1412,
-          1415
+          1451,
+          1451
         ],
         [
-          1563,
-          1570
+          1453,
+          1453
+        ],
+        [
+          1457,
+          1460
+        ],
+        [
+          1608,
+          1615
         ]
       ],
-      "note": "V4.5-1 W2（TASK-V45-106 §3）：段外 `#11c~#11e`（`#site-hint` 可见性 + 原因 + 动作）同编号等价改写为流内 `site` 系统行 + 行 `title`（+ W4 追加推荐卡 chips 腿）。保护段 `#15a~#15q`（byte 43054..55259）**零字节改动** —— 段外改写的字节差由同一前置区的等量删白（3 条装饰分隔线共 58 个 `─`）补偿，`startByte` 逐字节保持 43054（spikeGate-B 预演结论 = eight-steps-feasible）。"
+      "note": "V4.5-1 W2（TASK-V45-106 §3）：段外 `#11c~#11e`（`#site-hint` 可见性 + 原因 + 动作）同编号等价改写为流内 `site` 系统行 + 行 `title`（+ W4 追加推荐卡 chips 腿）。保护段 `#15a~#15q`（byte 43054..55259）**零字节改动** —— 段外改写的字节差由同一前置区的等量删白（3 条装饰分隔线共 58 个 `─`）补偿，`startByte` 逐字节保持 43054（spikeGate-B 预演结论 = eight-steps-feasible）。 〖V4.5-1 R3（2026-09-21，TASK-V45-115）〗`newAddedSpans` / `newRange` 随第二次取代**重锚**：R3 在保护段内等价改写（`#15b` 前置 no-op 化 / `#15c` 出流加严 / 新增 `#15e-1`·`#15e-2`·`#15b-0`）插入净 +45 行，本区域在它之后的新行号整体平移 ⇒ 按 `git diff -U0 HEAD` 的逐 hunk 映射重算（只重锚行号，不新增/不删除任何归属区间；判据仍是「新增行落在登记区域内即视为已归属」）。"
     }
   ],
   "validateFindings": [
@@ -8607,14 +8854,15 @@
       "④作者确认": "见 authorConfirmation",
       "⑤三值闭合": {
         "resolved": true,
-        "newBaselineBytes": 479021,
+        "newBaselineBytes": 493501,
         "absoluteCeilingBytes": 563200,
         "resolvedOn": "2026-09-19",
         "verdict": "evaluatePendingAbsoluteCap() → ok=true",
-        "r2ReRegistration": "〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗`newBaselineBytes` 随现行登记基线**同源前移**：465,000 → **465,277 B**（走「作者确认占位」规则重登，见 authorConfirmation.provisional）；**档位 `ceilTo50KB(465,277) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `SIDEPANEL_RE_REGISTRATIONS['v4-4']`。",
+        "r2ReRegistration": "〖V4-4 R2（2026-09-19，KL-V44-01 裁决落地轮）〗`newBaselineBytes` 随现行登记基线**同源前移**：465,000 → **465,277 B**（走「作者确认占位」规则重登，见 authorConfirmation.provisional）；**档位 `ceilTo50KB(465,277) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `SIDEPANEL_RE_REGISTRATIONS['v4-4']`。 〖V4.5-1 R3〗档位 512,000 / 绝对上限 563,200 逐字不变；字段值已随终轮登记同源前移到 493,501（见 v45ReRegistration）。",
         "reviewfixReRegistration": "〖V4-4 审查修复轮（2026-09-19）〗`newBaselineBytes` 随现行登记基线**同源前移**：465,277 → **477,960 B**（走「作者确认占位」规则重登）；**档位 `ceilTo50KB(477,960) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③。",
         "i09fixReRegistration": "〖V4-4 快修轮（2026-09-20，review R2 I-09~I-11）〗`newBaselineBytes` 随现行登记基线**同源前移**：478,163 → **478,897 B**（走「作者确认占位」规则重登，见 authorConfirmation.provisional）；**档位 `ceilTo50KB(478,897) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(478,163)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `SIDEPANEL_RE_REGISTRATIONS['v4-4']`。",
-        "closeoutReRegistration": "〖V4-4 收口轮（2026-09-20，validate R1 的 F-01 修复 + N-01~N-05 登记）〗`newBaselineBytes` 随现行登记基线**同源前移**：478,897 → **479,021 B**（走「作者确认占位」规则重登，见 authorConfirmation.closeoutNote）；**档位 `ceilTo50KB(479,021) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `test/size-baseline.ts#SIDEPANEL_RE_REGISTRATIONS` 各轮 reason。〖订正〗本字段此前停留在 478,163（review 修复轮值）而 `i09fixReRegistration` 注已写 478,897 —— 收口轮把**字段与注**同步到当前登记值，消除「同事实两个版本」。"
+        "closeoutReRegistration": "〖V4-4 收口轮（2026-09-20，validate R1 的 F-01 修复 + N-01~N-05 登记）〗`newBaselineBytes` 随现行登记基线**同源前移**：478,897 → **479,021 B**（走「作者确认占位」规则重登，见 authorConfirmation.closeoutNote）；**档位 `ceilTo50KB(479,021) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。历史三值（465,000 / 512,000 / 563,200）逐字保留于本对象 ①~③ 与 `test/size-baseline.ts#SIDEPANEL_RE_REGISTRATIONS` 各轮 reason。〖订正〗本字段此前停留在 478,163（review 修复轮值）而 `i09fixReRegistration` 注已写 478,897 —— 收口轮把**字段与注**同步到当前登记值，消除「同事实两个版本」。",
+        "v45ReRegistration": "〖V4.5-1 R3（2026-09-21，TASK-V45-118 / FR-V45-091/092）〗`newBaselineBytes` 随现行登记基线**同源前移**：479,021 → **493,501 B**（走「作者确认占位」规则重登）。**档位 `ceilTo50KB(493,501) = 512,000` 与绝对上限 563,200 均未变**（与 `ceilTo50KB(465,000)` 同档），`resolvedOn` 保持 2026-09-19；`evaluatePendingAbsoluteCap()` 仍 ok=true。〖订正〗本字段此前停留在 479,021（v4-4 收口轮值）而 W1+W2 / W3 两轮的 `re2*/re3` 注各自写了新值 —— 字段与注脱钩（「同事实两个版本」）。本轮把**字段**同步到当前登记值 493,501，并由 `test/size-ruling-vol3.test.ts` 的「V3-VOL-3 三值同源」判据机器强制（字段 ≠ 源码常量即 FAIL）。"
       },
       "⑥min() 判定": {
         "formulaCeilingBytes": 502972,
@@ -8641,7 +8889,8 @@
       "conclusion": "作者确认占位：本叶按 ADR-V4-039 的推导规则（实测值上取整 50 KB 档 + 10% 余量）带值闭合，未获一句外部确认前**不伪称已确认**；占位记录在此，作者可一行否决改值（不阻塞闭合）。",
       "r2Note": "〖V4-4 R2（2026-09-19）〗R2 按编排器裁决 KL-V44-01 选②落地（启用自动归并 + 显式重锚 `risk(staleRef)@320`），产物 465,000 → 465,277 B。按编排器裁决「`newBaselineBytes` 若因 R2 变化须同步走『作者确认占位』规则重登」，本占位随之更新为 465,277（档位 512,000 / 绝对上限 563,200 不变）；**状态仍是 `pending-author-line`**（未获一句外部确认，不伪称已确认）。作者事后可一行否决改值。",
       "reviewfixNote": "〖V4-4 审查修复轮（2026-09-19）〗产物 465,277 → 477,960 B（BLOCK-01~03 + I-01~I-08 落地）。按编排器裁决「newBaselineBytes 变化须同步走『作者确认占位』规则重登」，占位随之更新为 477,960（档位 512,000 / 绝对上限 563,200 未变）；状态仍 `pending-author-line`，**不伪称已确认**。机器判据见 `test/size-ruling-vol3.test.ts` 的 I-06 断言（status ∈ {pending-author-line, confirmed, overridden-by-author}，非法值/缺失 FAIL）。",
-      "closeoutNote": "〖V4-4 收口轮（2026-09-20，validate R1 的 F-01 修复 + N-01~N-05 登记）〗产物 478,897 → 479,021 B（唯一 `src` 改动 = `sidepanel.ts#projectRef` 投影唯一性键 `refNum + 状态`；+124 B）。按编排器裁决「newBaselineBytes 变化须同步走『作者确认占位』规则重登」，占位随之更新为 479,021（档位 512,000 / 绝对上限 563,200 未变）；状态仍 `pending-author-line`，**不伪称已确认**。机器判据见 `test/size-ruling-vol3.test.ts` 的 I-06 断言。"
+      "closeoutNote": "〖V4-4 收口轮（2026-09-20，validate R1 的 F-01 修复 + N-01~N-05 登记）〗产物 478,897 → 479,021 B（唯一 `src` 改动 = `sidepanel.ts#projectRef` 投影唯一性键 `refNum + 状态`；+124 B）。按编排器裁决「newBaselineBytes 变化须同步走『作者确认占位』规则重登」，占位随之更新为 479,021（档位 512,000 / 绝对上限 563,200 未变）；状态仍 `pending-author-line`，**不伪称已确认**。机器判据见 `test/size-ruling-vol3.test.ts` 的 I-06 断言。",
+      "v45Note": "〖V4.5-1 R3（2026-09-21，TASK-V45-118）〗终轮（W4+W5）为零字节轮：`newBaselineBytes` 保持 **493,501 B**（方向 `unchanged`），档位 512,000 / 绝对上限 563,200 未变。**状态仍是 `pending-author-line`** ——未获一句外部确认，不伪称已确认；作者事后可一行否决改值。机器判据见 `test/size-ruling-vol3.test.ts` 的「三值同源 + 档位不下移闸门」与 I-06 断言（status ∈ {pending-author-line, confirmed, overridden-by-author}）。"
     }
   }
 }

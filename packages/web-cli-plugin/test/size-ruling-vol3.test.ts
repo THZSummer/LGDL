@@ -20,6 +20,11 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   PENDING_ABSOLUTE_CAP,
+  SIDEPANEL_BASELINE_BYTES_TIMELINE,
+  SIDEPANEL_TIER_FLOOR_BYTES,
+  SIDEPANEL_W4W5_FINAL_ROUND,
+  reRegistrationDirectionCoverageProblems,
+  reRegistrationDirectionProblems,
   SIDEPANEL_CEILING_CAP_RECORD,
   SIDEPANEL_CEILING_CAP_ROLE,
   ceilTo50KB,
@@ -366,4 +371,128 @@ test('I-10: 披露元组的算术必须与登记字段逐项相等（Δ = after 
     [...disclosureArithmeticProblems('历史轮：无 canonical 元组，仅叙述。', { beforeBytes: 1, afterBytes: 2 })],
     [],
   );
+});
+
+// ── V4.5-1 R3（TASK-V45-118 / ADR-V45-011 §2·§5·§6）────────────────────────────
+/**
+ * **方向机核（双向 + 零字节）+ 档位不下移闸门 + 三值同源**。
+ *
+ * ADR-V45-011 的三条硬约束在本条用例里逐条机核：
+ *   ① 任何 byte 变化 ⇒ 五要素重登记，且 `direction` 必须与 Δ **双向一致**
+ *      （`raised` ⇒ Δ>0 / `lowered` ⇒ Δ<0 / `unchanged` ⇒ Δ=0；非法值即红）；
+ *   ② V3-VOL-3 三值同源：`PENDING_ABSOLUTE_CAP.newBaselineBytes === SIDEPANEL_BASELINE_BYTES`
+ *      ∧ 档位 `ceilTo50KB(...) === 512_000` ∧ `absoluteCeilingBytes === 563_200`
+ *      ∧ `resolvedOn` 保持原实测日期 ∧ `authorConfirmation.status === 'pending-author-line'`；
+ *   ③ **档位不下移硬边界**（算术，前置）：`ceilTo50KB(b) = 512_000 ⟺ 460_801 ≤ b ≤ 512_000`
+ *      ⇒ `SIDEPANEL_TIER_FLOOR_BYTES = 460_801`，且当前基线与终轮登记值都必须 ≥ 它。
+ *
+ * 反证四条（纯函数驱动、逐条实跑）：① `raised` 而 Δ<0 ⇒ 红；② `lowered` 而 Δ>0 ⇒ 红；
+ * ③ `unchanged` 而 Δ≠0 ⇒ 红；④ 非法方向词 ⇒ 红；⑤ 覆盖判据：漏声明 ⇒ 红。
+ */
+test('V4.5-1 R3 方向机核：direction 与 Δ 双向一致 ∧ 覆盖逐轮 ∧ 非法值即红（判据非恒真）', () => {
+  // ① 真实注册表（含 pick-layer 与终轮）逐条声明方向且算术自洽。
+  const real = [...SIDEPANEL_RE_REGISTRATIONS, SIDEPANEL_W4W5_FINAL_ROUND];
+  assert.deepEqual(
+    reRegistrationDirectionCoverageProblems(real),
+    [],
+    '真实注册表每一轮都必须显式声明 direction（覆盖不全即 FAIL）',
+  );
+  assert.deepEqual(
+    reRegistrationDirectionProblems(real),
+    [],
+    `真实注册表的方向声明与 Δ 必须逐条一致：\n${reRegistrationDirectionProblems(real).join('\n')}`,
+  );
+  // 非空转：判据必须真的判到了「两种方向」以上（本轮 = raised×25 + unchanged，历史含 lowered 的合成反证见下）。
+  const dirs = new Set(real.map((r) => r.direction));
+  assert.ok(dirs.has('raised'), '真实注册表必须含 raised 轮（否则方向判据没有正面样本）');
+  assert.ok(dirs.has('unchanged'), '真实注册表必须含 unchanged 轮（零字节终轮 —— 本轮）');
+  // ② 反证：错误方向必须逐条判红（含非法值）。
+  const mk = (id: string, before: number, after: number, direction?: SizeReRegistration['direction']) => ({
+    id,
+    baselineBeforeBytes: before,
+    baselineAfterBytes: after,
+    ...(direction !== undefined ? { direction } : {}),
+  });
+  assert.ok(
+    reRegistrationDirectionProblems([mk('rp-a', 493_501, 493_400, 'raised')]).some((p) => p.includes("'raised'")),
+    '反证①：Δ<0 却声明 raised 必须红',
+  );
+  assert.ok(
+    reRegistrationDirectionProblems([mk('rp-b', 493_501, 493_600, 'lowered')]).some((p) => p.includes("'lowered'")),
+    '反证②：Δ>0 却声明 lowered 必须红',
+  );
+  assert.ok(
+    reRegistrationDirectionProblems([mk('rp-c', 493_501, 493_600, 'unchanged')]).some((p) => p.includes("'unchanged'")),
+    '反证③：Δ≠0 却声明 unchanged 必须红',
+  );
+  assert.ok(
+    reRegistrationDirectionProblems([mk('rp-d', 493_501, 493_501, 'flat' as never)]).some((p) => p.includes('非法')),
+    '反证④：非法方向词必须红',
+  );
+  assert.ok(
+    reRegistrationDirectionProblems([{ id: 'rp-e', baselineBeforeBytes: 1, baselineAfterBytes: 2 }]).some((p) => p.includes('缺少 direction')),
+    '反证⑤：未声明方向必须红（缺失不是「跳过」）',
+  );
+  assert.ok(
+    reRegistrationDirectionCoverageProblems([{ id: 'rp-f' }]).length > 0,
+    '反证⑤b：覆盖判据必须能把「漏声明」判红',
+  );
+  // 对照：合法三方向各自不红（判据不是「凡声明皆红」）。
+  for (const [before, after, direction] of [[1, 2, 'raised'], [2, 1, 'lowered'], [2, 2, 'unchanged']] as const) {
+    assert.deepEqual(reRegistrationDirectionProblems([mk(`ok-${direction}`, before, after, direction)]), [], `对照：合法 direction=${direction} 不得判红`);
+  }
+});
+
+test('V4.5-1 R3: 档位不下移闸门（≥460,801 ∧ ceilTo50KB == 512,000）+ 三值同源 + 终轮零字节登记', () => {
+  // ③ 档位不下移的**算术**边界：ceilTo50KB(b) == 512_000 的充要区间。
+  assert.equal(SIDEPANEL_TIER_FLOOR_BYTES, 460_801, '档位下界必须是 460_801（= 512,000 − 10% 余量的算术下界）');
+  assert.equal(ceilTo50KB(460_801), 512_000, '下界本身必须仍落在 512,000 档');
+  assert.notEqual(ceilTo50KB(460_800), 512_000, '下界 −1 B 必须掉出 512,000 档（边界不是宽松的）');
+  assert.equal(ceilTo50KB(512_000), 512_000, '档位上界仍在同档');
+  for (const b of [SIDEPANEL_BASELINE_BYTES, SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes]) {
+    assert.ok(b >= SIDEPANEL_TIER_FLOOR_BYTES, `登记值 ${b} 越界（< ${SIDEPANEL_TIER_FLOOR_BYTES}）⇒ 必须停下上报编排器`);
+    assert.equal(ceilTo50KB(b), 512_000, `登记值 ${b} 的档位必须仍是 512,000（未下移）`);
+  }
+  // 反证①：用「上一轮基线」算 ceiling ⇒ 严格等式必须红（本轮 ceiling 必须由当前基线算）。
+  const staleCeiling = Math.floor(SIDEPANEL_BASELINE_META.previousBaselineBytes * 1.05);
+  assert.notEqual(staleCeiling, SIDEPANEL_CEILING, '用旧基线算 ceiling 必须与登记 ceiling 不等（否则严格等式判据失效）');
+  assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05), 'ceiling 必须严格等于 floor(当前基线 × 1.05)');
+  // ② 三值同源（V3-VOL-3）：档位 / 绝对上限 / 基线三者必须同源，且 resolvedOn 保持原实测日期。
+  assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '三值①：newBaselineBytes 必须与当前基线同源');
+  assert.equal(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes!), 512_000, '三值②a：档位必须仍是 512,000');
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 563_200, '三值②b：绝对上限必须仍是 563,200');
+  assert.equal(PENDING_ABSOLUTE_CAP.resolvedOn, '2026-09-19', '三值③：resolvedOn 保持原实测日期（不随重登记漂移）');
+  assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.ceilingAfterBytes, SIDEPANEL_CEILING, '终轮登记 ceiling 必须与当前 ceiling 同源');
+  // ④ 终轮（W4+W5）= 零字节轮：Δ=0、方向 unchanged、五要素齐备、历史值仍在链上。
+  assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '终轮登记值必须等于当前基线');
+  assert.equal(
+    SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes - SIDEPANEL_W4W5_FINAL_ROUND.baselineBeforeBytes,
+    0,
+    '终轮必须登记为 Δ=0（R3 无 sidepanel.js 字节变化）',
+  );
+  assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.direction, 'unchanged', '零字节轮的方向必须是 unchanged');
+  for (const f of ['date', 'source', 'buildCommand', 'measuredBy', 'reason'] as const) {
+    assert.ok(String(SIDEPANEL_W4W5_FINAL_ROUND[f] ?? '').trim().length >= 8, `终轮五要素缺 ${f}`);
+  }
+  assert.ok(
+    (SIDEPANEL_BASELINE_BYTES_TIMELINE as readonly number[]).includes(SIDEPANEL_W4W5_FINAL_ROUND.baselineBeforeBytes),
+    '终轮的前值必须仍在历史链上（历史不得被改写）',
+  );
+  // ⑤ 作者确认仍是 `pending-author-line`（不得伪称已确认）。
+  const ledgerPath = resolve(HERE, '../../docs/v4-supersession-ledger.json');
+  const ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) as {
+    v3Vol3Closeout?: {
+      authorConfirmation?: { status?: string };
+      steps?: { '⑤三值闭合'?: { newBaselineBytes?: number; absoluteCeilingBytes?: number; resolvedOn?: string } };
+    };
+  };
+  assert.equal(
+    ledger.v3Vol3Closeout?.authorConfirmation?.status,
+    'pending-author-line',
+    'authorConfirmation.status 必须保持 pending-author-line（未获一句外部确认，不得伪称已确认）',
+  );
+  const closeout = ledger.v3Vol3Closeout?.steps?.['⑤三值闭合'];
+  assert.equal(closeout?.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '台账 ⑤三值闭合.newBaselineBytes 必须与源码常量同源');
+  assert.equal(closeout?.absoluteCeilingBytes, 563_200, '台账 ⑤ 的绝对上限必须是 563,200');
+  assert.equal(closeout?.resolvedOn, '2026-09-19', '台账 ⑤ 的 resolvedOn 必须保持原实测日期');
 });

@@ -558,11 +558,101 @@ export interface SizeReRegistration {
   readonly historyRetainedBytes: readonly number[];
   /** 重登记时的实际候选 ceiling（撤销 cap 前 = cap 生效值；撤销后 = 公式值）。 */
   readonly ceilingUncappedFormulaBytes: number;
+  /**
+   * 〖V4.5-1 R3（TASK-V45-118 / ADR-V45-011 §2）〗本轮重登记的**方向**，显式声明并由
+   * `reRegistrationDirectionProblems()` 与 Δ **双向**机核：
+   *   · `raised`    ⇒ Δ 必须 > 0；
+   *   · `lowered`   ⇒ Δ 必须 < 0（净减也强制登记，理由是「有意的结构净减」）；
+   *   · `unchanged` ⇒ Δ 必须 == 0（零字节轮也要留痕，且不得伪装成提升/净减）。
+   * 任一不成立（含非法值）即 FAIL。**声明不是装饰**：真实注册表每一轮都必须声明它
+   * （`reRegistrationDirectionCoverageProblems()` 逐条机核），反证见
+   * `test/size-ruling-vol3.test.ts`（错误声明必须判红）。
+   */
+  readonly direction?: 'raised' | 'lowered' | 'unchanged';
 }
+
+/** 合法方向值（闭集）——非法值即 FAIL（不得用别的词回避判定）。 */
+export const RE_REGISTRATION_DIRECTIONS = Object.freeze(['raised', 'lowered', 'unchanged'] as const);
+
+/** 一条重登记的**方向声明**与 Δ 的一致性判据（纯函数；唯一实现）。 */
+export function reRegistrationDirectionProblems(
+  entries: readonly Pick<SizeReRegistration, 'id' | 'baselineBeforeBytes' | 'baselineAfterBytes' | 'direction'>[],
+): string[] {
+  const problems: string[] = [];
+  for (const e of entries) {
+    const delta = e.baselineAfterBytes - e.baselineBeforeBytes;
+    const dir = e.direction;
+    if (dir === undefined) {
+      problems.push(`${e.id}: 缺少 direction 声明（Δ=${delta}）—— 每一轮重登记都必须显式声明方向`);
+      continue;
+    }
+    if (!(RE_REGISTRATION_DIRECTIONS as readonly string[]).includes(dir)) {
+      problems.push(`${e.id}: direction=${String(dir)} 非法（合法值：${RE_REGISTRATION_DIRECTIONS.join(' / ')}）`);
+      continue;
+    }
+    if (dir === 'raised' && !(delta > 0)) problems.push(`${e.id}: direction='raised' 但 Δ=${delta} ≤ 0（声明与算术矛盾）`);
+    if (dir === 'lowered' && !(delta < 0)) problems.push(`${e.id}: direction='lowered' 但 Δ=${delta} ≥ 0（声明与算术矛盾）`);
+    if (dir === 'unchanged' && delta !== 0) problems.push(`${e.id}: direction='unchanged' 但 Δ=${delta} ≠ 0（声明与算术矛盾）`);
+  }
+  return problems;
+}
+
+/** 覆盖判据：真实注册表（含终轮）**逐条**都必须声明方向。 */
+export function reRegistrationDirectionCoverageProblems(
+  entries: readonly Pick<SizeReRegistration, 'id' | 'direction'>[],
+): string[] {
+  return entries.filter((e) => e.direction === undefined).map((e) => `${e.id}: 未声明 direction（覆盖不全）`);
+}
+
+/**
+ * 〖V4.5-1 R3（2026-09-21，W4+W5 = TASK-V45-113~119）〗**终轮登记**（Δ = **0**）。
+ *
+ * W4+W5 是「门禁重锚 + journey 取代 + 密度重算 + 体积同源 + 收口」轮：对
+ * `dist/sidepanel.js` **没有任何 byte 变化**（真实 esbuild metafile 与 W3 轮逐模块相等
+ * ⇒ Σ Δ = 0 ∧ 未归因胶水 0 == 登记增量 0；该等式由
+ * `size-growth-evidence.test.ts` 对真实 metafile 实跑）。R3 唯一的 `src` 改动是
+ * `src/ui/options/index.html` 的**纯文案行**（FIX-2 deferred 关闭），它**不进**
+ * `sidepanel.js` ⇒ 体积基线不动。
+ *
+ * 零字节轮也**必须**留痕（FR-V45-090/091：任何 byte 变化 ⇒ 强制登记；而「没有变化」
+ * 本身也是必须显式声明的事实，否则「登记滞后」与「真的没变」无法区分）；方向因此是
+ * **`unchanged`**（新增的第三种合法值，由反向证明驱动：写成 raised/lowered 即红）。
+ */
+export const SIDEPANEL_W4W5_FINAL_ROUND: SizeReRegistration = {
+  id: 'v45-1-w4w5',
+  direction: 'unchanged',
+  roundKind: 'registry-fidelity-round',
+  feature: 'specs-tree-v45-1-single-write-chronology',
+  date: '2026-09-21',
+  source: 'packages/web-cli-plugin/dist/sidepanel.js',
+  buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+  measuredBy: 'SDDU v4.5-1 R3 (2026-09-21, leaf specs-tree-v45-1-single-write-chronology; W4+W5 = TASK-V45-113~119)',
+  reason:
+    '终轮（W4+W5）**零字节**重登记：R3 只改门禁 / 台账 / 文档（journey 保护段第二次显式取代、binding 保段登记、' +
+    'density 31 格重算 + v45Ledger、options 纯文案解冻、体积三值同源复核），`src/**` 中唯一改动是 ' +
+    '`src/ui/options/index.html` 的纯文案行（不进 `sidepanel.js`）⇒ 真实 metafile 与 W3 轮**逐模块相等**：' +
+    'Σ 逐模块 Δ = 0 + 未归因胶水 0 == 登记增量 0。方向 = `unchanged`（不伪装成提升，也不伪装成净减）。',
+  baselineBeforeBytes: 493_501,
+  baselineAfterBytes: 493_501,
+  ceilingBeforeBytes: 518_176,
+  ceilingAfterBytes: 518_176,
+  assertionNonRemovalEntries: ['V45W2-E-07', 'V45W2-E-13', 'V45W2-E-14'],
+  historyRetainedBytes: [493_501],
+  ceilingUncappedFormulaBytes: 518_176,
+};
+
+/**
+ * 〖V4.5-1 R3（TASK-V45-118 / ADR-V45-011 §6）〗**档位不下移硬边界**（算术，前置）：
+ * `ceilTo50KB(b) = 512_000 ⟺ 460_801 ≤ b ≤ 512_000`。净减超过
+ * `480_026 − 460_801 = 19_225 B`（相对 V3-VOL-3 档位起点）即越界 ⇒ **停下上报编排器**。
+ * 由 `test/size-ruling-vol3.test.ts` 的闸门断言与反证逐条驱动。
+ */
+export const SIDEPANEL_TIER_FLOOR_BYTES = 460_801;
 
 export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     id: 'v3-1',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -582,6 +672,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-1-i6',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -600,6 +691,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-2',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -626,6 +718,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-2-closeout',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -644,6 +737,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-3',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -666,6 +760,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-3-fix',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -686,6 +781,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-4',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-16',
@@ -709,6 +805,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-4-r1',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-17',
@@ -739,6 +836,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-4-r2',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-17',
@@ -766,6 +864,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-4-r3',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-web-cli-plugin-v3-ui',
     date: '2026-09-17',
@@ -800,6 +899,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v4-1',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-web-cli-plugin-v4-chat',
     date: '2026-09-19',
@@ -826,6 +926,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v4-2',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-v4-2-chat-stream-model',
     date: '2026-09-19',
@@ -854,6 +955,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v4-2-closeout',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-2-chat-stream-model',
     date: '2026-09-19',
@@ -884,6 +986,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v4-3',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-v4-3-ask-auth-inflow',
     date: '2026-09-19',
@@ -905,6 +1008,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v4-3-reviewfix',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-3-ask-auth-inflow',
     date: '2026-09-19',
@@ -927,6 +1031,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v4-4',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-v4-4-ref-system-nextstep',
     date: '2026-09-19',
@@ -955,6 +1060,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     // = 唯一一处 `src` 改动（`chat-state.ts`），逐模块可归因（真实 metafile：
     // chat-state.ts 15,838 → 16,115 = **+277 B**，未归因胶水 0）。
     id: 'v4-4-r2',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-4-ref-system-nextstep',
     date: '2026-09-19',
@@ -983,6 +1089,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     // V4-4 review 修复轮（R1：3 阻塞 / 8 改进，全部处置后按**最终实测产物**重登记）
     id: 'v4-4-reviewfix',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-4-ref-system-nextstep',
     date: '2026-09-19',
@@ -1011,6 +1118,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     // V4-4 快修轮（review R2 的 I-09/I-10/I-11 处置；唯一 `src` 改动 = I-09 首装推荐接线）
     id: 'v4-4-i09fix',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-4-ref-system-nextstep',
     date: '2026-09-20',
@@ -1038,6 +1146,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     // V4-4 收口轮（validate R1 的 F-01 修复 + N-01~N-05 登记；唯一 `src` 改动 = `projectRef` 唯一性键）
     id: 'v4-4-closeout',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-4-ref-system-nextstep',
     date: '2026-09-20',
@@ -1065,6 +1174,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     // F 还原度快修轮（2026-09-20，真机首屏评估的 FIX-1~FIX-4；FIX-5 评估后 deferred）
     id: 'f-fidelity-fix',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v4-4-ref-system-nextstep',
     date: '2026-09-20',
@@ -1093,6 +1203,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     // V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106，提交区间 A+B）
     id: 'v45-1-w2',
+    direction: 'raised',
     roundKind: 'registry-fidelity-round',
     feature: 'specs-tree-v45-1-single-write-chronology',
     date: '2026-09-21',
@@ -1122,6 +1233,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
    */
   {
     id: 'v45-1-w3',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-v45-1-single-write-chronology',
     date: '2026-09-21',
@@ -1554,6 +1666,16 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as const,
   /** 〖V4.5-1 W3〗未归因胶水（= 登记增量 − Σ 模块）。 */
   v45W3UnattributedGlueBytes: 78,
+  /**
+   * 〖V4.5-1 R3（TASK-V45-118）〗终轮（W4+W5）的逐模块归因集 = **空集**：R3 对
+   * `dist/sidepanel.js` **没有任何模块移动**（真实 metafile 与 W3 轮逐模块逐值相等）。
+   * 空集是登记事实（不是省略）：Σ([]) + glue(0) == 登记增量 0，由
+   * `size-growth-evidence.test.ts` 的「终轮 Δ=0 归因」判据对真实 metafile 实跑。
+   * 唯一的 `src` 改动 `src/ui/options/index.html`（纯文案行）不进 sidepanel.js。
+   */
+  v45W4W5Rows: [] as const,
+  /** 终轮的未归因胶水（无模块移动，实测 0）。 */
+  v45W4W5UnattributedGlueBytes: 0,
   v45W1W2Rows: [
     { module: 'src/ui/sidepanel/host-registry.ts', beforeBytes: 4_760, afterBytes: 5_865, deltaBytes: 1_105 },
     { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 16_917, afterBytes: 17_200, deltaBytes: 283 },
@@ -1760,6 +1882,7 @@ export const PICK_LAYER_BASELINE_BYTES_HISTORY = [32_391] as const;
 export const PICK_LAYER_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   {
     id: 'v3-4',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-v3-4-page-as-input',
     date: '2026-09-16',
@@ -1779,6 +1902,7 @@ export const PICK_LAYER_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
   },
   {
     id: 'v3-4-fix2',
+    direction: 'raised',
     roundKind: 'feature-round',
     feature: 'specs-tree-v3-4-page-as-input',
     date: '2026-09-17',

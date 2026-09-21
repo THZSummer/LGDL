@@ -4,16 +4,16 @@
 > **前置依赖**: 本叶 `tasks.md` / `tasks.json`（19 原子任务 / 5 波）、本叶 `plan.md`（ADR-V45-001~012）、父 `spec.md`（44 FR / 22 AC / §11 37 条元素去向）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-21
-> **版本**: v1.1（R1 = W1 + W2；R2 = W3 已追加；W4/W5 待 R3）
+> **版本**: v1.2（R1 = W1 + W2；R2 = W3；**R3 = W4+W5 已收口，19/19 任务完成**）
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-21
-> **更新说明**: v1.1 —— 追加 R2（提交区间 C = W3：TASK-V45-107~112 宿主全退役 + 元素卡内化 / 视图迁移 + 零宿主判据 + risk-recovery 扩展 + 设置「帮助」分区）
+> **更新说明**: v1.2 —— 追加 R3（提交区间 **D** = W4+W5：TASK-V45-113~119 journey 第二次显式取代 / binding 保段 / 门禁等价重锚与反证注入点重写 / density 修复（229 passed）/ options 解冻 / 体积终轮 Δ=0 与 `direction` 机核 / 24 门禁串行收口）
 
 ---
 
 ## 1. 构建概要
 
-> 本文件覆盖 **R1 = W1 + W2**（`TASK-V45-101~106`，提交区间 A + B）。W3（107~112）/ W4（113~116）/ W5（117~119）尚未开工。
+> 本文件覆盖 **R1 = W1 + W2**（`TASK-V45-101~106`，提交区间 A+B）、**R2 = W3**（`TASK-V45-107~112`，区间 C）与 **R3 = W4+W5**（`TASK-V45-113~119`，**单一原子区间 D**）。**19/19 任务已完成**（R3 见 §6）。
 
 | 维度 | 数值 |
 |------|:--:|
@@ -347,7 +347,254 @@ v4-1 pin: 43054..55259 sha e2b500df…
 
 ---
 
-## 5. 任务完成清单
+## 5. 构建报告（R3 = W4 + W5，提交区间 **D**）
+
+> 本段覆盖 **R3 = W4+W5**（`TASK-V45-113~119`，按 ADR-V45-012 §6 **单一原子提交区间 D**）。序列：`T114 ∥ T115` → `T113` → `T116` → `T117` → `T118` → `T119`。
+
+| 维度 | 数值 |
+|------|:--:|
+| 完成任务数 | **7**（113 ✅ / 114 ✅ / 115 ✅ / 116 ✅ / 117 ✅ / 118 ✅ / 119 ✅） |
+| 复杂度分布 | M×2（114 / 117）/ L×5（113 / 115 / 116 / 118 / 119） |
+| 新增文件 | **0**（R3 只做门禁重锚 / 台账 / 登记 / 收口，无新源文件） |
+| 修改文件 | src 1（纯文案）+ test 7 + docs 2（逐路径见下） |
+| 体积 | **493,501 B**（**终轮 Δ = 0**；ceiling = floor(493,501 × 1.05) = **518,176 B**，档位 512,000 / 绝对上限 563,200 未下移） |
+| density | **229 passed / 0 failed**（R2 为红-预期；本轮修复） |
+| journey | **171 assertions**（R2 168；保护段第二次显式取代，新 pin `cc79f413…`） |
+
+### 6.1 逐任务处置
+
+**TASK-V45-113（L）—— journey 保护段第二次八步显式取代 + `supersessionChain` + 链式判据升级**
+
+八步证据（每步可机核，`docs/v4-supersession-ledger.json#protectedSupersession`）：
+
+| 步 | 落地内容 | 机核证据 |
+|:--:|---|---|
+| ① 记录 old | v4-1 段 `{43054..55259 / sha e2b500df… / 194 行 / supersededFrom 6b45c3fa… / leafBase a04e677}` **逐字**写入 `history[0]`（含上一轮 eightSteps / countEvidence / knownGap / newPin），顶层字段随后前移 | `git show a04e677:test/ui/journey.mjs` 按同一锚点复算 sha == e2b500df… ∧ 起始字节 == 43054（实测） |
+| ② 逐段决策 | journey → `supersede`；binding → `keep`（T114） | 台账 `protectedSupersession.decision` + `protectedRanges[1].supersededFrom === null` |
+| ③ `#15a~#15q` 等价改写 | `#15a` 不变；`#15b` 门槛逐字不动（新增 `#15b-0` 把「前置是 no-op」可机核）；`#15c` **加严**为出流契约；`#15d` 不变；`#15e` 不变 + 新增 `#15e-1`/`#15e-2`（卡序不被宿主切段 ∧ 产品自断言通过）；`#15f~#15q` 选择器重锚 | `test:ui` 171 assertions / 0 failed（新增 3 条全部 PASS） |
+| ④ 登记 `modifiedRanges[]` | journey 改写区间逐条（base 相对行号 + `oldId` / `decision` / `reason` / `leaf`） | `modifiedRanges` = 163 条；逐行判据在 `npm test` 内实跑 |
+| ⑤ 新 pin + 链 | `protectedRanges[0]` 重算 `{startByte 43054 / endByte 58287 / sha cc79f413… / 240 行 / supersededFrom e2b500df…（直接前驱）}`；新增 `supersessionChain[]`（3 链节：`6b45c3fa` → `e2b500df` → `cc79f413`） | 链长/连续性/覆盖/前任同源/newPin 同源 逐条断言 PASS；**已取代链节逐节复算**（2/2） |
+| ⑥ 计数守恒 | journey 运行时 check 数 **167 → 171**（同编号改写 + 新增 3 条，只增） | `test:ui` 171 assertions |
+| ⑦ `redlineRemap[]` 追加 | `#15b` ≥65%（门槛不动、锚点已换）；`#15c` 贴底 → 出流 + hidden + 父节点 == body | `redlineRemap` = 6 条（新增 2 条均 `status:"landed"` + evidence） |
+| ⑧ RP-V4-08 复用实跑 | 段内改 1 byte ⇒ 新 pin sha 判据 FAIL；段外改 1 byte ⇒ 不红；删 1 条断言 ⇒ 计数下界 FAIL；逐字节还原 ⇒ PASS | `test/supersession` 35 passed（含 RP-V4-08 in-gate 反证 + 逐字节还原复核） |
+
+**门禁判据等价升级（只增）**：v3 段 superseder 查找由 `supersededFrom` 等值升级为**链式**
+（`supersededFrom === range.sha256 ∨ supersessionChain.some(l => l.sha256 === range.sha256)`），
+且旧 pin 复算版本取**命中链节的 `leafBase`**；新增 `test/supersession-ledger.test.ts` 判据
+「链长 ≥2 / 链连续性 / 链覆盖 v3+v4-1 pin / 前任同源 / newPin 同源 / history 保留 v4-1 段 /
+**链不是装饰**（v3 pin 已不能由 legacy 等值命中）/ 已取代链节逐节复算」。
+`test:supersession` **33 → 35**（+2，只增）。
+
+**TASK-V45-114（M）—— binding 保段落地 + 段外逐行登记**
+
+| 项 | 结果 |
+|---|---|
+| 段本体 | `startAnchor` 字节偏移 **107780**（显式断言）∧ 段 sha **be9ad0e9…** ⇒ **保段双绿**（无 superseder，走 v3 段严格路径） |
+| 段前 `:896`（`#4b/#4c`） | `#notice` 节点 → 流内 `notice` 系统行；**字节中立**避让（Δ=52 B 由同一前置区装饰分隔线等量删白补偿） |
+| 段后 `:2256`（`AP#4b`） | `#discovery-notice` → 流内 `probe` 行 + 行 `title`（自由改写，不影响 `startByte`） |
+| `:880` `panelNotice` | **零触碰**（事件语义白名单，git diff 该行零变化） |
+| 逐行登记 | `entries[]` 新增 `V45W2-E-13`（`#4b/#4c`）与 `V45W2-E-14`（`AP#4b`），`oldTitle` = 段内被删原表达式、`newTitle` 可在目标文件定位；`modifiedRanges` 已有 2 条 base 相对登记 |
+| 门禁判据（只增） | `protectedPinFailures(bindingRange, currentText) === []` ∧ `byteOffsetOf(startAnchor) === 107780` ∧ 两条登记 `newTitle` 可定位 ∧ reason ≥40 |
+| 3 反证（实跑） | ① 段内改 1 byte ⇒ sha 红；② 段前加 1 byte 不补偿 ⇒ `startByte` 红（且段本体 sha 不红）；③ 删除行改一字 ⇒ 台账覆盖判据红 |
+| `KL-N-10` | 首轮 1 项红（`#6l`）；隔离复跑 **2 次**：① 192 passed / 0 failed ② 3 项红（`#8d`/`#8e` + 1）—— **如实登记，不阻塞收口** |
+
+**TASK-V45-115（L）—— 11 处门禁等价重锚 + 反证注入点重写**
+
+| 门禁 | 处置 | R2 | R3 |
+|---|---|:--:|:--:|
+| `test/ui/journey.mjs` | 保护段 3 条等价改写 + `newAddedSpans` 重锚（净 +45 行） | 168 | **171** |
+| `test/ui/density.mjs` | 稳态锚三重构造判据 + 退役读数点重锚（`#l0-more` → 卡内 `#l1-more`、`#l0-ref-toggle` → 卡内 ref chip）+ RP-V3-02 注入量动态化 + RP-V4-02/03 空态档 | 红 | **229** |
+| `test/ui/l1-reverse.mjs` / `l2-reverse.mjs` | 注入点随形态搬迁（R2 已重锚，本轮复跑） | 9 / 10 | **9 / 10** |
+| `test/zero-injection.test.ts` | 新增解冻范围门禁 + 反证（2 条） | 3 `test(` | 5 `test(` |
+| `test/supersession-ledger.test.ts` | 链式判据 + binding 保段判据 + 复算版本取链节 `leafBase` | 33 | **35** |
+| `test/size-{baseline,ruling-vol3,growth-evidence}` | 方向机核 + 档位闸门 + 终轮零字节归因 | — | 12 / 6 |
+| 其余 11 处（l0/l1/l2/page-input/stream/ask-auth/insight/hardening/recommendation/system-merge/env-guard/density-thresholds/l0-disclosure/l1-ref-validity/sidepanel-view） | R2 已重锚；本轮**逐条复跑**无回归 | 见 §4.5 | 见 §5.2 |
+
+**反证注入点重写（R-V45-106 核心，**无恒绿判据**）**：
+- RP-V3-02(b)：v3 的注入量「默认档 7 → 6」建立在「恰 7 可点」之上；v4-1 已把默认档取代为工具栏准入值 **5** ⇒ 上限 6 不再越界（**恒绿**）。改写为**动态注入量 = 实测 −1** + 新增前置断言证明越界成立；副本落点由 `/tmp` 改到 `test/ui/`（否则 `density-metrics.mjs#findPackageRoot()` 在 `/tmp` 下抛「density scope not found」⇒ 红是**环境错误**而不是断言失败，N-02 明令判为无效）。
+- RP-V4-02/03：靶面是**空态**，夹具改走空态档（`emptyState: true`）—— 否则「空态」这一格不再空、欢迎占位不存在（旧的写法会以「夹具缺失」告终）。
+- RP-V4-10（**新增**）：把构造序列最后一步延后 ⇒ 稳态锚 ①/③ 必红 → 补回 ⇒ 三项全绿；跨夹具顺序置换不产生新红。
+- 逐条实跑结果见 §5.2.1。
+
+**TASK-V45-116（L）—— density 31 格实测重算 + `v45Ledger` + 夹具三重构造判据**
+
+- **夹具稳态锚（三重构造判据）**：`settledProbe` = ① 流内 `[data-msg-type="system"][data-kind="notice"]` 行**恰 1 行且非空**（退役 `#notice` 节点所承载事实的唯一可见载体）∧ ② `#stream` 内 `thinking`/`tool`/`command` **无未终态**卡 ∧ ③ 卡数 **== 登记期望**（逐档登记，含构造行）。构造走**产品自己的唯一系统通道**（`testing.systemRow()` → 真实 `system` 动作 → `appendSystem`），与 `testing.ask()` 造决策卡同一体例；**不回退** closeout 轮 F2/K-1 的确定性修复（无 sleep 兜底、无运行顺序依赖）。
+- **档位特化（不是放松）**：`empty` 档的稳态载体**就是空态占位**（`#stream.empty` ∧ `.log-empty-text` ∧ notice 行 **0**）—— 该档定义即「零卡」，在那里构造 notice 行等于静默删掉空态覆盖面。三项结构（载体存在 ∧ 无未终态卡 ∧ 计数 == 期望）逐档同构。
+- **首装档**：`onboarding` 推荐卡必须**构造**（`reset()` 会清掉启动期自然产生的那张卡，而「首装态」正是该档定义）；次序为**先推荐卡后决策卡**（推荐生产者对已开决策卡按优先级抑制 —— 先造卡再问才是产品里真实可达的次序）。`firstRun` 的载体判据等价改写为「首装引导的**流内**载体存在」（onboarding 卡 / 优先级更高的 site 恢复卡 / firstRun 行），替代已退役的 `#onboarding` 节点读数。
+- **31 格 `v45Ledger`**（`docs/v4-density-baseline.json#v45Ledger.cells`）：`{cell, tier, vp, before, after, delta, measuredOn, source, reason, historyRetained}` 逐格齐备；`counts = {total 31, machineCompared 28, nominal 3, changed **1**}`；由 `stageF` 的「v45Ledger 逐格留痕」判据机核（格数 ∧ 六项字段 ∧ `after` 与 `#tiers` 当前登记值**同源**）。
+- **本轮唯一变更格 = `risk(staleRef)@400`**：`7/7/18/237 → 6/7/17/232`（风险增量违规 1 → **0**、base 窗口漂移 `{clickables:1,blocks:1,chars:5}` → **0**）⇒ `direction = **tighten-only**`；旧值逐字保留在 `before`，`riskIncrementRegistry` 的对应期望重锚（`reanchorV45`，旧期望原文完整保留）。
+- **零 diff 面**（逐字不动）：`thresholds` 7/15 · 9/20 · 17/35、`streamHeightRatioMin` 0.65、`logClientHeightFloor` 488、`registeredCells` 31、`perCardBudget`（含 aggregateLimit 8 / residentNavFormCriterion / aggregateCaliber）。
+- **反证不空转**：RP-V3-01/02/03/04/08/09 与 RP-V4-01~07/09/10 **逐条实跑**（见 §5.2.1）；`RP-V4-08` 在 `test:supersession` 内实跑。
+- **越阈停机规则**：本轮**未触发**（无登记格 C1/C2 越阈值）。
+
+**TASK-V45-117（M）—— `options/index.html` 解冻 + 范围门禁 + `zero-injection` 复跑**
+
+- **文案订正（纯文案行）**：`在侧栏「授权当前站点」，然后输入指令开始对话。` → `在侧栏「设置 → 站点与授权」点「授权当前站点」（或点「下一步推荐」卡中的「授权当前站点」），然后输入指令开始对话。`（与 FIX-2 的 4 处订正**逐字一致**口径）；全仓 `侧栏「授权当前站点」/ 侧栏『授权当前站点』` **零命中**（构建产物 `dist/options.html` 同步为新文案）。
+- **`unfrozenZeroDiffFiles[]` schema 扩展**（9 字段）：`{file, scope:"copy-only-lines", reason, textBefore, textAfter, date, operator, frozenBy, reintroductionGate}` + `maxByteDelta`（256 B）+ `scopeGate`。
+- **范围门禁（新增，只增）**：`test/zero-injection.test.ts` 内逐 hunk 机核 —— ① 字段齐备（10 项缺一即红）② `reason ≥40` ③ 字节差 ≤ 登记阈值（实测 **+101 B** ≤ 256）④ `textBefore` 在冻结版本可定位 ∧ `textAfter` 在当前文件可定位 ⑤ 解冻行不得引入 `<script>/<link>/<meta>/<iframe>/<object>/<embed>/import/href=/src=/on*`。
+- **复跑不回归**：`test:zero-injection` **27 passed**（不退）；`docs/v3-supersession-ledger.json` **零 diff**（v3 冻结面）。
+- **3 反证（实跑）**：① 注入 `<script src>` / 新增 `href=` ⇒ 范围门禁红（对照：纯文案行必须干净）；② 缺字段 / `reason < 40` / `maxByteDelta` 非正 ⇒ 字段门禁红；③ `textBefore`/`textAfter` 定位不到 ⇒ 登记失真红。
+
+**TASK-V45-118（L）—— 体积五要素终轮登记 + `direction` 双向机核 + 三值同源 + 档位闸门**
+
+| 要素 | 内容 |
+|---|---|
+| 日期 / 来源 | 2026-09-21 / `packages/web-cli-plugin/dist/sidepanel.js` |
+| 构建命令 / 测量人 | `npm run build --workspace @lgdl/web-cli-plugin` / SDDU v4.5-1 R3（W4+W5） |
+| 前值 → 后值 | **493,501 → 493,501 B（Δ = 0）**；`direction = **unchanged**` |
+| 理由 | 终轮（W4+W5）**零字节**：R3 只改门禁 / 台账 / 文档；`src/**` 唯一改动是 `src/ui/options/index.html` 的纯文案行（**不进 `sidepanel.js`**） |
+| 逐模块归因 | 真实 `dist/build-meta.json` 与 W3 轮**逐模块逐值相等** ⇒ Σ Δ = **0** + 未归因胶水 **0** == 登记增量 **0**（`SIDEPANEL_GROWTH_BREAKDOWN.v45W4W5Rows = []`，由 `size-growth-evidence.test.ts` 对真实 metafile 实跑） |
+| ceiling | `floor(493,501 × 1.05) = **518,176 B**`（公式判定；`SIDEPANEL_CEILING_CAP` 仍 `record-only`、零判定用法） |
+| 档位 / 绝对上限 | `ceilTo50KB(493,501) = **512,000**`（**未下移**） ⇒ `absoluteCeilingBytes = **563,200**` 不变 |
+| 历史保留 | `SIDEPANEL_BASELINE_BYTES_HISTORY` / `_TIMELINE` / `SIDEPANEL_RE_REGISTRATIONS`（25 条）逐字保留；终轮单独登记为 `SIDEPANEL_W4W5_FINAL_ROUND`（不改写链条、不伪造「提升」） |
+
+- **`direction` 机核双向支持（新增，只增）**：`SizeReRegistration.direction`（闭集 `raised` / `lowered` / `unchanged`）+ 纯函数 `reRegistrationDirectionProblems()`（`raised`⇒Δ>0 / `lowered`⇒Δ<0 / `unchanged`⇒Δ=0 / 非法值即红）+ `reRegistrationDirectionCoverageProblems()`（**每一轮**都必须声明，漏声明即红）。真实注册表 25 条 + `PICK_LAYER_RE_REGISTRATIONS` 2 条逐条声明（全部 `raised`，与各自 Δ 一致）+ 终轮 `unchanged`。
+- **V3-VOL-3 三值同源（含订正）**：`PENDING_ABSOLUTE_CAP.newBaselineBytes = SIDEPANEL_BASELINE_BYTES`（同源）∧ `ceilTo50KB(...) === 512_000` ∧ `absoluteCeilingBytes === 563_200` ∧ `resolvedOn === '2026-09-19'`；台账 `v3Vol3Closeout.steps['⑤三值闭合'].newBaselineBytes` **479,021 → 493,501 同源前移**（R2/W3 只写了注、字段滞后 ⇒ 属**订正**，注原文保留）∧ `authorConfirmation.status` **保持 `pending-author-line`**（未获一句外部确认，不伪称已确认）。
+- **档位不下移闸门**：`SIDEPANEL_TIER_FLOOR_BYTES = 460_801`（算术边界：`ceilTo50KB(b) = 512_000 ⟺ 460_801 ≤ b ≤ 512_000`）；断言 `newBaselineBytes ≥ 460_801 ∧ ceilTo50KB(...) === 512_000` ⇒ `test:size-ruling-vol3` **10 → 12**。
+- **4 反证（实跑）**：① 用旧基线算 ceiling ⇒ 严格等式红；② 终轮 rows 非空 / metafile 与 W3 登记不等 ⇒ 零字节归因红；③ `direction:'raised'` 而 Δ≤0（及 `lowered`/`unchanged`/非法值/漏声明）⇒ 方向机核红；④ `SIDEPANEL_CEILING_CAP` 接回判定 ⇒ `record-only` 断言红（既有）。
+- **停机规则**：净减 **0 B** ≤ 19,225 B ⇒ **未触发**。
+
+**TASK-V45-119（L）—— 收口：24 门禁串行 + 红线逐字节 + 人工面清单 + 收口文档**
+
+见 §5.2 / §5.3 / §5.7；收口文档（FIX-5 消解重述 / N-05 关闭登记 / `options` 解冻留痕 / `direction` 归因 / `knownGap` 一致性 / 台账计数）见 §5.8。
+
+### 6.2 W4+W5 门禁实测（**严格串行，一次一个 Chromium**；日志全量 `/tmp/opencode/v4-gate-logs/v45-r3/final-*.log`）
+
+| # | 门禁 | 基线（父 §6 门禁守恒总表） | R2 实测 | **R3 实测** | 判定 |
+|:--:|---|:--:|:--:|:--:|:--:|
+| 1 | `typecheck` | PASS | PASS | **PASS** | ✅ |
+| 2 | `build` | PASS | PASS | **PASS** | ✅ |
+| 3 | `plugin npm test`（node） | ≥1001 | 1037 | **1044** | ✅ +7 |
+| 4 | `test:supersession` | ≥33 | 33 | **35** | ✅ +2 |
+| 5 | `test:gate-integrity` | ≥12 | 12 | **13** | ✅ +1 |
+| 6 | `test:zero-injection` | ≥27 | 27 | **27** | ✅ |
+| 7 | `test:design-contract` | ≥6 | 6 | **6** | ✅ |
+| 8 | `test:page-input` | ≥106 | 106 | **106**（首轮 1 项红=flake，隔离复跑 106/0） | ✅ |
+| 9 | `test:l0` | ≥223 | 227 | **227** | ✅ |
+| 10 | `test:l1` | ≥111 | 115 | **115** | ✅ |
+| 11 | `test:l2` | ≥74 | 74 | **74** | ✅ |
+| 12 | `test:density` | ≥175 | **红（预期）** | **229** | ✅ **修复** |
+| 13 | `test:ui`（journey） | ≥167 | 168 | **171** | ✅ +3 |
+| 14 | `test:insight` | ≥116 | 116 | **116** | ✅ |
+| 15 | `test:binding` | ≥192 | 192（KL-N-10） | **192 / 0**（隔离复跑 ① PASS ② 3 项红） | ⚠️ **KL-N-10** |
+| 16 | `test:hardening` | ≥24 | 24 | **24** | ✅ |
+| 17 | `test:e2e` | PASS | PASS | **PASS** | ✅ |
+| 18 | `test:stream` | ≥63 | 63 | **63** | ✅ |
+| 19 | `test:ask-auth` | ≥61 | 61 | **61** | ✅ |
+| 20 | `test:recommendation` | ≥56 | 59 | **59** | ✅ |
+| 21 | `test:ref-pick-wiring` | ≥11 | 11 | **11** | ✅ |
+| 22 | `test:size-ruling-vol3` | ≥10 | 10 | **12** | ✅ +2 |
+| 23 | `test:l1-reverse` | ≥9 | 9 | **9**（反证全套 PASS） | ✅ |
+| 24 | `test:l2-reverse` | ≥10 | 10 | **10** | ✅ |
+
+> `CHROMIUM_GATES` 保持 **9**（元门禁断言）；`EXPECTED_AUDITED_FILES` 只追加（W1 已加 3 个 node 门禁路径）。
+> `KL-N-10`（binding 环境性 flake）：首轮 `#6l` 1 项红 ⇒ 隔离复跑 **2 次**（① 192/0 绿；② `#8d`/`#8e` 3 项红，逐次不同）⇒ **如实登记不阻塞收口**（父 §5.3 停机规则）。
+> `test:page-input` 首轮 1 项红（`F-01 前置（负控）`：救援原因读数在面板尚未收敛时读到「页面侧不可达」）⇒ 隔离复跑 **106 passed / 0 failed** ⇒ 同类环境性 flake，登记不阻塞。
+
+#### 6.2.1 density 反证实跑（逐条：注入 → FAIL → 逐字节还原 → PASS）
+
+| 反证 | 内容 | 结果 |
+|---|---|:--:|
+| RP-V3-01 | 注入 3 个额外可点 ⇒ C1 8 > 7 FAIL；移除 ⇒ PASS | ✅ |
+| RP-V3-02 | **注入量重写**（副本阈值 = 实测 −1）+ 副本落点改 `test/ui/` ⇒ FAIL；原阈值驱动 ⇒ PASS；原文件 sha 不变 | ✅ 7/0 |
+| RP-V3-03 | CSS 隐身不降 C1；`hidden` 是唯一豁免通道 | ✅ |
+| RP-V3-04 | 篡改基线常量 ⇒ 机对 FAIL | ✅ |
+| RP-V3-08 / RP-V3-09 | 阈值/口径篡改 ⇒ FAIL | ✅ |
+| RP-V4-01~07 | 单卡 7 可点 / 首屏第 3 卡 / 第 2 张欢迎卡 / 欢迎 >8 行 / CSS 隐身 / 工具栏控件入流 / chip 入 hidden / 风险可见性 | ✅ |
+| RP-V4-09 | 流内常驻导航入口 + 首屏合计 >8 ⇒ FAIL | ✅ |
+| **RP-V4-10（新增）** | 构造序列**最后一步延后** ⇒ 稳态锚 ①（源行）与 ③（卡数）必红；补回 ⇒ 三项全绿；跨夹具顺序置换不产生新红 | ✅ |
+| RP-V4-08（node 内） | 保护段内改 1 byte ⇒ FAIL；段外改 1 byte ⇒ 不红；逐字节还原 ⇒ PASS | ✅ |
+
+### 6.3 保护段状态（本轮**第一次动 pin**）
+
+| 保护段 | 取代前 | 取代后 | 证据 |
+|---|---|---|---|
+| journey `test/ui/journey.mjs` | `43054..55259` / sha `e2b500df…`（194 行） | **`43054..58287` / sha `cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7`…（240 行）** | 链 `6b45c3fa → e2b500df → cc79f413`；已取代链节逐节复算 2/2；v3 pin 仍可从 `187c205` 逐字节复算；`startByte` 仍 **43054**（段外零字节改动） |
+| binding `test/ui/binding.mjs` | `107780..115930` / sha `be9ad0e9…` | **不变**（`decision:"keep"`，`supersededFrom:null`） | 段前字节中立避让 ⇒ `startByte` 逐字节 107780 ∧ 段 sha be9ad0e9… **双绿** |
+
+> `protectedSupersession.history[0]` = v4-1 段**逐字记录**（含上一轮 eightSteps / countEvidence / knownGap / newPin / assertionRewrite）；`status = complete-steps-1-8` ⟺ `knownGap = 「V4.5-1 第二次取代闭环（残余：无）」`（一致性由 I1 判据机器强制）；`knownGapHistory` 追加且保留「未完成」历史原文。
+
+### 6.4 R3 台账登记（`docs/v4-supersession-ledger.json`）
+
+| 面 | 计数（**实测后填值**） |
+|---|:--:|
+| `entries[]` | **186**（W4+W5 新增 4：`V45W2-E-13` / `V45W2-E-14` / `V45R3-E-01` / `V45R3-E-02`；`V41-R3-E-08` / `V41-R3-E-10` 的 `newTitle` 按 W3 先例**重锚**，id/oldTitle 零改动） |
+| `modifiedRanges[]` | **163**（journey 段外两条改写区间逐条登记） |
+| `redlineRemap[]` | **6**（新增 2 条：`#15c` 出流 / `#15b` 前置 no-op 化） |
+| `leafBases[].registeredUncoveredLines` | 187c205 **850**/22 · 0f8a1fb **227**/17 · eb879bb **137**/12 · 7cbe04c **75**/7 · **a04e677 581/24**（W4+W5 逐字补登：journey 12 + supersession-ledger 2 + density 20 + 注释修正 0） |
+| `unfrozenZeroDiffFiles[]` | **3**（新增 `src/ui/options/index.html`，9 字段 + `maxByteDelta`） |
+| `supersessionChain[]` | **3** 链节 |
+| `v45Ledger`（density 文件） | **31** 格（28 实测机对 + 3 名义），`changed = 1` |
+
+> 台账 `newTitle` 可定位性与 `oldTitle` 真实性、hunk ↔ 条目逐行命中、`reason ≥ 40`、叶段逐字集合相等 —— 全部在 `npm test`（1044 passed）内实跑。
+
+### 6.5 红线逐字节核验表（**全项**）
+
+| 红线 | 登记值 | 实测 | 判定 |
+|---|---|---|:--:|
+| N7 `dist/content.js` | 177,076 B / sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6` | 177,076 B / `52a82620…` | ✅ |
+| N8 `dist/pick-layer.js` | 33,900 B / sha `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` | 33,900 B / `5f567d7e…` | ✅ |
+| N9 `design/**` + `option-f-shim.mjs` | 双 sha 零触碰 | `git status` 零输出 | ✅ |
+| N10 `manifest.json` | 零新增权限 / 无 `contextMenus` / 判定链内容哈希零改动 | `git status` 零输出（`test:zero-injection` 静态面复跑绿） | ✅ |
+| N11 `docs/v3-supersession-ledger.json` | 零 diff（冻结历史） | `git status` 零输出 | ✅ |
+| N2 `DENSITY_EXCLUDED_SUBTREES = ['#stream']` | 单源不动 | 零 diff（`density-scope.ts` 未改） | ✅ |
+| N3 密度阈值 7/15 · 9/20 · 17/35 | 逐字不动 | `thresholds` 零 diff（`v45Ledger` 同源判据） | ✅ |
+| N6 `STREAM_HEIGHT_RATIO_MIN = 0.65` | 只允许上调 | 未改（journey `#15b` 逐条 PASS） | ✅ |
+| N16 `SIDEPANEL_CEILING_CAP` | `record-only` | 未接回判定（既有断言 PASS） | ✅ |
+| N17 V3-VOL-3 三值 | 512,000 / 563,200 / `pending-author-line` | 三值同源 + 状态保持 | ✅ |
+| 不动面 T1~T10 | `packages/web-cli-base/**` / `.opencode/opencode.json` / `ROADMAP.md` / F-29 区段 / `src/content/**` / `design/**` / `manifest.json` / v3 台账 | `git status --short` 对这些路径**零输出** | ✅ |
+| N15 `git add` | path-limited（禁 `-A` / `.`） | 提交时逐路径 `git add`（见 §5.9） | ✅ |
+
+### 6.6 人工面清单（**不得冒充 PASS**）
+
+| # | 项 | 状态 |
+|:--:|---|:--:|
+| 1 | `title` 承载长文案的读屏体验（`V45-P-014`：行 `title` 作为长文案唯一载体时，屏幕阅读器是否朗读 / 朗读粒度） | **⏳ 未执行**（无读屏环境；需真机 + 读屏软件） |
+| 2 | 三主题（light / dark / auto）与高 DPI（≥2×）下**迁入块**（`#l2-tree-attribution` / `#l2-audit-evidence` / 卡内 ref 恢复区）可读性（EC-V45-009） | **⏳ 未执行**（需真机目视） |
+| 3 | 320px 窄侧栏下**迁入块**可读性（EC-V45-009） | **⏳ 未执行**（需真机目视） |
+
+> 以上三项均为 `⏳ 未执行`；**未**以任何自动判据冒充人工验收。
+
+### 6.7 已知偏差与停机规则（含 **D-W3 裁决记录**）
+
+| # | 事项 | 处置 |
+|---|---|---|
+| **D-W3-1** | `NEVER_FOLDABLE` 的 3 个新增项与 ADR-V45-002 §5 字面不同（ADR 写 `l2-tree-attribution` / `l2-audit-evidence`，但该两项同时在 `COLLAPSIBLE_TARGETS` 里 ⇒ 与「两表互斥」断言自相矛盾） | **裁决：ADR 字面在该点上不可同时满足**（两表互斥是更强的一致性约束）。R2 已按「新增真实存在且从未可折叠的面」实现（`region-stream` / `settings-root` / `settings-help`，长度 14 与 ADR 一致），`l2-*` 留在白名单。**本轮复核维持**；两表互斥由新增断言守住，`l1-reverse`/`l2-reverse` 复跑无回归 ⇒ 记为**已裁决偏差**（不改 ADR 正文，理由留在 build.md + §5.8）。 |
+| **D-W3-2** | `probe` 触发集按 ADR 字面「`steady === false` ∨ `phase !== 'ready'`」会让**相位未知**（未探测过）也判为异常 ⇒ 恢复卡永久压过 ref-action / discovery | **裁决：收窄为「可行动的未就绪」**（相位存在 ∧ `steady === false` ∧ 相位 ∉ {`ready`,`probing`}）。理由：ADR 的目的是「异常可恢复」，把「还没探测」判成异常会让首屏永远显示恢复卡（与 FR-V45-025 的空态去噪直接冲突）。R3 复核：`test:recommendation` 59 passed、density 三档恢复卡断言全绿 ⇒ 记为**已裁决偏差**。 |
+| **D-W3-3** | W3 的体积重登记是「**中间轮**」，W4+W5 还会再登记一次 | **本轮已收口**：终轮登记为 **Δ = 0 / `direction: 'unchanged'`**（见 §5.5 的 §5.1 T118 表）；「中间轮」字样保留在 W3 注中。 |
+| **D-R3-1** | `risk(staleRef)@400` 登记格下降（`7/7/18/237 → 6/7/17/232`） | **重登记（`direction = tighten-only`）**：风险步在该视口不再越过折线 ⇒ 违规 1→0、漂移 →0。旧值逐字保留在 `v45Ledger.before` 与该格 `before`；`riskIncrementRegistry` 对应期望回到 `defaultExpectation`（旧期望原文完整保留在 `reanchorV45.previousExpectation`）。**收紧**是允许方向；**未**放宽任何阈值。 |
+| **D-R3-2** | `v3Vol3Closeout.steps['⑤三值闭合'].newBaselineBytes` 字段滞后（479,021）而注已写新值 | **订正**：字段同源前移到 **493,501**（注原文保留 + 新增 `v45ReRegistration` 说明「字段与注脱钩」）；由新判据机器强制（字段 ≠ 源码常量即 FAIL）。 |
+| **K-R3-1** | `test:binding` 首轮 1 项红（`#6l`）；隔离复跑 ① 192/0 ② 3 项红（`#8d`/`#8e`） | **KL-N-10 环境性 flake 维持**：隔离复跑 ≥2 次、逐次不同 ⇒ 如实登记，**不阻塞收口**（父 §5.3）。 |
+| **K-R3-2** | `test:page-input` 首轮 1 项红（`F-01 前置（负控）`） | 隔离复跑 **106/0** ⇒ 同类环境性 flake，登记不阻塞。 |
+| **KL-N-10 复跑纪律** | 隔离 ≥2 次、日志全量 | `/tmp/opencode/v4-gate-logs/v45-r3/r3-binding-rerun{1,2}.log` |
+| **停机规则核查** | 6 条 | binding 补偿可行（`keep-feasible` 兑现）· journey 新 pin 命中且链连续（非 `report-to-orchestrator`）· 净减 0 ≤ 19,225 B · 无密度格越阈 · **无恒绿判据**（RP-V3-02/RP-V4-02/03 的注入点已重写并实跑）· 台账 `newTitle` 全部可定位 ⇒ **6 条全部未触发** |
+
+### 6.8 收口文档（4 项治理动作 + 2 项一致性）
+
+| 治理动作 | 处置 |
+|---|---|
+| **FIX-5 消解重述** | FIX-5（空态 L1 噪音：`更多选项（还有 0 个）` / `引用 0 条` / `归属（局部树）· 0 个节点` / `已决策 0 步` / `回执证据（0 行）` 恒驻首屏）**已由核心 2 覆盖而消解**（FR-V45-025 / DC-V45-009）：四个开关所在宿主（`l1-panels`）与 `#l0-more` 等壳元素整体退役，0 计数控件**不再存在于任何常驻面** ⇒ 不需要独立成条、不单列 AC。**非静默遗留**：本轮 `test:density` 空态档（`#stream.empty` ∧ 欢迎占位 ∧ **零卡**）229 passed、`test:l0` 227 passed（含 14 个退役容器逐项负向）逐条覆盖。 |
+| **N-05 关闭登记** | N-05（「一键重锚」按钮的落点口径）**关闭**：`#l1-ref-rescue` 现由 `cards/ref.ts` 在**最新 ref 卡**的恢复区铸造，`canReanchor()` 谓词逐字不变（EC-V45-005 随此关闭）；证据：`test:page-input` 106 passed（救援流程先在卡内铸造再驱动）+ `test:l1-reverse` 9 passed（RP-L1-E 锚点随元素卡内化重锚）。 |
+| **`options` 解冻留痕** | 范围 / 理由 / 前后文案 / 日期 / 操作者 / 冻结来源 / 再引入闸门 ⇒ `docs/v4-supersession-ledger.json#unfrozenZeroDiffFiles[2]`（9 字段 + `maxByteDelta`）；`docs/v3-supersession-ledger.json` **零 diff**；范围门禁逐 hunk 机核（`test/zero-injection.test.ts`）。 |
+| **`direction` 归因** | 终轮 = **`unchanged`（Δ = 0）**。**净减归因不适用**：本 Feature 的净减只出现在 **W1+W2 的 `sidepanel.ts` 单模块**（−1,061 B，被同轮其余 5 个模块的增重覆盖 ⇒ 轮总 +870 B），而 R3 对 `sidepanel.js` **零字节改动**。`direction` 双向机核已落地（`raised`/`lowered`/`unchanged` 三向 + 非法值 + 漏声明），反证逐条实跑。 |
+| `knownGap` 一致性 | `status = complete-steps-1-8` ⟺ `knownGap = 「V4.5-1 第二次取代闭环（残余：无）」`；`knownGapHistory` 追加保留上一轮「未完成」原文（I1 判据机器强制）。 |
+| 台账计数 | `entries` **186** / `modifiedRanges` **163** / `redlineRemap` **6** / `unfrozenZeroDiffFiles` **3** / `supersessionChain` **3** / 叶段登记 **1,870 行 / 82 文件槽位**（**实测后填值**，非预填）。 |
+
+### 6.9 提交（**单一原子区间 D**）
+
+```
+refactor(web-cli-plugin): v4.5 W4+W5——journey 二次取代/密度重算/体积三值同步/收口（原子区间）
+```
+
+`git add` **逐路径**（禁 `-A` / `.`）：`packages/web-cli-plugin/src/ui/options/index.html`、
+`packages/web-cli-plugin/test/{size-baseline.ts,size-growth-evidence.test.ts,size-ruling-vol3.test.ts,supersession-ledger.test.ts,zero-injection.test.ts}`、
+`packages/web-cli-plugin/test/ui/{density.mjs,journey.mjs}`、
+`packages/web-cli-plugin/docs/{v4-density-baseline.json,v4-supersession-ledger.json}` +
+本叶 SDDU 产物（`build.md` / `state.json`）。区间 D 的产物（终态 DOM + 新 pin + 密度台账 + 体积登记 + 门禁日志）**一次落盘**（R-V45-109）。
+
+---
+
+## 6. 任务完成清单
 
 | 任务 | 名称 | 复杂度 | 状态 | 对应 FR |
 |------|------|:--:|:--:|------|
@@ -363,17 +610,23 @@ v4-1 pin: 43054..55259 sha e2b500df…
 | TASK-V45-110 | `#composer` 出流 + `disclosure.ts` 三份声明重写 | M | ✅ completed | FR-V45-023 / 026 |
 | TASK-V45-111 | host-registry 零宿主判据 + `RETIRED_*` 扩容 + l0 结构判据 + 5 组反证 | M | ✅ completed | FR-V45-060~062 |
 | TASK-V45-112 | risk-recovery 扩展 + act 闭集 6 项 + 布线门禁 + 设置「帮助」分区 | L | ✅ completed | FR-V45-030~033 / 040~042 |
-| TASK-V45-113~119 | W4 / W5 | — | ⏳ 未开工（待 R3） | — |
+| TASK-V45-113 | journey 第二次八步显式取代 + `supersessionChain` + 链式判据升级 | L | ✅ completed | FR-V45-080 / 082 / 083 / 084 |
+| TASK-V45-114 | binding 保段落地 + 段外逐行登记 | M | ✅ completed | FR-V45-081 |
+| TASK-V45-115 | 11 处门禁等价重锚 + 反证注入点重写 | L | ✅ completed | FR-V45-082 / 084 |
+| TASK-V45-116 | density 31 格实测重算 + `v45Ledger` + 夹具三重构造判据 | L | ✅ completed | FR-V45-070~074 |
+| TASK-V45-117 | `options/index.html` 解冻 + 范围门禁 + `zero-injection` 复跑 | M | ✅ completed | FR-V45-050 / 051 / 052 |
+| TASK-V45-118 | 体积五要素终轮登记 + `direction` 双向机核 + 三值同源 + 档位闸门 | L | ✅ completed | FR-V45-090~093 |
+| TASK-V45-119 | 收尾原子区间：24 门禁串行 + 红线逐字节 + 人工面清单 + 收口文档 | L | ✅ completed | FR-V45-001~004 / 084 / 093 |
 
 ---
 
-## 5. 下一步
+## 7. 下一步
 
 | 场景 | 操作 |
 |------|------|
-| R2 收口后（W3 已提交） | 运行 `@sddu-build specs-tree-web-cli-plugin-v45-f-regularization` 继续 **R3 = W4+W5（TASK-V45-113~119，单一原子提交区间 D）** |
-| W3 完成后 | R3 = W4+W5（`TASK-V45-113~119`，**单一原子提交区间 D**） |
-| 全部任务完成 | 运行 `@sddu-review specs-tree-v45-1-single-write-chronology` 开始审查 |
+| R3 收口后（**19/19 任务完成**） | 运行 `@sddu-review specs-tree-v45-1-single-write-chronology` 开始**代码审查**（随后 `@sddu-validate`） |
+| 人工面三项（§6.6） | 需真机 + 读屏 / 目视，`⏳ 未执行`（不得在 review/validate 中被冒充为 PASS） |
+| `KL-N-10` / `K-R3-2` flake | 已在 §6.7 登记；后续轮次继续沿用隔离复跑纪律（≥2 次、日志全量） |
 
 ---
 
@@ -383,3 +636,4 @@ v4-1 pin: 43054..55259 sha e2b500df…
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1 = W1 + W2；含双 spikeGate 结论原文与量化证据） | 2026-09-21 | SDDU Build Agent |
 | v1.1 | 追加 R2 = W3（TASK-V45-107~112）：逐任务处置 / 卡内化与四去向映射 / 门禁等价重锚对账 / 体积中间轮五要素 / 台账登记 / 保护段状态 / 偏差与 flake 登记 | 2026-09-21 | SDDU Build Agent |
+| v1.2 | 追加 R3 = W4+W5（TASK-V45-113~119，**单一原子区间 D**）：journey 第二次八步显式取代（新 pin `cc79f413…` + 3 链节）/ binding 保段双绿 + 两处段外改写逐行登记 / 11 处门禁等价重锚 + 反证注入点重写（RP-V3-02 与 RP-V4-02/03 的**恒绿**修复 + 新增 RP-V4-10）/ density 三重构造判据 + 31 格 `v45Ledger`（**红 → 229 passed**）/ options 解冻 9 字段 + 范围门禁 / 体积终轮 `unchanged`（Δ=0）+ `direction` 双向机核 + 三值同源订正 + 档位闸门 / 24 门禁串行实测 + 红线逐字节核验表 + 人工面清单（全部 `⏳ 未执行`）+ 4 项治理动作 + D-W3 裁决记录 | 2026-09-21 | SDDU Build Agent |

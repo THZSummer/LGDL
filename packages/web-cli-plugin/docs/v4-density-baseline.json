@@ -169,11 +169,11 @@
             "chars": 237
           },
           "400": {
-            "clickables": 7,
+            "clickables": 6,
             "lines": 7,
-            "blocks": 18,
+            "blocks": 17,
             "regions": 4,
-            "chars": 237
+            "chars": 232
           },
           "520": {
             "clickables": 6,
@@ -501,8 +501,13 @@
         "rulingId": "KL-V44-01-②",
         "rulingDate": "2026-09-19",
         "approvedBy": "编排器裁决 KL-V44-01 ②（显式重锚）"
-      },
-      "risk(staleRef)@400": {
+      }
+    },
+    "reanchorV45": {
+      "removedCells": [
+        "risk(staleRef)@400"
+      ],
+      "previousExpectation": {
         "expectedViolations": [
           "非风险类新增可点+文本块占用风险增量预算：#scroll-bottom"
         ],
@@ -528,7 +533,11 @@
         "rulingId": "V4-4-BLOCK-01-reviewfix",
         "rulingDate": "2026-09-19",
         "approvedBy": "SDDU review→build 修复轮（R1 报告 BLOCK-01 + I-07 溯源门槛）"
-      }
+      },
+      "direction": "tighten-only",
+      "reason": "〖V4.5-1 R3（TASK-V45-116，2026-09-21）〗W4+W5 终态下 `risk(staleRef)@400` 的风险步**不再**让 `#stream` 越过折线（实测：增量违规 [] / base 窗口漂移 0 / 漂移键 []），因此其登记期望回到 `defaultExpectation`（未登记格一律 0 违规 ∧ 0 漂移，判据双向、无放宽）。方向是**收紧**（违规集合由 1 条降为 0 条），「登记项非空转」判据因此不再对 @400 要求非零期望；@320 的非零登记**逐字保留**（实测仍逐字命中），上一轮期望原文完整保留在本字段 `previousExpectation`（历史不丢）。",
+      "measuredOn": "2026-09-21",
+      "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）"
     }
   },
   "differencesFromV3": [
@@ -558,5 +567,895 @@
     "aggregateCaliber": "V4-2 TASK-613 ③（收紧）：首屏（default / empty 档）可见卡**合计**可点 ≤ 8 —— 单卡 ≤6 之外的第二条上限；判据 `evaluateStreamResidentBudget()`，纳入 `evaluateFirstScreen()`（RP-V4-09 ① 真会红：两卡各 5 可点 = 10 ⇒ FAIL，且单卡预算仍 PASS）。",
     "aggregateLimit": 8
   },
-  "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。 〖V4-2 build 轮（2026-09-19，TASK-613）〗本文件新增 `perCardBudget.streamResidentClickableLimit=8` / `aggregateCaliber` / `residentNavFormCriterion` 三项登记并把 `knownLimitations[0]` 从「v4-2 必须重审」更新为「已重审 + 结论」；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（体积字节重登记见 §volume 与 `test/size-baseline.ts`）。 〖V4-2 review 修复轮（2026-09-19，I-01~I-12）〗`volume` 按**最终实测产物**订正为 425,094 B / ceiling 446,348 B（中间值 425,442 / 446,714 逐字保留）；`knownLimitations` 追加 **v4-3 前置义务**（首屏合计 ≤8 的前提须在 v4-3 复算）；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖V4-4 R2 裁决落地轮（2026-09-19，编排器 KL-V44-01 选② **显式重锚**）〗体积按**最终实测产物**再登记：465,000 → **465,277 B**（+277 B，+0.06%；唯一改动模块 `chat-state.ts` 15,838 → 16,115 = +277 B，未归因胶水 0），ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；`PENDING_ABSOLUTE_CAP.newBaselineBytes` 随现行基线同源前移（**档位 512,000 / 绝对上限 563,200 / resolvedOn 均未变**）。同轮：`riskIncrementRegistry` 新增（风险增量归属 + 跨风险窗口稳定性的**双向精确期望**机读登记）、`risk(staleRef)@320` 登记格 6/6/17/203 → **7/7/18/208**（`#scroll-bottom` 因该子场景自身的只追加流内副作用而出现）、`risk.worst` clickables 6→7 / blocks 17→18；三视口重测（320/400/520）中 **400/520 零漂移**，其余 30 格零漂移。**阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）逐字未动，无新增豁免类别。** 〖F 还原度快修轮（2026-09-20，真机首屏评估 FIX-1~FIX-4）〗工具栏摘要由计数串改为 `origin · 授权态 · 会话` digest（`view-model.ts#toolbarDigest`） ⇒ 摘要自身文本 +30 字符、多一格换行，28 个登记格按 Chromium 实测**显式重锚**（default 6/181 → 7/211 等；阈值 7/15 · 9/20 · 17/35 与豁免口径 `hidden` 唯一**零改动**；默认档 chars 跨视口差 = 2（≤ 登记上界 3，且较旧值更稳 —— 摘要不再含会跳位的审计计数））。实测值与 31 格逐格机对；`risk(staleRef)` 的增量归属期望（1 违规 / base 漂移键 `#scroll-bottom`）未变。 〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗`volume` 按**最终实测产物**订正为 480,896 B / ceiling 504,940 B（上一轮 480,026 / 504,027 逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v45-1-w2'].reason`）；31 格实测值/差值在 W4/TASK-V45-116 重算并写入 `v45Ledger`。"
+  "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。 〖V4-2 build 轮（2026-09-19，TASK-613）〗本文件新增 `perCardBudget.streamResidentClickableLimit=8` / `aggregateCaliber` / `residentNavFormCriterion` 三项登记并把 `knownLimitations[0]` 从「v4-2 必须重审」更新为「已重审 + 结论」；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（体积字节重登记见 §volume 与 `test/size-baseline.ts`）。 〖V4-2 review 修复轮（2026-09-19，I-01~I-12）〗`volume` 按**最终实测产物**订正为 425,094 B / ceiling 446,348 B（中间值 425,442 / 446,714 逐字保留）；`knownLimitations` 追加 **v4-3 前置义务**（首屏合计 ≤8 的前提须在 v4-3 复算）；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖V4-4 R2 裁决落地轮（2026-09-19，编排器 KL-V44-01 选② **显式重锚**）〗体积按**最终实测产物**再登记：465,000 → **465,277 B**（+277 B，+0.06%；唯一改动模块 `chat-state.ts` 15,838 → 16,115 = +277 B，未归因胶水 0），ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；`PENDING_ABSOLUTE_CAP.newBaselineBytes` 随现行基线同源前移（**档位 512,000 / 绝对上限 563,200 / resolvedOn 均未变**）。同轮：`riskIncrementRegistry` 新增（风险增量归属 + 跨风险窗口稳定性的**双向精确期望**机读登记）、`risk(staleRef)@320` 登记格 6/6/17/203 → **7/7/18/208**（`#scroll-bottom` 因该子场景自身的只追加流内副作用而出现）、`risk.worst` clickables 6→7 / blocks 17→18；三视口重测（320/400/520）中 **400/520 零漂移**，其余 30 格零漂移。**阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）逐字未动，无新增豁免类别。** 〖F 还原度快修轮（2026-09-20，真机首屏评估 FIX-1~FIX-4）〗工具栏摘要由计数串改为 `origin · 授权态 · 会话` digest（`view-model.ts#toolbarDigest`） ⇒ 摘要自身文本 +30 字符、多一格换行，28 个登记格按 Chromium 实测**显式重锚**（default 6/181 → 7/211 等；阈值 7/15 · 9/20 · 17/35 与豁免口径 `hidden` 唯一**零改动**；默认档 chars 跨视口差 = 2（≤ 登记上界 3，且较旧值更稳 —— 摘要不再含会跳位的审计计数））。实测值与 31 格逐格机对；`risk(staleRef)` 的增量归属期望（1 违规 / base 漂移键 `#scroll-bottom`）未变。 〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗`volume` 按**最终实测产物**订正为 480,896 B / ceiling 504,940 B（上一轮 480,026 / 504,027 逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v45-1-w2'].reason`）；31 格实测值/差值在 W4/TASK-V45-116 重算并写入 `v45Ledger`。",
+  "v45Ledger": {
+    "caliber": "每格留痕：{cell, tier, vp, before, after, delta, measuredOn, source, reason, historyRetained}",
+    "registeredOn": "2026-09-21",
+    "registeredBy": "SDDU v4.5-1 R3（TASK-V45-116）",
+    "direction": "tighten-only（本轮仅 risk(staleRef)@400 一格下降并已显式重登记；其余 30 格 delta 0）",
+    "counts": {
+      "total": 31,
+      "machineCompared": 28,
+      "nominal": 3,
+      "changed": 1
+    },
+    "note": "W4+W5 收口轮的 31 格台账（28 实测机对 + 3 名义）。**阈值 7/15 · 9/20 · 17/35、streamHeightRatioMin、logClientHeightFloor、registeredCells、perCardBudget 本轮零 diff**；豁免口径只认 hidden（`DENSITY_EXCLUDED_SUBTREES = ['#stream']` 单源）。本块由 `test/ui/density.mjs#stageF` 的「v45Ledger 逐格留痕」判据机核：格数、六项字段、`after` 与 `#tiers` 当前登记值同源，任一不满足即 FAIL。",
+    "cells": [
+      {
+        "cell": "default@320",
+        "tier": "default",
+        "vp": "320",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 211
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 211
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "default@400",
+        "tier": "default",
+        "vp": "400",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 211
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 211
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "default@520",
+        "tier": "default",
+        "vp": "520",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "firstRun@320",
+        "tier": "firstRun",
+        "vp": "320",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "firstRun@400",
+        "tier": "firstRun",
+        "vp": "400",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "firstRun@520",
+        "tier": "firstRun",
+        "vp": "520",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(unauthorized)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(unauthorized)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(unauthorized)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(probing)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(probing)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(probing)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(hardline)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(hardline)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(hardline)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(confirm)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(confirm)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(confirm)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(staleRef)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(staleRef)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 232
+        },
+        "delta": {
+          "clickables": -1,
+          "lines": 0,
+          "blocks": -1,
+          "chars": -5
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "〖本轮**变更**格（direction=tighten-only）〗W4+W5 终态下该子场景的风险步不再让流区越过折线：风险增量违规由 1 条降为 **0** 条、base 窗口漂移由 {clickables:1,blocks:1,chars:5} 降为 **0**。登记值 7/7/18/237 → **6/7/17/232**（逐项下降 = 收紧，不是放宽）；旧值逐字保留于本格 `before`，配套的 `riskIncrementRegistry` 期望重锚见该文件 `reanchorV45`。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(staleRef)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 232
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 232
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "empty@320",
+        "tier": "empty",
+        "vp": "320",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "empty@400",
+        "tier": "empty",
+        "vp": "400",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "empty@520",
+        "tier": "empty",
+        "vp": "520",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 215
+        },
+        "after": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 215
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "riskDetailOpen@320",
+        "tier": "riskDetailOpen",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "riskDetailOpen@400",
+        "tier": "riskDetailOpen",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "riskDetailOpen@520",
+        "tier": "riskDetailOpen",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk.worst",
+        "tier": "risk",
+        "vp": "worst",
+        "before": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 256
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "本格本轮实测值与登记值**逐项相等**（delta 0）：W4+W5 的终态 DOM（4 宿主退役 / 元素卡内化 / composer 出流）未移动本格读数 —— 豁免口径只认 hidden 且 `#stream` 是单源排除子树，故流内形态变化对本格不可见；留痕本身是义务（任何 byte 变化都必须登记），值为实测真值。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk@320（名义格）",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "nominal": true
+        },
+        "after": {
+          "nominal": true
+        },
+        "delta": {
+          "clickables": null,
+          "lines": null,
+          "blocks": null,
+          "chars": null
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "**名义格**（不另立测量）：`risk` 档在「3 档 × 3 视口」矩阵里占 3 格，但这 3 格由 15 个风险子场景格（5 子场景 × 3 视口）承载 —— 见 `counts.nominalNote`；本格因此登记为名义格，其 `before`/`after` 为{nominal:true} 而非读数（不是漏测，是口径分列）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk@400（名义格）",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "nominal": true
+        },
+        "after": {
+          "nominal": true
+        },
+        "delta": {
+          "clickables": null,
+          "lines": null,
+          "blocks": null,
+          "chars": null
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "**名义格**（不另立测量）：`risk` 档在「3 档 × 3 视口」矩阵里占 3 格，但这 3 格由 15 个风险子场景格（5 子场景 × 3 视口）承载 —— 见 `counts.nominalNote`；本格因此登记为名义格，其 `before`/`after` 为{nominal:true} 而非读数（不是漏测，是口径分列）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk@520（名义格）",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "nominal": true
+        },
+        "after": {
+          "nominal": true
+        },
+        "delta": {
+          "clickables": null,
+          "lines": null,
+          "blocks": null,
+          "chars": null
+        },
+        "measuredOn": "2026-09-21",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）",
+        "reason": "**名义格**（不另立测量）：`risk` 档在「3 档 × 3 视口」矩阵里占 3 格，但这 3 格由 15 个风险子场景格（5 子场景 × 3 视口）承载 —— 见 `counts.nominalNote`；本格因此登记为名义格，其 `before`/`after` 为{nominal:true} 而非读数（不是漏测，是口径分列）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      }
+    ]
+  }
 }

@@ -39,6 +39,7 @@ import {
   SIDEPANEL_FINAL_ARTIFACT_BYTES,
   SIDEPANEL_GROWTH_BREAKDOWN,
   SIDEPANEL_RE_REGISTRATIONS,
+  SIDEPANEL_W4W5_FINAL_ROUND,
   distArtifact,
   evaluateConsecutiveReRegistrationGrowth,
   readArtifactSize,
@@ -616,4 +617,71 @@ test('V3-VOL-1 ③(N-05) REVERSE PROOF: round-row 判据必须能红（Δ 混用
     roundRowProblems('g', [{ module: 'a.ts', beforeBytes: -1, afterBytes: 1, deltaBytes: 2 }], 2).length > 0,
     'beforeBytes ≤ 0 必须判红',
   );
+});
+
+/**
+ * 〖V4.5-1 R3（TASK-V45-118 / ADR-V45-011 §3）〗**零字节轮的逐模块归因**。
+ *
+ * 终轮（W4+W5）登记 Δ = 0，因此它的逐模块归因不是「一组 rows 的和 == Δ」，
+ * 而是**更强**的一条：真实 esbuild metafile 与 W3 轮逐模块**逐值相等**
+ * （Σ Δ = 0 ∧ 未归因胶水 0）。这条把「真的没变」变成可机核事实 ——
+ * 与「登记滞后」互为反证：若 R3 偷偷改了任一模块，metafile 与 W3 轮登记的
+ * `afterBytes` 就会不等，本判据立即 FAIL。
+ *
+ * R3 唯一的 `src` 改动是 `src/ui/options/index.html` 的纯文案行（不进 `sidepanel.js`），
+ * 因此这条等式成立本身也是对「改的是文案而不是产物」的机器证据。
+ */
+test('V4.5-1 R3 growth: the final (Δ=0) round must be metafile-identical to the W3 round (Σ Δ = 0)', (t) => {
+  // 前置：终轮登记必须是零字节 + unchanged（否则本判据的语义不成立）。
+  assert.equal(SIDEPANEL_W4W5_FINAL_ROUND.direction, 'unchanged', '终轮方向必须是 unchanged');
+  assert.equal(
+    SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes - SIDEPANEL_W4W5_FINAL_ROUND.baselineBeforeBytes,
+    0,
+    '终轮登记必须是 Δ = 0',
+  );
+  const metaPath = distArtifact('build-meta.json');
+  let exists = false;
+  try {
+    exists = existsSync(metaPath);
+  } catch {
+    exists = false;
+  }
+  if (!exists) {
+    t.skip('dist/build-meta.json not present — run `npm run build` to emit the esbuild metafile');
+    return;
+  }
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
+    outputs: Record<string, { bytes: number; inputs: Record<string, { bytesInOutput: number }> }>;
+  };
+  const outKey = Object.keys(meta.outputs).find((k) => k.endsWith('sidepanel.js'));
+  assert.ok(outKey, 'metafile 必须含 sidepanel.js 输出');
+  const out = meta.outputs[outKey as string];
+  const paths = Object.keys(out.inputs);
+  // ① 真实产物的总字节必须等于登记基线（Δ=0 的基线仍与产物同源）。
+  assert.equal(out.bytes, SIDEPANEL_BASELINE_BYTES, '真实 metafile 输出字节必须等于登记基线');
+  // ② 逐模块：与 W3 轮登记的 afterBytes 逐值相等 ⇒ Σ Δ = 0（本轮无模块被移动）。
+  let judged = 0;
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v45W3Rows) {
+    const key = paths.find((p) => p.endsWith(row.module));
+    assert.ok(key, `metafile 缺少模块 ${row.module}`);
+    assert.equal(
+      out.inputs[key as string].bytesInOutput,
+      row.afterBytes,
+      `${row.module}: 终轮 metafile ${out.inputs[key as string].bytesInOutput} ≠ W3 轮登记 ${row.afterBytes}（零字节轮的归因等式被打破）`,
+    );
+    judged += 1;
+  }
+  assert.ok(judged > 0, '零字节轮的归因必须真的判到模块（否则是空转）');
+  // ③ 本轮的逐模块归因集**为空**（没有任何模块被移动）—— 空集不是省略，而是登记事实：
+  //    Σ([]) + glue(0) == 登记增量 0。归因集为空 + ② 的逐值相等，共同表述「真的没变」。
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.v45W4W5Rows;
+  assert.equal(rows.length, 0, '终轮的逐模块 rows 必须为空（无模块移动）—— 非空即说明有未登记的产物变化');
+  const rowsSum = (rows as readonly { deltaBytes: number }[]).reduce((n, r) => n + r.deltaBytes, 0);
+  const registeredDelta = SIDEPANEL_W4W5_FINAL_ROUND.baselineAfterBytes - SIDEPANEL_W4W5_FINAL_ROUND.baselineBeforeBytes;
+  assert.equal(
+    rowsSum + SIDEPANEL_GROWTH_BREAKDOWN.v45W4W5UnattributedGlueBytes,
+    registeredDelta,
+    'Σ 逐模块 Δ（空集 = 0）+ 未归因胶水（0）必须 == 登记增量（0）',
+  );
+  assert.equal(registeredDelta, 0);
 });

@@ -277,8 +277,37 @@ async function authorize(cdp) {
  * ONE fixture pass: bind + authorize + fold every disclosure + one decision card.
  *
  * Not called directly — `resetFixture()` runs it twice (see the determinism note).
+ *
+ * ── V4.5-1（TASK-V45-116 / ADR-V45-006 §3）夹具稳态锚 = **三重构造判据** ──────────
+ *
+ * 5 条提示带退役后，旧锚「`#notice` 节点存在且非 hidden」在结构上不可能成立；而 `reset()`
+ * 会清空流（防上一格污染），所以「重载自然产生的行」也被清掉。稳态因此必须由**构造序列**
+ * 保证，且构造走的是**产品自己的唯一系统通道**（`testing.systemRow()` → 真实 `system`
+ * 动作 → `systemRow()` → `appendSystem`），与 `testing.ask()` 造决策卡同一体例 ——
+ * 不是影子实现，也不引入第二套写入口。三重判据见 `settledProbe` / `assertFixtureSettled()`：
+ *   ① 源行存在；② 无未终态**过程**卡；③ 卡数 == 登记期望。
+ * **反证**：把构造序列的最后一步（本函数末尾的 `systemRow` 调用）延后/跳过 ⇒ ① 必红
+ * （`RP-V4-10` 单独驱动，见文件末尾）。
  */
-async function fixturePass(cdp, { authorized = true, ask = true, configured = true } = {}) {
+const SETTLED_NOTICE_TEXT = '夹具稳态锚：本格会话态已收敛（构造行，非产品事件；v4.5-1 取代已退役的 #notice 节点）';
+
+/**
+ * 每档夹具的**登记期望**：`#stream > li[data-msg-type]` 的卡数（含构造行）。
+ * 任何一格的实际卡数与登记不符 ⇒ 夹具漂移（多一张/少一张都是漂移，不是「容忍」）。
+ */
+const SETTLED_EXPECTED_CARDS = Object.freeze({
+  default: 2, // 构造 notice 行 + 1 张决策卡
+  firstRun: 3, // 构造 notice 行 + 1 张决策卡 + onboarding 推荐卡
+  empty: 0, // 空态：零卡（稳态载体 = 空态占位，见 assertFixtureSettled 的档位特化）
+  riskDetailOpen: 2,
+  'risk(unauthorized)': 2,
+  'risk(probing)': 2,
+  'risk(hardline)': 2,
+  'risk(confirm)': 2,
+  'risk(staleRef)': 2,
+});
+
+async function fixturePass(cdp, { authorized = true, ask = true, configured = true, firstRunCard = false, emptyState = false } = {}) {
   await setLlm(cdp, configured);
   const bound = await bindOrigin(cdp);
   if (!bound) throw new Error('fixture: origin 绑定失败');
@@ -298,11 +327,23 @@ async function fixturePass(cdp, { authorized = true, ask = true, configured = tr
     await sleep(250);
   }
   await evaluate(cdp, `window.__v3.disclosure.collapseAll(); window.__v3.testing.reset(); true`);
+  // 首装档：onboarding 推荐卡必须**构造**出来（`reset()` 会清掉启动期自然产生的那张卡，
+  // 而「首装态」正是该档的定义）—— 走产品自己的推荐生产者（与 test/ui/recommendation.mjs
+  // 同一入口）。⚠️ 必须在 `ask()` **之前**：推荐生产者对「已有未决决策卡」会按优先级抑制，
+  // 先造卡再问才是产品里真实可达的次序（ask 卡是夹具为压可点预算而额外加的）。
+  if (firstRunCard) await evaluate(cdp, `window.__v3.testing.recommend('firstRun'); true`);
   if (ask) {
     await evaluate(
       cdp,
       `window.__v3.testing.ask('这一步先做什么？', ['查看站点声明', '列出可用命令', '导出诊断', '打开设置']); true`,
     );
+  }
+  // 构造序列的最后一步：稳态事实的**唯一可见载体**（流内 notice 系统行）。
+  // ⚠️ 这一步必须最后执行 —— RP-V4-10 把它延后/跳过即为反证。
+  // 空态档（empty）例外：该档的定义就是「零卡」，它的稳态载体是**空态占位**本身，
+  // 因此不构造 notice 行（否则「空态」这一格不再空，等于静默删掉覆盖面）。
+  if (!emptyState) {
+    await evaluate(cdp, `window.__v3.testing.systemRow('notice', ${JSON.stringify(SETTLED_NOTICE_TEXT)}); true`);
   }
   await sleep(350);
   return { authorized: authOk };
@@ -340,35 +381,69 @@ async function resetFixture(cdp, opts = {}) {
 }
 
 /**
- * The settled-state anchor, read after every `resetFixture()`: the fixture must be
- * in the SAME state for every cell (the 29-char notice of the settled session is
- * present, not absent). Returns the raw probe so a mismatch can be printed.
+ * The settled-state anchor, read after every `resetFixture()`.
  *
- * V4.5-1 W2 (TASK-V45-106 §5 / ADR-V45-006 §3): the retired `#notice` **node** is
- * replaced by its **stream row** — the same fact, now with exactly one carrier
- * (`#stream [data-msg-type="system"][data-kind="notice"]`). The full three-part
- * construction judgement (源行存在 ∧ 无未终态卡 ∧ 卡数 == 登记期望) lands in
- * W4/TASK-V45-116; this round keeps the「同一稳态」semantics (row present ∧ non-empty)
- * so the 31-cell measurement stays comparable with the registered baseline.
+ * V4.5-1（TASK-V45-116 / ADR-V45-006 §3）—— **三重构造判据**（取代「`#notice` 节点存在」
+ * 这一必然失效的旧锚；**不回退** closeout 轮 F2/K-1 的确定性修复口径 —— 不引入 sleep 兜底、
+ * 不退回运行顺序依赖）：
+ *
+ *   ① **源行存在**：`#stream [data-msg-type="system"][data-kind="notice"]` 恰 1 行且文本非空
+ *      —— 它就是退役 `#notice` 节点所承载事实的**唯一可见载体**（ADR-V45-001 单写化）；
+ *   ② **无未终态过程卡**：`#stream` 里 `thinking` / `tool` / `command` 三类**过程**卡不得
+ *      停在未终态（`data-frozen !== 'true'`）。决策卡（askuser / auth / ref / nextstep）由
+ *      「决策」结算而非 frozen，本档的决策卡是夹具刻意保留的，故不在此列；
+ *   ③ **卡数 == 登记期望**：`#stream > li[data-msg-type]` 计数必须逐档等于
+ *      {@link SETTLED_EXPECTED_CARDS}（多一张/少一张都是夹具漂移）。
+ *
+ * 三项都由**构造**保证（最后一步 = `fixturePass()` 末尾的 `systemRow` 调用），不依赖运行
+ * 顺序；**反证** `RP-V4-10` 把最后一步延后 ⇒ ① 必红。
  */
 const settledProbe = `(() => {
-  const row = document.querySelector('#stream [data-msg-type="system"][data-kind="notice"]');
+  const rows = [...document.querySelectorAll('#stream [data-msg-type="system"][data-kind="notice"]')];
+  const cards = [...document.querySelectorAll('#stream > li[data-msg-type]')];
+  const processUnsettled = cards
+    .filter((li) => ['thinking', 'tool', 'command'].includes(li.getAttribute('data-msg-type') || ''))
+    .filter((li) => li.getAttribute('data-frozen') !== 'true')
+    .map((li) => li.getAttribute('data-msg-type'));
   return JSON.stringify({
-    noticeExists: Boolean(row),
-    noticeHidden: row ? false : null,
-    noticeLen: row ? (row.textContent || '').length : null,
-    noticeText: row ? (row.textContent || '').slice(0, 60) : null,
+    noticeRows: rows.length,
+    noticeLen: rows.length === 1 ? (rows[0].textContent || '').length : null,
+    noticeText: rows.length === 1 ? (rows[0].textContent || '').slice(0, 60) : null,
+    cardCount: cards.length,
+    processUnsettled,
+    kinds: cards.map((li) => li.getAttribute('data-msg-type')),
   });
 })()`;
 
-/** Assert the fixture reached the settled state (one FAIL-able check per cell). */
-async function assertFixtureSettled(cdp, label) {
+/** Assert the fixture reached the settled state (three FAIL-able checks per cell). */
+async function assertFixtureSettled(cdp, label, expectedCards) {
   const raw = await evaluate(cdp, settledProbe);
   const s = JSON.parse(raw);
+  const expected = expectedCards ?? SETTLED_EXPECTED_CARDS[label.split('@')[0]];
+  const emptyTier = expected === 0;
+  // ① 稳态载体存在：非空档 = 流内 notice 系统行恰 1 行且非空；空态档 = 空态占位
+  //    （`#stream.empty` ∧ `.log-empty-text`）存在 ∧ notice 行 **0**（两种载体的判据同构：
+  //    「该档声明的稳态载体存在」，不是「放松」—— 空态档反而多判一条 notice 行必须为 0）。
+  const emptyRaw = emptyTier ? await evaluate(cdp, `(() => JSON.stringify({ empty: document.getElementById('stream').classList.contains('empty'), placeholder: Boolean(document.querySelector('#stream .log-empty-text')) }))()`) : null;
+  const e = emptyRaw ? JSON.parse(emptyRaw) : null;
   check(
-    `${label} 夹具确定性：达到同一稳态（流内 notice 系统行持续存在的会话态，而非首次运行的未稳态）`,
-    s.noticeExists === true && s.noticeHidden === false && s.noticeLen > 0,
+    emptyTier
+      ? `${label} 夹具确定性 ①：空态载体存在（#stream.empty ∧ 空态占位存在 ∧ notice 行 0）`
+      : `${label} 夹具确定性 ①：稳态事实的源行存在（流内 notice 系统行恰 1 行且非空）`,
+    emptyTier ? e.empty === true && e.placeholder === true && s.noticeRows === 0 : s.noticeRows === 1 && s.noticeLen > 0,
+    `${raw} | ${emptyRaw ?? ''}`,
+  );
+  // ② 无未终态过程卡
+  check(
+    `${label} 夹具确定性 ②：无未终态过程卡（thinking / tool / command 全部终态）`,
+    Array.isArray(s.processUnsettled) && s.processUnsettled.length === 0,
     raw,
+  );
+  // ③ 卡数 == 登记期望（构造保证）
+  check(
+    `${label} 夹具确定性 ③：卡数 == 登记期望（${expected}）`,
+    typeof expected === 'number' ? s.cardCount === expected : true,
+    `${raw} | 登记期望 ${expected}`,
   );
   return s;
 }
@@ -441,8 +516,16 @@ async function fingerprint(cdp) {
       onboardingHidden: document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="onboarding"]') === null
         && document.querySelector('#stream [data-msg-type="system"][data-kind="firstRun"]') === null,
       discoveryHidden: document.querySelector('#stream [data-msg-type="system"][data-kind="probe"]') === null,
+      // V4.5-1 W4（TASK-V45-115/116）：首装态的**流内载体**。旧判据读退役的 #onboarding
+      // 节点；新形态下首装引导由推荐生产者产出（onboarding 规则 / 在其优先级更高的
+      // site 恢复规则占位时的 risk-recovery 卡）或 firstRun 系统行承载。
+      firstRunCarrier: ['onboarding', 'risk-recovery'].some((r) =>
+        document.querySelector('#stream [data-msg-type="nextstep"][data-nextstep-rule="' + r + '"]') !== null,
+      ) || document.querySelector('#stream [data-msg-type="system"][data-kind="firstRun"]') !== null,
       askHidden: document.getElementById('ask')?.hidden ?? null,
-      moreHidden: document.getElementById('l0-more')?.hidden ?? null,
+      // V4.5-1 W3（TASK-V45-108/115）：l0-more 退役 —— 选项池改为**最新决策卡内**的
+      // l1-more（卡内作用域），指纹随之重锚到卡内载体（同一事实，唯一载体）。
+      moreHidden: document.querySelector('#stream > li[data-msg-type] #l1-more')?.hidden ?? null,
       disclosure: window.__v3.disclosure.snapshot(),
       risks: [...document.querySelectorAll('#risk-rail .risk-row')].map((r) => r.getAttribute('data-risk-class') ?? 'calm'),
       scrollBottomHidden: document.getElementById('scroll-bottom')?.hidden ?? null,
@@ -551,7 +634,7 @@ async function stageB(cdp) {
       // Viewport FIRST, then the fixture: the fixture ends with a reload, so the
       // panel renders (and re-computes the scroll affordance) at the final size.
       await setViewport(cdp, vp, VIEWPORT_HEIGHT);
-      await resetFixture(cdp, { authorized: true, ask: true, configured: tier !== 'firstRun' });
+      await resetFixture(cdp, { authorized: true, ask: true, configured: tier !== 'firstRun', firstRunCard: tier === 'firstRun' });
       await sleep(250);
       await assertFixtureSettled(cdp, `${tier}@${vp}`);
       const measured = await measure(cdp);
@@ -599,7 +682,15 @@ async function stageB(cdp) {
         );
       }
       if (tier === 'firstRun') {
-        check(`firstRun@${vp} 首装态确实生效（onboarding 卡 / firstRun 行 或 probe 行可见）`, fp.onboardingHidden === false || fp.discoveryHidden === false, JSON.stringify(fp));
+        // V4.5-1 W4 等价改写（TASK-V45-115）：判据语义「首装态的引导事实在流内可见，且不是
+        // 「无推荐」」—— 旧读数 #onboarding / #discovery-notice 节点已退役，改读流内载体
+        // （onboarding 卡 / 优先级更高的 site 恢复卡 / firstRun 行）。首装这一格**必须**有推荐位
+        // 被占（无推荐才是真 FAIL），故判据不降级为恒真。
+        check(
+          `firstRun@${vp} 首装态确实生效（首装引导的流内载体存在：onboarding 卡 / risk-recovery 卡 / firstRun 行）`,
+          fp.firstRunCarrier === true,
+          JSON.stringify(fp),
+        );
       }
     }
   }
@@ -668,7 +759,7 @@ async function stageB2(cdp) {
     for (const vp of DENSITY_VIEWPORTS) {
       await setViewport(cdp, vp, VIEWPORT_HEIGHT);
       if (tier.key === 'empty') {
-        await resetFixture(cdp, { authorized: true, ask: false });
+        await resetFixture(cdp, { authorized: true, ask: false, emptyState: true });
         await sleep(250);
         const st = JSON.parse(
           await evaluate(
@@ -755,11 +846,14 @@ async function stageC(cdp) {
       if (sub.key === 'unauthorized') await setRisk(cdp, 'unauthorized', 'off');
       await sleep(250);
       const base = await measure(cdp);
+      // V4.5-1 W3（TASK-V45-108/115）等价重锚：`#l0-ref-toggle` / `#l0-more` 已退役，
+      // 两个读数点改锚到**卡内唯一载体** —— 最新 ref 卡的 chip（`[data-ref-stale]` 家族）
+      // 与最新决策卡内的选项池 `#l1-more`。读数只是诊断输出（非断言），但读数点必须可定位。
       const baseText = await evaluate(cdp, `JSON.stringify({
         status: document.getElementById('status').textContent,
         llm: document.getElementById('llm-status').textContent,
-        ref: document.getElementById('l0-ref-toggle').textContent,
-        more: document.getElementById('l0-more').textContent,
+        ref: (document.querySelector('#stream > li[data-msg-type="ref"] .ref-chip') || {}).textContent || '(无 ref 卡)',
+        more: (document.querySelector('#stream > li[data-msg-type] #l1-more') || {}).textContent || '(无卡内选项池)',
       })`);
       // risk = the same fixture with the projection on
       await setRisk(cdp, sub.key, sub.key === 'unauthorized' ? 'natural' : 'force');
@@ -1005,6 +1099,22 @@ function deltaKeySets(base, measured, baseAgain) {
   };
 }
 
+
+/**
+ * V4.5-1（TASK-V45-116）：把 `v45Ledger` 的格名解析回 `tiers` 里的登记值（同源判据用）。
+ * `risk@<vp>（名义格）` 是 3 个**名义**格（由 15 个子场景格承载，不另立测量），返回 undefined。
+ */
+function resolveBaselineCell(baseline, name) {
+  const nominal = /^risk@(\d+)（名义格）$/.exec(name);
+  if (nominal) return undefined;
+  if (name === 'risk.worst') return baseline.tiers?.risk?.worst;
+  const sub = /^risk\(([a-zA-Z]+)\)@(\d+)$/.exec(name);
+  if (sub) return baseline.tiers?.risk?.subs?.[sub[1]]?.[sub[2]];
+  const plain = /^([a-zA-Z]+)@(\d+)$/.exec(name);
+  if (plain) return baseline.tiers?.[plain[1]]?.[plain[2]];
+  return undefined;
+}
+
 /**
  * ── stage F: registry machine comparison (ADR-V3-018 决策 2 / review I8) ─────
  */
@@ -1035,6 +1145,48 @@ async function stageF(cdp, rows, cells, worst, extraRows = []) {
   // the 3 risk viewport cells that only ever exist as members of the 15-cell
   // sub-scenario set (9 mandatory + 15 risk + 1 worst ≠ the 22 cells actually
   // compared: 6 non-risk rows + 15 risk sub-cells + 1 worst).
+  // ── V4.5-1（TASK-V45-116 / ADR-V45-006 §2c）：`v45Ledger` 逐格留痕判据 ──────────
+  // 台账（`docs/v4-density-baseline.json#v45Ledger`）必须覆盖全部 31 个登记格，且每格的
+  // `after` 必须**与当前登记值同源**（`tiers` 里的值），`before` / `delta` / `measuredOn` /
+  // `source` / `reason` / `historyRetained` 六项齐备。台账滞后或与登记值脱钩 ⇒ FAIL
+  // ——「逐格留痕」因此不是散文，而是可复算的。
+  {
+    const ledgerRows = baseline.v45Ledger?.cells ?? [];
+    const problems = [];
+    const expectedCells = [
+      ...rows.filter((r) => r.tier !== 'risk').map((r) => `${r.tier}@${r.vp}`),
+      ...cells.map((c) => `risk(${c.sub})@${c.vp}`),
+      ...extraRows.map((r) => `${r.tier}@${r.vp}`),
+      'risk.worst',
+      ...['320', '400', '520'].map((vp) => `risk@${vp}（名义格）`),
+    ];
+    if (ledgerRows.length !== expectedCells.length) {
+      problems.push(`v45Ledger 格数 ${ledgerRows.length} ≠ 登记格数 ${expectedCells.length}`);
+    }
+    for (const name of expectedCells) {
+      const entry = ledgerRows.find((c) => c.cell === name);
+      if (!entry) {
+        problems.push(`${name}: v45Ledger 缺该格`);
+        continue;
+      }
+      for (const field of ['cell', 'tier', 'vp', 'before', 'after', 'delta', 'measuredOn', 'source', 'reason', 'historyRetained']) {
+        if (entry[field] === undefined) problems.push(`${name}: 缺字段 ${field}`);
+      }
+      if (String(entry.reason ?? '').trim().length < 40) problems.push(`${name}: reason 必须 ≥40 字符`);
+      const registered = resolveBaselineCell(baseline, name);
+      if (registered && JSON.stringify(entry.after) !== JSON.stringify(registered)) {
+        problems.push(`${name}: v45Ledger.after=${JSON.stringify(entry.after)} ≠ 当前登记值 ${JSON.stringify(registered)}（台账滞后）`);
+      }
+    }
+    check('F v45Ledger 逐格留痕（31 格齐备 ∧ after == 当前登记值 ∧ 六项字段齐备）', problems.length === 0, problems.slice(0, 8).join(' | '));
+  }
+  // 实测读数全量 JSON（构建期生成 v45Ledger 的数据源；诊断输出，非断言）
+  console.log(`    measured-cells-json: ${JSON.stringify([
+    ...rows.filter((r) => r.tier !== 'risk').map((r) => ({ cell: `${r.tier}@${r.vp}`, tier: r.tier, vp: r.vp, after: r.measured })),
+    ...cells.map((c) => ({ cell: `risk(${c.sub})@${c.vp}`, tier: 'risk', vp: c.vp, after: c.measured })),
+    ...extraRows.map((r) => ({ cell: `${r.tier}@${r.vp}`, tier: r.tier, vp: r.vp, after: r.measured })),
+    { cell: 'risk.worst', tier: 'risk', vp: 'worst', after: worst },
+  ])}`);
   const comparedCells = rows.filter((r) => r.tier !== 'risk').length + extraRows.length + cells.length + 1;
   check(
     `F ${comparedCells} 个登记格实测 == 基线登记值（漂移即 FAIL）`,
@@ -1156,18 +1308,35 @@ async function reverseRp02(cdp, base) {
   const original = resolve(PACKAGE_ROOT, 'test/ui/density-metrics.mjs');
   const sha = (p) => createHash('sha256').update(readFileSync(p)).digest('hex');
   const shaBefore = sha(original);
-  const copy = resolve('/tmp', `density-metrics-rp02-${Date.now()}.mjs`);
+  // V4.5-1 R3（TASK-V45-116）：副本必须落在 **`test/ui/` 内**，否则 `density-metrics.mjs`
+  // 的 `findPackageRoot()`（从模块自身位置向上找 `src/ui/sidepanel/density-scope.ts`）
+  // 在 `/tmp` 下必然失败（实测：`density scope not found from /tmp`）—— 反证会以「环境错误」
+  // 而不是断言失败告终，那正是 N-02 明令判为**无效**的红。副本名带随机后缀且 `finally` 删除。
+  const copy = resolve(PACKAGE_ROOT, 'test/ui', `density-metrics-rp02-${Date.now()}-${Math.floor(Math.random() * 1e6)}.mjs`);
   try {
-    const source = readFileSync(original, 'utf8');
-    const patched = source.replace('default: Object.freeze({ clickables: 7, lines: 15 })', 'default: Object.freeze({ clickables: 6, lines: 15 })');
-    if (patched === source) throw new Error('RP-V3-02(b) 未能定位默认档阈值常量');
-    writeFileSync(copy, patched, 'utf8');
-    const { evaluateDensity: evaluatePatched } = await import(`file://${copy}?t=${Date.now()}`);
     await resetFixture(cdp);
     await setViewport(cdp, 400, VIEWPORT_HEIGHT);
     const measured = await measure(cdp);
+    // V4.5-1 R3（TASK-V45-116）**反证注入点重写**：v3 时代的注入量 `7 → 6` 建立在
+    // 「默认档恰 7 可点」之上；v4-1 已把默认档可点取代为**工具栏准入值 5**（ADR-V4-018），
+    // 于是「上限 6」再也不越界 ⇒ 旧注入量会让本反证变成**恒绿**（= 无效判据）。
+    // 注入量改为相对**实测**值的 `-1`（动态、不硬编码），并新增前置断言证明越界成立。
+    const injectedLimit = measured.clickables - 1;
+    check(
+      `RP-V3-02(b) 前置：默认档实测可点 ${measured.clickables} > 注入上限 ${injectedLimit}（否则反证空转）`,
+      measured.clickables > injectedLimit,
+      `实测 ${measured.clickables} / 注入上限 ${injectedLimit}`,
+    );
+    const source = readFileSync(original, 'utf8');
+    const patched = source.replace(
+      'default: Object.freeze({ clickables: 7, lines: 15 })',
+      `default: Object.freeze({ clickables: ${injectedLimit}, lines: 15 })`,
+    );
+    if (patched === source) throw new Error('RP-V3-02(b) 未能定位默认档阈值常量');
+    writeFileSync(copy, patched, 'utf8');
+    const { evaluateDensity: evaluatePatched } = await import(`file://${copy}?t=${Date.now()}`);
     const verdict = evaluatePatched(measured, 'default');
-    check('RP-V3-02(b) 副本阈值 6 驱动同一测量必须 FAIL', verdict.ok === false, `ok=${verdict.ok} ${verdict.message}`);
+    check(`RP-V3-02(b) 副本阈值 ${injectedLimit}（实测 -1）驱动同一测量必须 FAIL`, verdict.ok === false, `ok=${verdict.ok} ${verdict.message}`);
     // and the copy-driven judgement must flip back with the real threshold
     const real = evaluateDensity(measured, 'default');
     check('RP-V3-02(b) 原阈值 7 驱动同一测量必须 PASS（证明翻转来自阈值本身）', real.ok === true, real.message);
@@ -1400,7 +1569,7 @@ const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('h
 async function reverseRpV401(cdp) {
   console.log('\n▶ RP-V4-01：卡内注入第 7 个可点元素 → 单卡预算必须 FAIL → 还原 → 必须 PASS');
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
-  await resetFixture(cdp, { authorized: true, ask: false });
+  await resetFixture(cdp);
   await sleep(200);
   const before = await judgeCards(cdp, 'empty');
   check('RP-V4-01 前置：基线单卡可点 ≤ 上限（判据未恒真）', before.cardBudget.ok === true, `${before.cardBudget.violations.join(' / ')} | ${before.raw}`);
@@ -1429,7 +1598,8 @@ async function reverseRpV401(cdp) {
 async function reverseRpV402(cdp) {
   console.log('\n▶ RP-V4-02：空态首屏注入到 3 张卡 → 首屏预算必须 FAIL → 还原 → 必须 PASS');
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
-  await resetFixture(cdp, { authorized: true, ask: false });
+  // V4.5-1 R3（TASK-V45-116）：靶面是**空态**首屏 ⇒ 同 RP-V4-03 走空态档夹具。
+  await resetFixture(cdp, { authorized: true, ask: false, emptyState: true });
   await sleep(200);
   const before = await judgeCards(cdp, 'empty');
   check('RP-V4-02 前置：空态首屏卡 ≤2（判据未恒真）', before.firstScreen.ok === true, `${before.firstScreen.violations.join(' / ')} | ${before.raw}`);
@@ -1458,7 +1628,10 @@ async function reverseRpV402(cdp) {
 async function reverseRpV403(cdp) {
   console.log('\n▶ RP-V4-03：注入第 2 张欢迎卡 / 欢迎文本 >8 行 → 必须 FAIL → 还原 → 必须 PASS');
   await setViewport(cdp, 400, VIEWPORT_HEIGHT);
-  await resetFixture(cdp, { authorized: true, ask: false });
+  // V4.5-1 R3（TASK-V45-116）：本反证的靶面是**空态**（欢迎占位）⇒ 夹具必须走空态档
+  // （`emptyState: true`：不构造稳态 notice 行），否则「空态」这一格不再空、欢迎占位不存在
+  // ——旧写法会以「夹具缺失」而不是判据失效告终（与 RP-V3-02 的注入量重写同一类修复）。
+  await resetFixture(cdp, { authorized: true, ask: false, emptyState: true });
   await sleep(200);
   const before = await judgeCards(cdp, 'empty');
   check('RP-V4-03 前置：空态欢迎卡恰 1 张且 ≤8 行（判据未恒真）', before.firstScreen.ok === true && before.firstScreen.welcomeCards === 1, `${before.firstScreen.violations.join(' / ')} | ${before.raw}`);
@@ -1610,6 +1783,54 @@ async function reverseRpV406(cdp) {
   );
   check('RP-V4-06 (还原后 PASS 段) 还原后豁免守卫必须 PASS', restored.guard === 'pass', restored.guard);
   check('RP-V4-06 还原后排除口径 C1 回到基线', restored.scoped === before.scoped, `${before.scoped} → ${restored.scoped}`);
+}
+
+/**
+ * RP-V4-10（TASK-V45-116 / ADR-V45-006 §3 反证）—— **夹具稳态锚不是恒真判据**。
+ *
+ * 「把构造序列的最后一步**延后**（少跑一步）⇒ 三项之一必红」：最后一步 = `fixturePass()`
+ * 末尾的 `systemRow('notice', …)`（稳态事实的唯一可见载体）。这里用**同一个** `settledProbe`
+ * 驱动（不是副本）：完整构造 ⇒ 三项齐备；移除该步的产物（= 延后一步）⇒ ①（源行）与
+ * ③（卡数）必红；重新构造 ⇒ 三项全绿；跨夹具顺序置换（risk 档）不产生新红。
+ */
+async function reverseRpV410(cdp) {
+  console.log('\n▶ RP-V4-10：夹具构造序列最后一步延后 ⇒ 稳态锚必红 → 补回 ⇒ 三项全绿');
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+  await resetFixture(cdp, { authorized: true, ask: true });
+  const settled = JSON.parse(await evaluate(cdp, settledProbe));
+  check(
+    'RP-V4-10 前置：完整构造序列下三项齐备（否则反证没有对照）',
+    settled.noticeRows === 1 && settled.processUnsettled.length === 0 && settled.cardCount === SETTLED_EXPECTED_CARDS.default,
+    JSON.stringify(settled),
+  );
+  await evaluate(
+    cdp,
+    `(() => { for (const r of document.querySelectorAll('#stream [data-msg-type="system"][data-kind="notice"]')) r.remove(); return true; })()`,
+  );
+  const delayed = JSON.parse(await evaluate(cdp, settledProbe));
+  check('RP-V4-10 (FAIL 段) 延后最后一步 ⇒ 稳态锚 ① 必红（源行不存在）', delayed.noticeRows !== 1, JSON.stringify(delayed));
+  check(
+    'RP-V4-10 (FAIL 段) 延后最后一步 ⇒ 稳态锚 ③ 也必红（卡数 ≠ 登记期望）',
+    delayed.cardCount !== SETTLED_EXPECTED_CARDS.default,
+    JSON.stringify(delayed),
+  );
+  await resetFixture(cdp, { authorized: true, ask: true });
+  const restored = JSON.parse(await evaluate(cdp, settledProbe));
+  check(
+    'RP-V4-10 (还原后 PASS 段) 补回最后一步 ⇒ 三项全绿',
+    restored.noticeRows === 1 && restored.noticeLen > 0 && restored.processUnsettled.length === 0
+      && restored.cardCount === SETTLED_EXPECTED_CARDS.default,
+    JSON.stringify(restored),
+  );
+  await resetFixture(cdp, { authorized: false, ask: true });
+  const riskFixture = JSON.parse(await evaluate(cdp, settledProbe));
+  check(
+    'RP-V4-10 跨夹具顺序置换不产生新红（risk(unauthorized) 三项齐备）',
+    riskFixture.noticeRows === 1 && riskFixture.processUnsettled.length === 0
+      && riskFixture.cardCount === SETTLED_EXPECTED_CARDS['risk(unauthorized)'],
+    JSON.stringify(riskFixture),
+  );
+  await setRisk(cdp, 'unauthorized', 'off');
 }
 
 /** RP-V4-07（FR-CHAT-013 / J3）：风险 chip 被移入 `hidden` 容器 ⇒ 可见性探针必须 FAIL。 */
@@ -1848,6 +2069,9 @@ async function main() {
           break;
         case 'RP-V4-09':
           await reverseRpV409(cdp);
+          break;
+        case 'RP-V4-10':
+          await reverseRpV410(cdp);
           break;
         default:
           throw new Error(`未知反证：${REVERSE}`);
