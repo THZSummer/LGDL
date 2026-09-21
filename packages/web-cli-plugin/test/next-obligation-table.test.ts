@@ -174,9 +174,17 @@ test('OT-1 义务表恰 9 行；注册表 opId 集 ⊆ 义务表 opId 集（无�
   const registered = Object.keys(OPS_BY_ID);
   assert.deepEqual(unmappedOpIds(registered), [], '已注册 op 必须全部有义务表行');
   assert.doesNotThrow(() => assertObligationCoverage(registered));
-  // The three ops v5-2 lands are **registered** as pending, never silently absent.
+  // V5-2 TASK-V5-123（ADV 登记翻转）: the three ops v5-1 registered as `pending-v5-2`
+  // are LANDED by this leaf, so the obligation table must have flipped with them. The
+  // judgement is bidirectional — a row that is registered while still `pending-v5-2`
+  // (the「登记与事实不一致」drift) fails just as loudly as the reverse.
   const pending = OBLIGATION_ROWS.filter((r) => r.status === 'pending-v5-2').map((r) => r.opId);
-  assert.deepEqual(pending, ['op.llm-config', 'op.perm.request', 'op.revoke'], '未落地 op 必须显式为 pending-v5-2（登记，非静默）');
+  assert.deepEqual(pending, [], 'v5-2 已注册 9 op ⇒ 义务表不得再有 pending-v5-2 行（登记必须与事实一致）');
+  assert.deepEqual(
+    OBLIGATION_ROWS.filter((r) => r.status === 'registered').map((r) => r.opId).sort(),
+    [...registered].sort(),
+    '义务表 landed 集必须与注册表 opId 集逐字相等（双向，零漂移）',
+  );
 });
 
 test('OT-2 四要素逐项非空（每行 4 字段 + 派生模式 + 合法失败语义）', () => {

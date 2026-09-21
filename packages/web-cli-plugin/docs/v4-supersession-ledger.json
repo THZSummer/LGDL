@@ -2837,9 +2837,122 @@
         "note": "受判文件 38 个（规则复算）· 逐字登记 96 条删除行（分布在 12 个文件） 〖W3（2026-09-21）〗本叶段追加 W3（TASK-V45-107~110）的逐字登记：新增 l0-disclosure.test.ts 组 27 条；分项之和 123 条 / 13 个文件（口径 = 各文件 registeredUncoveredLines 组的逐字行数之和）。 〖W3 补登〗scope 逐叶复算（新增 4 个文件登记点）+ 逐字登记补登 72 条；分项之和 195 条 / 17 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 1 条；分项之和 196 条 / 17 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 336 条；分项之和 532 条 / 21 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 2 条；分项之和 534 条 / 22 个文件。 〖W3 补登〗scope 逐叶复算（新增 0 个文件登记点）+ 逐字登记补登 13 条；分项之和 547 条 / 23 个文件。 〖R3（2026-09-21，TASK-V45-113~119）〗追加 W4/W5 的逐字登记：新增 journey.mjs 12 条 + supersession-ledger.test.ts 2 条；分项之和 561 条 / 24 个文件（口径 = 各文件 registeredUncoveredLines 组的逐字行数之和，与 summary 同源机核）。 〖review R1 修复轮（2026-09-21）〗BLOCK-01~04 修复：page-input.mjs ⑤ 拖放高亮写点从退役 `#l0-decision` 迁到真实落点面 `#stream`（删除行逐字追加 2 条 ⇒ 分项之和 583 条 / 24 个文件）；断言只增不减。 〖review R1 修复轮（2026-09-21）〗size-baseline.ts 的 `deltaBytes` 注释行按实测口径订正（被替换旧行逐字登记 1 条 ⇒ 分项之和 584 条 / 25 个文件，与 summary 同源机核）；断言只增不减。"
       },
       "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段实跑（含本 v4.5-1 段）。"
+    },
+    {
+      "leaf": "specs-tree-v5-2-ops-first-batch",
+      "leafBase": "8526ef8",
+      "leafBaseLabel": "v5-1 收口轮 HEAD（v5-2 开工点）",
+      "leafBaseCommitSubject": "docs(sddu): v5-1 收口——N 项登记（遗留 owner=v5-2 两项）",
+      "registeredOn": "2026-09-22",
+      "registeredBy": "SDDU v5-2 build R1（TASK-V5-123~137）",
+      "why": "v5-2 是 v5 Feature 的第二个实施叶；其 leafBase = v5-1 收口轮 HEAD（8526ef8）。本叶段判据覆盖「v5-2 相对 8526ef8 的 test/** 删除行」——这些删除行全部是**等价重锚**（入口守卫的第五个独立校验面 / 本地 act 闭集按 `site` 触发槽位扩项），必须逐字登记：多一条/少一条/改一字都 FAIL。",
+      "scope": {
+        "files": [
+          "packages/web-cli-plugin/test/auto-probe.test.ts",
+          "packages/web-cli-plugin/test/blocked-terminals.test.ts",
+          "packages/web-cli-plugin/test/e2e/fullchain.mjs",
+          "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-protocol.test.ts",
+          "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+          "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+          "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
+          "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/next-obligation-table.test.ts",
+          "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "packages/web-cli-plugin/test/ref-capture.test.ts",
+          "packages/web-cli-plugin/test/ref-rescue.test.ts",
+          "packages/web-cli-plugin/test/ref-wiring.test.ts",
+          "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/sidepanel.test.ts",
+          "packages/web-cli-plugin/test/size-attribution.mjs",
+          "packages/web-cli-plugin/test/size-baseline.ts",
+          "packages/web-cli-plugin/test/size-budget.test.ts",
+          "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "packages/web-cli-plugin/test/ui/binding.mjs",
+          "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+          "packages/web-cli-plugin/test/ui/density.mjs",
+          "packages/web-cli-plugin/test/ui/hardening.mjs",
+          "packages/web-cli-plugin/test/ui/insight.mjs",
+          "packages/web-cli-plugin/test/ui/journey.mjs",
+          "packages/web-cli-plugin/test/ui/l0.mjs",
+          "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
+          "packages/web-cli-plugin/test/ui/l1.mjs",
+          "packages/web-cli-plugin/test/ui/l2-reverse.mjs",
+          "packages/web-cli-plugin/test/ui/l2.mjs",
+          "packages/web-cli-plugin/test/ui/page-input.mjs",
+          "packages/web-cli-plugin/test/ui/recommendation.mjs",
+          "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+          "packages/web-cli-plugin/test/zero-injection.test.ts"
+        ],
+        "why": "范围 = 判据自身的规则复算结果（v3 台账登记面 ∪ 本叶段相对 8526ef8 的删除面，`LEAF_SCOPE_RULE` 过滤），不得手工放宽或收窄；本叶段的真实删除面只有 insight-protocol.test.ts 与 ui/recommendation.mjs 两个文件。"
+      },
+      "registeredUncoveredLines": [
+        {
+          "file": "packages/web-cli-plugin/test/blocked-terminals.test.ts",
+          "count": 5,
+          "reason": "V5-2 TASK-V5-123~137 对本文件做**等价重锚**：v3/v4 段登记的断言/登记文本被其后继形态取代（`insight-protocol` 的入口守卫新增第五个独立校验面、`recommendation` 的本地 act 闭集按 `RECOVERY_CHIP_ORDER.site` 的 `authorize` 槽位扩为 5 项、`blocked-terminals` 的 N-04 体积自紧条目按约定翻转为 landed、`next-obligation-table` 的 pending-v5-2 行翻转为 registered）。删除行逐字登记，多一条/少一条/改一字都 FAIL。",
+          "registeredUncoveredLines": [
+              "    status: 'pending-v5-2',",
+              "    reason: 'FR-ALLN-013 要求 site.unauthorized provider 的 chips 含 op.authorize。本叶体积预算已尽（余 6 B，产品 src 冻结 ⇒ Δ=0），rec 表项改写会增字节，故本轮只交付 when(ctx) 与 firstRun 无关 + 枚举单源 + 双射登记；该 chip 随 v5-2 的 9 op 注册落地。',",
+              "    if (!item.status.startsWith('pending')) problems.push(`未闭合项必须显式登记：${item.id} 的 status 必须为 pending-*`);",
+              "  // 登记为 pending ⇒ 当前 chips 不得含 op.authorize；一旦补上，本断言会红并要求更新登记。",
+              "  const badStatus = [{ ...PENDING_ITEMS[0], status: 'landed' }];"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/insight-protocol.test.ts",
+          "count": 5,
+          "reason": "V5-2 TASK-V5-123~137 对本文件做**等价重锚**：v3/v4 段登记的断言/登记文本被其后继形态取代（`insight-protocol` 的入口守卫新增第五个独立校验面、`recommendation` 的本地 act 闭集按 `RECOVERY_CHIP_ORDER.site` 的 `authorize` 槽位扩为 5 项、`blocked-terminals` 的 N-04 体积自紧条目按约定翻转为 landed、`next-obligation-table` 的 pending-v5-2 行翻转为 registered）。删除行逐字登记，多一条/少一条/改一字都 FAIL。",
+          "registeredUncoveredLines": [
+              "  // background-only module for the same byte-freeze reason), so the guard now names four",
+              "  // predicates — the claim is unchanged and strictly stronger (it admits exactly the",
+              "  // faces that have validators, and nothing else).",
+              "    /if\\s*\\(\\s*!isPluginMessage\\(raw\\)\\s*&&\\s*!isInsightMessage\\(raw\\)\\s*&&\\s*!isPickLayerMessage\\(raw\\)\\s*&&\\s*!isRefRescueMessage\\(raw\\)\\s*\\)\\s*\\{\\s*return\\s+undefined;\\s*\\}/,",
+              "    isPluginMessage(v) || isInsightMessage(v) || isPickLayerMessage(v) || isRefRescueMessage(v);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/next-obligation-table.test.ts",
+          "count": 2,
+          "reason": "V5-2 TASK-V5-123~137 对本文件做**等价重锚**：v3/v4 段登记的断言/登记文本被其后继形态取代（`insight-protocol` 的入口守卫新增第五个独立校验面、`recommendation` 的本地 act 闭集按 `RECOVERY_CHIP_ORDER.site` 的 `authorize` 槽位扩为 5 项、`blocked-terminals` 的 N-04 体积自紧条目按约定翻转为 landed、`next-obligation-table` 的 pending-v5-2 行翻转为 registered）。删除行逐字登记，多一条/少一条/改一字都 FAIL。",
+          "registeredUncoveredLines": [
+              "  // The three ops v5-2 lands are **registered** as pending, never silently absent.",
+              "  assert.deepEqual(pending, ['op.llm-config', 'op.perm.request', 'op.revoke'], '未落地 op 必须显式为 pending-v5-2（登记，非静默）');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/recommendation.mjs",
+          "count": 1,
+          "reason": "V5-2 TASK-V5-123~137 对本文件做**等价重锚**：v3/v4 段登记的断言/登记文本被其后继形态取代（`insight-protocol` 的入口守卫新增第五个独立校验面、`recommendation` 的本地 act 闭集按 `RECOVERY_CHIP_ORDER.site` 的 `authorize` 槽位扩为 5 项、`blocked-terminals` 的 N-04 体积自紧条目按约定翻转为 landed、`next-obligation-table` 的 pending-v5-2 行翻转为 registered）。删除行逐字登记，多一条/少一条/改一字都 FAIL。",
+          "registeredUncoveredLines": [
+              "      check('⑭ 恢复卡 chips ⊆ 本地 act 闭集（next 不在场时不存在回合 chip）', authChip.otherActs.every((a) => ['repick', 'describe', 'rebind'].includes(a)), authChipRaw);"
+          ]
+        }
+      ],
+      "summary": {
+        "filesWithUnregisteredLeafDeletions": 4,
+        "registeredLines": 13,
+        "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的文件数（与 v3 台账 `leafBases[].summary` 同一口径，逐组实测复算）。",
+        "note": "〖V5-2 R1（2026-09-22，TASK-V5-123~137）〗本段登记的删除面 = 4 个文件 / 13 行，全部为**等价重锚**（断言只增不减：`insight-protocol` 的入口守卫由四校验面扩为五校验面并新增 op-* 反证；`recommendation` 的本地 act 闭集由 3 项扩为 5 项本地动作）。"
+      },
+      "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段实跑（含本 v5-2 段）；本段 `registeredUncoveredLines` 逐字命中 `git diff 8526ef8` 的删除行。"
     }
   ],
   "entries": [
+    {
+      "id": "V52R1-E-01",
+      "file": "packages/web-cli-plugin/test/insight-protocol.test.ts",
+      "gate": "SW 入口守卫（并集校验器）",
+      "oldId": "V34-S3 / V34-S3c / V34DR3-S9",
+      "oldTitle": "!isRefRescueMessage\\(raw\\)\\s*\\)\\s*\\{\\s*return\\s+undefined;",
+      "newId": "OP-P-1-kindset-verbatim",
+      "newTitle": "!isRefRescueMessage\\(raw\\)\\s*&&\\s*!isOpMessage\\(raw\\)\\s*\\)\\s*\\{\\s*return\\s+undefined;",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-v5-2-ops-first-batch",
+      "reason": "V5-2 TASK-V5-130（ADR-V5-003 §1 / FR-ALLN-067 · X2）：`op-*` 是**第五个独立校验面**，SW 入口守卫的并集由四个校验器扩为五个（`!isOpMessage(raw)`），`unionGuard` 同步扩项。判据力只升不降（新增 op-* 反证：`isOpMessage` 接受 op-exec ∧ `isPluginMessage` 拒绝它，证明 op-* 没有进 `KIND_SET`）。v3 段（V34-S3 / V34-S3c / V34DR3-S9）的 newTitle 由本条目**接管**（换链不放松）。"
+    },
     {
       "id": "V41-E-01",
       "file": "packages/web-cli-plugin/src/ui/sidepanel/index.html",

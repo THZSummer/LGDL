@@ -182,14 +182,29 @@ export interface StreamPayload {
   readonly ok?: boolean;
   /** Duration in ms (tool / thinking). */
   readonly ms?: number;
-  /** ask-user / auth card shape. */
-  readonly askKind?: 'choice' | 'confirm' | 'text';
+  /**
+   * ask-user / auth card shape. V5-2 TASK-V5-134 (ADR-V5-002 §2): `secret` (the masked
+   * credential card) and `form` (the multi-select permission card) are **enum values of
+   * an existing kind** — `askuser` — never new card types (NG-ALLN-001 / `CARD_TYPES`).
+   */
+  readonly askKind?: 'choice' | 'confirm' | 'text' | 'secret' | 'form';
   /** ask-user / auth prompt (body of the card). */
   readonly prompt?: string;
   /** choice options (≤3 renderable + the terminal「其他…」). */
   readonly options?: readonly string[];
   /** ask / confirm request id (business key, not a secret). */
   readonly requestId?: string;
+  /**
+   * V5-2 (ADR-V5-002 §2 / FR-ALLN-020~023, 法八入口侧) — the three additive fields of
+   * the masked / multi-select forms. All optional: absent ⇒ rendering is byte-identical
+   * to before (rollback = simply not passing them).
+   *
+   * `maskedLength` is a **length only**; the fixed region renders a *category* of it
+   * (ADR-V5-010 §2 缩窄侧信道), never the raw length.
+   */
+  readonly secretLabel?: string;
+  readonly formOptions?: readonly { readonly id: string; readonly label: string; readonly scope: string }[];
+  readonly maskedLength?: number;
   /** The frozen answer text (ask card固化区). */
   readonly answer?: string;
   /** v4-3: why an ask card reached `cancelled` (absent for answered/approved/rejected). */

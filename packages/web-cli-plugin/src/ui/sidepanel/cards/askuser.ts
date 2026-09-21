@@ -112,6 +112,13 @@ export function answeredState(view: CardView): 'false' | 'true' | 'cancelled' {
 /** The固化 copy of an ask card, derived from its terminal state only (C7 / C10). */
 export function askFixedText(view: CardView): string {
   if (view.terminal === 'cancelled') return ASK_COPY.cancelled;
+  // V5-2 TASK-V5-135 (ADR-V5-002 §2 / FR-ALLN-022, 法八): the masked card固化s the
+  // **fact** — written / masked / a length CATEGORY — never the value, never a prefix.
+  // The category (`8+` / `8-`) is what narrows the side channel (ADR-V5-010 §2).
+  if (view.payload.askKind === 'secret') {
+    const n = view.payload.maskedLength;
+    return ASK_COPY.secretWritten.replace('{n}', n !== undefined && n >= 8 ? '8+' : '8-');
+  }
   return `${ASK_COPY.answeredPrefix}${view.payload.answer ?? ''}`;
 }
 
@@ -180,16 +187,26 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   options.className = 'row';
   ask.appendChild(options);
 
+  // V5-2 TASK-V5-135 (ADR-V5-002 §2 / FR-ALLN-020~023, 法八入口侧): the masked
+  // credential card REUSES this one input/submit/cancel triple — the `secret` shape is
+  // the `type="password"` + `data-secret` variant of it, so the card family keeps one
+  // construction (no second DOM path) and 3 clickables (≤ MAX_CLICKABLES_PER_CARD = 6).
+  const isSecret = askKind === 'secret';
   const fallback = doc.createElement('div');
   fallback.id = 'ask-fallback';
   fallback.className = 'ask-fallback';
-  fallback.hidden = askKind !== 'text';
+  fallback.hidden = askKind !== 'text' && !isSecret;
 
   const input = doc.createElement('input');
   input.id = 'ask-input';
-  input.type = 'text';
+  input.type = isSecret ? 'password' : 'text';
   input.className = 'ask-input';
-  input.placeholder = '输入回答…';
+  if (isSecret) {
+    input.setAttribute('data-secret', 'true');
+    input.setAttribute('aria-label', view.payload.secretLabel ?? '凭据（不回显）');
+  } else {
+    input.placeholder = '输入回答…';
+  }
   input.autocomplete = 'off';
   input.setAttribute('aria-label', '回答');
   const submit = doc.createElement('button');
@@ -207,7 +224,10 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   cancel.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'cancel'));
   const hint = doc.createElement('span');
   hint.className = 'hint';
+  // 法八: the masked card carries no hint that could echo a value; both terminal copies
+  // come from `ASK_COPY` (single source) and the固化 text is the FACT only.
   hint.textContent = '取消 = 回答被取消（不代填默认值）';
+  hint.hidden = isSecret;
   fallback.append(input, submit, cancel, hint);
   ask.appendChild(fallback);
 
@@ -240,7 +260,7 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   // consequence preview) is mounted **inside the open card's own form**, so it is
   // created and removed with the card's interactivity — the retired `#l0-decision`
   // shell has no counterpart left.
-  mountDecisionRegion(view, deps, ask);
+  if (!isSecret) mountDecisionRegion(view, deps, ask);
   col.appendChild(ask);
 }
 

@@ -101,6 +101,13 @@ export function plaintextTitle(text: string): string {
 export const ASK_COPY = Object.freeze({
   /** The empty answer guard — never auto-filled (fail-closed). */
   answeredPrefix: '已答：',
+  /**
+   * V5-2 TASK-V5-135 (ADR-V5-002 §2 / FR-ALLN-022, 法八) — the masked card's fixed copy.
+   * It states the FACT only (written / masked / a length **category**), never the value
+   * nor any prefix of it. `{n}` is a category (`8+`), not the raw length (ADR-V5-010 §2,
+   * 缩窄侧信道).
+   */
+  secretWritten: '已写入（掩码 · 零明文 · {n} 位）',
   /** Cancelled (any reason) — verbatim shim C10 copy. */
   cancelled: '已取消（不代填默认值）',
   /** The system row for a user cancel (kept, though the card alone already traces). */

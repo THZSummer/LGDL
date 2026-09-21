@@ -87,7 +87,8 @@ export interface ConfirmState {
 /** Task-internal clarification question awaiting a user answer (FR-017 / R7). */
 export interface AskState {
   requestId: string;
-  kind: 'choice' | 'confirm' | 'text';
+  /** The `askuser` shape — derived from the model (one declaration, no second list). */
+  kind: NonNullable<StreamPayload['askKind']>;
   prompt: string;
   options?: string[];
   default?: string;
@@ -140,7 +141,7 @@ type SidepanelActionBody =
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
   | { type: 'confirm-resolved'; allow: boolean; requestId?: string }
   | { type: 'ask'; requestId: string; kind: AskState['kind']; prompt: string; options?: string[]; default?: string }
-  | { type: 'ask-resolved'; answer?: string; canceled?: boolean; requestId?: string; reason?: AskCancelReason }
+  | { type: 'ask-resolved'; answer?: string; canceled?: boolean; requestId?: string; reason?: AskCancelReason; maskedLength?: number }
   | { type: 'audit-count'; count: number }
   /**
    * decision ② / FR-048: load a session's history. V4-2 appends the rows to the
@@ -583,6 +584,8 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
       let out = terminalDecision(state, 'askuser', at, terminal, action.requestId, {
         ...(action.answer !== undefined ? { answer: action.answer } : {}),
         ...(reason ? { cancelReason: reason } : {}),
+        // V5-2: the masked card records the FACT (a length), never the value (FR-ALLN-022).
+        ...(action.maskedLength !== undefined ? { maskedLength: action.maskedLength } : {}),
       });
       const line = action.canceled ? cancelSystemLine(action.reason ?? 'user') : null;
       if (line) out = systemRow(out, at, line, 'decision');

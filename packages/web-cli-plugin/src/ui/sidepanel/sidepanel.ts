@@ -33,8 +33,11 @@ import {
 } from './stream-digest.js';
 import type { CardDeps } from './cards/index.js';
 import { syncNextstepPending } from './cards/nextstep.js';
-import { recommendNextStep } from './recommend.js';
-import { bindPanelOps } from './next-registry/pipeline.js';
+import { recommendCtx, recommendNextStep } from './recommend.js';
+import { bindPanelOps, PARAMS_REJECTED } from './next-registry/pipeline.js';
+import { OP_PARAM_SEQUENCE } from './next-registry/ops.js';
+import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definition.js';
+import { providerById } from '../../llm/providers.js';
 import { dispatchChipAction } from './next-registry/dispatch.js';
 import { createSystemChannelState, droppedSystemText, SYSTEM_COPY } from './system-events.js';
 import {
@@ -205,6 +208,12 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     const allow = action === 'approve';
     if (requestId) void send(makeMessage('confirm-response', { requestId, allow }));
     dispatch({ type: 'confirm-resolved', allow, ...(requestId ? { requestId } : {}) });
+    // V5-2 (ADR-V5-002 §1 ③): an op consent card settles the pipeline's await.
+    const settleConsent = requestId ? opConsentResolvers.get(requestId) : undefined;
+    if (settleConsent && requestId) {
+      opConsentResolvers.delete(requestId);
+      settleConsent(allow ? 'allow' : 'reject');
+    }
     return;
   }
   if (action === 'audit') {
@@ -288,24 +297,41 @@ function requestTurn(text: string): boolean {
  * states the activeTab fallback explicitly. No new permission is introduced (the
  * manifest / permission set is untouched — this is the existing flow, re-exposed).
  */
-function authorizeCurrentSite(): void {
+async function authorizeCurrentSite(): Promise<OpOutcome> {
   const origin = state.activeOrigin;
-  if (!origin) return;
-  void (async () => {
-    // Request the optional host permission inside the user gesture (IMP-4 /
-    // FR-006); best-effort — OriginStore authorization is the authoritative gate.
-    // D-064: keep the readable reason and state the activeTab fallback explicitly.
-    const req = await requestOriginPermissionDetailed(origin);
-    await send(makeMessage('authorize', { origin, hostPermissionGranted: req.granted }));
-    dispatch({ type: 'state', authorized: true });
-    const permissionText = req.granted
-      ? `已获得站点访问权限（${req.pattern}）`
-      : `未获得持久站点权限（${req.reason ?? '未知原因'}），回退到 activeTab 临时授权——仅在点击插件图标的手势内有效`;
-    dispatch({
-      type: 'notice',
-      text: `已授权 ${origin}；${permissionText}。${consentSummary()}`,
-    });
-  })();
+  if (!origin) return { ok: false, reason: 'no-origin' };
+  const consentToken = `op.authorize:${origin}`;
+  // ① probe — the SW 裁决 owner validates the consent token, snapshots the
+  // authorization table and hands back the gesture instruction. Read-only: this
+  // phase cannot change state (R-V5-101), so an abort here leaves the table intact.
+  const probe = await send<{ needsGesture?: boolean; pattern?: string | null }>(
+    makeMessage('op-exec', { opId: 'op.authorize', phase: 'probe', origin, consentToken }),
+  );
+  if (!probe.ok) {
+    dispatch({ type: 'notice', text: `✖ 授权未生效：${probe.error ?? '后台无响应'}` });
+    return { ok: false, reason: probe.error ?? 'probe-failed' };
+  }
+  // ② the gesture — the ONE existing request entry, inside the user-gesture path
+  // (IMP-4 / FR-006, best-effort; OriginStore stays the authoritative gate, D-064).
+  const req = await requestOriginPermissionDetailed(origin);
+  // ③ commit — the ONLY commit point (the SW writes the OriginStore record + audit).
+  const commit = await send(makeMessage('op-exec', {
+    opId: 'op.authorize',
+    phase: 'commit',
+    origin,
+    consentToken,
+    gestureResult: { granted: req.granted, pattern: req.pattern, reason: req.reason },
+  }));
+  if (!commit.ok) {
+    dispatch({ type: 'notice', text: `✖ 授权未生效：${commit.error ?? '后台无响应'}` });
+    return { ok: false, reason: commit.error ?? 'commit-failed' };
+  }
+  dispatch({ type: 'state', authorized: true });
+  const permissionText = req.granted
+    ? `已获得站点访问权限（${req.pattern}）`
+    : `未获得持久站点权限（${req.reason ?? '未知原因'}），回退到 activeTab 临时授权——仅在点击插件图标的手势内有效`;
+  dispatch({ type: 'notice', text: `已授权 ${origin}；${permissionText}。${consentSummary()}` });
+  return { ok: true };
 }
 
 /** The business key of an ask/auth stream card (never a DOM guess). */
@@ -1200,6 +1226,106 @@ function openSettingsSection(sectionId: string): void {
   });
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5-2 TASK-V5-134~137 (ADR-V5-002 §1/§2 · ADR-V5-010 §1) — the masked credential
+ * card's ONE value sink, the op `params` / `consent` collectors and `op.llm-config`.
+ *
+ * 法八入口侧: `submitSecret` is the ONLY place a value reaches storage. The value is
+ * never a stream payload field, never a `digest` entry and never an element
+ * attribute (`test/ui/law8-plaintext.mjs` scans all four faces in v5-3).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The ONE key store: the settings view, `op.llm-config` and `submitSecret` share it. */
+const keyStore = createKeyStore(createChromeAsyncKv('web-cli'));
+
+/** Pending op `params` asks (`requestId → resolve`) and the masked ones among them. */
+const opAskResolvers = new Map<string, (v: string | undefined) => void>();
+const SECRET_ASKS = new Set<string>();
+/** Pending op `consent` cards (`requestId → resolve`). */
+const opConsentResolvers = new Map<string, (v: 'allow' | 'reject') => void>();
+/** The values the running op collected, in `OP_PARAM_SEQUENCE` order. */
+const opParams: string[] = [];
+/** 执行前凭据表快照 — the rollback source for `op.llm-config` (R-ALLN-904 上游). */
+let llmSnapshot: Awaited<ReturnType<typeof keyStore.load>> | null = null;
+
+/**
+ * `submitSecret(requestId, value)` — the masked card's submit (FR-ALLN-021 / N24).
+ * The value goes **straight to the key store**; only the fact (`maskedLength`) is
+ * dispatched, and a blank value is a no-op with zero side effects (EC-ALLN-009).
+ */
+async function submitSecret(requestId: string, value: string): Promise<void> {
+  const secret = value.trim();
+  const settle = opAskResolvers.get(requestId);
+  opAskResolvers.delete(requestId);
+  if (!secret) {
+    dispatch({ type: 'notice', text: '✖ 未填写凭据，已取消（零副作用）' });
+    settle?.(undefined);
+    return;
+  }
+  llmSnapshot = await keyStore.load();
+  const provider = providerById(opParams[0] ?? '');
+  await keyStore.save({ providerId: provider.id, apiKey: secret, model: opParams[1] || provider.defaultModel });
+  dispatch({ type: 'ask-resolved', requestId, answer: undefined, maskedLength: secret.length });
+  settle?.(secret);
+}
+
+/**
+ * The pipeline's production `params` collector (ADR-V5-002 §1 ②): walk the op's ask
+ * sequence through the ONE stream card mechanism. A value already carried by the
+ * caller (a chip submit) skips the ask state, and a refusal maps to `PARAMS_REJECTED`.
+ */
+function collectOpParams(op: NextOp, ctx: OpCtx): Promise<unknown> {
+  if (ctx.value !== undefined) return Promise.resolve(ctx.value);
+  // V5-2 (FR-ALLN-046): `op.describe`'s `text` ask card is the **existing** in-panel
+  // fallback card (`ensureTextAskCard` / `#ask-fallback`, the ONE owner of「用文字描述」),
+  // so the pipeline's params phase resolves to it instead of minting a second card —
+  // a second owner is exactly what `test:recommendation` ⑫ forbids.
+  if (op.opId === 'op.describe') {
+    revealAskFallback();
+    return Promise.resolve(true);
+  }
+  const specs = OP_PARAM_SEQUENCE[op.opId] ?? (op.params ? [op.params] : []);
+  return (async () => {
+    const values: string[] = [];
+    for (const spec of specs) {
+      const rid = `op-param:${op.opId}:${values.length}`;
+      if (spec.kind === 'secret') SECRET_ASKS.add(rid);
+      dispatch({
+        type: 'ask',
+        requestId: rid,
+        kind: spec.kind,
+        prompt: spec.prompt,
+        ...(spec.options ? { options: [...spec.options] } : {}),
+      });
+      const v = await new Promise<string | undefined>((resolve) => opAskResolvers.set(rid, resolve));
+      if (v === undefined) {
+        SECRET_ASKS.delete(rid);
+        return PARAMS_REJECTED;
+      }
+      // 法八: a secret value is NOT kept — only a masked marker enters the tuple.
+      values.push(spec.kind === 'secret' ? '' : v);
+    }
+    opParams.splice(0, opParams.length, ...values);
+    return values.length === 1 ? values[0] : values;
+  })();
+}
+
+/**
+ * The pipeline's production `consent` collector (ADR-V5-002 §1 ③): the stream auth
+ * card. A rejection undoes an already-written credential (the params state precedes
+ * consent in the one pipeline), so「拒绝 ⇒ 无状态变更」also holds for `op.llm-config`.
+ */
+async function collectOpConsent(op: NextOp): Promise<'allow' | 'reject'> {
+  const rid = `op-consent:${op.opId}`;
+  dispatch({ type: 'confirm', requestId: rid, summary: op.consent?.prompt ?? '' });
+  const answer = await new Promise<'allow' | 'reject'>((resolve) => opConsentResolvers.set(rid, resolve));
+  if (answer === 'reject' && op.opId === 'op.llm-config' && llmSnapshot) {
+    await keyStore.save(llmSnapshot);
+    llmSnapshot = null;
+  }
+  return answer;
+}
+
 /**
  * V2-3: the single `SettingsOps` factory shared by the in-panel settings view and
  * the connection-tree action runner (same existing ops, no new channels/deps).
@@ -1209,7 +1335,7 @@ function buildSettingsOps(): SettingsOps {
   return createSettingsOps({
     env,
     transport: transportFromRuntime(chrome.runtime as unknown as { sendMessage(message: unknown): Promise<unknown> }),
-    store: createKeyStore(createChromeAsyncKv('web-cli')),
+    store: keyStore,
     buildStamp: shortBuildStamp(),
     manifestVersion: () => {
       try {
@@ -1452,6 +1578,8 @@ let lastNextstepProducedAt: number | undefined;
  * 「未接线」without going through the seam). Never a security input.
  */
 let lastRecommendOutcome: { trigger: RecommendTrigger; rule: string | null; suppression: string | null } | null = null;
+/** V5-2 (FR-ALLN-047): the last recommendation context `op.help` derives the op list from. */
+let lastRecommendCtx: NextCtx | null = null;
 
 /**
  * Run the REAL producer against the live panel facts and mint the card when a
@@ -1487,6 +1615,7 @@ function maybeRecommend(trigger: RecommendTrigger): string | null {
     ...(lastNextstepProducedAt !== undefined ? { lastProducedAt: lastNextstepProducedAt } : {}),
     now: Date.now(),
   };
+  lastRecommendCtx = recommendCtx(input);
   const result = recommendNextStep(input);
   const card = result.cards[0];
   lastRecommendOutcome = { trigger, rule: card?.rule ?? null, suppression: result.suppression ?? null };
@@ -2152,6 +2281,20 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
   const refId = isRef && rid ? rid.slice(REF_ROUND_PREFIX.length) : null;
   const trimmed = value?.trim();
   const isCanceled = canceled || !trimmed;
+  // V5-2 (ADR-V5-002 §1 ②): an op `params` ask is PANEL-local — no background bridge —
+  // and a masked ask routes its value to `submitSecret` (the ONE value sink), never
+  // into the answer payload (法八: 值不入流).
+  const settleOp = rid ? opAskResolvers.get(rid) : undefined;
+  if (settleOp && rid) {
+    opAskResolvers.delete(rid);
+    if (!isCanceled && SECRET_ASKS.delete(rid)) {
+      void submitSecret(rid, value ?? '');
+      return;
+    }
+    SECRET_ASKS.delete(rid);
+    settleOp(isCanceled ? undefined : trimmed);
+    return;
+  }
   if (rid && !isRef) {
     void send(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false }));
   }
@@ -2842,6 +2985,26 @@ function wire(): void {
     rebind: () => void rebindCurrentTab(),
     help: () => openSettingsSection(HELP_SECTION_ID),
     notice: (text) => dispatch({ type: 'notice', text }),
+    ctx: () => lastRecommendCtx,
+    collectParams: (op, ctx) => collectOpParams(op, ctx),
+    collectConsent: (op) => collectOpConsent(op),
+    llmConfig: async () => {
+      const settingsOps = buildSettingsOps();
+      const provider = providerById(opParams[0] ?? '');
+      const test = await settingsOps.testConnection({ providerId: provider.id, model: opParams[1] || provider.defaultModel });
+      // 执行前快照、失败回滚（FR-ALLN-042 / R-ALLN-904 上游）: the old credentials stay
+      // byte-identical when the connection test fails.
+      if (!test.ok) {
+        if (llmSnapshot) {
+          await keyStore.save(llmSnapshot);
+          llmSnapshot = null;
+        }
+        dispatch({ type: 'notice', text: `✖ 测试连接失败，已回滚旧配置：${test.text}` });
+        return { ok: false, reason: 'llm-test-failed' };
+      }
+      llmSnapshot = null;
+      return { ok: true };
+    },
   });
 
   $('authorize').addEventListener('click', () => authorizeCurrentSite());

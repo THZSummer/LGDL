@@ -25,6 +25,9 @@ import { isPluginMessage } from '../src/background/messaging.js';
 import { isPickLayerMessage } from '../src/content/pick-protocol.js';
 // R3: the fourth independently-validated face (panel⇄SW rescue, background-only module).
 import { isRefRescueMessage } from '../src/background/ref-rescue.js';
+// V5-2: the fifth independently-validated face (the privileged-op handshake, same
+// type-only / own-validator shape — `content.js` must never carry these strings).
+import { isOpMessage } from '../src/background/op-protocol.js';
 
 /** An independent oracle re-deriving the documented validation strength. */
 function oracle(value: unknown): boolean {
@@ -175,20 +178,24 @@ test('W2 insight-protocol: the SW entry guard has no unvalidated pass-through', 
   // third, independently-validated face (the on-demand pick layer, kept out of the
   // shared `KIND_SET` because that set is bundled into the frozen `content.js`), and R3
   // added a fourth (`ref-rescue`, a panel⇄SW kind whose validator lives on a
-  // background-only module for the same byte-freeze reason), so the guard now names four
-  // predicates — the claim is unchanged and strictly stronger (it admits exactly the
-  // faces that have validators, and nothing else).
+  // background-only module for the same byte-freeze reason), and v5-2 added a fifth
+  // (`op-exec`, the privileged-op handshake — the same type-only, own-validator shape),
+  // so the guard now names five predicates — the claim is unchanged and strictly
+  // stronger (it admits exactly the faces that have validators, and nothing else).
   assert.match(
     sw,
-    /if\s*\(\s*!isPluginMessage\(raw\)\s*&&\s*!isInsightMessage\(raw\)\s*&&\s*!isPickLayerMessage\(raw\)\s*&&\s*!isRefRescueMessage\(raw\)\s*\)\s*\{\s*return\s+undefined;\s*\}/,
+    /if\s*\(\s*!isPluginMessage\(raw\)\s*&&\s*!isInsightMessage\(raw\)\s*&&\s*!isPickLayerMessage\(raw\)\s*&&\s*!isRefRescueMessage\(raw\)\s*&&\s*!isOpMessage\(raw\)\s*\)\s*\{\s*return\s+undefined;\s*\}/,
     'service-worker must reject raw messages that fail every validator (no unvalidated pass-through)',
   );
   assert.match(sw, /import\s*\{\s*isInsightMessage\s*\}\s*from\s*'\.\/insight-protocol\.js';/);
   assert.match(sw, /import\s*\{\s*isPickLayerMessage\s*\}\s*from\s*'\.\.\/content\/pick-protocol\.js';/);
   assert.match(sw, /import\s*\{\s*isRefRescueMessage[^}]*\}\s*from\s*'\.\/ref-rescue\.js';/);
+  // V5-2: the fifth face is admitted by its own validator and by no other path (the
+  // `op-*` kinds must stay OUT of `KIND_SET`, or `content.js` regrows past its pin).
+  assert.match(sw, /import\s*\{[^}]*isOpMessage[^}]*\}\s*from\s*'\.\/op-protocol\.js';/);
   // Re-derive the guard for a malformed corpus: all rejected.
   const unionGuard = (v: unknown) =>
-    isPluginMessage(v) || isInsightMessage(v) || isPickLayerMessage(v) || isRefRescueMessage(v);
+    isPluginMessage(v) || isInsightMessage(v) || isPickLayerMessage(v) || isRefRescueMessage(v) || isOpMessage(v);
   for (const bad of [null, undefined, {}, { kind: 1 }, { kind: 'nope' }, { kind: 'insight-tree ' }]) {
     assert.equal(unionGuard(bad), false, `${JSON.stringify(bad)} must not pass the SW entry guard`);
   }
@@ -198,6 +205,8 @@ test('W2 insight-protocol: the SW entry guard has no unvalidated pass-through', 
   assert.equal(isInsightMessage({ kind: 'pick-layer-inject' }), false);
   // R3: the fourth face is admitted by its own validator and by no other path.
   assert.equal(isRefRescueMessage({ kind: 'ref-rescue' }), true, 'ref-rescue 必须由它自己的校验器接受');
+  assert.equal(isOpMessage({ kind: 'op-exec' }), true, 'op-* 必须由它自己的校验器接受（第五面）');
+  assert.equal(isPluginMessage({ kind: 'op-exec' }), false, 'op-* 不在 KIND_SET 里（否则 content.js 会被撑大）');
   assert.equal(isPluginMessage({ kind: 'ref-rescue' }), false, 'ref-rescue 不在 KIND_SET 里（否则 content.js 会被撑大）');
   assert.equal(isInsightMessage({ kind: 'ref-rescue' }), false);
   assert.equal(isPickLayerMessage({ kind: 'ref-rescue' }), false, 'ref-rescue 不属页面侧面（不碰冻结 pick-protocol）');

@@ -168,6 +168,10 @@ export const CHROMIUM_GATES = [
  */
 export const EXPECTED_AUDITED_FILES = [
   ...CHROMIUM_GATES,
+  // V5-2 TASK-V5-130 / 132: the two node gates of the `op-*` type-only family (appended;
+  // the node half is discovered by marker, and this floor makes a rename/removal FAIL).
+  'test/op-protocol.test.ts',
+  'test/sw-op-mirror.test.ts',
   'test/ui/l1-reverse.mjs',
   // v3-3 fix round: the versioned L2 reverse-proof harness (F-01 订正 + expectFailPattern).
   'test/ui/l2-reverse.mjs',

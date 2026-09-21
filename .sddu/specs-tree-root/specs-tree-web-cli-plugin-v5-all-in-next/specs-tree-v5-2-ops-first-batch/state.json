@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v5-2-ops-first-batch",
   "version": "v5.0.0",
   "name": "V5-2 首批 9 op 落地（op.authorize / op.rebind / op.llm-config / op.perm.request / op.revoke / op.pick / op.describe / op.help / op.turn）+ SW 双层执行器 + op-* type-only 消息族 + optional_permissions + 掩码 secret 卡（值直达 key-store）+ settings 4 类收编（零双路径）+ 拒绝非死端 + S2 断流样板机器化首验收",
-  "phase": "tasked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "builded",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T08:00:00.000Z",
+  "updatedAt": "2026-09-22T13:10:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**次叶**（P0，deliveryOrder=2，依赖 v5-1）。承载父 spec.md §5.5 OPS（FR-ALLN-040~049）/ §5.7 SW（FR-ALLN-065~069）/ §5.8 SETTINGS（FR-ALLN-075~078）/ §5.2 LAW7 的 014·016（拒绝非死端 + 断流首验收）/ §5.3 LAW8 的 020~022（掩码卡入口侧 + 值直达存储 + 流内只留事实）/ §5.11 X1·X2（FR-ALLN-110·111·116）/ GATE 本叶面（FR-ALLN-120~125）/ FR-ALLN-003·004·130·133 共 33 条 FR 的实施切片。交付：9 个 op 逐个注册（五要素齐备）；panel-local / SW 双层执行器（特权 op 恰 2 项）；op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约；optional_permissions 放开（安装期静态面零漂移 + 最小集论证）；askuser 扩形 secret / form + 值直达 key-store；settings 4 类收编（单一执行入口 + 单一调用点机核）；拒绝不是死端；S2 断流样板 headless 全链首验收（死端 = 0；浏览器弹窗体感入人工面）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -178,6 +178,11 @@
       "phase": "tasked",
       "timestamp": "2026-09-22T08:00:00.000Z",
       "triggeredBy": "sddu-tasks（产出 叶 tasks.md + tasks.json（30 任务 / 7 波 / 7 提交区间 A~G；2 个 spikeGate SG-3 / SG-2）；no-dead-end.mjs / law8-plaintext.mjs 归 v5-3 单点落地；未改 src/test/dist/docs/design/ROADMAP；未跑门禁/构建/Chromium）"
+    },
+    {
+      "phase": "builded",
+      "timestamp": "2026-09-22T13:10:00.000Z",
+      "triggeredBy": "sddu-build（R1 = TASK-V5-123~137：op-table 双侧同源 / 9 op 前五落地 / op.turn 唯一 requestTurn / SG-3 type-only-feasible / op-* type-only + SW 执行器镜像 / op.authorize 两段握手 + N-04 断流修复 / 掩码 secret 卡 + 值直达 key-store + op.llm-config 凭据快照回滚）。功能门禁全绿（recommendation 65 / stream 63 / ask-auth 61 / l0 244 / journey 171 / binding 192 / supersession 35）；content.js·pick-layer.js 逐字节不变；KIND_SET 零新增（反证 +53 B）。**体积越限停机上报**：dist/sidepanel.js = 518,329 B（Δ = +11,014 vs 基线 507,315；超 R1 上限 512,865 = +5,464）且越过 512,000 档位 ⇒ 5 项体积门禁如实判红，未执行重登记（须档位上调裁决）。剩余 TASK-V5-138~152 归 R2。"
     }
   ],
   "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：产出 叶 tasks.md + tasks.json（30 任务 / 7 波 / 7 提交区间 A~G；2 个 spikeGate SG-3 / SG-2）；no-dead-end.mjs / law8-plaintext.mjs 归 v5-3 单点落地；未改 src/test/dist/docs/design/ROADMAP；未跑门禁/构建/Chromium。下游 = @sddu-build TASK-V5-123（按叶内波次串行推进）。",
@@ -226,5 +231,108 @@
     ],
     "volumeBudget": "5,550 B（逐项 5,200 + 胶水 350）",
     "commitIntervalAtomic": []
+  },
+  "spikes": {
+    "v5-2": {
+      "spikes": [
+        {
+          "id": "SG-3",
+          "task": "TASK-V5-129",
+          "conclusion": "type-only-feasible",
+          "evidence": {
+            "contentJs": {
+              "bytes": 177076,
+              "sha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6"
+            },
+            "pickLayerJs": {
+              "bytes": 33900,
+              "sha256": "5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59"
+            },
+            "contentImportEdges": 0,
+            "kindSetOpLiterals": 0,
+            "negativeControl": {
+              "kindSetInjectionDeltaBytes": 53,
+              "from": 177433,
+              "to": 177486
+            }
+          },
+          "log": "/tmp/opencode/v4-gate-logs/v5-2-r1/w2-spike-op-typeonly.log",
+          "gates": [
+            "TASK-V5-130",
+            "TASK-V5-131"
+          ]
+        }
+      ]
+    }
+  },
+  "r1Artifact": {
+    "completedTasks": "TASK-V5-123~137",
+    "remaining": "TASK-V5-138~152 (R2)",
+    "dist": {
+      "contentJs": {
+        "bytes": 177076,
+        "sha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6"
+      },
+      "pickLayerJs": {
+        "bytes": 33900,
+        "sha256": "5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59"
+      },
+      "sidepanelJs": {
+        "baselineBytes": 507315,
+        "measuredBytes": 518329,
+        "deltaBytes": 11014
+      }
+    },
+    "nodeTest": {
+      "baseline": 1130,
+      "total": 1141,
+      "pass": 1136,
+      "fail": 5,
+      "failReason": "体积登记面（基线 507315 ≠ 实测 518329）"
+    },
+    "chromium": {
+      "recommendation": "65/0",
+      "stream": "63/0",
+      "askAuth": "61/0",
+      "l0": "244/0",
+      "density": "231/1(体积登记)",
+      "journey": "171",
+      "binding": "192（保护段 be9ad0e9 逐字节不变）"
+    },
+    "perModuleDeltaBytes": {
+      "src/ui/sidepanel/next-registry/ops.ts": 3918,
+      "src/ui/sidepanel/sidepanel.ts": 4721,
+      "src/shared/op-table.ts": 831,
+      "src/ui/sidepanel/cards/askuser.ts": 511,
+      "src/ui/sidepanel/recommend.ts": 485,
+      "src/ui/sidepanel/stream-plaintext.ts": 427,
+      "src/ui/sidepanel/chat-state.ts": 185,
+      "src/ui/sidepanel/cards/nextstep.ts": 28,
+      "src/ui/sidepanel/next-registry/pipeline.ts": -156,
+      "src/platform/clipboard-page.ts": -9,
+      "unattributedGlue": 73
+    },
+    "stop": {
+      "kind": "volume-budget-exceeded",
+      "r1CeilingBytes": 512865,
+      "tierBefore": 512000,
+      "tierAfterIfReRegistered": 563200,
+      "requires": "编排器/作者裁决：档位上调（512,000 → 563,200）显式登记 + authorConfirmation 占位规则，或削减 R1 范围"
+    },
+    "registrationFlips": [
+      "FR-ALLN-013-chips: pending-v5-2 → landed（N-04）",
+      "obligation-table: op.llm-config/op.perm.request/op.revoke pending-v5-2 → registered"
+    ],
+    "knownDeviations": [
+      "op.describe.params 未声明（面板既有 ask 卡承担；声明会与 test:recommendation ⑫ 的 #ask-fallback 单所有者判据冲突）—— owner=R2/编排器"
+    ],
+    "ledger": {
+      "v4Supersession": {
+        "newLeafBase": "8526ef8",
+        "registeredFiles": 4,
+        "registeredLines": 13,
+        "takeoverEntry": "V52R1-E-01"
+      }
+    }
   }
 }

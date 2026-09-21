@@ -46,7 +46,12 @@ export interface OpSpec {
   readonly mountPoints: readonly NextMountPoint[];
   /** ④ 失败语义（R5 三级之一）. */
   readonly failSemantics: ObligationFailSemantics;
-  /** 落地状态：v5-1 交付 6 个可注册 op；其余 3 个由 v5-2 落地（登记，非静默）。 */
+  /**
+   * 落地状态。v5-1 交付 6 个可注册 op（`registered`），其余 3 个登记为
+   * `pending-v5-2`；**v5-2 TASK-V5-123 已把 9 个 op 全部注册**，故 9 行现均为
+   * `registered`（翻转由 `test/next-obligation-table.test.ts` OT-1 双向钉住：
+   * 只要「已注册集 ≠ 义务表 registered 集」任一侧漂移即红）。
+   */
   readonly status: 'registered' | 'pending-v5-2';
 }
 
@@ -110,21 +115,21 @@ export const OP_SPECS: Readonly<Record<string, OpSpec>> = Object.freeze({
     providerId: LLM_UNCONFIGURED,
     mountPoints: ['next', 'params', 'consent', 'execute', 'receipt'],
     failSemantics: 'snapshot-rollback',
-    status: 'pending-v5-2',
+    status: 'registered',
   },
   'op.perm.request': {
     functionalName: '申请浏览器权限',
     providerId: PERM_MISSING,
     mountPoints: ['next', 'params', 'consent', 'execute', 'receipt'],
     failSemantics: 'snapshot-rollback',
-    status: 'pending-v5-2',
+    status: 'registered',
   },
   'op.revoke': {
     functionalName: '撤销授权 / 权限 / 凭据',
     providerId: SITE_UNAUTHORIZED,
     mountPoints: ['next', 'consent', 'execute', 'receipt'],
     failSemantics: 'snapshot-rollback',
-    status: 'pending-v5-2',
+    status: 'registered',
   },
 });
 

@@ -84,6 +84,14 @@ export type PluginMessageKind =
   | 'pick-layer-state'
   | 'ref-captured'
   | 'ref-highlight'
+  // V5-2 TASK-V5-130 (ADR-V5-003 §1 / FR-ALLN-067 · X2 · N8): the privileged-op
+  // executor face. **Type-only** — type members with NO `KIND_SET` counterpart (that
+  // set is bundled into the injected `content.js`, whose ceiling is 177,076 B with zero
+  // headroom). Runtime validation lives in `op-protocol.ts`, a background-only module
+  // `content-script.ts` never imports.
+  | 'op-exec'
+  | 'op-exec-result'
+  | 'op-audit'
   // R3 (2026-09-17): the read-only rescue probe / one-click re-anchor face. Type-only
   // (same reason as the rest of this family — `content.js` must not carry the strings).
   | 'ref-rescue';

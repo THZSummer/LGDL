@@ -27,6 +27,7 @@ import {
   createChromeAsyncKv,
   createChromeSessionKv,
   hasOriginPermission,
+  originPermissionPattern,
   removeOriginPermission,
 } from '../platform/extension-env.js';
 import { capabilityFailure } from '../platform/unsupported.js';
@@ -86,6 +87,10 @@ import {
 import { isInsightMessage } from './insight-protocol.js';
 import { isPickLayerMessage } from '../content/pick-protocol.js';
 import { isRefRescueMessage, rescuePathOf, rescueProbe, type RescueProbeReport } from './ref-rescue.js';
+// V5-2 TASK-V5-131/133 (ADR-V5-003): the `op-*` family's validator (background-only —
+// `content.js` never imports it) and the SW op executor (the 裁决 / 快照 / 审计 owner).
+import { asOpExecRequest, isOpMessage, opExecRequestProblems } from './op-protocol.js';
+import { execSwOp } from './op-executors.js';
 import { sha256Hex } from '../protocol/trust.js';
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
@@ -1987,6 +1992,57 @@ async function buildInsightSnapshot(s: Singletons) {
   });
 }
 
+/**
+ * V5-2 TASK-V5-133 (ADR-V5-003 §3) — the **ONE** origin-authorization routine.
+ *
+ * The legacy `authorize` message and the `op-exec` **commit** phase (the SW executor
+ * is the 裁决 / 快照 / 审计 owner) both call THIS function, so the OriginStore write,
+ * the declarative content-script registration, the readable fallback reason and the
+ * probe kick exist exactly once — adding the privileged op did not create a second
+ * authorization path.
+ *
+ * The user gesture stays in the **page** (Chrome forbids asking for a permission here,
+ * and `test/capability-wiring` pins「the SW never asks」); this routine only records the
+ * outcome it is handed, best-effort, with the OriginStore remaining the authoritative
+ * gate (D-015/D-022).
+ */
+async function authorizeOrigin(s: Singletons, origin: string, granted: boolean) {
+  const rec = await s.origins.authorize(origin, {
+    note: `用户显式授权；站点访问权限 ${granted ? '已授予' : '未授予（回退 activeTab 临时授权）'}`,
+  });
+  // decision ① / FR-047: authorization is the ONE-TIME gate. Once the host
+  // permission is actually granted we register the declarative content script
+  // so every later navigation of this origin auto-loads and auto-binds — no
+  // icon click. Registration failure is readably surfaced (never silent) and
+  // does not undo the authorization (activeTab fallback still works).
+  let contentScript:
+    | { ok: boolean; id?: string; pattern?: string; reason?: string; alreadyRegistered?: boolean }
+    | undefined;
+  if (granted) {
+    contentScript = await registerSiteContentScript(s.contentScripts, origin);
+    if (!contentScript.ok) {
+      console.warn('[web-cli-plugin] declarative content script register failed:', contentScript.reason);
+      s.audit.recordPlugin({
+        type: 'host-permission',
+        ts: Date.now(),
+        origin,
+        decision: 'granted',
+        reason: `授权成功但声明式注入注册失败：${contentScript.reason ?? '未知原因'}`,
+      });
+    }
+  } else {
+    contentScript = {
+      ok: false,
+      reason: '未获得持久站点权限（回退 activeTab）：无法声明式注入，仍可点击插件图标按需注入',
+    };
+  }
+  // TASK-032: authorization is a fresh probe signal — the site can now be
+  // injected + probed automatically (no manual「重新探测」). Only for the bound tab.
+  const bound = s.controller.get();
+  if (bound && bound.origin === origin) s.autoProbe.kick(origin, bound.tabId);
+  return { ...rec, hostPermissionGranted: granted, contentScript };
+}
+
 async function handleMessage(message: PluginMessage, sender?: chrome.runtime.MessageSender): Promise<PluginResponse> {
   const s = await init();
   switch (message.kind) {
@@ -2092,46 +2148,28 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     case 'authorize': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
       if (!origin) return errorResponse('authorize 需要 origin');
-      // IMP-4 / FR-006: the **side panel** requests the optional host permission
-      // inside the user gesture and reports the outcome; the background has no
-      // gesture, so it only records the reported/re-checked state (no duplicate
-      // request). The OriginStore remains the authoritative gate (D-015/D-022).
       const reported = message.hostPermissionGranted;
       const granted = typeof reported === 'boolean' ? reported : await hasOriginPermission(origin);
-      const rec = await s.origins.authorize(origin, {
-        note: `用户显式授权；站点访问权限 ${granted ? '已授予' : '未授予（回退 activeTab 临时授权）'}`,
+      return okResponse(await authorizeOrigin(s, origin, granted));
+    }
+    case 'op-exec': {
+      // V5-2 TASK-V5-131/133 (ADR-V5-003 §1/§3 / FR-ALLN-065/067): the privileged-op
+      // handshake. The request shape is judged BEFORE any executor body runs (a
+      // missing consent token is a refusal, never a defaulted allow), and the opId is
+      // judged against the SW mirror inside `execSwOp`.
+      const problems = opExecRequestProblems(message);
+      if (problems.length > 0) return errorResponse(`op-exec 请求不合法：${problems.join('；')}`);
+      const req = asOpExecRequest(message);
+      if (!req) return errorResponse('op-exec 请求不合法');
+      const out = await execSwOp(req, {
+        authorize: (origin, granted) => authorizeOrigin(s, origin, granted),
+        snapshot: () => s.origins.list(),
+        activeOrigin: () => s.controller.get()?.origin,
+        patternOf: (origin) => originPermissionPattern(origin),
+        audit: (origin, decision, reason) =>
+          s.audit.recordPlugin({ type: 'origin-authorize', ts: Date.now(), origin, decision, reason }),
       });
-      // decision ① / FR-047: authorization is the ONE-TIME gate. Once the host
-      // permission is actually granted we register the declarative content script
-      // so every later navigation of this origin auto-loads and auto-binds — no
-      // icon click. Registration failure is readably surfaced (never silent) and
-      // does not undo the authorization (activeTab fallback still works).
-      let contentScript:
-        | { ok: boolean; id?: string; pattern?: string; reason?: string; alreadyRegistered?: boolean }
-        | undefined;
-      if (granted) {
-        contentScript = await registerSiteContentScript(s.contentScripts, origin);
-        if (!contentScript.ok) {
-          console.warn('[web-cli-plugin] declarative content script register failed:', contentScript.reason);
-          s.audit.recordPlugin({
-            type: 'host-permission',
-            ts: Date.now(),
-            origin,
-            decision: 'granted',
-            reason: `授权成功但声明式注入注册失败：${contentScript.reason ?? '未知原因'}`,
-          });
-        }
-      } else {
-        contentScript = {
-          ok: false,
-          reason: '未获得持久站点权限（回退 activeTab）：无法声明式注入，仍可点击插件图标按需注入',
-        };
-      }
-      // TASK-032: authorization is a fresh probe signal — the site can now be
-      // injected + probed automatically (no manual「重新探测」). Only for the bound tab.
-      const bound = s.controller.get();
-      if (bound && bound.origin === origin) s.autoProbe.kick(origin, bound.tabId);
-      return okResponse({ ...rec, hostPermissionGranted: granted, contentScript });
+      return out.ok ? okResponse(out.data) : errorResponse(out.error ?? 'op-exec 执行失败');
     }
     case 'revoke': {
       const origin = typeof message.origin === 'string' ? message.origin : '';
@@ -2759,7 +2797,7 @@ chrome.runtime.onMessage.addListener((raw, sender, sendResponse) => {
   // to the shared KIND_SET (that set is bundled into content.js, which must not grow).
   // R3: `ref-rescue` is a panel⇄SW kind; its validator lives on a background-only
   // module (`background/ref-rescue.ts`) so neither frozen bundle grows a byte.
-  if (!isPluginMessage(raw) && !isInsightMessage(raw) && !isPickLayerMessage(raw) && !isRefRescueMessage(raw)) {
+  if (!isPluginMessage(raw) && !isInsightMessage(raw) && !isPickLayerMessage(raw) && !isRefRescueMessage(raw) && !isOpMessage(raw)) {
     return undefined;
   }
   void handleMessage(raw, sender).then(

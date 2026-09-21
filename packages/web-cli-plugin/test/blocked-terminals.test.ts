@@ -231,9 +231,13 @@ export interface PendingItem {
 export const PENDING_ITEMS: readonly PendingItem[] = [
   {
     id: 'FR-ALLN-013-chips',
-    status: 'pending-v5-2',
+    // V5-2 TASK-V5-133 —— **N-04 已闭合**：`RECOVERY_CHIP_ORDER.site` 的第二槽位
+    // 现为 `authorize` ⇒ `site.unauthorized` 的 chips 含 `op.authorize`（非首装未授权
+    // 会话的断流由此修复）。v5-1 的体积自紧条目按约定**翻转**为 landed（判据双向：
+    // 见下方 BT-4，chips 与登记任一方向漂移都红）。
+    status: 'landed',
     owner: 'specs-tree-v5-2-ops-first-batch',
-    reason: 'FR-ALLN-013 要求 site.unauthorized provider 的 chips 含 op.authorize。本叶体积预算已尽（余 6 B，产品 src 冻结 ⇒ Δ=0），rec 表项改写会增字节，故本轮只交付 when(ctx) 与 firstRun 无关 + 枚举单源 + 双射登记；该 chip 随 v5-2 的 9 op 注册落地。',
+    reason: 'v5-2 TASK-V5-133 落地：RECOVERY_CHIP_ORDER.site = [rebind, authorize, repick, describe]，site.unauthorized 的 chips = [op.rebind, op.authorize, op.repick] ⇒ 含 op.authorize；首槽位仍是 rebind（⑭ 判据驱动的 lead chip 不变）。',
   },
 ];
 
@@ -241,7 +245,12 @@ export const PENDING_ITEMS: readonly PendingItem[] = [
 export function pendingItemProblems(items: readonly PendingItem[]): string[] {
   const problems: string[] = [];
   for (const item of items) {
-    if (!item.status.startsWith('pending')) problems.push(`未闭合项必须显式登记：${item.id} 的 status 必须为 pending-*`);
+    // V5-2: a CLOSED item (`landed`) is no longer a pending registration — it keeps its
+    // owner/reason so the closure is auditable, and the fact it claims is asserted on
+    // the product source by the caller (BT-4), not by this status shape.
+    if (item.status !== 'landed' && !item.status.startsWith('pending')) {
+      problems.push(`未闭合项必须显式登记：${item.id} 的 status 必须为 pending-*（或已翻转的 landed）`);
+    }
     if (item.reason.trim().length < 40) problems.push(`未闭合项必须显式登记：${item.id} 的 reason 必须 ≥40 字符`);
     if (item.owner.trim().length === 0) problems.push(`未闭合项必须显式登记：${item.id} 必须有 owner`);
   }
@@ -324,9 +333,13 @@ test('BT-4 登记项自紧：FR-ALLN-013 的 chips 缺口必须显式登记，�
   assert.ok(site, '前置：site.unauthorized provider 必须存在');
   const pending = PENDING_ITEMS.find((i) => i.id === 'FR-ALLN-013-chips');
   assert.ok(pending, 'FR-ALLN-013 的 chips 缺口必须登记（否则本判据空转）');
-  // 登记为 pending ⇒ 当前 chips 不得含 op.authorize；一旦补上，本断言会红并要求更新登记。
+  // 双向自紧（v5-2 翻转后加严，判据力只升不降）：
+  //   · pending ⇒ 当前 chips 必须**不含** op.authorize；
+  //   · landed  ⇒ 当前 chips 必须**含** op.authorize（补上才算闭合）。
   if (pending.status === 'pending-v5-2') {
     assert.ok(!site.chips.includes('op.authorize'), 'chips 已含 op.authorize ⇒ 必须把 FR-ALLN-013-chips 的 status 从 pending-v5-2 翻转为 landed');
+  } else {
+    assert.ok(site.chips.includes('op.authorize'), 'FR-ALLN-013-chips 登记为 landed ⇒ site.unauthorized 的 chips 必须实际含 op.authorize（N-04 闭合）');
   }
   assert.ok(site.chips.length > 0 && site.chips.every((c) => typeof c === 'string'), 'site provider 必须带可点 chips');
 });
@@ -334,7 +347,7 @@ test('BT-4 登记项自紧：FR-ALLN-013 的 chips 缺口必须显式登记，�
 test('BT-4 反证：登记项缺 reason / status 非法 ⇒ 判据必红', () => {
   const noReason = [{ ...PENDING_ITEMS[0], reason: '太短' }];
   assert.ok(pendingItemProblems(noReason).some((p) => p.includes('reason 必须 ≥40')), JUDGEMENTS[3].expectFailPattern);
-  const badStatus = [{ ...PENDING_ITEMS[0], status: 'landed' }];
+  const badStatus = [{ ...PENDING_ITEMS[0], status: 'in-progress' }];
   assert.ok(pendingItemProblems(badStatus).length > 0, JUDGEMENTS[3].expectFailPattern);
 });
 

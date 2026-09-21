@@ -221,7 +221,12 @@ export const RECOVERY_CHIP_ORDER: Readonly<Record<RecoveryTrigger, readonly Next
   refInvalid: Object.freeze(['repick', 'describe', 'rebind'] as NextstepAct[]),
   declarationInvalid: Object.freeze(['repick', 'describe', 'rebind'] as NextstepAct[]),
   hardFloor: Object.freeze(['repick', 'describe', 'rebind'] as NextstepAct[]),
-  site: Object.freeze(['rebind', 'repick', 'describe'] as NextstepAct[]),
+  // V5-2 TASK-V5-133 / N-04 (FR-ALLN-013): the **second** slot of the `site` trigger is
+  // now `authorize` — a non-first-run unauthorized session (the real-device dead-end
+  // this leaf repairs) must be offered the one-click `op.authorize` chip. The FIRST slot
+  // stays `rebind`: the renderer keeps at most `MAX_CHIPS_PER_CARD` and the leading chip
+  // is the guaranteed one (`test/ui/recommendation.mjs` ⑭ drives exactly that lead chip).
+  site: Object.freeze(['rebind', 'authorize', 'repick', 'describe'] as NextstepAct[]),
   probe: Object.freeze(['rebind', 'describe', 'repick'] as NextstepAct[]),
 });
 
@@ -280,8 +285,13 @@ function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[]): Nextst
   return Object.freeze({ rule, priority: priorityOf(rule), chips: kept, label: label([NEXTSTEP_LABELS[rule]]) });
 }
 
-/** The 7-source pure context the registered providers read (V5-1, ADR-V5-001). */
-function ctxOf(input: RecommendInput): NextCtx {
+/**
+ * The 7-source pure context the registered providers read (V5-1, ADR-V5-001).
+ *
+ * V5-2 (FR-ALLN-047): exported so `op.help` derives its reachable-op list from the SAME
+ * context the recommendation producer uses — one derivation, no second truth.
+ */
+export function recommendCtx(input: RecommendInput): NextCtx {
   return {
     ref: input.ref,
     session: input.session,
@@ -301,7 +311,7 @@ function ctxOf(input: RecommendInput): NextCtx {
  */
 export function candidateRules(input: RecommendInput): readonly NextstepCandidate[] {
   registerBuiltinProviders();
-  const ctx = ctxOf(input);
+  const ctx = recommendCtx(input);
   const out: NextstepCandidate[] = [];
   const seen = new Set<string>();
   for (const p of resolveOrder()) {

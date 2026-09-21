@@ -304,7 +304,14 @@ async function main() {
       check('⑭ 同卡的「了解 6 个页面手势」是本地 help（W3：零回合设置导航）', authChip.otherActs.length >= 1 && authChip.otherActs.includes('help'), authChipRaw);
     } else {
       check('⑭ 非 settled 首装态 ⇒ 首选 = 可行动恢复卡（chips 全为本地动作，零回合）', authChip.chipAct === 'rebind' || authChip.chipAct === 'repick' || authChip.chipAct === 'describe', authChipRaw);
-      check('⑭ 恢复卡 chips ⊆ 本地 act 闭集（next 不在场时不存在回合 chip）', authChip.otherActs.every((a) => ['repick', 'describe', 'rebind'].includes(a)), authChipRaw);
+      // V5-2 TASK-V5-133 / N-04：`site` 触发的候选槽位 2 现为 `authorize`
+      // （`RECOVERY_CHIP_ORDER.site = [rebind, authorize, repick, describe]`）—— 本地 act 闭集
+      // 随之扩为 5 项本地动作（`next` 仍是唯一回合 chip，不在场即无回合）。判据力只升不降。
+      check(
+        '⑭ 恢复卡 chips ⊆ 本地 act 闭集（next 不在场时不存在回合 chip）',
+        authChip.otherActs.every((a) => ['repick', 'describe', 'rebind', 'authorize', 'help'].includes(a)),
+        authChipRaw,
+      );
     }
     check('⑭ 权限请求探针已装入（stub 生效，判定非空转）', authChip.stubApplied === true, authChipRaw);
     check('⑭ 点击授权 chip 不产生 user 回合（授权不是聊天消息）', authAfter.users === authChip.usersBefore, `${authChipRaw} | ${authAfterRaw}`);

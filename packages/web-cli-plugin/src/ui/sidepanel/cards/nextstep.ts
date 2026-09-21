@@ -64,7 +64,10 @@ export function createNextstepCard(view: CardView, deps: CardDeps): HTMLLIElemen
     if (opId) btn.setAttribute('data-op', opId);
     btn.setAttribute('data-chip-index', String(i));
     btn.textContent = chip;
-    btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act, chip));
+    // V5-2 (FR-ALLN-048 vs FR-ALLN-046): only the TURN act carries its chip copy as the
+    // value (`chips 即指令`). A local act's label is NOT an input — forwarding it would
+    // make `op.describe` submit the label「改用描述」as the user's description.
+    btn.addEventListener('click', () => deps.onCardAction?.(view.cardId, act, act === 'next' ? chip : undefined));
     chips.appendChild(btn);
   });
   if (view.payload.nextstepRule) li.setAttribute('data-nextstep-rule', view.payload.nextstepRule);

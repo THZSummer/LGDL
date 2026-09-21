@@ -1,14 +1,30 @@
 /**
  * V5-1 TASK-V5-107/108/109/110 (ADR-V5-002 机制侧) — the **one** op pipeline
  * (`runOp` 四态) + `pendingOps` FIFO 仲裁 (EC-ALLN-010) + 快照 / 回滚**语义位**
- * + R5 失败语义三级. 本叶只交付机制：9 个 op 的执行体由 v5-2 填。
+ * + R5 失败语义三级. V5-2 (TASK-V5-124~137) fills the nine execution bodies, which
+ * live in {@link ./ops.js} — this module stays the *mechanism*.
  *
  * 铁律：`op.execute(` 在 `src/ui/sidepanel/**` 中**恰 1 调用点**（本文件 runOp）。
+ *
+ * ── V5-2 wiring (ADR-V5-002 §1 / ADR-V5-003) ────────────────────────────────
+ *
+ * The pipeline is the ONE place a state transition can happen, so the production
+ * seams are resolved here (never in the dispatcher — `handleCardAction` stays a single
+ * lookup with zero per-op branches, FR-ALLN-058):
+ *
+ *   ① `params` / `consent` collectors — the panel's stream cards (`ops.ts` seam);
+ *   ② `execSw` — the privileged-op handshake with the service worker;
+ *   ③ `settle` — the ONE receipt / non-dead-end row writer.
  *
  * @module ui/sidepanel/next-registry/pipeline
  */
 import { MAX_OPEN_ASKS, REF_ROUND_PREFIX } from '../stream-model.js';
 import type { NextOp, OpCtx, OpOutcome } from './definition.js';
+import { OPS_BY_ID, collectOpConsent, collectOpParams, panelNotice, swExec } from './ops.js';
+
+// V5-2: the panel seam and the op table moved to `ops.ts` (the single op source);
+// they are re-exported here so every existing consumer/gate keeps one import site.
+export { OPS_BY_ID, bindPanelOps, reachableOpIds, type PanelOps } from './ops.js';
 
 /** R5 ① — the typed failure the pipeline produces on a missing op (loud). */
 export type OpFailure = { readonly ok: false; readonly reason: string };
@@ -20,49 +36,20 @@ export interface OpSnapshot {
 }
 
 const REJECTED = Symbol('rejected');
-const OK: OpOutcome = Object.freeze({ ok: true });
-
-/* ── panel entry binding (sidepanel.ts 注册既有单一入口，保持零双路径) ── */
-export interface PanelOps {
-  turn?(text: string): void;
-  pick?(): void;
-  describe?(value?: string): void;
-  authorize?(): void;
-  rebind?(): void;
-  help?(): void;
-  notice?(text: string): void;
-}
-let PANEL: PanelOps = {};
-export function bindPanelOps(ops: PanelOps): void {
-  PANEL = ops;
-}
-
-/** Build a panel-local op (keeps the 6 entries a single, compact table). */
-const op = (opId: string, risk: NextOp['risk'], run: (ctx: OpCtx) => void): NextOp => ({
-  opId,
-  risk,
-  layer: 'panel',
-  execute: async (ctx) => {
-    run(ctx);
-    return OK;
-  },
-});
-
-/** The op table (单源；v5-2 补 op.llm-config / op.perm.request / op.revoke). */
-export const OPS_BY_ID: Readonly<Record<string, NextOp>> = Object.freeze({
-  'op.turn': op('op.turn', 'low', (c) => PANEL.turn?.(String(c.value ?? ''))),
-  'op.pick': op('op.pick', 'low', () => PANEL.pick?.()),
-  'op.describe': op('op.describe', 'low', (c) => PANEL.describe?.(c.value)),
-  'op.authorize': op('op.authorize', 'mid', () => PANEL.authorize?.()),
-  'op.rebind': op('op.rebind', 'low', () => PANEL.rebind?.()),
-  'op.help': op('op.help', 'low', () => PANEL.help?.()),
-});
 
 /** The single pipeline entry marker (TASK-V5-110 「恰 1 调用点」判据的锚). */
 export const PIPELINE_ENTRY = 'runOp';
 /** R5 ③ — an op is mutating iff it is not low risk (改状态 ⇒ 快照). */
 export function isMutating(op: Pick<NextOp, 'risk'>): boolean {
   return op.risk !== 'low';
+}
+
+/**
+ * V5-2 — the op whose `execute` body writes its own stream row (a local, read-only
+ * action reusing an existing single entry) does not get a second, generic receipt.
+ */
+function emitsOwnRow(op: NextOp): boolean {
+  return op.layer === 'panel' && op.risk === 'low';
 }
 
 /* ── pendingOps FIFO + MAX_OPEN_ASKS 仲裁 (EC-ALLN-010) ── */
@@ -88,22 +75,34 @@ export function resolvePending(requestId: string): boolean {
   return true;
 }
 
-/* ── 语义位（v5-2 填具体表读写；本叶只保证管线唯一 + 结构正确） ── */
+/* ── 语义位（V5-2: 生产默认实现接面板 / SW 缝；单测仍可注入） ── */
 const nullAsync = async (..._a: unknown[]): Promise<void> => {};
-async function defaultCollectParams(): Promise<unknown> {
-  return undefined;
+async function defaultExecSw(op: NextOp, ctx: OpCtx): Promise<OpOutcome> {
+  return swExec(op, ctx);
 }
-async function defaultCollectConsent(): Promise<'allow' | 'reject'> {
-  return 'allow';
-}
-async function defaultExecSw(): Promise<OpOutcome> {
-  return { ok: false, reason: 'sw' };
+
+/**
+ * V5-2 (FR-ALLN-034 ① / 法七不破 / TASK-V5-143 上游) — the default settle:
+ *
+ *   · `completed` → a mutating or privileged op gets its declared receipt row
+ *     (a low-risk local op already wrote its own, richer row);
+ *   · `cancelled` / `rejected` → a **reachable** row (拒绝不是死端): the reason is
+ *     stated and the user keeps the rest of the surface — nothing is silently dropped.
+ */
+async function defaultSettle(op: NextOp, state: SettleState): Promise<void> {
+  if (state === 'completed') {
+    if (!emitsOwnRow(op) && op.receipt) panelNotice(op.receipt.text);
+    return;
+  }
+  panelNotice(`${state === 'cancelled' ? '已取消' : '已拒绝'}：${op.opId} 未执行（可继续其他操作）`);
 }
 async function defaultSnapshot(): Promise<OpSnapshot> {
   return { tables: [] };
 }
 async function defaultErrorWithRecovery(op: NextOp, boundary: string, err: unknown): Promise<OpOutcome> {
-  return { ok: false, reason: `${boundary}:${op.opId}:${String(err)}` };
+  const reason = `${boundary}:${op.opId}:${String(err)}`;
+  panelNotice(`✖ ${op.opId} 失败：${err instanceof Error ? err.message : String(err)}（可重试）`);
+  return { ok: false, reason };
 }
 async function defaultFail(reason: string): Promise<OpOutcome> {
   return { ok: false, reason };
@@ -137,19 +136,22 @@ export async function runOp(opId: string, ctx: OpCtx = {}, deps: PipelineDeps = 
   const maxOpen = deps.maxOpenAsks ?? MAX_OPEN_ASKS;
   if ((op_.params || op_.consent) && openAsks >= maxOpen) {
     const n = enqueuePending(opId);
-    PANEL.notice?.(`还有 ${n} 个待答，先答完再继续`);
+    panelNotice(`还有 ${n} 个待答，先答完再继续`);
     return { ok: false, reason: 'queued' };
   }
-  const settle = deps.settle ?? nullAsync;
+  const settle = deps.settle ?? defaultSettle;
+  // V5-2: the collected answer becomes the execute context (`op.describe` reads it).
+  let ectx = ctx;
   if (op_.params) {
-    const p = await (deps.collectParams ?? defaultCollectParams)(op_, ctx);
+    const p = await (deps.collectParams ?? collectOpParams)(op_, ctx);
     if (p === REJECTED) {
       await settle(op_, 'cancelled', ctx);
       return { ok: false, reason: 'cancelled' };
     }
+    if (typeof p === 'string') ectx = { value: p };
   }
   if (op_.consent) {
-    const consent = await (deps.collectConsent ?? defaultCollectConsent)(op_, ctx);
+    const consent = await (deps.collectConsent ?? collectOpConsent)(op_, ctx);
     if (consent === 'reject') {
       await settle(op_, 'rejected', ctx);
       return { ok: false, reason: 'rejected' };
@@ -157,7 +159,7 @@ export async function runOp(opId: string, ctx: OpCtx = {}, deps: PipelineDeps = 
   }
   const snap = isMutating(op_) ? await (deps.snapshot ?? defaultSnapshot)(op_, ctx) : undefined;
   try {
-    const out = op_.layer === 'sw' ? await (deps.execSw ?? defaultExecSw)(op_, ctx) : await op_.execute(ctx);
+    const out = op_.layer === 'sw' ? await (deps.execSw ?? defaultExecSw)(op_, ectx) : await op_.execute(ectx);
     await settle(op_, 'completed', ctx, snap);
     return out;
   } catch (err) {
