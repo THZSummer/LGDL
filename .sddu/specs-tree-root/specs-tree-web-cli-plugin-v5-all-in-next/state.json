@@ -3,15 +3,57 @@
   "featureKey": "specs-tree-web-cli-plugin-v5-all-in-next",
   "version": "v5.0.0",
   "name": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）—— 把用户授权 / 权限申请 / 绑定 / 浏览器权限申请 / LLM 配置等所有需用户操作处抽象为 web-op + next，在 chat 内一站式闭环；新增法七（一切操作皆 Next，禁止死端）+ 法八（值不入流）；NextProvider 契约 v2 插件注册表；真机断流缺陷并入首验收场景 S2",
-  "phase": "discovered",
-  "workflow": "1.discovery",
-  "agent": "sddu-discovery",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
   "depth": 1,
   "parent": null,
-  "childrens": [],
+  "childrens": [
+    {
+      "featureKey": "specs-tree-v5-1-next-registry-pipeline",
+      "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/",
+      "name": "V5-1 NextProvider 注册表 + op 管线（首叶）",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 1,
+      "dependsOn": [],
+      "note": "契约 v2 七点（R1 可逆注册 / R2 依赖声明式 / R3 优先级显式化 / R4 分发模式公开契约 / R5 失败语义三级 / R6 Seam 三件套 / R7 证明义务表）+ 统一管线四态 + act→opId 等价映射 + chip data-op + 瘦分发（handleCardAction per-op diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增 + designContractChanges 登记）+ 证明义务表静态机核 + 阻塞态枚举单源 / site.unauthorized 常驻候选（法七机制基础）。承载父 FR-ALLN-030~038 / 055~059 / 010·011·013 / 100~103 / 112·113·115 / 116 / 120~125 的切片。"
+    },
+    {
+      "featureKey": "specs-tree-v5-2-ops-first-batch",
+      "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/",
+      "name": "V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收（次叶）",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 2,
+      "dependsOn": [
+        "specs-tree-v5-1-next-registry-pipeline"
+      ],
+      "note": "9 op（设计稿 8 + op.turn）五要素落地 + SW 双层执行器（特权 op 恰 2 项）+ op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约 + optional_permissions 放开（安装期静态面零漂移）+ 掩码 secret 卡 / form 扩形 + 值直达 key-store + settings 4 类收编（零双路径 + 单一调用点机核）+ 拒绝非死端 + S2 断流样板机器化首验收（headless 全链，死端 = 0；浏览器弹窗体感入人工面）。承载父 FR-ALLN-040~049 / 014·016 / 020~022 / 065~069 / 075~078 / 110·111 的切片。"
+    },
+    {
+      "featureKey": "specs-tree-v5-3-chrome-face",
+      "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/",
+      "name": "V5-3 授权 chip + 可拖动宽度 + 死端守护 + 法八机核（末叶 / 收口叶）",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 3,
+      "dependsOn": [
+        "specs-tree-v5-1-next-registry-pipeline",
+        "specs-tree-v5-2-ops-first-batch"
+      ],
+      "note": "#auth-state 状态栏常显两态 chip（授权态全 UI 唯一载体 + 零双写五条 + 黄点击产 next / 绿点击管理详情）+ 可拖动宽度 280–640（ARIA separator + 键盘 + clamp + 双击复位 400 + rAF）+ data-narrow（≤360）窄屏兜底 + 三档 radio 删除 + 密度登记格口径与宽度解耦（320 锚点 / 阈值逐字不动）+ error 出生即带恢复区 + 死端守护门禁（5 类阻塞 + N = 0 + 死端 = 0 + 双向反证）+ 法八四面零明文机核（流内 payload / digest / 审计 / DOM value + 全属性 + key 直写 key-store）+ X5 显式取代 + 父级共享面收口（体积五要素 / journey 保护段 / 双契约 / 取代台账）。承载父 FR-ALLN-012·015 / 023·024 / 085~092 / 114·116 / 122~125 / 130~134 的切片。"
+    }
+  ],
   "leaf": false,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T00:50:00.000Z",
+  "updatedAt": "2026-09-22T01:20:00.000Z",
   "description": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）的 discovery 阶段产物。立项来源 = ① 作者主题指示（2026-09-21 逐字：「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成web-op-cli（类似LGDL的lgdl-web-op-cli），都要支持一站式在chat里面闭环」+「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，不允许让用户跳来跳去」）② 真机断流现场（23:12:51~23:12:59 逐字：未授权站点页面侧零注入之后无任何可达 next）③ 设计基准 option-g-all-in-next.html（定稿冻结，三轮优化终稿）+ option-g-shim.mjs（127/127 实跑全绿）④ 作者 5 裁决（optional_permissions / 掩码零明文 / F 式 HTML+shim / 设置视图保留管理面 / 断流并入首验收）。核心问题 5 条：真机死端（阻塞终态后流内零可达 next：error 卡裸奔 + risk-recovery 三动作不解未授权 + 授权入口仅首装态 + page-unavailable 仅风险行）· 用户操作面散落在 chat 之外（设置视图 8 分区 + options 页承载 LLM 配置 / 授权 / 浏览器权限 / 会话 / 诊断）· 架构不可扩张（推荐器 = 4 规则手写 + NEXTSTEP_ACTS 6 项逐字闭集 + handleCardAction 手写 switch 16 分支 + chip 绑 data-act 而非 opId）· 敏感值无流内入口且法二/法八未切分 · 授权态三处投影且非首装会话无授权入口。范围 = 核心 6（法七无死端 / web-op 管线 + NextProvider 注册表契约 v2 / 浏览器权限申请流内闭环 / LLM 配置流内闭环 + 法八 / 授权态下移状态栏常显 chip / 管理操作流内闭环 + 设置视图保留管理面）+ 附带 2（可拖动宽度 280–640 / S2 断流样板首验收）；非目标 8 项（content.js 与 pick-layer.js 冻结 / A2A F-29 不动 / 12 kind 不加 / 三区法则不变 / design 稿不改 / 判定链 zeroDiffFiles 零触碰 / 安装期静态权限不变 / L2 视图内部）。红线继承 N1~N21；显式取代 X1~X6。问题清单 Q-ALLN-001~014（核心 5 / 次要 5 / 潜在 4）；假设 A-ALLN-001~010；风险 R-ALLN-001~016（含 Top5 + 门禁迁移量估计）；开放问题 O-ALLN-001~012；叶子拆分草案 4 叶（串行）。",
   "scope": {
     "in": [
@@ -39,12 +81,28 @@
     ]
   },
   "artifacts": [
-    "discovery.md"
+    "discovery.md",
+    "spec.md",
+    "TREE.md",
+    "state.json",
+    "specs-tree-v5-1-next-registry-pipeline/spec.md",
+    "specs-tree-v5-2-ops-first-batch/spec.md",
+    "specs-tree-v5-3-chrome-face/spec.md"
   ],
   "files": {
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/discovery.md",
     "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/state.json",
-    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/TREE.md"
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/TREE.md",
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/spec.md",
+    "leaf1Spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/spec.md",
+    "leaf1State": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/state.json",
+    "leaf1Tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/TREE.md",
+    "leaf2Spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/spec.md",
+    "leaf2State": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/state.json",
+    "leaf2Tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/TREE.md",
+    "leaf3Spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/spec.md",
+    "leaf3State": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/state.json",
+    "leaf3Tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/TREE.md"
   },
   "coversIssues": [
     "Q-ALLN-001 死端：阻塞终态之后流内零可达 next（法七不成立）",
@@ -162,184 +220,266 @@
     {
       "id": "O-ALLN-001",
       "topic": "op 首批范围边界",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则范围无边界，「一站式闭环」被无限外扩，体积与门禁面失控（Q-ALLN-011）",
       "candidates": [
         "严格按设计稿 8 op（其余登记为 deferred）",
         "8 op + 少量明确补充（如会话切换）",
         "全量收编（风险最高）"
-      ]
+      ],
+      "ruling": "DC-ALLN-001：设计稿 8 op + op.turn = 9 op；会话 / 分组不收编（登记 deferred）→ FR-ALLN-040~049 / AC-ALLN-007",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-002",
       "topic": "NextProvider 注册表形态（纯 TS 注册 vs 声明式 JSON）+ 证明义务表式静态登记",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则 handleCardAction diff = 0 的契约义务无法机核（设计稿 §⑤/§⑦）",
       "candidates": [
         "纯 TS 注册 + node 门禁断言「分发器零 per-op 分支」",
         "TS 注册 + 运行期 loud 校验",
         "声明式 JSON（引入新加载面）"
-      ]
+      ],
+      "ruling": "DC-ALLN-002：纯 TS 注册（NextProvider/NextOp + registerNextProvider() 幂等 unregister）；契约 v2 七点全落地；证明义务表 = 静态机核；不做外部 JSON 声明 → FR-ALLN-030~038 / AC-ALLN-004·005",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-003",
       "topic": "SW 端 op 执行器架构 + op-* 消息族落点（type-only vs KIND_SET）",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则架构分层不明、双入口漂移（Q-ALLN-010 / R-ALLN-012）；消息族可能误入 KIND_SET（R-ALLN-002 / content.js 红线）",
       "candidates": [
         "面板侧 op 执行器 + 复用既有 message kind",
         "SW 侧统一 op 执行器 + 新 type-only 消息族",
         "混合（读面板 / 写 SW）"
-      ]
+      ],
+      "ruling": "DC-ALLN-003：双层执行器（panel-local / 特权 op 走 SW）；op-* type-only 消息族；SW 侧小型注册表镜像契约（id/模式/失败语义/审计）；KIND_SET 不动 → FR-ALLN-065~069 / AC-ALLN-010",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-004",
       "topic": "settings/ops.ts（17 个设置操作）与新 op 管线的关系（收编 / 并行 / 单一执行入口）",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则同一操作两条执行路径 ⇒ 行为 / 留痕 / 门禁漂移（FIX-1 先例的反面；v4.5 双写教训）",
       "candidates": [
         "收编 + 单一执行入口（与 FIX-1 先例一致）",
         "并行（须显式登记双写判据）",
         "设置页降级为只读管理面"
-      ]
+      ],
+      "ruling": "DC-ALLN-004：重叠 4 类（authorize/revoke/rebind/llm-config）收编为 op 单一执行入口（零双路径）；其余设置操作不动 → FR-ALLN-075~078 / AC-ALLN-011",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-005",
       "topic": "断流首验收（S2）AC 形态：可机器化环节 vs 人工面（浏览器原生弹窗）",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则首验收无法验收（作者裁决⑤ 义务落空），且可能以自动判据冒充人工验收（v4/v4.5 明令禁止）",
       "candidates": [
         "「阻塞后有可达 next」做 node + Chromium 判据 + 弹窗走人工面 ⏳",
         "全链 Chromium（弹窗不可合成 ⇒ 降级）",
         "仅 node 判据 + 人工真机走查"
-      ]
+      ],
+      "ruling": "DC-ALLN-005：机器化主验收（headless 全链 S2，死端 = 0）+ 浏览器权限弹窗体感入人工面 → FR-ALLN-016 / AC-ALLN-001·024",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-006",
       "topic": "状态栏授权 chip 归属（新 DOM vs 复用 #risk-chips / #statusbar-text）+ 零双写机核口径",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则 statusbar.ts 单写者结构被打破（R-ALLN-007）；零双写无可核判据",
       "candidates": [
         "新增 #auth-state 常显 chip（独立写入者，与 rail 分工）",
         "复用 #risk-chips（须证明不破坏「风险 chips」语义）",
         "状态栏第一行内联（文本 + 可点）"
-      ]
+      ],
+      "ruling": "DC-ALLN-006：状态栏常显两态 chip = 授权态全 UI 唯一载体（rail auth 类并入）；黄 → 产 next，绿 → 管理详情；零双写机核 → FR-ALLN-085~088·092 / AC-ALLN-012·015",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-007",
       "topic": "密度口径与连续宽度（31 格重算 / 宽度无关性判据 / 三视口断言 / data-narrow）",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则工作量与验收面两读法并存（Q-ALLN-014 / A-ALLN-008）",
       "candidates": [
         "保留三档测量点 + 新增连续宽度不变量判据",
         "全量重算 31 格",
         "仅新增 data-narrow 判据，其余登记为已知偏差"
-      ]
+      ],
+      "ruling": "DC-ALLN-007：登记格口径与宽度解耦（格 = 控件计数）；320px 仍为验收锚点；data-narrow（≤360）兜底；X5 取代登记但测量口径不变 → FR-ALLN-089~091·114 / AC-ALLN-013·014",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-008",
       "topic": "NEXTSTEP_ACTS 闭集 → opId 的取代方式 + op.pick / op.describe 与既有本地动作语义对齐",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则「本地动作零回合」（ADR-V4-038 §5）与 op 管线的 consent / params 门控冲突",
       "candidates": [
         "op 为唯一词汇，act 退役",
         "act 保留为 opId 的渲染别名",
         "双词汇共存（须登记映射）"
-      ]
+      ],
+      "ruling": "DC-ALLN-008：chip data-op = opId；旧 6 act 等价映射（next→op.turn / repick→op.pick / describe→op.describe / authorize→op.authorize / help→op.help / rebind→op.rebind）；判据等价重锚 → FR-ALLN-056·057·112·115 / AC-ALLN-009",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-009",
       "topic": "error 卡行内恢复的落层 + BORN_FROZEN_KINDS 例外 + 点击终态留痕",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则法七最严口径（伴随 = 行内带恢复 chip）无法落地或与冻结契约冲突（Q-ALLN-009）",
       "candidates": [
         "行内 chip + 卡不 patch（点击另起 next 卡）",
         "卡壳带 chip + error 移出冻结集",
         "紧随恢复卡（放宽为「紧随」）"
-      ]
+      ],
+      "ruling": "DC-ALLN-009：error 事件/卡保持 append-only 冻结；阻塞类 error 出生即带恢复区（出生铸造的一部分，非事后改写）；非阻塞 error 不带 → FR-ALLN-012 / AC-ALLN-002",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-010",
       "topic": "法八「值不入流」的存储侧边界与零明文机核面",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则安全口径不清（可能被误读为存储已加密）；判据边界不清导致漏扫",
       "candidates": [
         "仅流内零明文（哨兵扫描 4 面 + 属性）+ 存储侧登记 out-of-scope",
         "含存储侧",
         "流内零明文 + 存储侧仅登记口径"
-      ]
+      ],
+      "ruling": "DC-ALLN-010：流内 payload / digest / 审计 / DOM value 四面零明文机核 + key 直写 key-store 断言；存储侧加密/生命周期登记 out-of-scope → FR-ALLN-021~024 / NG-ALLN-017 / AC-ALLN-003",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-011",
       "topic": "G 稿是否入 design-contract 门禁（X4）",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "不裁决则设计-实现一致性无机器证据（Q-ALLN-013 / R-ALLN-005）",
       "candidates": [
         "入契约（F 与 G 并存，各冻各的）",
         "新建独立 G 契约门禁",
         "不入，显式登记为已知偏差 + 其它判据兜底"
-      ]
+      ],
+      "ruling": "DC-ALLN-011：双稿双 shim（F 60 冻结不替换 + G 127 新增）+ designContractChanges 登记（X4）→ FR-ALLN-100~103·113 / AC-ALLN-016·017",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     },
     {
       "id": "O-ALLN-012",
       "topic": "是否需要外部竞品调研（聊天式 agent 面板如何组织授权 / 权限 / 密钥配置 / 管理面）",
-      "status": "open",
+      "status": "ruled",
       "whySpecMustRule": "需要而未做则论证缺外部参照；不需要而未显式裁决则后续可能被质疑遗漏",
       "candidates": [
         "不需要（已有 dsh 已核实对标 + LGDL lgdl-web-op-cli 仓库内参照）",
         "需要，登记为待调研项（交付前完成）"
-      ]
+      ],
+      "ruling": "DC-ALLN-012：不做外部竞品调研；登记「未执行，不阻塞」；不编造结论 → NG-ALLN-012",
+      "ruledOn": "2026-09-22",
+      "ruledBy": "编排器代作者决策（D1 授权）"
     }
   ],
   "pendingObligations": [
-    "ROADMAP 登记（留给收口轮）：F-32 + v0.10.0（并列新主题）；本阶段 ROADMAP 零 diff",
-    "design-contract 扩展裁决与落地（X4）：G 稿 + 127 断言入契约（或显式登记治理真空）+ designContractChanges 登记；F 冻结不得静默替换",
-    "体积预算评估与重登记（Q-ALLN-011）：sidepanel.js 净增上下界评估；若越限走五要素重登记 + V3-VOL-3 同源前移 + authorConfirmation 保持 pending-author-line",
-    "断流首验收 AC 形态化（O-ALLN-005）：真机 23:12 序列 → 回归判据（含人工面边界）",
-    "保护段第三次取代预登记（R-ALLN-010）：若改流 / 状态栏结构，走八步取代 + redlineRemap[] + 计数守恒",
-    "op-* 消息族 type-only 落点证明（A-ALLN-003）：content.js 逐字节零增长复跑",
-    "optional_permissions 最小集论证（R-ALLN-016）：静态 5 / 可选 5 / host 6 判据的等价改写方案",
-    "单一执行入口纪律（O-ALLN-004）：chat op 与 settings ops 的收编 / 并行裁决与判据",
-    "法八零明文机核判据 + 对抗反证（R-ALLN-008）",
-    "密度口径裁决与实测（O-ALLN-007 / Q-ALLN-014）",
-    "人工面清单承接（浏览器原生权限弹窗等，headless 不可合成 ⇒ 如实登记 ⏳ 不冒充 PASS）",
-    "KL-N-10 / #54g 环境性 flake 处置纪律继承（隔离复跑 ≥2、日志全量、仍红如实记录不阻塞）"
+    {
+      "id": "PO-ALLN-001",
+      "item": "会话 / 分组 / tabs 设置 / 诊断 / 主题 / 告警 不收编为首批 op",
+      "status": "deferred（登记，不阻塞）",
+      "trigger": "后续 Feature（若作者提出「连会话切换也要在 chat 里闭环」）",
+      "decidedBy": "DC-ALLN-001 / NG-ALLN-011"
+    },
+    {
+      "id": "PO-ALLN-002",
+      "item": "外部竞品调研（聊天式 agent 面板如何组织授权 / 权限 / 密钥配置 / 管理面）",
+      "status": "未执行（登记，不阻塞）",
+      "trigger": "若后续需外部参照",
+      "decidedBy": "DC-ALLN-012 / NG-ALLN-012"
+    },
+    {
+      "id": "PO-ALLN-003",
+      "item": "存储侧加密 / 生命周期 / 轮换",
+      "status": "out-of-scope（显式登记；只保证流内零明文）",
+      "trigger": "独立安全 Feature",
+      "decidedBy": "DC-ALLN-010 / NG-ALLN-017"
+    },
+    {
+      "id": "PO-ALLN-004",
+      "item": "V3-VOL-3 绝对上限的作者一句外部确认",
+      "status": "pending-author-line（不得伪称已确认）",
+      "trigger": "作者一行否决/确认",
+      "decidedBy": "N4 / FR-ALLN-132"
+    },
+    {
+      "id": "PO-ALLN-005",
+      "item": "体积净增最终值 + 是否触发档位上调",
+      "status": "待实测（build / 收口轮按实测填写）",
+      "trigger": "三叶 build 完成后",
+      "decidedBy": "FR-ALLN-130~134 / R-ALLN-001"
+    },
+    {
+      "id": "PO-ALLN-006",
+      "item": "密度 31 登记格在连续宽度下的逐格重锚值",
+      "status": "待实测（Chromium）",
+      "trigger": "v5-3 build 轮",
+      "decidedBy": "FR-ALLN-091·114"
+    },
+    {
+      "id": "PO-ALLN-007",
+      "item": "浏览器原生权限弹窗体感 / 拖动性能 / 读屏 / 真机 S2 走查",
+      "status": "人工面（逐项标注 ⏳ 或 PASS，不得冒充 PASS）",
+      "trigger": "各叶收尾",
+      "decidedBy": "AC-ALLN-024 / NG-ALLN-020"
+    }
   ],
   "recommendedChildren": [
     {
-      "featureKey": "specs-tree-v5-1-no-dead-end",
-      "name": "V5-1 法七 无死端（error 卡行内恢复 + 5 类阻塞必有可达 next + S2 断流样板首验收机核化）",
+      "featureKey": "specs-tree-v5-1-next-registry-pipeline",
+      "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/",
+      "name": "V5-1 NextProvider 注册表 + op 管线（首叶）",
       "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
       "deliveryOrder": 1,
-      "priority": "P0",
-      "dependsOn": []
+      "dependsOn": [],
+      "note": "契约 v2 七点（R1 可逆注册 / R2 依赖声明式 / R3 优先级显式化 / R4 分发模式公开契约 / R5 失败语义三级 / R6 Seam 三件套 / R7 证明义务表）+ 统一管线四态 + act→opId 等价映射 + chip data-op + 瘦分发（handleCardAction per-op diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增 + designContractChanges 登记）+ 证明义务表静态机核 + 阻塞态枚举单源 / site.unauthorized 常驻候选（法七机制基础）。承载父 FR-ALLN-030~038 / 055~059 / 010·011·013 / 100~103 / 112·113·115 / 116 / 120~125 的切片。"
     },
     {
-      "featureKey": "specs-tree-v5-2-web-op-pipeline",
-      "name": "V5-2 web-op 统一管线 + NextProvider 注册表（契约 v2 七点；act 闭集 → opId 取代与门禁等价重锚）",
+      "featureKey": "specs-tree-v5-2-ops-first-batch",
+      "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/",
+      "name": "V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收（次叶）",
       "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
       "deliveryOrder": 2,
-      "priority": "P0",
-      "dependsOn": ["specs-tree-v5-1-no-dead-end"]
+      "dependsOn": [
+        "specs-tree-v5-1-next-registry-pipeline"
+      ],
+      "note": "9 op（设计稿 8 + op.turn）五要素落地 + SW 双层执行器（特权 op 恰 2 项）+ op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约 + optional_permissions 放开（安装期静态面零漂移）+ 掩码 secret 卡 / form 扩形 + 值直达 key-store + settings 4 类收编（零双路径 + 单一调用点机核）+ 拒绝非死端 + S2 断流样板机器化首验收（headless 全链，死端 = 0；浏览器弹窗体感入人工面）。承载父 FR-ALLN-040~049 / 014·016 / 020~022 / 065~069 / 075~078 / 110·111 的切片。"
     },
     {
-      "featureKey": "specs-tree-v5-3-in-chat-ops",
-      "name": "V5-3 授权 / 权限 / LLM / 撤销 流内闭环（op.authorize · op.perm.request · op.llm-config 掩码卡 + 法八 · op.revoke；与设置视图单一执行入口纪律）",
+      "featureKey": "specs-tree-v5-3-chrome-face",
+      "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/",
+      "name": "V5-3 授权 chip + 可拖动宽度 + 死端守护 + 法八机核（末叶 / 收口叶）",
       "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
       "deliveryOrder": 3,
-      "priority": "P0",
-      "dependsOn": ["specs-tree-v5-2-web-op-pipeline"]
-    },
-    {
-      "featureKey": "specs-tree-v5-4-auth-chip-and-width",
-      "name": "V5-4 授权态下移状态栏常显 chip + 可拖动宽度 280–640（零双写 + 密度口径）",
-      "leaf": true,
-      "deliveryOrder": 4,
-      "priority": "P1",
-      "dependsOn": ["specs-tree-v5-3-in-chat-ops"]
+      "dependsOn": [
+        "specs-tree-v5-1-next-registry-pipeline",
+        "specs-tree-v5-2-ops-first-batch"
+      ],
+      "note": "#auth-state 状态栏常显两态 chip（授权态全 UI 唯一载体 + 零双写五条 + 黄点击产 next / 绿点击管理详情）+ 可拖动宽度 280–640（ARIA separator + 键盘 + clamp + 双击复位 400 + rAF）+ data-narrow（≤360）窄屏兜底 + 三档 radio 删除 + 密度登记格口径与宽度解耦（320 锚点 / 阈值逐字不动）+ error 出生即带恢复区 + 死端守护门禁（5 类阻塞 + N = 0 + 死端 = 0 + 双向反证）+ 法八四面零明文机核（流内 payload / digest / 审计 / DOM value + 全属性 + key 直写 key-store）+ X5 显式取代 + 父级共享面收口（体积五要素 / journey 保护段 / 双契约 / 取代台账）。承载父 FR-ALLN-012·015 / 023·024 / 085~092 / 114·116 / 122~125 / 130~134 的切片。"
     }
   ],
-  "splitNote": "叶子拆分草案 = 4 叶（供 spec 参考；discovery 只提建议不执行）。依据：四项核心的取代对象 / 门禁面 / 台账条目互不重叠，具备独立成叶的判据；但四叶共享同一次体积重登记、同一次 journey 结构重锚与同一次 design-contract 登记 ⇒ 必须串行（deliveryOrder 明确）。v5-1（法七无死端）与 v5-2（op 管线 + 注册表）共享推荐器取代面，须先定 provider 形态；v5-3 依赖 op 管线；v5-4 的管理详情入口依赖 op.revoke / op.rebind ⇒ 可后置为 P1。最终拆分与结构裁决由 spec 决定（v3-ui / v4-chat / v4.5 先例：父 = 轻量规范容器，不承接 build/review/validate）。",
+  "splitNote": "**3 叶结构裁决（父 spec.md §14.1）**：父 Feature = 轻量规范容器（depth=1，不承接 build/review/validate，不产出 tasks.json）；实施由 **3 个叶**按依存序串行承接：① `specs-tree-v5-1-next-registry-pipeline`（契约 v2 注册表 + op 管线 + act→opId + 瘦分发 + 双契约 + 证明义务机核）→ ② `specs-tree-v5-2-ops-first-batch`（9 op 落地 + SW 执行器 + optional_permissions + 掩码 llm-config + settings 收编 + 断流首验收）→ ③ `specs-tree-v5-3-chrome-face`（授权 chip + 可拖动宽度 + 密度连续口径 + 死端守护门禁 + 法八机核；末叶 / 收口叶）。**四类共享面（体积重登记 / journey 结构重锚 / design-contract 登记 / 取代台账八步）被 ≥2 叶触碰 ⇒ 必须恰一次做完**（父 FR-ALLN-004）。**否决 discovery §6.3 的 4 叶草案**：①「法七无死端」不是独立层（机制基础在 v5-1 / 首验收在 v5-2 / 守护门禁在 v5-3）⇒ 独立成叶会造成同一判据三叶各改一次；② 授权 chip 与可拖动宽度同为界面面形态（同一次 density / l0 / journey 门禁重锚）⇒ 合为 v5-3。",
   "riskPreRegistration": {
     "top5": [
       "R-ALLN-004 注册表取代既有推荐器（决定 v5 是新增层还是重构层；牵动 4 个门禁 + 主流程 3 处）",
@@ -349,47 +489,175 @@
       "R-ALLN-006 + R-ALLN-007 两条契约冲突面（error 出生冻结 vs 行内恢复 chip；状态栏单写者 vs 授权态下移）"
     ],
     "register": [
-      { "id": "R-ALLN-001", "risk": "体积越限（余量 24,926 B / 距档位 13,479 B）", "level": "高" },
-      { "id": "R-ALLN-002", "risk": "content.js 红线通路（op-* 消息族若进 KIND_SET；历史 +307 B / 6 字符串）", "level": "高" },
-      { "id": "R-ALLN-003", "risk": "权限面安全评审 + manifest 判据精确集合（静态 5 / 可选 5 / host 6 / SW 禁 .request( ）", "level": "高" },
-      { "id": "R-ALLN-004", "risk": "注册表取代既有推荐器（4 规则 + 6 act 闭集 + 16 分支 switch + 源白名单 7）", "level": "高" },
-      { "id": "R-ALLN-005", "risk": "design-contract 契约真空（G 稿与 127 断言不被任何门禁引用）", "level": "高" },
-      { "id": "R-ALLN-006", "risk": "error 卡出生冻结契约与法七行内恢复冲突", "level": "中高" },
-      { "id": "R-ALLN-007", "risk": "状态栏授权 chip 归属与双写面（单写者 J1~J4）", "level": "中高" },
-      { "id": "R-ALLN-008", "risk": "法八零明文实现层可核性 + 反证有效性（v4.5 三类反证恒绿教训）", "level": "中高" },
-      { "id": "R-ALLN-009", "risk": "密度口径变更（三档 → 连续宽度）连锁 31 格 / 三视口 / data-narrow", "level": "中" },
-      { "id": "R-ALLN-010", "risk": "保护段第三次八步取代（journey 240 行 pin / binding keep）", "level": "中高" },
-      { "id": "R-ALLN-011", "risk": "零宿主判据守门（REGISTERED_STRUCTURAL_HOSTS = []；禁止新增流内固定容器）", "level": "中" },
-      { "id": "R-ALLN-012", "risk": "双入口漂移（chat op 与 settings ops 并存）", "level": "中高" },
-      { "id": "R-ALLN-013", "risk": "断言只增的门禁规模（24 门禁基线只增不减 + 等价重锚量）", "level": "中" },
-      { "id": "R-ALLN-014", "risk": "浏览器权限弹窗 headless 不可合成（PENDING_TIMEOUT）⇒ 人工面", "level": "中" },
-      { "id": "R-ALLN-015", "risk": "串行门禁纪律 + KL-N-10 / #54g 环境性 flake 误读", "level": "低" },
-      { "id": "R-ALLN-016", "risk": "optional_permissions 最小集论证缺位", "level": "中" }
+      {
+        "id": "R-ALLN-001",
+        "risk": "体积越限（余量 24,926 B / 距档位 13,479 B）",
+        "level": "高"
+      },
+      {
+        "id": "R-ALLN-002",
+        "risk": "content.js 红线通路（op-* 消息族若进 KIND_SET；历史 +307 B / 6 字符串）",
+        "level": "高"
+      },
+      {
+        "id": "R-ALLN-003",
+        "risk": "权限面安全评审 + manifest 判据精确集合（静态 5 / 可选 5 / host 6 / SW 禁 .request( ）",
+        "level": "高"
+      },
+      {
+        "id": "R-ALLN-004",
+        "risk": "注册表取代既有推荐器（4 规则 + 6 act 闭集 + 16 分支 switch + 源白名单 7）",
+        "level": "高"
+      },
+      {
+        "id": "R-ALLN-005",
+        "risk": "design-contract 契约真空（G 稿与 127 断言不被任何门禁引用）",
+        "level": "高"
+      },
+      {
+        "id": "R-ALLN-006",
+        "risk": "error 卡出生冻结契约与法七行内恢复冲突",
+        "level": "中高"
+      },
+      {
+        "id": "R-ALLN-007",
+        "risk": "状态栏授权 chip 归属与双写面（单写者 J1~J4）",
+        "level": "中高"
+      },
+      {
+        "id": "R-ALLN-008",
+        "risk": "法八零明文实现层可核性 + 反证有效性（v4.5 三类反证恒绿教训）",
+        "level": "中高"
+      },
+      {
+        "id": "R-ALLN-009",
+        "risk": "密度口径变更（三档 → 连续宽度）连锁 31 格 / 三视口 / data-narrow",
+        "level": "中"
+      },
+      {
+        "id": "R-ALLN-010",
+        "risk": "保护段第三次八步取代（journey 240 行 pin / binding keep）",
+        "level": "中高"
+      },
+      {
+        "id": "R-ALLN-011",
+        "risk": "零宿主判据守门（REGISTERED_STRUCTURAL_HOSTS = []；禁止新增流内固定容器）",
+        "level": "中"
+      },
+      {
+        "id": "R-ALLN-012",
+        "risk": "双入口漂移（chat op 与 settings ops 并存）",
+        "level": "中高"
+      },
+      {
+        "id": "R-ALLN-013",
+        "risk": "断言只增的门禁规模（24 门禁基线只增不减 + 等价重锚量）",
+        "level": "中"
+      },
+      {
+        "id": "R-ALLN-014",
+        "risk": "浏览器权限弹窗 headless 不可合成（PENDING_TIMEOUT）⇒ 人工面",
+        "level": "中"
+      },
+      {
+        "id": "R-ALLN-015",
+        "risk": "串行门禁纪律 + KL-N-10 / #54g 环境性 flake 误读",
+        "level": "低"
+      },
+      {
+        "id": "R-ALLN-016",
+        "risk": "optional_permissions 最小集论证缺位",
+        "level": "中"
+      }
     ],
     "protectionGateMigrationEstimate": {
       "caliber": "静态引用规模（本报告逐条 file:line 证据），用作工作量上界参考；不是「要改的断言数」（等价重锚可能一条多改）；discovery 不做估算承诺",
-      "recommenderRegistryGroup": { "objects": "recommend.ts（4 规则 / 6 act 闭集 / 源白名单 7 / 3 常量）+ handleCardAction（16 分支）+ cards/nextstep.ts（data-act）", "gateFiles": "4~6", "主门禁": "recommendation-sources.test.ts / local-act-wiring.test.ts / authorize-chip-wiring.test.ts / test:recommendation(59) / test:ref-pick-wiring(11)" },
-      "permissionGroup": { "objects": "manifest.json + platform/capability-permissions.ts + settings/panel.ts", "gateFiles": 4, "主门禁": "capability-wiring.test.ts / binding-wiring.test.ts / auto-session-wiring.test.ts / test:binding(192)" },
-      "messagingRedLineGroup": { "objects": "background/messaging.ts + content-script.ts import 边", "gateFiles": 3, "主门禁": "content.test.ts / pick-layer-budget.test.ts / insight-protocol.test.ts" },
-      "streamCardGroup": { "objects": "stream-model.ts + cards/error.ts + cards/askuser.ts", "gateFiles": "4~5", "主门禁": "test:stream(63) / test:ask-auth(61) / host-registry.test.ts / test:l0(244)" },
-      "statusbarDensityGroup": { "objects": "statusbar.ts + l0/risk-rail.ts + view-model.ts(:824,900) + density-scope.ts", "gateFiles": "5~6", "主门禁": "test:density(232) / test:l0(244) / test:ui(171) / density-thresholds.test.ts" },
-      "designContractGroup": { "objects": "test/design-contract.test.ts + docs/v4-supersession-ledger.json#designContractChanges", "gateFiles": 2, "主门禁": "test:design-contract(6)" },
+      "recommenderRegistryGroup": {
+        "objects": "recommend.ts（4 规则 / 6 act 闭集 / 源白名单 7 / 3 常量）+ handleCardAction（16 分支）+ cards/nextstep.ts（data-act）",
+        "gateFiles": "4~6",
+        "主门禁": "recommendation-sources.test.ts / local-act-wiring.test.ts / authorize-chip-wiring.test.ts / test:recommendation(59) / test:ref-pick-wiring(11)"
+      },
+      "permissionGroup": {
+        "objects": "manifest.json + platform/capability-permissions.ts + settings/panel.ts",
+        "gateFiles": 4,
+        "主门禁": "capability-wiring.test.ts / binding-wiring.test.ts / auto-session-wiring.test.ts / test:binding(192)"
+      },
+      "messagingRedLineGroup": {
+        "objects": "background/messaging.ts + content-script.ts import 边",
+        "gateFiles": 3,
+        "主门禁": "content.test.ts / pick-layer-budget.test.ts / insight-protocol.test.ts"
+      },
+      "streamCardGroup": {
+        "objects": "stream-model.ts + cards/error.ts + cards/askuser.ts",
+        "gateFiles": "4~5",
+        "主门禁": "test:stream(63) / test:ask-auth(61) / host-registry.test.ts / test:l0(244)"
+      },
+      "statusbarDensityGroup": {
+        "objects": "statusbar.ts + l0/risk-rail.ts + view-model.ts(:824,900) + density-scope.ts",
+        "gateFiles": "5~6",
+        "主门禁": "test:density(232) / test:l0(244) / test:ui(171) / density-thresholds.test.ts"
+      },
+      "designContractGroup": {
+        "objects": "test/design-contract.test.ts + docs/v4-supersession-ledger.json#designContractChanges",
+        "gateFiles": 2,
+        "主门禁": "test:design-contract(6)"
+      },
       "protectedPins": 2,
       "volumeChainFiles": 4,
       "frozenRedlineFiles": 3
     }
   },
   "assumptions": [
-    { "id": "A-ALLN-001", "assumption": "5 类阻塞终态在现状下没有一类已有可达 next（法七缺口是全面的）", "verify": "逐类核对（未授权 / LLM 未配置 / 权限缺失已证；绑定失效 / 引用全失效待 spec 复核）——部分待验证" },
-    { "id": "A-ALLN-002", "assumption": "非首装未授权会话是真实存在的用户路径", "verify": "作者确认（一行）；不据此声称普适收益，标注待验证" },
-    { "id": "A-ALLN-003", "assumption": "op-* 消息族可用既有 type-only 先例落地，不增长 content.js 一个字节", "verify": "npm run build + stat -c %s dist/content.js == 177,076 B + sha 逐字节命中——待验证" },
-    { "id": "A-ALLN-004", "assumption": "optional_permissions 新增/沿用不改变安装期静态面，且门禁可等价改写", "verify": "capability-wiring / binding-wiring / auto-session-wiring 全绿——待验证" },
-    { "id": "A-ALLN-005", "assumption": "NextProvider 注册表可取代（而非并存）现有 4 规则 + 6 项闭集 + 手写 switch，且门禁可等价重锚", "verify": "逐条对账四门禁（recommendation-sources / local-act-wiring / authorize-chip-wiring / recommendation.mjs）——待验证" },
-    { "id": "A-ALLN-006", "assumption": "法八「流内零明文」可机核（哨兵值扫描 #stream / 审计 / digest / 全部元素属性）", "verify": "设计稿 shim §E 同构判据 + 实现层等价判据 + 对抗反证——待验证" },
-    { "id": "A-ALLN-007", "assumption": "状态栏常显 chip 与「零双写 / 永不折叠 / 密度 6 ≤ 7」可同时成立", "verify": "statusbar J1~J4 + 新增 chip 归属裁决（O-ALLN-006）——待验证" },
-    { "id": "A-ALLN-008", "assumption": "可拖动宽度（280–640 连续）不破坏 31 登记格与三视口断言（或可等价重锚）", "verify": "Chromium 实跑 test:density / test:l0 / test:ui 前后对比——待验证" },
-    { "id": "A-ALLN-009", "assumption": "体积在单轮容差 5%（24,926 B）内可完成，或可显式重登记前移档位/上限", "verify": "npm run build + 五要素重登记 + size-ruling-vol3 算术机核——待验证" },
-    { "id": "A-ALLN-010", "assumption": "本轮 .sddu/** 只写本 Feature 目录、src/test/dist/design 零改动，不影响既有门禁", "verify": "git status --short + git diff --quiet -- packages/web-cli-plugin 复核（本轮已遵守）" }
+    {
+      "id": "A-ALLN-001",
+      "assumption": "5 类阻塞终态在现状下没有一类已有可达 next（法七缺口是全面的）",
+      "verify": "逐类核对（未授权 / LLM 未配置 / 权限缺失已证；绑定失效 / 引用全失效待 spec 复核）——部分待验证"
+    },
+    {
+      "id": "A-ALLN-002",
+      "assumption": "非首装未授权会话是真实存在的用户路径",
+      "verify": "作者确认（一行）；不据此声称普适收益，标注待验证"
+    },
+    {
+      "id": "A-ALLN-003",
+      "assumption": "op-* 消息族可用既有 type-only 先例落地，不增长 content.js 一个字节",
+      "verify": "npm run build + stat -c %s dist/content.js == 177,076 B + sha 逐字节命中——待验证"
+    },
+    {
+      "id": "A-ALLN-004",
+      "assumption": "optional_permissions 新增/沿用不改变安装期静态面，且门禁可等价改写",
+      "verify": "capability-wiring / binding-wiring / auto-session-wiring 全绿——待验证"
+    },
+    {
+      "id": "A-ALLN-005",
+      "assumption": "NextProvider 注册表可取代（而非并存）现有 4 规则 + 6 项闭集 + 手写 switch，且门禁可等价重锚",
+      "verify": "逐条对账四门禁（recommendation-sources / local-act-wiring / authorize-chip-wiring / recommendation.mjs）——待验证"
+    },
+    {
+      "id": "A-ALLN-006",
+      "assumption": "法八「流内零明文」可机核（哨兵值扫描 #stream / 审计 / digest / 全部元素属性）",
+      "verify": "设计稿 shim §E 同构判据 + 实现层等价判据 + 对抗反证——待验证"
+    },
+    {
+      "id": "A-ALLN-007",
+      "assumption": "状态栏常显 chip 与「零双写 / 永不折叠 / 密度 6 ≤ 7」可同时成立",
+      "verify": "statusbar J1~J4 + 新增 chip 归属裁决（O-ALLN-006）——待验证"
+    },
+    {
+      "id": "A-ALLN-008",
+      "assumption": "可拖动宽度（280–640 连续）不破坏 31 登记格与三视口断言（或可等价重锚）",
+      "verify": "Chromium 实跑 test:density / test:l0 / test:ui 前后对比——待验证"
+    },
+    {
+      "id": "A-ALLN-009",
+      "assumption": "体积在单轮容差 5%（24,926 B）内可完成，或可显式重登记前移档位/上限",
+      "verify": "npm run build + 五要素重登记 + size-ruling-vol3 算术机核——待验证"
+    },
+    {
+      "id": "A-ALLN-010",
+      "assumption": "本轮 .sddu/** 只写本 Feature 目录、src/test/dist/design 零改动，不影响既有门禁",
+      "verify": "git status --short + git diff --quiet -- packages/web-cli-plugin 复核（本轮已遵守）"
+    }
   ],
   "evidenceGaps": [
     "真机截图 / 录屏未入库：断流序列来自作者提供的文字逐字记录（设计稿头注保留），本报告不声称有截图证据",
@@ -409,7 +677,39 @@
       "phase": "discovered",
       "timestamp": "2026-09-22T00:50:00.000Z",
       "triggeredBy": "sddu-discovery（产出 discovery.md v1.0：作者主题逐字 2 条 + 真机断流现场逐字 + 四层根因 R1~R4 源码映射 + 设计基准冻结登记（G 稿/sh 双 sha + 127/127 实跑）+ F-32 零占用核验 + v0.10.0 版本位核验 + 范围核心 6/附带 2/非目标 8 + 现状基线 §7.1 A~G 全量 file:line 证据 + Q-ALLN-001~014（核心 5/次要 5/潜在 4）+ A-ALLN-001~010 + R-ALLN-001~016（含 Top5 与门禁迁移量估计）+ 红线继承 N1~N21 + 显式取代 X1~X6 + O-ALLN-001~012 + pendingObligations 12 条 + 4 叶拆分草案）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-22T01:20:00.000Z",
+      "triggeredBy": "sddu-spec（产出 spec.md v1.0 + 3 叶 spec.md + 3 叶 state.json：FR 80 / NFR 12 / EC 21 / AC 25 / NG 20 / G 8 / US 8；O-ALLN-001~012 十二条全部裁决（status=ruled，DC-ALLN-001~012）；X1~X6 显式取代 → 判据等价重写映射表（§12）；N1~N21 红线继承逐条承载 + N22~N25 新增红线；R-ALLN-001~016 继承 + R-ALLN-901~910 新增；门禁基线清单 24 项；3 叶 FR 覆盖矩阵；父 = 轻量规范容器）"
     }
   ],
-  "phaseNote": "phase=discovered（status=tracked）。本轮为 discovery 阶段：只读设计稿 / shim / 源码 / 门禁 / 文档 / 尺寸 / sha + 只写本 Feature 目录内文件（discovery.md + state.json + TREE.md）；未跑 npm test / Chromium / 构建；未改 src / test / dist / design / docs / ROADMAP。下一步 = @sddu-spec specs-tree-web-cli-plugin-v5-all-in-next（先裁决 §7.4 的 12 个开放问题，特别是 O-ALLN-002 / O-ALLN-003 / O-ALLN-004）。"
+  "phaseNote": "phase=specified（status=tracked）。本轮为 spec 阶段：只写本 Feature 目录内文件（spec.md + 3 叶 spec.md + state.json + TREE.md）；未改 src / test / dist / design / docs / ROADMAP；零运行时验证（所有数字引自已入库产物与源码）。**3 叶**：v5-1（契约 v2 注册表 + op 管线 + act→opId + 瘦分发 + 双契约 + 证明义务机核）→ v5-2（9 op + SW 执行器 + optional_permissions + 掩码 llm-config + settings 收编 + 断流首验收）→ v5-3（授权 chip + 可拖动宽度 + 密度口径 + 死端守护门禁 + 法八机核；收口叶）。下一步 = @sddu-plan specs-tree-web-cli-plugin-v5-all-in-next（按叶串行规划；v5-1 为首叶）。",
+  "specCounts": {
+    "fr": 80,
+    "nfr": 12,
+    "ec": 21,
+    "ac": 25,
+    "ng": 20,
+    "g": 8,
+    "us": 8,
+    "dc": 12,
+    "leaves": 3,
+    "frBreakdown": {
+      "GOV": 5,
+      "LAW7": 7,
+      "LAW8": 5,
+      "CONTRACT": 9,
+      "OPS": 10,
+      "PIPE": 5,
+      "SW": 5,
+      "SETTINGS": 4,
+      "CHROME": 8,
+      "DESIGN": 4,
+      "SUPERSEDE": 7,
+      "GATE": 6,
+      "VOL": 5
+    },
+    "note": "父 spec.md v1.0（2026-09-22）：FR 80 / NFR 12 / EC 21 / AC 25（核心 6 = 001~006）/ NG 20 / G 8 / US 8 / DC-ALLN-001~012（12 开放点全裁决）"
+  }
 }

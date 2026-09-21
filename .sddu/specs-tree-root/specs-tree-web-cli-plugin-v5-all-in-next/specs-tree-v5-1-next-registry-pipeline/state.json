@@ -1,0 +1,179 @@
+{
+  "feature": "V5-1 NextProvider 注册表 + op 管线（父：specs-tree-web-cli-plugin-v5-all-in-next）",
+  "featureKey": "specs-tree-v5-1-next-registry-pipeline",
+  "version": "v5.0.0",
+  "name": "V5-1 NextProvider 注册表 + op 管线——契约 v2 七点（可逆注册 / 依赖声明式 / 优先级显式化 / 分发模式公开契约 / 失败语义分级 / Seam 三件套 / 证明义务表）+ 统一管线四态 + act→opId 取代 + 瘦分发（分发器 diff = 0）+ 双契约（F 60 冻结不替换 + G 127 新增）+ 证明义务表静态机核",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
+  "childrens": [],
+  "leaf": true,
+  "createdAt": "2026-09-22",
+  "updatedAt": "2026-09-22T01:20:00.000Z",
+  "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**首叶**（P0，deliveryOrder=1，依赖链起点）。承载父 spec.md §5.4 CONTRACT（FR-ALLN-030~038）/ §5.6 PIPE（FR-ALLN-055~059）/ §5.10 DESIGN（FR-ALLN-100~103）/ §5.2 LAW7 的机制侧（FR-ALLN-010·011·013）/ §5.11 的 X3·X4·X6(chip 侧)（FR-ALLN-112·113·115·116）/ §3.2 §5.12 GATE（FR-ALLN-120~125 的本叶面）/ FR-ALLN-003·004·130·133 共 34 条 FR 的实施切片。交付：NextProvider / NextOp 接口（Definition）+ 注册表（Provider）+ handleCardAction 单次查表（Consumer）三件套；R1~R7 逐点可机核；统一管线四态唯一；act→opId 六条等价映射 + chip data-op + 分发器 per-op diff = 0；阻塞态枚举单源 + site.unauthorized 常驻候选（法七机制基础）；双稿双 shim 入 design-contract（F 60 保留 + G 127 新增 + 127 行映射 + designContractChanges 登记）。权威条文见父 spec.md。",
+  "scope": {
+    "in": [
+      "NextProvider 接口形状 + NextOp 形状（Definition，纯 TS）",
+      "registerNextProvider() 幂等 unregister（R1）+ deps⊆SERVICES（R2）+ priority/prepend 与按 id 整行覆盖（R3）",
+      "挂载点 × 模式表（R4 waterfall/emit）+ mode 越集 loud",
+      "失败语义三级（R5：单卡边界 / 注册 loud / 快照回滚语义位）",
+      "Seam 三件套（R6）+ 证明义务表 9 行四要素 + 表尾明示义务（R7）",
+      "证明义务表静态机核（注册表 ↔ 义务表一致；无悬空 chips）",
+      "统一管线四态唯一（next →（params?）→（consent?）→ execute → receipt）",
+      "act→opId 六条等价映射 + chip data-op + 瘦分发 diff = 0 + 本地 op 语义对齐",
+      "阻塞态枚举 5 类单源 + site.unauthorized 常驻候选（与 firstRun 无关）",
+      "双稿双 shim 入 design-contract（F 四项常量逐字保留 + G 四项新增 + 127 行映射）+ designContractChanges 登记",
+      "本叶范围门禁等价重锚（recommendation-sources / local-act-wiring / authorize-chip-wiring / recommendation.mjs / design-contract / supersession）+ 反证留证",
+      "本叶增量体积五要素登记 + 红线逐字节复核"
+    ],
+    "out": [
+      "9 个 op 的业务能力（v5-2）；SW 执行器与 op-* 消息族（v5-2）；optional_permissions（v5-2）；掩码卡（v5-2）；settings 收编（v5-2）；断流首验收（v5-2）",
+      "error 出生带恢复区 / 死端守护门禁 / 授权 chip / 可拖动宽度 / 法八四面机核（v5-3）",
+      "不碰 src/content/** / dist/content.js / dist/pick-layer.js / KIND_SET / manifest.json（除 v5-2 的 optional_permissions）/ 判定链 / 12 卡类型学 / 三区法则 / design/** / ROADMAP"
+    ]
+  },
+  "covers": [
+    "FR-ALLN-030",
+    "FR-ALLN-031",
+    "FR-ALLN-032",
+    "FR-ALLN-033",
+    "FR-ALLN-034",
+    "FR-ALLN-035",
+    "FR-ALLN-036",
+    "FR-ALLN-037",
+    "FR-ALLN-038",
+    "FR-ALLN-055",
+    "FR-ALLN-056",
+    "FR-ALLN-057",
+    "FR-ALLN-058",
+    "FR-ALLN-059",
+    "FR-ALLN-010",
+    "FR-ALLN-011",
+    "FR-ALLN-013",
+    "FR-ALLN-100",
+    "FR-ALLN-101",
+    "FR-ALLN-102",
+    "FR-ALLN-103",
+    "FR-ALLN-112",
+    "FR-ALLN-113",
+    "FR-ALLN-115",
+    "FR-ALLN-116",
+    "FR-ALLN-003",
+    "FR-ALLN-004",
+    "FR-ALLN-120",
+    "FR-ALLN-121",
+    "FR-ALLN-123",
+    "FR-ALLN-125",
+    "FR-ALLN-130",
+    "FR-ALLN-133"
+  ],
+  "acceptanceAnchors": [
+    "AC-ALLN-004",
+    "AC-ALLN-005",
+    "AC-ALLN-009",
+    "AC-ALLN-016",
+    "AC-ALLN-017",
+    "AC-ALLN-002(机制基础)",
+    "AC-ALLN-019",
+    "AC-ALLN-021",
+    "AC-ALLN-022",
+    "AC-ALLN-025"
+  ],
+  "coversNonFunctional": [
+    "NFR-ALLN-004",
+    "NFR-ALLN-007",
+    "NFR-ALLN-010",
+    "NFR-ALLN-012",
+    "NFR-ALLN-005",
+    "NFR-ALLN-001",
+    "NFR-ALLN-006"
+  ],
+  "coversEdgeCases": [
+    "EC-ALLN-001",
+    "EC-ALLN-002",
+    "EC-ALLN-003",
+    "EC-ALLN-004",
+    "EC-ALLN-005",
+    "EC-ALLN-017",
+    "EC-ALLN-018",
+    "EC-ALLN-020"
+  ],
+  "coversNonGoals": [
+    "NG-ALLN-001",
+    "NG-ALLN-005",
+    "NG-ALLN-006",
+    "NG-ALLN-007",
+    "NG-ALLN-008",
+    "NG-ALLN-010",
+    "NG-ALLN-013",
+    "NG-ALLN-014",
+    "NG-ALLN-018"
+  ],
+  "coversIssues": [
+    "Q-ALLN-003",
+    "Q-ALLN-013",
+    "Q-ALLN-001(机制侧)",
+    "Q-ALLN-005(机制侧)"
+  ],
+  "coversRisks": [
+    "R-ALLN-004",
+    "R-ALLN-005",
+    "R-ALLN-009",
+    "R-ALLN-010",
+    "R-ALLN-001",
+    "R-ALLN-901",
+    "R-ALLN-902",
+    "R-ALLN-903",
+    "R-ALLN-905",
+    "R-ALLN-909"
+  ],
+  "dependencies": {
+    "on": [],
+    "blocking": [],
+    "blockedBy": [],
+    "blocks": [
+      "specs-tree-v5-2-ops-first-batch",
+      "specs-tree-v5-3-chrome-face"
+    ]
+  },
+  "deliveryOrder": 1,
+  "independence": "独立成叶（依赖链起点）：取代对象 = act 闭集 + handleCardAction switch + design-contract F-only；门禁主面 = recommendation-sources / local-act-wiring / authorize-chip-wiring / recommendation.mjs / design-contract / supersession；台账条目 = X3·X4 等价重锚 + designContractChanges。与 v5-2（op 业务能力）和 v5-3（界面面形态）互不重叠；共享面（体积 / journey / design-contract / 取代台账）由父 FR-ALLN-004 规定一次做完。",
+  "openPoints": [
+    "O-ALLN-002（ruled：纯 TS + 义务表静态机核）",
+    "O-ALLN-008（ruled：act→opId 等价映射）",
+    "O-ALLN-011（ruled：双稿双 shim）"
+  ],
+  "status": "tracked",
+  "phaseHistory": [
+    {
+      "phase": "registered",
+      "timestamp": "2026-09-22T00:40:00.000Z",
+      "triggeredBy": "sddu-discovery（随父 Feature 立项，4 叶草案）"
+    },
+    {
+      "phase": "specified",
+      "timestamp": "2026-09-22T01:20:00.000Z",
+      "triggeredBy": "sddu-spec（3 叶结构裁决落地；本叶 spec.md v1.0）"
+    }
+  ],
+  "phaseNote": "phase=specified（status=tracked）。首叶 / P0 / 依赖链起点。本轮为纯文档阶段：零 src / test / dist / design / docs / ROADMAP 改动；零运行时验证。上游接口 = 本叶产出；下游 = v5-2（注册 9 op）/ v5-3（消费 op 与死端样本）。",
+  "specCounts": {
+    "fr": 33,
+    "nfr": 7,
+    "ec": 8,
+    "ac": 10,
+    "openPointsRuled": 3
+  },
+  "artifacts": [
+    "spec.md",
+    "state.json",
+    "TREE.md"
+  ],
+  "files": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/spec.md",
+    "state": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/state.json",
+    "tree": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-1-next-registry-pipeline/TREE.md"
+  }
+}
