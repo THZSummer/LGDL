@@ -1319,11 +1319,29 @@ async function collectOpConsent(op: NextOp): Promise<'allow' | 'reject'> {
   const rid = `op-consent:${op.opId}`;
   dispatch({ type: 'confirm', requestId: rid, summary: op.consent?.prompt ?? '' });
   const answer = await new Promise<'allow' | 'reject'>((resolve) => opConsentResolvers.set(rid, resolve));
-  if (answer === 'reject' && op.opId === 'op.llm-config' && llmSnapshot) {
-    await keyStore.save(llmSnapshot);
-    llmSnapshot = null;
-  }
+  if (answer === 'reject' && op.opId === 'op.llm-config') await restoreCredentials();
   return answer;
+}
+
+/**
+ * V5-2 (FR-ALLN-042 / R-ALLN-904 上游) — 执行前快照的**回滚**入口.
+ *
+ * The snapshot is restored through the SAME single settings execution body
+ * (`SettingsOps#saveLlm` over the ONE `keyStore`), so `submitSecret` remains the
+ * **only** `keyStore.save` site that carries a user value (ADR-V5-010 §1's key-sink
+ * caliber: 1 value-carrying write, and the value never travels through `dispatch`).
+ */
+async function restoreCredentials(): Promise<void> {
+  const snapshot = llmSnapshot;
+  llmSnapshot = null;
+  if (!snapshot) return;
+  await buildSettingsOps().saveLlm({
+    providerId: snapshot.providerId,
+    apiKey: snapshot.apiKey,
+    model: snapshot.model,
+    baseURL: snapshot.baseURL ?? '',
+    maxRounds: snapshot.maxRounds ?? '',
+  });
 }
 
 /**
@@ -2995,10 +3013,7 @@ function wire(): void {
       // 执行前快照、失败回滚（FR-ALLN-042 / R-ALLN-904 上游）: the old credentials stay
       // byte-identical when the connection test fails.
       if (!test.ok) {
-        if (llmSnapshot) {
-          await keyStore.save(llmSnapshot);
-          llmSnapshot = null;
-        }
+        await restoreCredentials();
         dispatch({ type: 'notice', text: `✖ 测试连接失败，已回滚旧配置：${test.text}` });
         return { ok: false, reason: 'llm-test-failed' };
       }

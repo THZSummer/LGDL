@@ -279,8 +279,8 @@
       },
       "sidepanelJs": {
         "baselineBytes": 507315,
-        "measuredBytes": 518329,
-        "deltaBytes": 11014
+        "measuredBytes": 518543,
+        "deltaBytes": 11228
       }
     },
     "nodeTest": {
@@ -301,7 +301,7 @@
     },
     "perModuleDeltaBytes": {
       "src/ui/sidepanel/next-registry/ops.ts": 3918,
-      "src/ui/sidepanel/sidepanel.ts": 4721,
+      "src/ui/sidepanel/sidepanel.ts": 4935,
       "src/shared/op-table.ts": 831,
       "src/ui/sidepanel/cards/askuser.ts": 511,
       "src/ui/sidepanel/recommend.ts": 485,
@@ -324,7 +324,8 @@
       "obligation-table: op.llm-config/op.perm.request/op.revoke pending-v5-2 → registered"
     ],
     "knownDeviations": [
-      "op.describe.params 未声明（面板既有 ask 卡承担；声明会与 test:recommendation ⑫ 的 #ask-fallback 单所有者判据冲突）—— owner=R2/编排器"
+      "op.describe.params 未声明（面板既有 ask 卡承担；声明会与 test:recommendation ⑫ 的 #ask-fallback 单所有者判据冲突）—— owner=R2/编排器",
+      "requestTurn 调用点机核（REQUESTTURN_CALLSITE_SET）随 TASK-V5-147（R2）；本轮口径登记见 build.md §6.2-⑦"
     ],
     "ledger": {
       "v4Supersession": {
