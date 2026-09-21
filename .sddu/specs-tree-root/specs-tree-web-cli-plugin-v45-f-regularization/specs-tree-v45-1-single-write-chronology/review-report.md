@@ -1,6 +1,149 @@
 # 审查报告：specs-tree-v45-1-single-write-chronology（V4.5-1 单写化 + 宿主时间序化）
 
 > **文档定位**: SDDU 审查报告 — 逐项记录自主审查的执行结果，作为 validate 阶段的输入
+> **审查策略**: `review.md`（C1~C20 审查清单及四维度指引；本轮沿用，不重设计）
+> **前置依赖**: `review.md`、本叶 `spec.md` v1.0、`plan.md` v1.1（ADR-V45-001~012）、`build.md` v1.3（§8 = review R1 修复轮）、`tasks.md`
+> **创建人**: SDDU Review Agent
+> **创建时间**: 2026-09-21
+> **审查轮次**: **R2（轻量复审：R1 四阻塞闭环确认 + I 项抽检 + 修复轮新引入风险扫描）**
+> **版本**: **v2.0**
+> **更新人**: SDDU Review Agent
+> **更新时间**: 2026-09-21
+> **更新说明**: R2 复审（HEAD `2c1fcf8`，R1 判定 ❌ → 修复轮已处置）：R1 四阻塞逐条 **closed**；I-01/I-03/I-06 抽检落地；`8ea1c46..2c1fcf8` 全量扫描（3 项额外缺陷修法正确 / sidepanel 体积增量归因机核 / 无夹带）；6 项门禁独立复跑 + 额外 `test:l1`；保护段与红线字节独立复算；结论 **⚠️ 有条件通过**（0 阻塞 / 2 改进 / 5 观察）。**R1 原文（v1.0）逐字保留于文末「附录 A」。**
+
+## 1. R2 审查概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 复审清单项（本 brief §1.1~§1.8） | **8** |
+| 通过 | **7** |
+| 警告 | **1**（新风险扫描：无夹带，但发现 2 项文档/台账不一致） |
+| 失败 | **0** |
+| **阻塞问题** | **0** |
+| 改进项 | **2**（I-07 / I-08，均非阻塞） |
+| 观察项 | **5**（O-04~O-08） |
+
+**复审基线**：分支 `feature/web-cli-plugin`，HEAD **`2c1fcf8`**（修复轮提交），工作树干净（`git status --short` 空）。审查范围 = R1 四阻塞的闭环证据 + `git diff 8ea1c46..2c1fcf8`（23 文件 / +1,043 −155）。
+
+**R1 四阻塞闭环判定（本轮结论核心）**
+
+| R1 阻塞 | 闭环判定 | 独立证据 |
+|---|:--:|---|
+| **BLOCK-01**（`l0-receipt-summary` 退役清单自相矛盾 / 判据时点依赖） | ✅ **closed** | `RETIRED_CONTAINER_IDS` 14 → **13**（逐字核对）；新增 `MIGRATED_CONTAINER_IDS`（**5**：`l0-receipt-summary` / `l1-more` / `l1-consequences` / `l1-ref` / `l1-gestures`）+ 判别规则注释 + 两清单互斥机核（`host-registry.test.ts`）；**时点无关判据两条**：无回执态（`l0.mjs` ⑧）与有回执态（`l1.mjs` ⑩）—— 本轮独立复跑双绿；13 项真退役逐项负向 **13/13** |
+| **BLOCK-02**（悬空 `#l0-decision` 写点 + 虚假迁移注释 + 读后即弃） | ✅ **closed** | `pick-input.ts` 3 个写点 → `dropSurface() = #stream`；`page-input.mjs` ⑤ 改为 2 条真断言；本轮独立复跑 **108 passed / 0 failed**，两条断言均 ✔；两段证伪日志（`F1` 断开写点 ⇒ 107/1 红；`F2` 旧空心形态 ⇒ 同一断开态仍 106/0 全绿）原文与报告引用一致 |
+| **BLOCK-03**（「载体数 == 1」无 live 判据 / AC-V45-001 锚点缺失） | ✅ **closed** | live 供给链接入（`stripCarrierReading` / `stripChannelReading` / `stripCarrierCounts` / `stripChannelProblems`），**单一实现** `evaluateStripChannels` 被 node 门与面板 live 共用（全仓仅 1 份实现，grep 复核）；载体半边「缺失即红 ∧ >上限即红」；本轮独立复跑 l0 段（env/site/probe/notice 各「载体面恰 1 + raw 节点恰 1」+ 判据 0 问题 + firstRun「卡在⇒行不在」+ 2 组注入反证）**全绿** |
+| **BLOCK-04**（`plaintextTitle` 零反证） | ✅ **closed** | `system-merge.test.ts` 追加 4 条反证 + `TITLE_PLAINTEXT_JUDGEMENTS`（3 条，各声明可产出的 `expectFailPattern`）；**本轮独立探针**（直接 import 编译产物）确认：`?token=` **真抛错** / 经唯一写入点 `reduce({type:'notice'})` **真抛错且 `systemRows === []`（零半成品行）** / `<link rel="web-cli">正常文案` **返回剥离后文本** ⇒ 判据可 FAIL，非空心 |
+
+## 2. R2 复审清单逐项结果
+
+| # | 复审项（brief 口径） | 评估 | 发现 |
+|---|---|:--:|---|
+| RB-1 | BLOCK-01 迁移容器口径 + 时点无关双断言 + 13 项逐项负向复跑 | ✅ | 13/13 逐项负向（本轮实跑日志）；`MIGRATED` 5 项与退役并集互斥（npm test 内机核）；无回执态 / 有回执态两断言本轮实跑双绿；`RETIRED_HOST_IDS` = 4 + 13 = 17 与 `RETIRED_HOST_DISPOSITIONS` 派生同源（无手工第二清单） |
+| RB-2 | BLOCK-02 `#stream` 落点真断言 + 两段证伪独立复跑 | ✅ | 写点 = 读点 = `ol#stream`（`dropSurface()`）；本轮 `test:page-input` 108/0；注释与实现一致；`[data-drop-active]` 唯一写点 3 处（`pick-input.ts`）无第三处 |
+| RB-3 | BLOCK-03 live 读数供给链单一实现 + 4 通道恰 1 + firstRun 口径 | ✅ | `stripChannelProblems()` → `evaluateStripChannels()`（同一实现）；缺失读数 / 第二载体面逐通道可红（`density-thresholds.test.ts` ⑤b/⑤c）；`STRIP_CHANNEL_LEGACY_IDS` 6 通道一一对应；firstRun「卡在 ⇒ 行不在」由产品抑制谓词 `firstRun.visible \|\| firstRunCardPresent` 机核（⑤d 源文本断言） |
+| RB-4 | BLOCK-04 `plaintextTitle` 4 反证真实且可红 | ✅ | 4 条反证在 `system-merge.test.ts`（含只测唯一写入点的产品路径）；独立探针复现全部 3 种行为（见 §1 表）；`expectFailPattern` 字面由 ①②③ 真实产出（防空声明段） |
+| RB-5 | I-01 / I-03 / I-06 抽检 | ✅ | I-01：`plan.md` **§5.1.1 实现轮实况**（4 项计划内未触碰 + 7 项计划外触碰逐项「计划 → 实际落点」+ 修复轮追加 `pick-input.ts`）；I-03：`plan.md:772-773` `probe` 谓词改写为「可行动的未就绪」+ **D-W3-2 注记**；I-06：`host-registry.ts:124-148` 判别规则注释（真退役 vs 迁移容器）+ `MIGRATED_CONTAINER_IDS` + `build.md §8.6` 13 项逐项复核表（1 项移出）。顺带核 I-02（`plan.md:531` D-W3-1 注记）/ I-04（父 `spec.md:310` 记录 vs 断言口径）/ I-05（`l0.mjs` ⑧ 两条显式等价性对账）均在位 |
+| RB-6 | 修复轮新引入风险（全量 diff / 3 项额外缺陷 / 归因 / 夹带） | ⚠️ | ① **3 项额外缺陷修法正确**：`node --check test/ui/*.mjs` = **0 BROKEN**；全仓注入不再用 `insertAdjacentHTML`（仅注释提及），改 `createElement + appendChild` 且注入返回值纳入断言；density stageB 改**互斥式** + live `face` 读数（232/0）。② **体积归因机核**：`dist/build-meta.json` 实测 `host-registry.ts` = 9,273 / `sidepanel.ts` = 83,904 / 输出 = 498,521；Σ (+2,145 +2,875) = **+5,020** = 498,521 − 493,501，与 W3 轮 `afterBytes`（7,128 / 81,029）链式自洽。③ **无夹带**：`wt.diff`（20:56 中间态，18 文件）⊂ 最终代码 diff；23 个变更文件逐项可归因到 `build.md §8.1/§8.8/§8.9/§8.10`。④ 但发现 **I-07 / I-08** 两项文档/台账不一致（非代码）。见 §4 |
+| RB-7 | 门禁抽跑 6 项（+ 额外 `test:l1`） | ✅ | **7/7 全绿且与 build 自报逐项相等**：`npm test` 1045/0 · `test:l0` 244/0 · `test:density` 232/0 · `test:page-input` 108/0 · `test:size-ruling-vol3` 12/0 · `test:supersession` 35/0 ·（额外）`test:l1` 116/0。日志 `/tmp/opencode/v45-review-r2/` |
+| RB-8 | 红线快验（冻结面 / 保护段 / 阈值） | ✅ | `8ea1c46..2c1fcf8` **不含** `src/content/**` / `manifest.json` / `design/**` / `packages/web-cli-base/**` / `.opencode/opencode.json` / `ROADMAP.md` / `docs/v3-supersession-ledger.json` / `journey.mjs` / `binding.mjs`；保护段 **逐字节复算命中**（journey `cc79f413…` / binding `be9ad0e9…`）；`dist/content.js` 177,076 B / `52a82620…`、`dist/pick-layer.js` 33,900 B / `5f567d7e…` 实测一致；密度阈值（7/15 · 9/20 · 17/35 · 0.65 · 488 · 31 格）**零 diff** |
+
+## 3. 审查维度汇总（R2）
+
+| 审查维度 | 复审项 | 通过 | 警告 | 失败 |
+|---------|:--:|:--:|:--:|:--:|
+| 代码质量 | RB-6 | 0 | 1 | 0 |
+| 规范符合性 | RB-1·RB-2·RB-3·RB-4·RB-5 | 5 | 0 | 0 |
+| 架构一致性 | RB-8 | 1 | 0 | 0 |
+| 测试质量 | RB-4·RB-7 | 2 | 0 | 0 |
+| **合计** | **8** | **7** | **1** | **0** |
+
+> R1 的 4 处「规范符合性失败」在本轮全部转为通过（FR-V45-010~015 / AC-V45-001 / NFR-V45-003 / NFR-V45-007 的验收锚点均已交付且本轮独立复跑）。
+
+## 4. 阻塞问题
+
+**无。** R1 的 BLOCK-01~04 已全部闭合（§1 表逐条证据）。
+
+## 5. 改进建议与观察项
+
+### 5.1 改进项（非阻塞）
+
+| # | 位置 | 问题 | 对应 | 建议 |
+|---|------|------|:--:|------|
+| **I-07** | `build.md §8`（**缺**「现场差异」小节） | brief 所指的 §8「**现场差异**：上轮中断遗留的半成品实现被复核后接续」**在本仓不存在**：`grep 现场/工作树/未提交/接续/中断` 对工作树与**全部 git 历史**（`git log -S`）**零命中**；§8 仅 §8.1~§8.12。承接该语境的是 §8.10「修复轮额外发现与处置（3 项 + 1 项口径澄清）」，但它把 3 项缺陷的成因笼统归为「本轮首次真实执行 / 前轮只跑过 node 面」，**未登记「上轮中断遗留 → 本轮复核接续」这一过程**。交叉证据（`/tmp/opencode/wt.diff`，20:56，18 文件 = 最终代码 diff 的严格子集；`F1`~`F5` 证伪日志与 `fix-*.log` 时间戳 21:10~21:52 连续）表明该轮确实存在**中间态工作树被接续**，且 3 项缺陷（模板字面量反引号 / `insertAdjacentHTML` / density 断言口径）恰好都诞生于被接续的文件内 | RB-6 | （文档，零字节）在 `build.md §8` 追加一小节（或并入 §8.10 引言）**登记现场差异**：「接续轮起点 = `2c1fcf8` 之前的工作树中间态（可复算快照 `/tmp/opencode/wt.diff`）；§8 只登记最终态，继承项 / 新写项 / 缺陷归因在 §8.10 逐条给出」，使该轮的过程披露与产物一致。**代码与门禁无需改动** |
+| **I-08** | `test/size-baseline.ts:1284`（`SIDEPANEL_RE_REGISTRATIONS['v45-1-reviewfix'].reason`） | 体积重登记理由写 `test:l0` **227 → 234**，与 `build.md §8.7`、本叶 `state.json`（`reviewR1Fix.gates.l0` = `227 → **244**`）**不符**。方向仍为「只增」（不构成判据放宽/掩盖），但审计数字失真 | RB-6 | 订正为 `227 → 244`（其余门禁数字 `1044→1045 / 115→116 / 229→232 / 106→108` 已核对一致） |
+
+### 5.2 观察项（非阻塞，不参与结论）
+
+| # | 项 | 说明 |
+|---|---|---|
+| O-04 | `build.md §8.12` 的提交清单把 `TREE.md` 列入 `git add` 路径，但修复轮提交 `2c1fcf8` **未触碰** `TREE.md`（TREE.md 在上一提交 `8ea1c46` 更新；本轮由 R2 的 sddu-tree 收口更新）。属清单**多声明**，非产物问题 |
+| O-05 | `test/density-thresholds.test.ts` 的静态清单 `V4_RETIRED_IDS` 仍含 `l0-receipt-summary`，且注释归入「真退役」。该清单只做 **`index.html` 静态零残留**判据（不读 live DOM），故**不产生** BLOCK-01 式假阳性；但与产品侧「迁移容器」口径并存，属同一根因（两套「退役」语义未显式区分）。建议补一行注释：「本表 = 静态 id 从 `index.html` 退役（≠ 运行时迁移容器）」 |
+| O-06 | `[data-drop-active]` 全仓（`src` + `index.html`）**无任何 CSS 消费者** ⇒ 名为「高亮」的状态在产品内仍**不可视**（写点已真实、门禁真断言已成立；R1 允许的路径已满足）。若期望用户可见的落点高亮，需补一条 CSS 规则；属界面打磨面，留 validate / 后续轮 |
+| O-07 | `SIDEPANEL_GROWTH_BREAKDOWN.measuredOn` 仍为 `'2026-09-20'`（本轮追加了 2026-09-21 轮次行）；该字段**无门禁机核**（被机核的是 `SIDEPANEL_BASELINE_META.measuredOn = '2026-09-21'`，`size-budget.test.ts:381`）。属陈旧字段，建议随任一轮更新 |
+| O-08 | 载体判据口径由「== 1」改为「**≤ 1 且缺失即红**」（`count === 0` 合法 = 事实当前不可见）。AC-V45-001 的「首屏三事实各恰出现一次」由此分解为：**存在性**（journey `#594` probe 行 / `#661` site 行 · hardening env / probe 行）+ **唯一性**（l0 raw 恰 1 + 判据 ≤1）。建议在 ADR-V45-001 注记里显式登记「0 = 事实不可见合法」以免后续误读 |
+
+## 6. 门禁与字节级独立复跑对账（自报 vs 本轮实测）
+
+**门禁（严格串行，一次一个 Chromium；日志 `/tmp/opencode/v45-review-r2/`）**
+
+| # | 门禁 | build 自报（修复轮） | **本轮实测** | 判定 |
+|:--:|---|:--:|:--:|:--:|
+| 1 | `npm test`（node） | 1045 | **1045 passed / 0 failed** | ✅ |
+| 2 | `test:l0` | 244 | **244 passed / 0 failed** | ✅ |
+| 3 | `test:density` | 232 | **232 passed / 0 failed** | ✅ |
+| 4 | `test:page-input` | 108 | **108 passed / 0 failed** | ✅ |
+| 5 | `test:size-ruling-vol3` | 12 | **12 passed / 0 failed** | ✅ |
+| 6 | `test:supersession` | 35 | **35 passed / 0 failed** | ✅ |
+| 7 | `test:l1`（额外） | 116 | **116 passed / 0 failed** | ✅ |
+
+> 未复跑（如实登记，留给 validate）：`typecheck` / `test:e2e` / `test:ui(journey)` / `test:binding` / `test:insight` / `test:hardening` / `test:stream` / `test:ask-auth` / `test:recommendation` / `test:ref-pick-wiring` / `test:gate-integrity`（node，已被 `npm test` 1045 覆盖）/ `test:zero-injection`（node）/ `test:l2` / `test:l1-reverse` / `test:l2-reverse` / `test:design-contract`。修复轮自报 24/24 且日志齐备（`/tmp/opencode/v4-gate-logs/v45-reviewfix/`，含 `fix-summary.txt` **如实记录** density 首轮 `rc=1`）。
+
+**字节级独立复算**
+
+| 项 | 登记值 | 本轮独立计算 | 判定 |
+|---|---|---|---|
+| journey 保护段 | `test/ui/journey.mjs` `43054..58287` / `cc79f413…` | sha256 = `cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7` | ✅ **未动** |
+| binding 保护段 | `test/ui/binding.mjs` `107780..115930` / `be9ad0e9…` | sha256 = `be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936` | ✅ **未动** |
+| 冻结产物 | `content.js` 177,076 / `52a82620…`；`pick-layer.js` 33,900 / `5f567d7e…` | `stat` + `sha256sum` 逐字节一致 | ✅ |
+| 体积 | `dist/sidepanel.js` = 498,521 B；ceiling = floor(498,521×1.05) = 523,447；档位 512,000 / 绝对上限 563,200 | 实测 498,521；`build-meta` 归因 Σ +5,020；阈值三值同源 | ✅ |
+| 密度台账 | 阈值 7/15 · 9/20 · 17/35 · 0.65 · 488 · 31 格 | 新旧 JSON 全量 diff：仅 `volume` 字段 + `reviewfixR1Note` 变更；阈值零 diff | ✅ |
+| 取代台账 | 186 entries / protectedRanges / protectedSupersession / zeroDiffFiles 不变；`v3Vol3Closeout.⑤.newBaselineBytes` 493,501 → 498,521 | 逐字段比对：结构零增删；变更为 40 entries + 1 同源指针 + `leafBases[4]`（+1 组 / +1 行，584 == Σ 组和） | ✅ |
+| 红线面 | T1~T10 / v3 台账 / manifest / design | `git diff --name-status` **不含**任一；`git status` 复跑后仍空 | ✅ |
+
+## 7. 结论
+
+**结论**: ⚠️ **有条件通过**
+
+| 指标 | 结果 |
+|------|------|
+| R1 四阻塞闭环 | **4/4 closed**（0 阻塞） |
+| 审查通过率（R2 复审项） | **87.5%**（7 / 8；唯一警告 = RB-6 的两项文档/台账不一致） |
+| 阻塞问题数 | **0** |
+| 改进项 | **2**（I-07 现场差异未登记 / I-08 台账 `l0` 计数失真，均非阻塞） |
+| 规范符合性偏差 | **0**（R1 的 2 项 AC/NFR 锚点缺失已交付并经本轮独立复跑验证） |
+| 可进入 validate | **是** |
+
+**理由**：
+
+1. **R1 四个阻塞全部真实闭合，且每条都有本轮独立证据**（不是采信 build 自报）：BLOCK-01 的 13 项逐项负向 + 时点无关双断言、BLOCK-02 的两条落点真断言、BLOCK-03 的 live 载体读数接入与 4 通道恰 1 + 注入反证、BLOCK-04 的 4 条反证（本轮另用独立探针复现三种行为）。6 项指定门禁 + 额外 `test:l1` **逐项与自报相等**。
+2. **修复轮新引入风险扫描：无夹带、无回归**。23 个变更文件逐项可归因；体积增量由真实 metafile 逐模块机核（Σ +5,020 == 登记增量）；3 项额外缺陷的修法正确（`node --check` 0 BROKEN、无残留 `insertAdjacentHTML`、density 互斥式断言）；未发现 debug 残留 / `.only` / `.skip` / TODO。
+3. **两项非阻塞缺陷均为「记录面」**：I-07（brief 所指的 build.md §8「现场差异」小节**不存在** —— 中断半成品的**代码处置完整且诚实**（缺陷被真实发现并修复、日志与报告一致、`fix-summary.txt` 如实保留首轮 density `rc=1`），但**过程披露缺失**）；I-08（体积重登记理由里的 `test:l0` 计数 234 与实测 244 不符，方向仍只增，不构成放宽）。
+4. **建议流程**：I-07 / I-08 建议在 `@sddu-validate` 轮同批作零字节订正（或收口轮），**不阻塞 validate**。`@sddu-validate specs-tree-v45-1-single-write-chronology` 可直接开始动手验证；人工面三项（`title` 读屏 / 三主题 + 高 DPI 迁入块 / 320px 迁入块）仍 `⏳ 未执行`，须由 validate 显式承接、不得冒充 PASS。
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| **v2.0** | **R2 复审**（HEAD `2c1fcf8`）：R1 四阻塞逐条 **closed**（0 阻塞）；I-01/I-03/I-06 抽检落地；修复轮 diff 全量扫描（3 项额外缺陷修法正确 / 体积归因机核 / 无夹带）⇒ **新发现 I-07**（brief 所指「现场差异」小节不存在、中断半成品的过程披露缺失）与 **I-08**（`size-baseline.ts:1284` 的 `test:l0` 227→234 与实测 227→244 不符）+ O-04~O-08；7 项门禁独立复跑与自报逐项相等；保护段 / 冻结产物 / 阈值字节独立复算全部命中。结论 **⚠️ 有条件通过 / 可进 validate**。R1 原文（v1.0）逐字保留于附录 A | 2026-09-21 | SDDU Review Agent |
+| v1.0 | 初始创建（**R1：❌ 不通过**；C1~C20 逐项结果 13✅/4⚠️/3❌；**4 阻塞**：`l0-receipt-summary` 退役清单自相矛盾 / `#l0-decision` 悬空选择器 + 虚假迁移注释 / 「载体数==1」无 live 判据 + AC-V45-001 锚点缺失 / `plaintextTitle` 零反证；6 改进 I-01~I-06 + 3 观察 O-01~O-03；13 项门禁独立复跑与 build 自报逐项相等；4 段保护段 pin 与体积/红线字节独立复算全部命中） | 2026-09-21 | SDDU Review Agent |
+
+---
+
+## 附录 A：R1 审查报告原文（v1.0，逐字保留，不参与本轮结论）
+
+> 说明：仅将原 H1 标题行改为本附录标题（文档结构需要）；**正文（含 R1 的审查概要 / C1~C20 逐项结果 / 四维度汇总 / 4 阻塞 / 6 改进 / 3 观察 / 门禁对账 / 结论）逐字保留，未做任何改写**。
+
+> **文档定位**: SDDU 审查报告 — 逐项记录自主审查的执行结果，作为 validate 阶段的输入
 > **审查策略**: `review.md`（C1~C20 审查清单及四维度指引）
 > **前置依赖**: `review.md`、本叶 `spec.md` v1.0、`plan.md` v1.0（ADR-V45-001~012）、`build.md` v1.2、`tasks.md`
 > **创建人**: SDDU Review Agent
