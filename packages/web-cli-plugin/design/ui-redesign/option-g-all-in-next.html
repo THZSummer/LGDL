@@ -35,6 +35,9 @@
     带 ARIA separator 语义与键盘可达（←/→ ±10 · Home/End 到边界 · 双击复位 400）。
   · 继承 F 的三区骨架：header[role=toolbar] > main[role=log] > footer[role=contentinfo]，
     结构语义与顺序逐字不变。
+  · **修订（覆盖 F 的工具栏构成）**：F 的站点摘要 = origin + 授权态；G 把授权态**下移**到
+    状态栏常显 chip —— 工具栏是工具 / 导航的家，摘要只留 origin · 会话；
+    授权态全 UI 唯一常显载体 = 状态栏 chip；风险 rail 不再承载授权态（零双写）。见 §⑧。
   · 继承 F 的五条法则（法一 一切交互皆消息 / 法二 留痕即事实 / 法三 三区各司其职 /
     法四 输入按需出现 / 法五 默认密度继承）与密度口径（可点 = 工具栏 + 状态栏 ≤7）。
   · 继承 F 的卡类型学与固化契约；G 把 taxonomy 补全为**12 kind = 7 主类 + 5 过程卡**
@@ -98,7 +101,7 @@
   · 演示控制台（非交付 UI）+ **注册表视察器**（G 新增，把 anything-is-plugin 可视化）
   · 交付 UI：模拟浏览器窗口（左 = 宿主页面 · 右 = 插件侧栏，三区）
   · 架构区（G 新增的可视化章节）：NextProvider 注册表 / web-op 操作清单 / 零新增卡类型
-  · 口径说明区（镜像 F 页脚）：法七验收口径 / 法八验收口径 / 密度继承 / F→G 变化点 / 已知取舍
+  · 口径说明区（镜像 F 页脚）：法七验收口径 / 法八验收口径 / 授权态的归属（修订） / 密度继承 / F→G 变化点 / 已知取舍
 
   ⑦ 自检
   ───────────────────────────────────────────────────────────────────────────
@@ -106,10 +109,25 @@
     下载后双击即可打开，无需服务器、无构建。
   · 内联 JS 仅用于演示：场景切换（S1~S7）/ 可拖动侧栏宽度（280–640px）/ 双主题 / 视图切换 /
     问答与授权的「操作前 → 操作后固化」/ 注册表视察器 / op 管线状态 / 页面拾取 /
+    授权态 chip 两态与点击（黄 → 流内产 next；绿 → 展开管理详情）/
     S1/S2/S3 的自动续流 reveal（点一下就继续，不跳走）。
   · 顶部「演示控制台」「注册表视察器」与底部「架构区」「口径说明区」不属于交付 UI
     （不在 #panel 内，不参与密度统计）。
   · 结构语义：header[role=toolbar] > main[role=log] > footer[role=contentinfo]。
+
+  ⑧ 修订记录（作者 2026-09-21 反馈，逐字保留）
+  ───────────────────────────────────────────────────────────────────────────
+  作者原话：「未授权 · 零注入」「已授权 · supported」这两项如果属于状态，那就放到最下面的状态栏，
+  上面属于工具、菜单栏，不应该放这两个。
+  落地（本稿据此修订，其余继承不变）：
+    · 授权态的唯一家 = 状态栏常显 chip（黄 未授权 · 零注入 / 绿 已授权 · supported；零风险也有）；
+      工具栏摘要只留 origin/站点名 + 会话，四词在工具栏区**零出现**。
+    · 黄态点击 → 流内产出「授权当前站点」next 卡（op.authorize，法七）；绿态点击 → 展开管理详情
+      （撤销授权 op.revoke / 重新绑定 op.rebind）。
+    · 消灭双写：原风险 rail 里条件性的「未授权」chip 并入该常显 chip；状态栏第一行只写会话/队列。
+    · 角色口径：状态栏 chip =「当前状态」；流内系统行/卡 =「事实发生」（追加式留痕）—— 不算双写。
+    · 密度口径不变：默认可点 = 工具栏 5 + 授权 chip 1 = 6 ≤ 7（法五不破）。
+  机核：option-g-shim.mjs §M 组（授权态下移 / 两态原文 / 点击行为 / 零双写 / 6 ≤ 7）。
 -->
 <html lang="zh-CN">
   <head>
@@ -558,11 +576,10 @@
         font-size: 11px;
         line-height: 1.5;
       }
+      /* 摘要 dot = 会话连接态（授权态不在这里 —— 它只在状态栏常显 chip；见头注 §⑧） */
       .site-summary .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
-      .panel[data-scene="S1"] .site-summary .dot,
-      .panel[data-scene="S2"] .site-summary .dot,
-      .panel[data-scene="S6"] .site-summary .dot { background: var(--warn-text); }
       .site-summary .site-name { font-weight: 700; white-space: nowrap; }
+      .site-summary .site-session { color: var(--text-muted); white-space: nowrap; }
       .site-summary .site-origin {
         font-family: var(--mono);
         font-size: 10px;
@@ -767,6 +784,8 @@
         align-items: baseline;
       }
       .msg-system .sys-bullet { flex: 0 0 auto; color: var(--border-strong); }
+      /* 时间戳不参与压缩换行（长事件行下 8 字符时间戳被挤成每行 2 字符 —— 真实浏览器实测修订） */
+      .msg-system .ts.sys-time { flex: 0 0 auto; white-space: nowrap; }
       .msg-system .sys-text { min-width: 0; }
       .msg-system .sys-text b { color: var(--text); }
       .msg-system.is-flash { animation: flash 1.6s ease-out 1; border-radius: var(--radius-sm); }
@@ -878,10 +897,8 @@
         color: var(--text-muted);
         min-width: 0;
       }
+      /* 会话态 dot（绿 = 会话已连接）；授权态由下方常显 chip 承载，不在这里 */
       .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
-      .panel[data-scene="S1"] .status-line .dot,
-      .panel[data-scene="S2"] .status-line .dot,
-      .panel[data-scene="S6"] .status-line .dot { background: var(--warn-text); }
       .status-line .sb-main { min-width: 0; }
       .risk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
       .risk-chip {
@@ -910,6 +927,39 @@
         line-height: 1.55;
       }
       .risk-detail-line b { color: var(--text); }
+      .risk-empty { font-size: 10.5px; color: var(--text-muted); }
+
+      /* ── 授权态 chip（状态栏常显 · 全 UI 唯一载体；零风险也有 —— 它是状态不是风险） ── */
+      .auth-state { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+      .auth-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--warn-border);
+        background: var(--warn-bg);
+        color: var(--warn-text);
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .auth-chip.is-ok { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+      .auth-chip[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-weak); color: var(--accent-text); }
+      .auth-chip:focus-visible { outline: none; box-shadow: var(--focus); }
+      /* 管理详情 = 按需展开的管理面（绿态 chip 点击打开）；默认折叠 → 不计入默认屏密度预算 */
+      .auth-manage {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        padding: 6px 7px;
+        border: 1px dashed var(--border-strong);
+        border-radius: var(--radius-sm);
+        background: var(--bg-subtle);
+      }
+      .auth-manage-line { margin: 0; font-size: 10.5px; line-height: 1.55; color: var(--text-muted); }
+      .auth-manage-line b { color: var(--text); }
+      .auth-manage-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 
       /* ═══════════════════════════════════════════════════════════════
          4. 架构区 + 口径说明区（非交付 UI）
@@ -956,6 +1006,7 @@
       /* ── 窄屏兜底（宽度 ≤360px 时面板零水平溢出；连续宽度口径，由 JS 置 data-narrow） ── */
       .panel[data-narrow="true"] .view-btn .view-label { display: none; }
       .panel[data-narrow="true"] .site-summary .site-origin { max-width: 96px; }
+      .panel[data-narrow="true"] .site-summary .site-session { display: none; }
       @media (max-width: 900px) {
         .browser-body { flex-direction: column; }
         .sidebar { width: 100% !important; }
@@ -1008,8 +1059,9 @@
           <span class="demo-label">密度实测（法五口径：#panel 内非 hidden 子树的 button/a/input/select/textarea/[tabindex]）</span>
           <div class="metrics" id="metrics">
             <span>工具栏可点 <b id="m-toolbar">–</b> <span class="muted">/ ≤5</span></span>
-            <span>状态栏可点 <b id="m-statusbar">–</b></span>
+            <span>状态栏可点 <b id="m-statusbar">–</b> <span class="muted">（= 授权 chip + 风险 chips）</span></span>
             <span>默认屏合计 <b id="m-total">–</b> <span class="muted">/ ≤7</span></span>
+            <span>授权 chip <b id="m-auth-chip">–</b> <span class="muted">（常显；工具栏 5 + 1 = 6 ≤ 7）</span></span>
             <span>流内消息 <b id="m-msgs">–</b> <span class="muted">（不计入预算）</span></span>
             <span>最大 chips/卡 <b id="m-chips">–</b> <span class="muted">/ ≤3</span></span>
             <span id="m-verdict" class="m-ok">—</span>
@@ -1118,19 +1170,21 @@
               aria-label="web-cli plugin 侧边栏（方案 G · All-in-Next 聊天即操作台）"
             >
               <!-- ═══════════════════════════════════════════════════════
-                   区一 工具栏（常驻，一行）
-                   · 站点摘要（只读 status，不可点）
+                   区一 工具栏（常驻，一行）—— 工具 / 导航的家
+                   · 站点摘要（只读 status，不可点）= origin · 会话
+                     —— 授权态已**下移**状态栏常显 chip（作者 2026-09-21 反馈；
+                        覆盖 F 的「站点摘要 = origin + 授权态」构成，见头注 §⑧）：
+                        四词「未授权 / 已授权 / 零注入 / supported」在本区**零出现**
                    · 四视图入口（树 / 命令 / 审计 / 设置，带计数徽标）
                    · 主题切换
                    可点元素合计 = 4 + 1 = 5 ≤ 5（与 F 相同，G 不加控件）
                    ═══════════════════════════════════════════════════════ -->
               <header class="toolbar" id="region-toolbar" data-region="toolbar" role="toolbar" aria-label="工具栏（常驻）">
-                <div class="site-summary" role="status" aria-label="站点摘要">
+                <div class="site-summary" role="status" aria-label="站点摘要（origin · 会话）">
                   <span class="dot" aria-hidden="true"></span>
                   <span class="site-name">智谱开放平台</span>
                   <span class="site-origin">https://open.bigmodel.cn</span>
-                  <span class="badge ask" data-scenes="S1 S2 S3 S6">未授权 · 零注入</span>
-                  <span class="badge ok" data-scenes="S4 S5 S7">已授权 · supported</span>
+                  <span class="site-session">· 会话已连接</span>
                 </div>
 
                 <nav class="view-nav" aria-label="四视图入口（L2 按需视图）">
@@ -1202,7 +1256,7 @@
                   <div class="view-body" id="view-tree" hidden>
                     <h4>全局连接树（4 维）</h4>
                     <ul>
-                      <li><b>站点</b>：open.bigmodel.cn → 声明 <code>web-cli/0.2</code>（未授权 → 零注入）</li>
+                      <li><b>站点</b>：open.bigmodel.cn → 声明 <code>web-cli/0.2</code>（台账只做记录；<b>状态见状态栏授权 chip</b>）</li>
                       <li><b>会话</b>：会话 #12（本标签页）</li>
                       <li><b>对象</b>：API Keys → 我的密钥 → 「创建密钥」按钮</li>
                       <li><b>权限</b>：读自动 / 写 ask 保底 / evaluate 硬底线 deny</li>
@@ -2049,38 +2103,91 @@
                   </li>
                   <!-- （S7 全景 = 上列全部 data-scenes 含 S7 的卡同屏；12 kind 各有至少一个非 reveal 样例） -->
 
-
-
+                  <!-- ── 状态栏授权 chip（黄态）点击产出：「授权当前站点」next 卡（法七 · 一切操作皆 Next）
+                        —— 状态 chip 只负责「状态」；点它之后「事实」仍旧落回流里（next 卡 + 系统事件行） ── -->
+                  <li class="msg msg-next" id="msg-g-next-chip-auth" data-msg-type="nextstep"
+                      data-scenes="S1 S2 S5 S6" data-reveal="chip-auth">
+                    <span class="msg-avatar" aria-hidden="true">
+                      <svg class="ico" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.4l1.25 3.4 3.4 1.25-3.4 1.25L8 10.7 6.75 7.3 3.35 6.05l3.4-1.25z" /></svg>
+                    </span>
+                    <article class="bubble next-card">
+                      <p class="card-tag">下一步推荐 · 由状态栏授权 chip（黄态）点击发起 · 恢复（priority 0）</p>
+                      <div class="next-chips">
+                        <button type="button" class="next-chip" data-act="next" data-op="op.authorize" data-pri="0" data-command="授权当前站点">
+                          授权当前站点 <span class="op-code">op.authorize</span> <span class="badge accent">恢复 · P0</span>
+                        </button>
+                        <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="1" data-command="重新绑定当前标签页">
+                          重新绑定当前标签页 <span class="op-code">op.rebind</span>
+                        </button>
+                      </div>
+                      <p class="hint">
+                        状态栏 chip 是<b>状态</b>的常显载体；点击它之后，<b>事实</b>仍然落回流里（本卡 + 一条系统事件行）。
+                        全程不跳走、不更换面板 —— 法七：一切操作皆 Next。
+                      </p>
+                    </article>
+                  </li>
 
                 </ol>
               </main>
               <!-- ═══════════════════════════════════════════════════════
-                   区三 状态栏（常驻，永不折叠）
-                   · 连接状态一行（只读，不可点）
-                   · 活跃风险 chips（有则显示、无则不占行；永不折叠）
+                   区三 状态栏（常驻，永不折叠）—— 状态的家
+                   · 会话状态一行（只读，不可点）—— 只写「会话 / 队列」事实，
+                     不写授权态 / 协议支持（避免与下方 chip 双写）
+                   · 授权态 chip（常显 · 全 UI 唯一载体 · 可点；零风险也有 —— 它是状态不是风险）：
+                       黄「未授权 · 零注入」→ 流内产出「授权当前站点」next 卡（op.authorize · 法七）
+                       绿「已授权 · supported」→ 展开管理详情（撤销授权 op.revoke / 重新绑定 op.rebind）
+                   · 活跃风险 chips（授权态除外；有则显示，无则显示「无其他风险」；永不折叠）
                    · 点 chip → 内联详情 + 滚动定位到流内相关卡
+                   角色口径：状态栏 chip =「当前状态」（变）；流内系统行/卡 =「事实发生」（追加式留痕，不变）
                    ═══════════════════════════════════════════════════════ -->
               <footer class="statusbar" id="region-statusbar" data-region="statusbar" role="contentinfo" aria-label="状态栏（常驻，永不折叠）">
                 <div class="status-line" role="status">
                   <span class="dot" aria-hidden="true"></span>
-                  <span class="sb-main" data-scenes="S1 S2 S3 S6">未授权 · 页面侧零注入（阻塞项在流内，见最新推荐卡）· 队列 0</span>
-                  <span class="sb-main" data-scenes="S4 S5 S7">已连接 · supported（声明 <code>web-cli/0.2</code>）· 队列 0</span>
+                  <span class="sb-main" data-scenes="S1 S2 S3 S6">会话已连接 · 阻塞项在流内（见最新推荐卡）· 队列 0</span>
+                  <span class="sb-main" data-scenes="S4 S5 S7">会话已连接 · 队列 0</span>
                 </div>
-                <div class="risk-chips" id="risk-chips" aria-label="活跃风险">
-                  <button type="button" class="risk-chip" data-risk="auth" data-scenes="S2 S6 S7" aria-expanded="false">
+
+                <!-- 授权态：状态栏常显 chip（全 UI 唯一常显载体，零双写） -->
+                <div class="auth-state" id="auth-state" aria-label="站点授权状态（常显 · 可点）">
+                  <button type="button" id="auth-chip-pending" class="auth-chip" data-auth-chip="pending"
+                          title="点击在流内发起「授权当前站点」（op.authorize）—— 不跳走"
+                          aria-label="未授权 · 零注入；点击在流内发起授权当前站点">
                     <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.4" y="7" width="9.2" height="6.4" rx="1.5" /><path d="M5.8 7V5.2a2.2 2.2 0 0 1 4.4 0V7" /></svg>
-                    未授权（零注入）
+                    未授权 · 零注入
                   </button>
+                  <button type="button" id="auth-chip-active" class="auth-chip is-ok" data-auth-chip="active"
+                          aria-expanded="false" aria-controls="auth-manage"
+                          title="点击展开管理详情（撤销授权 op.revoke / 重新绑定 op.rebind）" hidden>
+                    <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 1.8l5 1.9v4.1c0 3-2.2 5.2-5 6.4-2.8-1.2-5-3.4-5-6.4V3.7z" /><path d="M5.9 8.1l1.5 1.5 2.9-3.2" /></svg>
+                    已授权 · supported
+                  </button>
+                </div>
+
+                <!-- 管理详情 = 按需面（绿态 chip 点击展开；默认折叠，不计入默认屏密度预算） -->
+                <div class="auth-manage" id="auth-manage" hidden data-density-exempt aria-label="授权管理详情（按需展开）">
+                  <p class="auth-manage-line">
+                    <b>管理详情</b>（绿态 chip 展开 · 按需面，不计入默认屏密度预算）：
+                    授权对象 https://open.bigmodel.cn · 范围 仅本会话 · 登记式注入。
+                  </p>
+                  <div class="auth-manage-actions">
+                    <button type="button" class="next-chip" data-act="next" data-op="op.revoke" data-pri="2" data-command="撤销授权">
+                      撤销授权 <span class="op-code">op.revoke</span>
+                    </button>
+                    <button type="button" class="next-chip" data-act="next" data-op="op.rebind" data-pri="1" data-command="重新绑定当前标签页">
+                      重新绑定当前标签页 <span class="op-code">op.rebind</span>
+                    </button>
+                  </div>
+                  <p class="auth-manage-line">两个入口都只把下一步放回流里 —— 本阶段不发命令、不改授权（法七）。</p>
+                </div>
+
+                <div class="risk-chips" id="risk-chips" aria-label="活跃风险（授权态除外，授权态见上方 chip）">
                   <button type="button" class="risk-chip" data-risk="ref" data-scenes="S6 S7" aria-expanded="false">
                     <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="5.4" /><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" /></svg>
                     引用失效 ①
                   </button>
+                  <span class="risk-empty" id="risk-empty" hidden>无其他风险</span>
                 </div>
                 <div class="risk-detail" id="risk-detail" hidden>
-                  <p class="risk-detail-line" data-risk-detail="auth" hidden>
-                    <b>未授权</b>：站点 https://open.bigmodel.cn 未授权，页面侧零注入（23:12:59 检出）。
-                    <b>本阶段不发命令、不改授权</b>；恢复入口在流内 —— <code>op.authorize</code>（✖ 行内 + 紧随推荐卡）。
-                  </p>
                   <p class="risk-detail-line" data-risk-detail="ref" hidden>
                     <b>引用失效</b>：引用 ① 的目标元素已被页面移除（23:13:26）。
                     <b>本阶段不发命令、不改授权</b>，重试与否由你决定；卡内已有 <code>op.pick</code> / <code>op.describe</code>。
@@ -2331,22 +2438,52 @@ function handleCardAction(opId) {
           <li><b>与法二的切分</b>：留痕的是<b>事实</b>（何时 / 哪个 op / 成功与否 / 掩码长度），不是<b>值</b>。</li>
         </ul>
 
+        <h3>授权态的归属（作者 2026-09-21 反馈修订：状态归状态栏，工具栏只管工具 / 导航）</h3>
+        <p class="muted">作者原话：「未授权 · 零注入」「已授权 · supported」这两项如果属于状态，那就放到最下面的状态栏，上面属于工具、菜单栏，不应该放这两个。</p>
+        <ul>
+          <li><b>唯一常显载体</b>：授权态在本稿只有<b>一个常显载体</b> —— 状态栏常显 chip（<code>#auth-state</code>）。
+            工具栏摘要（F 实装为 <code>origin + 授权态</code>）只留 <code>origin · 会话</code>；
+            四词「未授权 / 已授权 / 零注入 / supported」在<b>工具栏区零出现</b>（机核：§M1）。</li>
+          <li><b>两态原文</b>：黄态 <code>未授权 · 零注入</code>（页面侧未注入）· 绿态 <code>已授权 · supported</code>
+            （声明 <code>web-cli/0.2</code> 校验通过）。两态<b>恒显其一</b> —— 零风险也有，<b>它是状态不是风险</b>。</li>
+          <li><b>点击行为（法七：一切操作皆 Next）</b>：黄态点击 → 流内产出「授权当前站点」next 卡
+            （<code>op.authorize</code> · P0 恢复）+ 追加一条系统事件行；绿态点击 → 展开管理详情
+            （撤销授权 <code>op.revoke</code> / 重新绑定 <code>op.rebind</code>）。两种点击都<b>不跳走</b>、不更换面板。</li>
+          <li><b>零双写</b>：原风险 rail 里条件性的「未授权」chip 已<b>并入</b>该常显 chip；风险 rail 只承载其余风险类
+            （如「引用失效 ①」）。状态栏第一行只写<b>会话 / 队列</b>事实，不写授权态 / 协议支持
+            （机核：§M10 / §M12 四词扫描）。</li>
+          <li><b>角色口径（为什么不算双写）</b>：状态栏 chip = <b>「当前状态」</b>（常显、可点、触发 next，随 ctx 变化而变）；
+            流内系统事件行 / 卡 = <b>「事实发生」</b>（追加式留痕，只追加、不撤回，记录「何时 / 哪个 op / 成功与否」）。
+            前者会变、后者不变 —— 角色不同，不是同一信息的双写。</li>
+          <li><b>台账不复制状态</b>：L2 树视图的站点行改为指向 <code>状态见状态栏授权 chip</code>，
+            台账只做记录；状态只有一个家。</li>
+          <li><b>场景默认值</b>：chip 状态 ≡ <code>ctxOf(scene).site.authorized</code>（与注册表视察器同源）——
+            S1 / S2 / S5 / S6 = 黄，S3 / S4 / S7 = 绿。S5 是「撤销之后」，故取未授权；
+            S7 是卡型全景样本，取 <code>ctxOf('S7')</code> 的默认值，不追求叙事一致。</li>
+          <li><b>密度</b>：默认可点 = 工具栏 5 + 授权 chip 1 = <b>6 ≤ 7</b>（法五不破；见下节对账）。</li>
+        </ul>
+
         <h3>密度口径（法五，与 F 完全一致）</h3>
         <ul>
           <li><b>可点元素</b> = <code>#panel</code> 内、非 <code>[hidden]</code> 子树中的
             <code>button</code> / <code>a</code> / <code>input</code> / <code>select</code> / <code>textarea</code> /
             带 <code>tabindex</code>（且非 -1）的元素。</li>
-          <li><b>默认屏预算</b> = 工具栏可点 + 状态栏可点 ≤ <b>7</b>（本稿：S1 = 5 + 0 = 5；S2 = 5 + 1 = 6；S6 = 5 + 2 = 7）。</li>
+          <li><b>默认屏预算</b> = 工具栏可点 + 状态栏可点 ≤ <b>7</b>。
+            本稿对账：S1 = 5 + 1 = <b>6</b>（工具栏 5 + 授权 chip 1）；S2 = 5 + 1 = <b>6</b>；
+            S4 = 5 + 1 = <b>6</b>；S6 = 5 + 2 = <b>7</b>（授权 chip 1 + 风险 chip 1）——
+            <b>默认可点 = 5 + 1 = 6 ≤ 7</b>（授权态下移后仍不破法五）。</li>
           <li><b>chips 预算</b>：每卡 ≤ <b>3</b> 个 chip（G 稿最大 = 3，出现在恢复卡与仲裁卡）。</li>
           <li><b>每回合 ≤ 1 张推荐卡</b>：S6 的多个阻塞用<b>一张</b>仲裁卡表达排序，不并排多张。</li>
           <li><b>掩码卡预算</b>：1 个 input + 2 个按钮，都在卡内（按需出现）—— <b>不新增常驻控件</b>，工具栏可点数与 F 相同（4 + 1 = 5）。</li>
+          <li><b>授权管理详情</b>：绿态 chip 展开的<b>按需面</b>（<code>data-density-exempt</code>），默认折叠 →
+            不计入默认屏预算；展开后默认屏读数仍 ≤7。</li>
           <li><b>不计入</b>：聊天流内消息（记录，不是控件预算）、演示控制台与注册表视察器（在 <code>#panel</code> 之外）、页面侧拾取入口。</li>
           <li><b>宽度演示</b>：可拖动 280–640px（模拟 Chrome 侧栏真实拖拽；密度随宽度实时重算）——
             原「三档宽度（320 / 400 / 520）」radio 组已删除，改为侧栏左缘的分隔条 + 演示控制台实时读数。</li>
         </ul>
 
-        <h3>相对 F 的变化点（G 只列 5 条）</h3>
-        <p class="muted">F 相对 E 的 5 条变化点见 <code>option-f-chat-stream.html</code> 页脚（本稿不重复）；下表是 F → G 的 5 条。</p>
+        <h3>相对 F 的变化点（G 列 6 条）</h3>
+        <p class="muted">F 相对 E 的 5 条变化点见 <code>option-f-chat-stream.html</code> 页脚（本稿不重复）；下表是 F → G 的 6 条。</p>
         <div class="table-scroll">
           <table id="change-table">
             <thead>
@@ -2378,6 +2515,13 @@ function handleCardAction(opId) {
                 <td>卡类型学在稿内写作「7 类」</td>
                 <td><b>12 kind 契约不动</b>（7 主类 + 5 过程卡）：零新增卡类型；操作回执复用既有固化区 + 系统行</td>
               </tr>
+              <tr>
+                <th scope="row">6</th>
+                <td>站点摘要 = <code>origin + 授权态</code>（授权态写在工具栏摘要里；风险 rail 另有条件性「未授权」chip）</td>
+                <td><b>授权态下移</b>：工具栏摘要只剩 <code>origin · 会话</code>；授权态全 UI <b>唯一常显载体 = 状态栏 chip</b>
+                  （黄 <code>未授权 · 零注入</code> / 绿 <code>已授权 · supported</code>；可点 → 流内产 next 或展开管理）；
+                  风险 rail 的「未授权」chip 并入该 chip（零双写）</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -2400,6 +2544,14 @@ function handleCardAction(opId) {
           <li><b>拖动性能与布局抖动</b>：拖动只改写 <code>:root --panel-w</code>（单条自定义属性的宽度消费），
             连续 <code>pointermove</code> 经 <code>requestAnimationFrame</code> 合并为每帧一次写入；
             面板内部换行导致的回流无法完全避免，本稿按「量力而行」处理，不作性能承诺。</li>
+          <li><b>状态栏高度微增（授权态下移的代价，如实登记）</b>：授权 chip 常显后状态栏多一行（约 +18px），
+            换取「状态归状态栏、工具归工具栏」的单一归属与零双写。窄屏（≤360px）下工具栏摘要的「· 会话已连接」
+            自动隐藏，宽度预算与横向溢出都不受影响；工具栏可点数与 F 相同（5）。</li>
+          <li><b>授权 chip 的两态由 JS 按 ctx 求值（不是 data-scenes 静态声明）</b>：因为「授权后转绿」是<b>同一个场景内</b>
+            的状态变化（S2 断样板的核心叙事），不能靠切场景表达。取舍是选「状态可流转」而不是「纯静态可枚举」；
+            代价是：若脚本未执行，静态 HTML 只呈现默认态（S1 = 黄）。</li>
+          <li><b>风险 rail 在无风险场景退化为零高容器</b>：授权 chip 独立成行后，rail 里只剩「引用失效」一类
+            （S6 / S7 可见）；其余场景显示一行「无其他风险」而不是折叠掉容器 —— 保留「状态栏永不折叠」的承诺。</li>
         </ul>
 
         <h3>本稿的自检（可复现）</h3>
@@ -2408,7 +2560,16 @@ function handleCardAction(opId) {
             运行 <code>node option-g-shim.mjs</code> → 全绿（退出码 0）。</li>
           <li>覆盖：三区结构继承 / 12 kind 继承 / 法七无死端（5 类阻塞 + ✖ 行不裸奔）/ 法八零明文 /
             chip↔op 绑定 / 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 ≤7 /
-            可拖动宽度（ARIA separator + 键盘 + clamp）与双主题。</li>
+            <b>授权态下移（§M：工具栏零四词 · 常显 chip 两态原文 · 黄 → 流内产 next · 绿 → 管理详情 ·
+            零双写 · 6 ≤ 7 对账）</b> / 可拖动宽度（ARIA separator + 键盘 + clamp）与双主题。</li>
+          <li><b>真实浏览器实测（Chromium headless · <code>file://</code> 双击打开路径）</b>：
+            场景切换 / 授权 chip 两态与点击 / 管理详情展开 / 拖动宽度（280–640 · 键盘 · 双击复位）逐一实测通过。
+            实测修掉两处<b>只在真实浏览器暴露</b>的问题（垫片用数组实现 <code>querySelectorAll</code>，掩盖了它们）：
+            ① <code>maxChipsPerCard</code> / <code>nextCountIn</code> 原写 <code>NodeList.filter(...)</code> ——
+            真实浏览器 <code>NodeList</code> 没有 <code>filter</code>，初始化即抛错（整个演示失效），
+            改走页面内 <code>$$()</code>（返回数组）；② 长事件行里系统行时间戳被挤成每行 2 字符 ——
+            给 <code>.msg-system .ts.sys-time</code> 加 <code>flex: 0 0 auto; white-space: nowrap</code>。
+            两处都由 §M20 / §M21 机核，防回归。</li>
         </ul>
       </section>
 
@@ -2432,7 +2593,7 @@ function handleCardAction(opId) {
           S6: 'S6 多 next 仲裁',
           S7: 'S7 全景 · 12 卡型'
         };
-        var state = { scene: 'S1', theme: 'auto', width: '400' };
+        var state = { scene: 'S1', theme: 'auto', width: '400', authorized: false };
         var clock = 23 * 3600 + 12 * 60 + 59;
 
         function $(id) { return document.getElementById(id); }
@@ -2611,6 +2772,9 @@ function handleCardAction(opId) {
           }
           if (scene === 'S2') { base.site.authorized = false; base.perm.granted = false; }
           if (scene === 'S3') { base.perm.granted = false; }
+          /* S5 = 管理操作 · 撤销：回执已完成「站点授权已撤销」→ 本站点当前未授权
+             （与状态栏常显 chip 的归属一致：chip 状态 ≡ ctxOf(scene).site.authorized） */
+          if (scene === 'S5') { base.site.authorized = false; }
           if (scene === 'S6') {
             base.site.authorized = false; base.site.bindingStale = true;
             base.llm.configured = false; base.ref.stale = true;
@@ -2874,6 +3038,10 @@ function handleCardAction(opId) {
             n.tabIndex = n.getAttribute('data-scene-set') === key ? 0 : -1;
           });
           closeRiskDetail();
+          /* 授权态：由 ctx 求值（场景只给默认值；S5 = 撤销之后 → 未授权），再交常显 chip 渲染 */
+          state.authorized = !!ctxOf(key).site.authorized;
+          clearChipTraces();
+          renderAuthChip();
           renderRegistry();
           autoScroll();
           updateMetrics();
@@ -3060,6 +3228,12 @@ function handleCardAction(opId) {
             if (kind === 'rejected') fixed.classList.add('is-no');
           }
           card.setAttribute('data-decision', kind);
+          /** 授权态归属（唯一载体）：站点授权被批准 / 拒绝 → 状态栏常显 chip 同步转绿 / 保持黄
+              （S2 断流样板：黄 chip 全程可见 → 授权后转绿，不换场景） */
+          if ((card.getAttribute('data-op') || '') === 'op.authorize') {
+            state.authorized = kind === 'approved';
+            renderAuthChip();
+          }
           /** 法七：授权/拒绝都固化，且都不留死端 —— 批准走自动续流，拒绝有可达 next */
           if (kind === 'approved') {
             appendDigest(card.getAttribute('data-op') || 'op', 'consent=已批准 · 结果 ok');
@@ -3160,6 +3334,100 @@ function handleCardAction(opId) {
         }
 
         /* ═══════════════════════════════════════════════════════════════
+           7.1 授权态 chip（状态栏常显 · 全 UI 唯一常显载体）
+               ── 黄态「未授权 · 零注入」点击 → 流内产出「授权当前站点」next 卡（op.authorize，法七）
+               ── 绿态「已授权 · supported」点击 → 展开管理详情（撤销授权 op.revoke / 重新绑定 op.rebind）
+               ── 角色口径：chip =「当前状态」（随 ctx 变）；流内系统行/卡 =「事实发生」（追加式留痕）
+           ═══════════════════════════════════════════════════════════════ */
+        /* 事实留痕：只在流内追加一条系统事件行（法二：只追加，不撤回） */
+        function appendSystemTrace(text) {
+          var stream = $('stream');
+          if (!stream) return null;
+          var li = document.createElement('li');
+          li.className = 'msg msg-system';
+          li.setAttribute('data-msg-type', 'system');
+          li.setAttribute('data-chip-trace', 'auth');
+          var bullet = document.createElement('span');
+          bullet.className = 'sys-bullet';
+          bullet.setAttribute('aria-hidden', 'true');
+          bullet.textContent = '›';
+          var ts = document.createElement('span');
+          ts.className = 'ts sys-time';
+          ts.textContent = tick();
+          var t = document.createElement('span');
+          t.className = 'sys-text';
+          t.textContent = text;
+          li.appendChild(bullet);
+          li.appendChild(ts);
+          li.appendChild(t);
+          stream.appendChild(li);
+          autoScroll();
+          return li;
+        }
+        function clearChipTraces() {
+          var stream = $('stream');
+          if (!stream) return;
+          $$('[data-chip-trace]', stream).forEach(function (li) { stream.removeChild(li); });
+        }
+        function closeAuthManage() {
+          var box = $('auth-manage');
+          if (box) box.hidden = true;
+          var chip = $('auth-chip-active');
+          if (chip) chip.setAttribute('aria-expanded', 'false');
+        }
+        /* 授权态渲染：黄 / 绿两态恒显其一（零风险也有 —— 它是状态不是风险） */
+        function renderAuthChip() {
+          var pending = $('auth-chip-pending');
+          var active = $('auth-chip-active');
+          var empty = $('risk-empty');
+          closeAuthManage();
+          if (pending) pending.hidden = !!state.authorized;
+          if (active) active.hidden = !state.authorized;
+          if (empty) {
+            var vis = $$('#risk-chips [data-risk]').filter(isVisible).length;
+            empty.hidden = vis > 0;
+          }
+          updateMetrics();
+        }
+        /* 黄态点击：流内产出「授权当前站点」next 卡 + 追加一条系统事件行（不跳走） */
+        function requestAuthorizeFromChip() {
+          if (state.authorized) return false;
+          reveal('chip-auth');
+          clearChipTraces();
+          appendSystemTrace('状态栏授权 chip（状态）→ 已按法七在流内给出「授权当前站点」（op.authorize · P0 恢复）；'
+            + '本条是事实留痕（只追加、不撤回）。');
+          var chip = $('auth-chip-pending');
+          if (chip) chip.setAttribute('data-chip-fired', 'true');
+          updateMetrics();
+          say('状态栏授权 chip：已在流内产出「授权当前站点」next 卡（op.authorize）—— 不跳走');
+          return true;
+        }
+        /* 绿态点击：展开 / 收起管理详情（op.revoke / op.rebind 入口） */
+        function toggleAuthManage() {
+          var box = $('auth-manage');
+          var chip = $('auth-chip-active');
+          if (!box || !chip) return false;
+          var open = chip.getAttribute('aria-expanded') === 'true';
+          box.hidden = open;
+          chip.setAttribute('aria-expanded', String(!open));
+          updateMetrics();
+          say(open
+            ? '已收起授权管理详情'
+            : '授权管理详情：撤销授权 op.revoke / 重新绑定 op.rebind —— 两个入口都只把下一步放回流里（法七）');
+          return true;
+        }
+        function authChipState() {
+          return {
+            authorized: !!state.authorized,
+            chip: state.authorized ? '已授权 · supported' : '未授权 · 零注入',
+            slot: state.authorized ? 'active' : 'pending',
+            visibleChips: $$('#auth-state [data-auth-chip]').filter(isVisible).length,
+            manageOpen: $('auth-manage') ? $('auth-manage').hidden === false : null,
+            traceCount: $$('#stream [data-chip-trace]').length
+          };
+        }
+
+        /* ═══════════════════════════════════════════════════════════════
            8. 自动滚到底 + 密度实测（法五口径）+ 法七自查
            ═══════════════════════════════════════════════════════════════ */
         function autoScroll() {
@@ -3179,6 +3447,12 @@ function handleCardAction(opId) {
           return $$('button, a, input, select, textarea, [tabindex]', root).filter(function (el) {
             if (el.hasAttribute('tabindex') && el.getAttribute('tabindex') === '-1') return false;
             if (el.tagName === 'INPUT' && el.getAttribute('type') === 'hidden') return false;
+            /* 按需展开的管理面（data-density-exempt）：默认折叠 → 不计入默认屏密度预算 */
+            var n = el;
+            while (n && n.hasAttribute) {
+              if (n.hasAttribute('data-density-exempt')) return false;
+              n = n.parentNode;
+            }
             return isVisible(el);
           });
         }
@@ -3186,7 +3460,7 @@ function handleCardAction(opId) {
           var max = 0;
           $$('#panel [data-msg-type="nextstep"]').forEach(function (card) {
             if (!isVisible(card)) return;
-            var n = card.querySelectorAll('[data-act="next"]').filter(isVisible).length;
+            var n = $$('[data-act="next"]', card).filter(isVisible).length;
             if (n > max) max = n;
           });
           return max;
@@ -3200,6 +3474,7 @@ function handleCardAction(opId) {
           setText('m-toolbar', String(tb));
           setText('m-statusbar', String(sb));
           setText('m-total', String(total));
+          setText('m-auth-chip', state.authorized ? '已授权 · supported' : '未授权 · 零注入');
           setText('m-msgs', String(msgs));
           setText('m-chips', String(chips));
           var verdict = $('m-verdict');
@@ -3244,7 +3519,7 @@ function handleCardAction(opId) {
         }
         function nextCountIn(el, key) {
           if (!el) return 0;
-          return el.querySelectorAll('[data-act="next"]').filter(function (n) { return isVisibleIn(n, key); }).length;
+          return $$('[data-act="next"]', el).filter(function (n) { return isVisibleIn(n, key); }).length;
         }
         function checkNoDeadEnds() {
           return BLOCKING.map(function (b) {
@@ -3369,6 +3644,14 @@ function handleCardAction(opId) {
           });
         });
 
+        /* 授权态 chip（状态栏常显）：黄 → 流内产 next；绿 → 展开管理详情 */
+        $$('[data-auth-chip]').forEach(function (chip) {
+          chip.addEventListener('click', function () {
+            if (chip.getAttribute('data-auth-chip') === 'pending') requestAuthorizeFromChip();
+            else toggleAuthManage();
+          });
+        });
+
         /* 页面侧拾取（不在 #panel 内，不参与面板密度统计） */
         var pickBtn = $('pick-toggle');
         var pickState = $('pick-state');
@@ -3414,6 +3697,11 @@ function handleCardAction(opId) {
           decideAuth: decideAuth,
           focusRisk: focusRisk,
           closeRiskDetail: closeRiskDetail,
+          requestAuthorizeFromChip: requestAuthorizeFromChip,
+          toggleAuthManage: toggleAuthManage,
+          closeAuthManage: closeAuthManage,
+          renderAuthChip: renderAuthChip,
+          authChipState: authChipState,
           runOp: runOp,
           registerDemoProvider: registerDemoProvider,
           configureLLM: configureLLM,

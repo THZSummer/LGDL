@@ -330,10 +330,19 @@ footer { color: var(--sub); font-size: 11.5px; }
         <b>零新增卡类型</b>：12 kind = 7 主类 + 5 过程卡（<code>tool / command / thinking / error / notice</code>），askuser 扩形 <code>secret</code> / <code>form</code>。
       </span>
       <span class="card-line">
-        <b>验证：</b>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 F 的 shim）→ <b>87 passed / 0 failed</b>；
+        <b>授权态归属（作者 2026-09-21 反馈修订）：</b>授权态的唯一家 = <b>状态栏常显 chip</b>
+        （黄 <code>未授权 · 零注入</code> / 绿 <code>已授权 · supported</code>，恒显、可点 → 流内产 next 或展开管理详情）；
+        工具栏摘要只留 <code>origin · 会话</code>（工具 / 导航的家，四词零出现），风险 rail 的「未授权」chip 并入该 chip（零双写）；
+        默认可点 = 工具栏 5 + 授权 chip 1 = <b>6 ≤ 7</b>（法五不破）。
+      </span>
+      <span class="card-line">
+        <b>验证：</b>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 F 的 shim）→ <b>110 passed / 0 failed</b>；
         覆盖三区结构继承、12 kind 继承、法七 5 类阻塞逐一无死端 + ✖ 行不裸奔、法八哨兵值零明文、
         chip↔op 绑定、op 管线四态、注册表视察器与场景联动、死端对比表、密度 ≤7、
-        可拖动侧栏宽度（280–640px · ARIA <code>separator</code> + 键盘可达 + clamp）与双主题。运行：<code>node option-g-shim.mjs</code>。
+        授权态下移（工具栏零四词 · 常显 chip 两态与点击行为 · 零双写 · 6 ≤ 7 对账）、
+        可拖动侧栏宽度（280–640px · ARIA <code>separator</code> + 键盘可达 + clamp）与双主题；
+        另加真实浏览器（Chromium headless · <code>file://</code> 双击路径）实测两处修订的防回归静态机核。
+        运行：<code>node option-g-shim.mjs</code>。
       </span>
       <span class="card-cta">打开方案 G（All-in-Next · 聊天即操作台）→</span>
     </a>
@@ -489,6 +498,14 @@ footer { color: var(--sub); font-size: 11.5px; }
     （280–640px 连续宽度 · <code>role="separator"</code> + 键盘 ←/→ · Home/End · 双击复位 400 · 演示台实时读数），
     密度随宽度实时重算；同时把 anything-is-plugin 的理念来源落注到
     <code>https://github.com/deepseek-ai/deepseek-harness</code>（仓库内容未经在线核实，落地口径以作者口述为准）。
+    优化补记 2（2026-09-21 作者反馈「状态归状态栏，工具栏只管工具 / 导航」）：授权态从「工具栏站点摘要（origin + 授权态）」
+    <b>下移到状态栏常显 chip</b>（黄 <code>未授权 · 零注入</code> / 绿 <code>已授权 · supported</code>；恒显、可点：
+    黄 → 流内产 next，绿 → 展开管理详情 op.revoke / op.rebind），工具栏摘要只留 <code>origin · 会话</code>，
+    风险 rail 的条件性「未授权」chip 并入常显 chip（零双写）——<b>这是本稿唯一一处覆盖 F 构成的地方</b>
+    （三区骨架 / 12 kind / 固化契约仍逐字相同）；密度口径随之上修为「默认可点 = 工具栏 5 + 授权 chip 1 = 6 ≤ 7」
+    （原为 S1 = 5），预算上限 ≤7 不变。另：真实浏览器（Chromium headless · <code>file://</code> 双击路径）实测
+    修掉两处只在真机暴露的问题（<code>NodeList.filter</code> 致初始化抛错 / 系统行时间戳被挤成每行 2 字符），
+    已在稿件自检区登记并由 shim §M20 / §M21 防回归。
   </p>
 
 </div>

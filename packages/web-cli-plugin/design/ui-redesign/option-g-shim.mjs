@@ -14,6 +14,8 @@
  *   · NextProvider 注册表视察器与场景联动（N→N+1，handleCardAction diff = 0）
  *   · 密度继承（工具栏 ≤5、默认屏 ≤7、chips ≤3）、可拖动侧栏宽度（280–640px，ARIA
  *     separator + 键盘可达 + clamp）与双主题、风险 chip 永不折叠
+ *   · 授权态下移（作者 2026-09-21 反馈修订）：工具栏区四词零出现 / 状态栏常显 chip 两态与
+ *     点击行为（黄 → 流内产 next；绿 → 展开管理详情）/ 风险 rail 零双写 / 默认可点 6 ≤ 7
  *
  * 用法：node option-g-shim.mjs        （退出码 0 = 全通过，1 = 有失败）
  * 依赖：仅 Node 内置 fs / path / url / vm。不联网、不装包。
@@ -1098,15 +1100,17 @@ check('I3 双主题切换器 + 工具栏主题按钮；切到深色真实生效�
     && !document.documentElement.hasAttribute('data-theme');
 });
 
-check('I4 S1 默认屏密度：工具栏 5 / 状态栏 0 / 合计 5 ≤7，chips ≤3', () => {
+/* v2 修订（作者 2026-09-21 反馈：授权态下移状态栏）：授权 chip 常显计入默认屏 →
+   S1 = 工具栏 5 + 授权 chip 1 = 6（原为 5 + 0 = 5）；预算 ≤7 不变 */
+check('I4 S1 默认屏密度：工具栏 5 / 状态栏 1（授权 chip 常显）/ 合计 6 ≤7，chips ≤3', () => {
   demo.setScene('S1');
   const d = density();
   eq(d.scene, 'S1', '当前场景');
-  return d.toolbar === 5 && d.statusbar === 0 && d.total === 5 && d.chips <= 3
+  return d.toolbar === 5 && d.statusbar === 1 && d.total === 6 && d.chips <= 3
     && one('#m-verdict').getAttribute('class') === 'm-ok';
 });
 
-check('I5 S6 风险稳态密度：工具栏 5 / 状态栏 2 / 合计 7 ≤7', () => {
+check('I5 S6 风险稳态密度：工具栏 5 / 状态栏 2（授权 chip + 风险 chip）/ 合计 7 ≤7', () => {
   demo.setScene('S6');
   const d = density();
   return d.toolbar <= 5 && d.statusbar === 2 && d.total <= 7 && d.chips <= 3;
@@ -1140,13 +1144,14 @@ check('I8 S7 全景：12 kind 同屏可见（含 5 过程卡）', () => {
   return true;
 });
 
+/* v2 修订：风险 rail 只承载其余风险类（授权态已并入状态栏常显 chip，零双写）→ 可见风险 chip = 1（仅 ref） */
 check('I9 风险 chip 永不折叠：点 chip → 内联详情 + 「本阶段不发命令、不改授权」', () => {
   demo.setScene('S6');
   const bar = one('#region-statusbar');
   const box = one('#risk-chips');
   const chips = $$('#risk-chips [data-risk]').filter(isVisible);
   if (bar.hidden !== false || box.hidden !== false) throw new Error('状态栏/风险容器被折叠');
-  if (chips.length !== 2) throw new Error('可见风险 chip 数 = ' + chips.length);
+  if (chips.length !== 1) throw new Error('可见风险 chip 数 = ' + chips.length + '（授权态已并入状态栏 chip）');
   demo.focusRisk('ref');
   const detail = one('#risk-detail');
   const line = one('[data-risk-detail="ref"]');
@@ -1179,11 +1184,13 @@ check('J2 死端对比表逐字保留真机缺陷与 G 的恢复项', () => {
 check('J3 死端结论可机核：死端 1 → 0', () =>
   inc(one('#deadend-summary').textContent, '死端 1 → 0', '死端结论'));
 
-check('J4 G 相对 F 的变化点 5 条（含 error 独立卡 + 12 kind 不动）', () => {
+/* v2 修订：变化点 5 → 6（追加第 6 条「授权态下移」；§M16 逐字复核） */
+check('J4 G 相对 F 的变化点 6 条（含 error 独立卡 + 12 kind 不动 + 授权态下移）', () => {
   const table = one('#change-table');
   const rows = table.querySelectorAll('tbody tr');
   const txt = table.textContent;
-  return rows.length === 5 && inc(txt, 'error', '变化点表') && inc(txt, '12 kind', '变化点表');
+  return rows.length === 6 && inc(txt, 'error', '变化点表') && inc(txt, '12 kind', '变化点表')
+    && inc(txt, '授权态下移', '变化点表');
 });
 
 check('J5 架构区：op 清单表 8 行 + 12 kind 表 12 行 + 注册表代码含 handleCardAction', () => {
@@ -1272,6 +1279,316 @@ check('L4 data-scenes 取值全部合法（无笔误场景键）', () => {
 });
 
 /* ═════════════════════════════════════════════════════════════════════════
+   M. 授权态下移（作者 2026-09-21 反馈修订）
+      —— 授权态的唯一家 = 状态栏常显 chip；工具栏只管工具 / 导航（四词零出现）；
+         风险 rail 不再承载授权态（零双写）；chip 可点（黄 → 流内产 next；绿 → 展开管理详情）；
+         默认可点 = 工具栏 5 + 授权 chip 1 = 6 ≤ 7。
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 四词（工具栏区零出现）与两态原文（chip 逐字） */
+const AUTH_WORDS = ['未授权', '已授权', '零注入', 'supported'];
+const AUTH_CHIP_TEXTS = ['未授权 · 零注入', '已授权 · supported'];
+const AUTH_FULL = '未授权 · 零注入';
+const AUTH_OK = '已授权 · supported';
+const UNAUTHORIZED_SCENES = ['S1', 'S2', 'S5', 'S6'];
+const AUTHORIZED_SCENES = ['S3', 'S4', 'S7'];
+
+function attrText(el) {
+  return Object.keys(el.attributes || {}).map(k => k + '=' + el.attributes[k]).join(' ');
+}
+function authHits(el) {
+  const text = String(el.textContent || '') + ' ' + attrText(el);
+  return AUTH_WORDS.filter(w => text.indexOf(w) !== -1);
+}
+function norm(el) { return String(el.textContent || '').replace(/\s+/g, ' ').trim(); }
+
+check('M1 工具栏区零授权态文本：四词（未授权 / 已授权 / 零注入 / supported）零出现', () => {
+  const bar = one('#region-toolbar');
+  if (!bar) throw new Error('缺 #region-toolbar');
+  const bad = [bar].concat(walk(bar, [])).filter(el => authHits(el).length);
+  if (bad.length) {
+    throw new Error('工具栏内命中四词：' + bad.map(e => e.tagName + '.' + (e.className || '')
+      + '[' + authHits(e).join('/') + ']').join(' · '));
+  }
+  return true;
+});
+
+check('M2 工具栏摘要构成 = origin · 会话（无授权态徽标 / 无场景声明）', () => {
+  const s = one('#region-toolbar .site-summary');
+  if (!s) throw new Error('缺 .site-summary');
+  const txt = s.textContent;
+  return inc(txt, 'https://open.bigmodel.cn', '站点摘要') && inc(txt, '会话已连接', '站点摘要')
+    && s.querySelectorAll('.badge').length === 0
+    && s.querySelectorAll('[data-scenes]').length === 0
+    && !!s.querySelector('.site-origin') && !!s.querySelector('.site-session');
+});
+
+check('M3 状态栏授权 chip 存在 + 两态齐备 + 全 UI 唯一常显载体（#panel 内 chip 原文只在 chip）', () => {
+  const slot = one('#region-statusbar #auth-state');
+  if (!slot) throw new Error('缺 #auth-state');
+  const chips = one('#region-statusbar').querySelectorAll('[data-auth-chip]');
+  eq(chips.length, 2, '授权 chip 数');
+  eq(chips.map(c => c.id).join(','), 'auth-chip-pending,auth-chip-active', '授权 chip id');
+  if (!chips[0].classList.contains('auth-chip') || !chips[1].classList.contains('auth-chip')) {
+    throw new Error('chip 类名不是 .auth-chip');
+  }
+  const panel = one('#panel');
+  const carriers = [panel].concat(walk(panel, []))
+    .filter(el => AUTH_CHIP_TEXTS.some(t => String(el.textContent || '').indexOf(t) !== -1))
+    .filter(el => el.querySelectorAll('[data-auth-chip]').length === 0);
+  eq(carriers.length, 2, '#panel 内 chip 原文的载体数（唯一载体）');
+  eq(carriers.map(c => c.id).join(','), 'auth-chip-pending,auth-chip-active', '唯一载体 id');
+  return true;
+});
+
+check('M4 S1~S7 逐场景：授权 chip 恒显其一，两态归属 = ctxOf(scene).site.authorized', () => {
+  const seen = [];
+  for (const key of ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7']) {
+    demo.setScene(key);
+    const st = demo.authChipState();
+    const expect = AUTHORIZED_SCENES.indexOf(key) !== -1;
+    if (st.visibleChips !== 1) throw new Error(key + ' 可见授权 chip 数 = ' + st.visibleChips);
+    if (st.authorized !== expect) throw new Error(key + ' 授权态 = ' + st.authorized + '，期望 ' + expect);
+    if (st.chip !== (expect ? AUTH_OK : AUTH_FULL)) throw new Error(key + ' chip 原文 = ' + st.chip);
+    const vis = $$('#auth-state [data-auth-chip]').filter(isVisible);
+    eq(vis.length, 1, key + ' 可见 chip 数（DOM）');
+    eq(norm(vis[0]), expect ? AUTH_OK : AUTH_FULL, key + ' 可见 chip 原文（DOM）');
+    seen.push(key);
+  }
+  eq(seen.join(','), 'S1,S2,S3,S4,S5,S6,S7', '覆盖场景');
+  eq(UNAUTHORIZED_SCENES.length + AUTHORIZED_SCENES.length, 7, '两态归属场景数');
+  return true;
+});
+
+check('M5 两态原文逐字：黄「未授权 · 零注入」/ 绿「已授权 · supported」+ 点击行为写在 title', () => {
+  const pend = one('#auth-chip-pending');
+  const act = one('#auth-chip-active');
+  return norm(pend) === AUTH_FULL && norm(act) === AUTH_OK
+    && pend.getAttribute('data-auth-chip') === 'pending'
+    && act.getAttribute('data-auth-chip') === 'active'
+    && inc(pend.getAttribute('title') || '', 'op.authorize', '黄态 title')
+    && inc(act.getAttribute('title') || '', 'op.revoke', '绿态 title')
+    && act.getAttribute('aria-controls') === 'auth-manage'
+    && act.getAttribute('aria-expanded') === 'false';
+});
+
+check('M6 黄态点击 → 流内产出「授权当前站点」next 卡（op.authorize · 法七）', () => {
+  demo.setScene('S2');
+  const chip = one('#auth-chip-pending');
+  const card = one('#msg-g-next-chip-auth');
+  if (!chip || !card) throw new Error('缺 chip 或产出卡');
+  if (isVisible(card)) throw new Error('产出卡进场景应先复位为隐藏');
+  chip.click();
+  const authChip = card.querySelector('[data-act="next"][data-op="op.authorize"]');
+  const vis = $$('#auth-state [data-auth-chip]').filter(isVisible);
+  return isVisible(card) && !!authChip && isVisible(authChip)
+    && inc(card.textContent, '授权当前站点', '产出卡')
+    && vis.length === 1 && vis[0].id === 'auth-chip-pending'
+    && chip.getAttribute('data-chip-fired') === 'true';
+});
+
+check('M7 黄态点击 → 流内追加一条系统事件行（「事实发生」追加式留痕，与 chip 角色不同）', () => {
+  demo.setScene('S2');
+  eq($$('#stream [data-chip-trace]').length, 0, '进场景前的留痕条数（应清零）');
+  one('#auth-chip-pending').click();
+  const traces = $$('#stream [data-chip-trace]');
+  eq(traces.length, 1, '追加的留痕条数');
+  const t = traces[0];
+  return t.tagName === 'LI' && t.parentNode === one('#stream')
+    && t.getAttribute('data-msg-type') === 'system' && isVisible(t)
+    && inc(one('#stream').textContent, 'op.authorize', '#stream 留痕')
+    && inc(t.textContent, '只追加', '留痕文本（法二：只追加）');
+});
+
+check('M8 S2 断流样板：黄 chip 全程可见 → 批准授权 → 同一场景内转绿（不换场景）', () => {
+  demo.setScene('S2');
+  const before = demo.authChipState();
+  const approve = one('#msg-g-auth-site-2 [data-act="approve"]');
+  if (!approve) throw new Error('缺 S2 授权卡批准按钮');
+  approve.click();
+  const after = demo.authChipState();
+  const vis = $$('#auth-state [data-auth-chip]').filter(isVisible);
+  return before.chip === AUTH_FULL && before.authorized === false
+    && after.authorized === true && after.chip === AUTH_OK
+    && vis.length === 1 && vis[0].id === 'auth-chip-active' && norm(vis[0]) === AUTH_OK
+    && demo.snapshots().scene === 'S2';
+});
+
+check('M9 绿态点击 → 展开管理详情（撤销授权 op.revoke / 重新绑定 op.rebind）；再点收起', () => {
+  demo.setScene('S4');
+  const chip = one('#auth-chip-active');
+  const box = one('#auth-manage');
+  if (!chip || !box) throw new Error('缺绿态 chip 或 #auth-manage');
+  if (!isVisible(chip)) throw new Error('S4 绿态 chip 不可见');
+  if (box.hidden !== true) throw new Error('管理详情默认应折叠');
+  chip.click();
+  const opened = box.hidden === false && chip.getAttribute('aria-expanded') === 'true' && isVisible(box);
+  const revoke = box.querySelector('[data-act="next"][data-op="op.revoke"]');
+  const rebind = box.querySelector('[data-act="next"][data-op="op.rebind"]');
+  chip.click();
+  return opened && !!revoke && !!rebind
+    && inc(box.textContent, '撤销授权', '管理详情') && inc(box.textContent, '重新绑定', '管理详情')
+    && box.hidden === true && chip.getAttribute('aria-expanded') === 'false';
+});
+
+check('M10 风险 rail 零双写：无 [data-risk="auth"]、零四词、只留其余风险类', () => {
+  demo.setScene('S6');
+  const rail = one('#risk-chips');
+  if (rail.querySelectorAll('[data-risk="auth"]').length) throw new Error('风险 rail 仍挂着授权 chip');
+  const bad = [rail].concat(walk(rail, [])).filter(el => authHits(el).length);
+  if (bad.length) throw new Error('风险 rail 命中四词：' + bad.map(e => e.tagName).join(' · '));
+  const chips = rail.querySelectorAll('[data-risk]');
+  eq(chips.length, 1, 'rail 内风险 chip 数');
+  eq(chips[0].getAttribute('data-risk'), 'ref', 'rail 内风险 chip');
+  /* 授权态的唯一家 = 状态栏常显 chip（不是 rail） */
+  return one('#region-statusbar').querySelectorAll('[data-auth-chip]').length === 2;
+});
+
+check('M11 风险 rail 无风险时显示「无其他风险」（状态栏永不折叠）', () => {
+  demo.setScene('S1');
+  const empty = one('#risk-empty');
+  const rail = one('#risk-chips');
+  if (!empty) throw new Error('缺 #risk-empty');
+  return rail.hidden === false && empty.hidden === false
+    && inc(norm(empty), '无其他风险', '空态说明')
+    && one('#region-statusbar').hidden === false;
+});
+
+check('M12 状态栏第一行只承载会话 / 队列事实（零四词）—— 不与 chip 双写', () => {
+  const seen = [];
+  for (const key of ['S2', 'S4']) {
+    demo.setScene(key);
+    const lines = $$('#region-statusbar .status-line .sb-main').filter(isVisible);
+    eq(lines.length, 1, key + ' 可见会话行数');
+    if (authHits(lines[0]).length) {
+      throw new Error(key + ' 会话行命中四词：' + authHits(lines[0]).join('/'));
+    }
+    inc(norm(lines[0]), '会话已连接', key + ' 会话行');
+    seen.push(key);
+  }
+  eq(seen.join(','), 'S2,S4');
+  return true;
+});
+
+check('M13 密度对账：默认可点 = 工具栏 5 + 授权 chip 1 = 6 ≤ 7（法五不破）', () => {
+  const rows = [];
+  for (const key of ['S1', 'S2', 'S4', 'S6']) {
+    demo.setScene(key);
+    const d = density();
+    if (d.toolbar !== 5) throw new Error(key + ' 工具栏可点 = ' + d.toolbar);
+    if (d.total > 7) throw new Error(key + ' 默认屏可点 = ' + d.total + ' > 7');
+    rows.push(key + ':' + d.total);
+  }
+  eq(rows.join(' '), 'S1:6 S2:6 S4:6 S6:7', '逐场景默认屏可点');
+  demo.setScene('S1');
+  const s1 = density();
+  eq(s1.statusbar, 1, 'S1 状态栏可点');
+  eq(s1.total, 6, 'S1 默认屏可点');
+  eq(demo.authChipState().visibleChips, 1, 'S1 可见授权 chip');
+  return inc(one('#m-auth-chip').textContent, AUTH_FULL, '演示控制台授权 chip 读数')
+    && eq(one('#m-total').textContent, '6', '演示控制台默认屏读数');
+});
+
+check('M14 管理详情 = 按需面：默认折叠 + data-density-exempt → 展开后默认屏读数仍 6', () => {
+  demo.setScene('S4');
+  const box = one('#auth-manage');
+  const chip = one('#auth-chip-active');
+  if (!box.hasAttribute('data-density-exempt')) throw new Error('缺 data-density-exempt');
+  const closed = density().total;
+  chip.click();
+  const opened = density().total;
+  const inBox = sandbox.__clickables(box).length;
+  chip.click();
+  return closed === 6 && opened === 6 && inBox === 0 && box.hidden === true;
+});
+
+check('M15 口径说明区登记修订：唯一载体 / 零双写 / 角色口径 / 6 ≤ 7 / 依据 = 作者 2026-09-21 反馈', () => {
+  const sec = one('#spec-section');
+  const txt = sec.textContent;
+  const heads = sec.querySelectorAll('h3').map(h => h.textContent);
+  return inc(txt, '授权态的归属', '口径区') && inc(txt, '唯一常显载体', '口径区')
+    && inc(txt, '零双写', '口径区') && inc(txt, '事实发生', '口径区')
+    && inc(txt, '6 ≤ 7', '口径区') && inc(txt, '2026-09-21 反馈', '口径区')
+    && heads.some(h => h.indexOf('授权态的归属') !== -1)
+    && inc(txt, AUTH_FULL, '口径区两态原文') && inc(txt, AUTH_OK, '口径区两态原文');
+});
+
+check('M16 F→G 变化点第 6 条 = 授权态下移（工具栏只剩 origin · 会话；唯一载体 = 状态栏 chip）', () => {
+  const rows = one('#change-table').querySelectorAll('tbody tr');
+  eq(rows.length, 6, '变化点条数');
+  const sixth = rows[5];
+  eq(sixth.querySelectorAll('td').length, 2, '第 6 行单元格数');
+  return inc(sixth.textContent, 'origin · 会话', '第 6 行')
+    && inc(sixth.textContent, AUTH_FULL, '第 6 行') && inc(sixth.textContent, AUTH_OK, '第 6 行')
+    && inc(sixth.textContent, '零双写', '第 6 行')
+    && inc(one('#spec-section').textContent, 'G 列 6 条', '变化点小节标题');
+});
+
+check('M17 已知取舍如实登记：状态栏高度微增 + chip 两态由 JS 按 ctx 求值 + rail 空态', () => {
+  const txt = one('#spec-section').textContent;
+  return inc(txt, '状态栏高度微增', '已知取舍')
+    && inc(txt, '授权 chip 的两态由 JS 按 ctx 求值', '已知取舍')
+    && inc(txt, '无其他风险', '已知取舍');
+});
+
+check('M17b 头注 / 区一构成说明同步：覆盖 F 的工具栏构成 + 修订依据（作者 2026-09-21 反馈）', () => {
+  const head = html.slice(0, html.indexOf('<html lang='));
+  const toolbarNote = html.slice(html.indexOf('区一 工具栏'), html.indexOf('id="region-toolbar"'));
+  return inc(head, '⑧ 修订记录', '头注') && inc(head, '不应该放这两个', '头注（作者原话逐字）')
+    && inc(head, '状态栏常显 chip', '头注') && inc(head, '摘要只留 origin · 会话', '头注')
+    && inc(head, '零双写', '头注')
+    && inc(toolbarNote, '授权态已**下移**状态栏常显 chip', '区一构成说明')
+    && inc(toolbarNote, 'origin · 会话', '区一构成说明')
+    && inc(toolbarNote, '**零出现**', '区一构成说明');
+});
+
+check('M18 演示控制台读数联动：S2 黄 → 批准授权 → chip 读数转绿，默认屏读数不变（6）', () => {
+  demo.setScene('S2');
+  const before = one('#m-auth-chip').textContent;
+  const t1 = one('#m-total').textContent;
+  one('#msg-g-auth-site-2 [data-act="approve"]').click();
+  const after = one('#m-auth-chip').textContent;
+  const t2 = one('#m-total').textContent;
+  return before === AUTH_FULL && after === AUTH_OK && t1 === '6' && t2 === '6';
+});
+
+check('M19 收尾：切回 S1 → chip 回黄态、留痕清零、密度 6 ≤7、5 类阻塞仍全部无死端', () => {
+  demo.setScene('S1');
+  const st = demo.authChipState();
+  const d = density();
+  const rows = demo.checkNoDeadEnds();
+  return st.chip === AUTH_FULL && st.visibleChips === 1 && st.traceCount === 0
+    && d.total === 6 && d.total <= 7 && d.toolbar === 5 && rows.every(r => r.ok);
+});
+
+/* ── M20 / M21：只在真实浏览器暴露的问题（垫片的 querySelectorAll 返回数组，掩盖了它们）
+      —— 静态机核，防回归；见 option-g-all-in-next.html「本稿的自检」第 3 条 ── */
+const INLINE_JS = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)].map(m => m[1]).join('\n');
+
+check('M20 真实浏览器回归：内联脚本不得在 querySelectorAll 结果上直接用数组方法（NodeList 无 filter）', () => {
+  const bad = [...INLINE_JS.matchAll(/querySelectorAll\([^)]*\)\s*\.\s*(filter|map|some|every|find|reduce|sort|slice)\b/g)]
+    .map(m => m[0]);
+  if (bad.length) {
+    throw new Error('真实浏览器会抛 TypeError 的写法：' + bad.join(' / ')
+      + '（应改走页面内 $$()，它返回数组）');
+  }
+  return true;
+});
+
+check('M20b 两处已知调用点已改走 $$()（maxChipsPerCard / nextCountIn 的 chips 遍历）', () => {
+  return INLINE_JS.includes("$$('[data-act=\"next\"]', card)") && INLINE_JS.includes("$$('[data-act=\"next\"]', el)");
+});
+
+check('M21 实测修订登记（自检区）：真实浏览器实测 + 两处修订（NodeList.filter / 时间戳 nowrap）', () => {
+  const txt = one('#spec-section').textContent;
+  const css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  return inc(txt, '真实浏览器实测', '自检区') && inc(txt, 'NodeList.filter', '自检区')
+    && inc(txt, 'white-space: nowrap', '自检区')
+    && inc(css, '.msg-system .ts.sys-time', '样式块')
+    && /\.msg-system\s+\.ts\.sys-time\s*\{[^}]*white-space:\s*nowrap/.test(css);
+});
+
+/* ═════════════════════════════════════════════════════════════════════════
    4. 报告
    ═════════════════════════════════════════════════════════════════════════ */
 
@@ -1284,6 +1601,6 @@ for (const r of results) {
 
 console.log('');
 console.log(`方案 G（option-g-all-in-next.html）DOM 垫片断言：${passed} passed / ${failed} failed`);
-console.log(`（共 ${results.length} 条；覆盖三区结构继承 / 12 kind 继承 / 法七无死端 / 法八零明文 / chip↔op 绑定 / op 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 / 可拖动侧栏宽度（280–640 · ARIA separator · 键盘 · clamp）与主题）`);
+console.log(`（共 ${results.length} 条；覆盖三区结构继承 / 12 kind 继承 / 法七无死端 / 法八零明文 / chip↔op 绑定 / op 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 / 授权态下移（工具栏零四词 · 状态栏常显 chip 两态与点击行为 · 零双写 · 6 ≤ 7 对账）/ 可拖动侧栏宽度（280–640 · ARIA separator · 键盘 · clamp）与主题）`);
 
 process.exit(failed === 0 ? 0 : 1);
