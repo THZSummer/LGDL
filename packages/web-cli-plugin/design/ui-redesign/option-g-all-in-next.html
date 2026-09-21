@@ -30,7 +30,9 @@
 
   ② 与 F 的关系：继承 F 全部，只加两条法则（不改视觉，不改骨架）
   ───────────────────────────────────────────────────────────────────────────
-  · 继承 F 的 :root 设计令牌、组件样式语言、字体/滚动条口径、三档宽度与双主题切换器。
+  · 继承 F 的 :root 设计令牌、组件样式语言、字体/滚动条口径与双主题切换器。
+    宽度改为**可拖动分隔条**（280–640px，模拟 Chrome 侧栏真实拖拽；密度随宽度实时重算），
+    带 ARIA separator 语义与键盘可达（←/→ ±10 · Home/End 到边界 · 双击复位 400）。
   · 继承 F 的三区骨架：header[role=toolbar] > main[role=log] > footer[role=contentinfo]，
     结构语义与顺序逐字不变。
   · 继承 F 的五条法则（法一 一切交互皆消息 / 法二 留痕即事实 / 法三 三区各司其职 /
@@ -52,9 +54,10 @@
 
   ③ 架构思想：anything-is-plugin
   ───────────────────────────────────────────────────────────────────────────
-  · 作者提示的理念来源：deepseek-harness 开源项目（作者口述）。
-    **如实登记**：本次落稿时外部检索凭证缺失，未能核实该项目的原文表述；
-    以下按作者口述的思想落地，不自称引用原文。
+  · 作者提示的理念来源：deepseek-harness 开源项目（作者 2026-09-21 提供引用 URL）。
+    引用：https://github.com/deepseek-ai/deepseek-harness
+    **如实登记**：该仓库内容未经在线核实（检索凭证缺失），anything-is-plugin 的落地
+    口径以作者口述为准；以下按作者口述的思想落地，不自称引用原文表述。
   · 落地形态 = NextProvider 插件注册表 + web-op 操作清单：
       注册表项 {id, when(ctx)→候选|null, chips[]} 是**纯谓词**，可单测；
       新增一个操作 = 注册一个插件 + 自带测试，**主流程零改动**
@@ -101,7 +104,7 @@
   ───────────────────────────────────────────────────────────────────────────
   · 零外链：全部样式与图标内联（图标一律内联 SVG），无远程资源、无网络请求；
     下载后双击即可打开，无需服务器、无构建。
-  · 内联 JS 仅用于演示：场景切换（S1~S7）/ 三档宽度 / 双主题 / 视图切换 /
+  · 内联 JS 仅用于演示：场景切换（S1~S7）/ 可拖动侧栏宽度（280–640px）/ 双主题 / 视图切换 /
     问答与授权的「操作前 → 操作后固化」/ 注册表视察器 / op 管线状态 / 页面拾取 /
     S1/S2/S3 的自动续流 reveal（点一下就继续，不跳走）。
   · 顶部「演示控制台」「注册表视察器」与底部「架构区」「口径说明区」不属于交付 UI
@@ -161,7 +164,7 @@
         --stage-border: #d7dde8;
         --page-bg: #f8fafc;
 
-        /* 版面尺寸（宽度切换器改写 --panel-w） */
+        /* 版面尺寸（可拖动分隔条改写 --panel-w；范围 280–640px） */
         --panel-w: 400px;
       }
 
@@ -364,6 +367,21 @@
       .metrics b { font-family: var(--mono); }
       .m-ok { color: var(--ok); font-weight: 700; }
       .m-bad { color: var(--danger); font-weight: 700; }
+      /* 宽度实时读数（替换原三档 radio 组；非交付 UI） */
+      .demo-readout {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 9px;
+        border: 1px solid var(--stage-border);
+        border-radius: 999px;
+        background: var(--bg-subtle);
+        font-family: var(--mono);
+        font-size: 11px;
+        color: var(--stage-text);
+        white-space: nowrap;
+      }
+      .demo-readout b { color: var(--accent-text); }
 
       /* ── 注册表视察器（G 新增；非交付 UI，把 anything-is-plugin 可视化） ── */
       .inspector {
@@ -447,6 +465,64 @@
       /* ═══════════════════════════════════════════════════════════════
          3. 交付 UI：侧栏面板（三区，结构语义与 F 逐字一致）
          ═══════════════════════════════════════════════════════════════ */
+      /* ── 可拖动分隔条（交付 UI 的宽度手柄：模拟 Chrome 侧栏左缘真实拖拽） ──
+         6px 命中区 + 2px 可见分隔线；hover / focus-visible / 拖动中高亮 + 显示把持纹。 */
+      .splitter {
+        flex: 0 0 auto;
+        position: relative;
+        width: 6px;
+        align-self: stretch;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: col-resize;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        z-index: 2;
+      }
+      .splitter::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 4px;
+        width: 2px;
+        background: var(--stage-border);
+        transition: background 0.12s ease, left 0.12s ease, width 0.12s ease;
+      }
+      .splitter::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 6px;
+        height: 34px;
+        transform: translateY(-50%);
+        border-radius: 999px;
+        background: repeating-linear-gradient(
+          180deg,
+          var(--border-strong) 0,
+          var(--border-strong) 2px,
+          transparent 2px,
+          transparent 5px
+        );
+        opacity: 0;
+        transition: opacity 0.12s ease;
+      }
+      .splitter:hover::before,
+      .splitter:focus-visible::before,
+      .splitter[data-dragging="true"]::before {
+        left: 3px;
+        width: 4px;
+        background: var(--accent);
+      }
+      .splitter:hover::after,
+      .splitter:focus-visible::after,
+      .splitter[data-dragging="true"]::after { opacity: 1; }
+      .splitter:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
       .sidebar { flex: 0 0 auto; width: var(--panel-w); max-width: 100%; min-width: 0; display: flex; }
 
       .panel {
@@ -877,12 +953,13 @@
       .tag-p.primary { border-color: var(--accent); color: var(--accent-text); background: var(--accent-weak); }
       .tag-p.process { border-color: var(--stage-border); color: var(--stage-muted); }
 
-      /* ── 窄屏兜底（320px 面板零水平溢出） ───────────────────────── */
-      .panel[data-width="320"] .view-btn .view-label { display: none; }
-      .panel[data-width="320"] .site-summary .site-origin { max-width: 96px; }
+      /* ── 窄屏兜底（宽度 ≤360px 时面板零水平溢出；连续宽度口径，由 JS 置 data-narrow） ── */
+      .panel[data-narrow="true"] .view-btn .view-label { display: none; }
+      .panel[data-narrow="true"] .site-summary .site-origin { max-width: 96px; }
       @media (max-width: 900px) {
         .browser-body { flex-direction: column; }
         .sidebar { width: 100% !important; }
+        .splitter { display: none; }
         .panel { height: 620px; border-left: 0; border-top: 1px solid var(--border); }
       }
     </style>
@@ -893,7 +970,7 @@
         <div class="demo-bar-title">
           <span>演示控制台 · 方案 G（All-in-Next · 聊天即操作台）</span>
           <span class="demo-bar-note">
-            场景 S1~S7 可切换 · 三档宽度与双主题在任意场景下都可切 ·
+            场景 S1~S7 可切换 · 可拖动侧栏宽度（280–640px）与双主题在任意场景下都可切 ·
             S1 / S2 / S3 支持「点一下就续流」（不跳走）：S1 输入掩码 Key → 配置；S2 批准授权 → 自动续流
           </span>
         </div>
@@ -912,12 +989,10 @@
         </div>
 
         <div class="demo-group">
-          <span class="demo-label" id="lb-width">侧栏宽度</span>
-          <div class="seg" id="width-switch" role="radiogroup" aria-labelledby="lb-width">
-            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="320">320px</button>
-            <button type="button" role="radio" aria-checked="true" tabindex="0" data-width-set="400">400px</button>
-            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-width-set="520">520px</button>
-          </div>
+          <span class="demo-label">侧栏宽度（拖动分隔条 · 280–640px）</span>
+          <span class="demo-readout" id="width-readout" role="status" aria-live="polite">
+            宽度：<b id="width-readout-value">400px</b>（拖动左侧分隔条，或聚焦后 ←/→）
+          </span>
         </div>
 
         <div class="demo-group">
@@ -1014,12 +1089,29 @@
             </div>
           </div>
 
+          <!-- 侧栏左缘：可拖动分隔条（模拟 Chrome 侧栏真实拖拽调宽；键盘可达） -->
+          <div
+            class="splitter"
+            id="panel-splitter"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="拖动调整侧栏宽度"
+            aria-valuemin="280"
+            aria-valuemax="640"
+            aria-valuenow="400"
+            aria-valuetext="400px"
+            aria-controls="sidebar"
+            tabindex="0"
+            title="拖动调整侧栏宽度（280–640px；聚焦后 ←/→ ±10，Home/End 到边界，双击复位 400）"
+          ></div>
+
           <!-- 侧栏：交付 UI（三区结构语义与 F 逐字一致） -->
           <div class="sidebar" id="sidebar">
             <div
               class="panel"
               id="panel"
               data-width="400"
+              data-narrow="false"
               data-scene="S1"
               data-pick-mode="off"
               role="region"
@@ -2012,7 +2104,9 @@
       <section class="block" id="arch-section" aria-label="架构区：NextProvider 插件注册表 / web-op 操作清单 / 零新增卡类型（非交付 UI）">
         <h2>架构区 · anything-is-plugin（作者提示的理念来源：deepseek-harness 开源项目）</h2>
         <p class="muted">
-          如实登记：本次落稿时外部检索凭证缺失，<b>未能核实该项目的原文表述</b>；以下按作者口述的思想落地，不自称引用原文。
+          引用 URL（作者 2026-09-21 提供）：<code>https://github.com/deepseek-ai/deepseek-harness</code>。
+          如实登记：该仓库内容未经在线核实（检索凭证缺失），<b>未能核实该项目的原文表述</b>；
+          anything-is-plugin 的落地口径以作者口述为准，以下按作者口述的思想落地，不自称引用原文。
         </p>
 
         <h3>① NextProvider 插件注册表 —— 新增操作 = 注册插件 + 自带测试，主流程零改动</h3>
@@ -2247,6 +2341,8 @@ function handleCardAction(opId) {
           <li><b>每回合 ≤ 1 张推荐卡</b>：S6 的多个阻塞用<b>一张</b>仲裁卡表达排序，不并排多张。</li>
           <li><b>掩码卡预算</b>：1 个 input + 2 个按钮，都在卡内（按需出现）—— <b>不新增常驻控件</b>，工具栏可点数与 F 相同（4 + 1 = 5）。</li>
           <li><b>不计入</b>：聊天流内消息（记录，不是控件预算）、演示控制台与注册表视察器（在 <code>#panel</code> 之外）、页面侧拾取入口。</li>
+          <li><b>宽度演示</b>：可拖动 280–640px（模拟 Chrome 侧栏真实拖拽；密度随宽度实时重算）——
+            原「三档宽度（320 / 400 / 520）」radio 组已删除，改为侧栏左缘的分隔条 + 演示控制台实时读数。</li>
         </ul>
 
         <h3>相对 F 的变化点（G 只列 5 条）</h3>
@@ -2294,7 +2390,16 @@ function handleCardAction(opId) {
             但 <code>handleCardAction</code> 的 diff = 0 是<b>设计性质</b>而非运行时度量（本稿用「分发器无 per-op 分支」实现它）。</li>
           <li><b>掩码输入无法证伪「存储侧明文」</b>：设计稿只能保证<b>流内零明文</b>；存储侧的加密与生命周期由实现负责，不在 UI 稿口径内。</li>
           <li><b>浏览器权限的不可逆性由浏览器决定</b>：<code>op.perm.request</code> 只能申请，回收必须由用户在浏览器侧确认 —— G 把它如实说清楚，不假装能静默回收。</li>
-          <li><b>anything-is-plugin 的原文未能核实</b>（外部检索凭证缺失）：按作者口述思想落地，已在头注与本节如实登记。</li>
+          <li><b>anything-is-plugin 的原文未能核实</b>（检索凭证缺失）：引用 URL 由作者 2026-09-21 提供
+            （<code>https://github.com/deepseek-ai/deepseek-harness</code>），仓库内容未经在线核实；
+            落地口径以作者口述为准，已在头注与本节如实登记。</li>
+          <li><b>连续宽度让「窄屏兜底」不再有档位边界</b>：原三档（320 / 400 / 520）可枚举、易断言；
+            改为 280–640px 连续宽度后，窄屏样式（隐藏视图文字标签、压缩站点 origin）改由
+            <code>#panel[data-narrow="true"]</code>（当前宽度 ≤360px）触发。
+            取舍是选「贴近真实拖拽体验 + 键盘可达」而不是「可枚举的档位」。</li>
+          <li><b>拖动性能与布局抖动</b>：拖动只改写 <code>:root --panel-w</code>（单条自定义属性的宽度消费），
+            连续 <code>pointermove</code> 经 <code>requestAnimationFrame</code> 合并为每帧一次写入；
+            面板内部换行导致的回流无法完全避免，本稿按「量力而行」处理，不作性能承诺。</li>
         </ul>
 
         <h3>本稿的自检（可复现）</h3>
@@ -2302,7 +2407,8 @@ function handleCardAction(opId) {
           <li>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 <code>option-f-shim.mjs</code>）：
             运行 <code>node option-g-shim.mjs</code> → 全绿（退出码 0）。</li>
           <li>覆盖：三区结构继承 / 12 kind 继承 / 法七无死端（5 类阻塞 + ✖ 行不裸奔）/ 法八零明文 /
-            chip↔op 绑定 / 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 ≤7 / 三宽度双主题。</li>
+            chip↔op 绑定 / 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 ≤7 /
+            可拖动宽度（ARIA separator + 键盘 + clamp）与双主题。</li>
         </ul>
       </section>
 
@@ -2644,17 +2750,103 @@ function handleCardAction(opId) {
         }
 
         /* ═══════════════════════════════════════════════════════════════
-           2. 宽度（320 / 400 / 520）
+           2. 侧栏宽度 —— 可拖动分隔条（280–640px，模拟 Chrome 侧栏真实拖拽）
+              · 手柄 = 侧栏左缘竖向分隔条（role=separator / col-resize / 键盘可达）
+              · 拖动：pointerdown → setPointerCapture → pointermove → pointerup
+              · 键盘：← 加宽 / → 收窄 ±10px；Home/End 到 280 / 640；双击复位 400
+              · 写入：:root --panel-w（连续 pointermove 经 rAF 合并为每帧一次）
            ═══════════════════════════════════════════════════════════════ */
+        var WIDTH_MIN = 280;
+        var WIDTH_MAX = 640;
+        var WIDTH_STEP = 10;
+        var WIDTH_DEFAULT = 400;
+        var splitter = $('panel-splitter');
+        var drag = { active: false, startX: 0, startW: WIDTH_DEFAULT, pointerId: null };
+
+        function clampWidth(px) {
+          var n = Math.round(Number(px));
+          if (!isFinite(n)) n = WIDTH_DEFAULT;
+          if (n < WIDTH_MIN) n = WIDTH_MIN;
+          if (n > WIDTH_MAX) n = WIDTH_MAX;
+          return n;
+        }
         function setWidth(px) {
-          state.width = String(px);
+          var w = clampWidth(px);
+          state.width = String(w);
           panel.setAttribute('data-width', state.width);
+          panel.setAttribute('data-narrow', String(w <= 360));
           docEl.style.setProperty('--panel-w', state.width + 'px');
-          $$('#width-switch [role="radio"]').forEach(function (n) {
-            n.setAttribute('aria-checked', String(n.getAttribute('data-width-set') === state.width));
-            n.tabIndex = n.getAttribute('data-width-set') === state.width ? 0 : -1;
-          });
+          if (splitter) {
+            splitter.setAttribute('aria-valuenow', state.width);
+            splitter.setAttribute('aria-valuetext', state.width + 'px');
+          }
+          var out = $('width-readout-value');
+          if (out) out.textContent = state.width + 'px';
           updateMetrics();
+          return w;
+        }
+        /* 拖动性能：连续 pointermove 合并到每帧一次写入（无 rAF 时同步执行） */
+        var widthRafPending = false;
+        var widthRafTarget = null;
+        function scheduleWidth(px) {
+          widthRafTarget = px;
+          if (widthRafPending) return;
+          widthRafPending = true;
+          var flush = function () {
+            widthRafPending = false;
+            if (widthRafTarget != null) { setWidth(widthRafTarget); widthRafTarget = null; }
+          };
+          if (typeof requestAnimationFrame === 'function') requestAnimationFrame(flush);
+          else flush();
+        }
+        function onSplitterDown(e) {
+          drag.active = true;
+          drag.startX = Number(e.clientX) || 0;
+          drag.startW = Number(state.width) || WIDTH_DEFAULT;
+          drag.pointerId = e.pointerId == null ? null : e.pointerId;
+          if (splitter) {
+            splitter.setAttribute('data-dragging', 'true');
+            if (drag.pointerId != null && splitter.setPointerCapture) {
+              try { splitter.setPointerCapture(drag.pointerId); } catch (err) { /* 光标移出窗口也不丢 */ }
+            }
+          }
+          if (e.preventDefault) e.preventDefault();
+        }
+        function onSplitterMove(e) {
+          if (!drag.active) return;
+          /* 分隔条在侧栏左缘：向左拖 = 面板变宽 */
+          scheduleWidth(drag.startW - (Number(e.clientX) - drag.startX));
+          if (e.preventDefault) e.preventDefault();
+        }
+        function onSplitterUp(e) {
+          if (!drag.active) return;
+          drag.active = false;
+          if (splitter) {
+            splitter.removeAttribute('data-dragging');
+            if (drag.pointerId != null && splitter.releasePointerCapture) {
+              try { splitter.releasePointerCapture(drag.pointerId); } catch (err) { /* noop */ }
+            }
+          }
+          setWidth(Number(state.width));
+          say('侧栏宽度已调整为 ' + state.width + 'px（拖动分隔条；密度实时重算）');
+          if (e && e.preventDefault) e.preventDefault();
+        }
+        function onSplitterKey(e) {
+          var cur = Number(state.width) || WIDTH_DEFAULT;
+          var next = null;
+          if (e.key === 'ArrowLeft') next = cur + WIDTH_STEP;        /* ← 加宽（与拖动方向一致） */
+          else if (e.key === 'ArrowRight') next = cur - WIDTH_STEP;  /* → 收窄 */
+          else if (e.key === 'Home') next = WIDTH_MIN;
+          else if (e.key === 'End') next = WIDTH_MAX;
+          else return;
+          if (e.preventDefault) e.preventDefault();
+          setWidth(next);
+          say('侧栏宽度 ' + state.width + 'px（键盘调整 · 范围 ' + WIDTH_MIN + '–' + WIDTH_MAX + 'px）');
+        }
+        function onSplitterDblclick(e) {
+          setWidth(WIDTH_DEFAULT);
+          say('侧栏宽度已复位为默认 ' + WIDTH_DEFAULT + 'px');
+          if (e && e.preventDefault) e.preventDefault();
         }
 
         /* ═══════════════════════════════════════════════════════════════
@@ -3076,14 +3268,21 @@ function handleCardAction(opId) {
         $$('#scene-switch [role="radio"]').forEach(function (btn) {
           btn.addEventListener('click', function () { setScene(btn.getAttribute('data-scene-set')); });
         });
-        $$('#width-switch [role="radio"]').forEach(function (btn) {
-          btn.addEventListener('click', function () { setWidth(btn.getAttribute('data-width-set')); });
-        });
         $$('#theme-switch [role="radio"]').forEach(function (btn) {
           btn.addEventListener('click', function () { setTheme(btn.getAttribute('data-theme-set')); });
         });
         var themeBtn = $('theme-toggle');
         if (themeBtn) themeBtn.addEventListener('click', cycleTheme);
+
+        /* 宽度分隔条：指针拖动（capture）+ 键盘 + 双击复位 */
+        if (splitter) {
+          splitter.addEventListener('pointerdown', onSplitterDown);
+          splitter.addEventListener('pointermove', onSplitterMove);
+          splitter.addEventListener('pointerup', onSplitterUp);
+          splitter.addEventListener('pointercancel', onSplitterUp);
+          splitter.addEventListener('keydown', onSplitterKey);
+          splitter.addEventListener('dblclick', onSplitterDblclick);
+        }
 
         $$('[data-open-view]').forEach(function (btn) {
           btn.addEventListener('click', function () { openView(btn.getAttribute('data-open-view')); });
@@ -3231,6 +3430,20 @@ function handleCardAction(opId) {
           }
         };
         window.__density = density;
+        /* 宽度垫片契约：分隔条 + clamp + 拖动/键盘/复位 的内部口径（Node 侧同路复核） */
+        window.__width = {
+          min: WIDTH_MIN,
+          max: WIDTH_MAX,
+          step: WIDTH_STEP,
+          def: WIDTH_DEFAULT,
+          clamp: clampWidth,
+          current: function () { return Number(state.width); },
+          separator: function () { return splitter; },
+          readout: function () { return $('width-readout-value'); },
+          dragging: function () { return drag.active; },
+          narrow: function () { return panel ? panel.getAttribute('data-narrow') : null; },
+          panelVar: function () { return docEl.style.getPropertyValue('--panel-w'); }
+        };
         /* 垫片契约：暴露纯函数口径，便于 Node 侧用同一实现复核 */
         window.__clickables = clickables;
         window.__isVisible = isVisible;

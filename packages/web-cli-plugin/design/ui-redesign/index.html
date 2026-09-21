@@ -330,9 +330,10 @@ footer { color: var(--sub); font-size: 11.5px; }
         <b>零新增卡类型</b>：12 kind = 7 主类 + 5 过程卡（<code>tool / command / thinking / error / notice</code>），askuser 扩形 <code>secret</code> / <code>form</code>。
       </span>
       <span class="card-line">
-        <b>验证：</b>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 F 的 shim）→ <b>80 passed / 0 failed</b>；
+        <b>验证：</b>同目录 <code>option-g-shim.mjs</code>（Node DOM 垫片，体例镜像 F 的 shim）→ <b>87 passed / 0 failed</b>；
         覆盖三区结构继承、12 kind 继承、法七 5 类阻塞逐一无死端 + ✖ 行不裸奔、法八哨兵值零明文、
-        chip↔op 绑定、op 管线四态、注册表视察器与场景联动、死端对比表、密度 ≤7、三宽度双主题。运行：<code>node option-g-shim.mjs</code>。
+        chip↔op 绑定、op 管线四态、注册表视察器与场景联动、死端对比表、密度 ≤7、
+        可拖动侧栏宽度（280–640px · ARIA <code>separator</code> + 键盘可达 + clamp）与双主题。运行：<code>node option-g-shim.mjs</code>。
       </span>
       <span class="card-cta">打开方案 G（All-in-Next · 聊天即操作台）→</span>
     </a>
@@ -484,6 +485,10 @@ footer { color: var(--sub); font-size: 11.5px; }
     卡类型学（12 kind）、固化契约、密度口径（工具栏 + 状态栏可点 ≤7）与 F 逐字相同；
     差别集中在两件事 —— <b>下一步从哪来</b>（provider 注册表给候选，而不是写死的推荐）与 <b>值往哪去</b>（掩码卡直达存储，流内零明文）。
     本稿纯设计产物：不改 <code>src/</code> / <code>test/</code> / <code>manifest.json</code>。
+    优化补记（2026-09-21 作者反馈）：宽度演示由「320 / 400 / 520 三档 radio」改为<b>可拖动分隔条</b>
+    （280–640px 连续宽度 · <code>role="separator"</code> + 键盘 ←/→ · Home/End · 双击复位 400 · 演示台实时读数），
+    密度随宽度实时重算；同时把 anything-is-plugin 的理念来源落注到
+    <code>https://github.com/deepseek-ai/deepseek-harness</code>（仓库内容未经在线核实，落地口径以作者口述为准）。
   </p>
 
 </div>

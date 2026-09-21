@@ -12,7 +12,8 @@
  *   · 法八 值不入流（哨兵值在流内 / digest / 全属性零出现）
  *   · chip ↔ op 绑定 + op 管线四态（params / consent / execute / receipt）
  *   · NextProvider 注册表视察器与场景联动（N→N+1，handleCardAction diff = 0）
- *   · 密度继承（工具栏 ≤5、默认屏 ≤7、chips ≤3）、三宽度双主题、风险 chip 永不折叠
+ *   · 密度继承（工具栏 ≤5、默认屏 ≤7、chips ≤3）、可拖动侧栏宽度（280–640px，ARIA
+ *     separator + 键盘可达 + clamp）与双主题、风险 chip 永不折叠
  *
  * 用法：node option-g-shim.mjs        （退出码 0 = 全通过，1 = 有失败）
  * 依赖：仅 Node 内置 fs / path / url / vm。不联网、不装包。
@@ -76,10 +77,13 @@ class Element {
     this.parentNode = null;
     this._listeners = Object.create(null);
     this._value = undefined;
+    /* style：记录自定义属性（--panel-w 由宽度分隔条改写），便于 Node 侧断言 */
+    this._styleProps = Object.create(null);
     this.style = {
-      setProperty: () => {},
-      removeProperty: () => {},
-      getPropertyValue: () => ''
+      setProperty: (k, v) => { this._styleProps[k] = String(v); },
+      removeProperty: (k) => { delete this._styleProps[k]; },
+      getPropertyValue: (k) => (Object.prototype.hasOwnProperty.call(this._styleProps, k)
+        ? this._styleProps[k] : '')
     };
     this.classList = new ClassList(this);
     this.scrollTop = 0;
@@ -157,6 +161,10 @@ class Element {
     return !ev.defaultPrevented;
   }
   click() { this.dispatchEvent(makeEvent('click', this)); }
+  /* 指针捕获（宽度分隔条依赖；垫片里是 no-op，事件仍按同一路径分发） */
+  setPointerCapture() {}
+  releasePointerCapture() {}
+  hasPointerCapture() { return false; }
   scrollIntoView() {}
   focus() {}
   blur() {}
@@ -172,6 +180,13 @@ function makeEvent(type, target) {
     preventDefault() { this.defaultPrevented = true; },
     stopPropagation() { this._stopped = true; }
   };
+}
+
+/* 指针/键盘事件（宽度分隔条走真实 addEventListener 路径；补 clientX / key / pointerId） */
+function makePointerEvent(type, target, props) {
+  const ev = makeEvent(type, target);
+  Object.assign(ev, props || {});
+  return ev;
 }
 
 /* ── 选择器子集：逗号分组 / 空格后代 / tag / #id / .class / [attr] / [attr="v"] ── */
@@ -421,6 +436,7 @@ const { document, sandbox } = buildDom(html);
 
 const demo = sandbox.__demo;
 const density = sandbox.__density;
+const widthApi = sandbox.__width;
 const isVisible = sandbox.__isVisible;
 const reg = sandbox.__registry;
 const ops = sandbox.__ops;
@@ -913,14 +929,162 @@ check('I1 场景切换器存在 7 个场景（S1~S7）', () => {
   return true;
 });
 
-check('I2 三宽度切换器（320/400/520）：切到 320 真实生效', () => {
-  const radios = $$('#width-switch [role="radio"]');
-  eq(radios.length, 3, '宽度 radio 数');
-  eq(radios.map(r => r.getAttribute('data-width-set')).join(','), '320,400,520');
-  demo.setWidth('320');
-  const ok = one('#panel').getAttribute('data-width') === '320' && density().panelWidthVar === '320';
-  demo.setWidth('400');
-  return ok;
+/* ── I2. 侧栏宽度：可拖动分隔条（280–640，ARIA separator + 键盘 + clamp） ── */
+
+check('I2a 宽度分隔条存在：侧栏左缘 role=separator + ARIA 语义五件套 + tabindex=0', () => {
+  const sep = one('#panel-splitter');
+  if (!sep) throw new Error('缺 #panel-splitter');
+  eq(sep.getAttribute('role'), 'separator', 'role');
+  eq(sep.getAttribute('aria-orientation'), 'vertical', 'aria-orientation');
+  eq(sep.getAttribute('aria-label'), '拖动调整侧栏宽度', 'aria-label');
+  eq(sep.getAttribute('aria-valuemin'), '280', 'aria-valuemin');
+  eq(sep.getAttribute('aria-valuemax'), '640', 'aria-valuemax');
+  eq(sep.getAttribute('aria-valuenow'), '400', 'aria-valuenow（初始）');
+  eq(sep.getAttribute('aria-valuetext'), '400px', 'aria-valuetext（初始）');
+  eq(sep.getAttribute('tabindex'), '0', 'tabindex（键盘可达）');
+  /* 位置 = 侧栏左缘：在 .browser-body 里紧邻 #sidebar 之前，且不在 #panel 内 */
+  const kids = one('.browser-body').children.map(c => c.id || c.className).join('|');
+  eq(kids, 'page-area|panel-splitter|sidebar', '.browser-body 子元素顺序');
+  eq($$('#panel #panel-splitter').length, 0, '分隔条不应落在 #panel 内（不计入密度预算）');
+  return true;
+});
+
+check('I2b 拖动分隔条实时改写 --panel-w：向左拖 60px → 460px（读数 / aria-valuenow 同步）', () => {
+  const sep = one('#panel-splitter');
+  demo.setWidth(400);
+  sep.dispatchEvent(makePointerEvent('pointerdown', sep, { clientX: 700, pointerId: 1, button: 0 }));
+  const dragging = sep.getAttribute('data-dragging');
+  sep.dispatchEvent(makePointerEvent('pointermove', sep, { clientX: 640, pointerId: 1 }));
+  const during = one('#panel').getAttribute('data-width');
+  const varValue = widthApi.panelVar();
+  const now = sep.getAttribute('aria-valuenow');
+  const readout = one('#width-readout-value').textContent;
+  sep.dispatchEvent(makePointerEvent('pointerup', sep, { clientX: 640, pointerId: 1 }));
+  const afterDragging = sep.hasAttribute('data-dragging');
+  const snap = demo.snapshots().width;
+  eq(during, '460', '拖动中 #panel[data-width]');
+  eq(varValue, '460px', ':root --panel-w');
+  eq(now, '460', 'aria-valuenow（随拖动实时更新）');
+  eq(readout, '460px', '实时读数');
+  eq(dragging, 'true', '拖动中 data-dragging');
+  eq(afterDragging, false, '拖动结束后 data-dragging 清除');
+  eq(snap, '460', 'state.width 与拖动结果一致');
+  demo.setWidth(400);
+  return true;
+});
+
+check('I2c clamp 生效：拖到 100 → 280（min）；拖到 900 → 640（max）', () => {
+  const sep = one('#panel-splitter');
+  demo.setWidth(400);
+  sep.dispatchEvent(makePointerEvent('pointerdown', sep, { clientX: 400, pointerId: 2 }));
+  sep.dispatchEvent(makePointerEvent('pointermove', sep, { clientX: 700 })); /* 400 - 300 = 100 → 280 */
+  const lo = one('#panel').getAttribute('data-width');
+  sep.dispatchEvent(makePointerEvent('pointerup', sep, { clientX: 700, pointerId: 2 }));
+
+  sep.dispatchEvent(makePointerEvent('pointerdown', sep, { clientX: 400, pointerId: 3 }));
+  sep.dispatchEvent(makePointerEvent('pointermove', sep, { clientX: -100 })); /* 400 + 500 = 900 → 640 */
+  const hi = one('#panel').getAttribute('data-width');
+  sep.dispatchEvent(makePointerEvent('pointerup', sep, { clientX: -100, pointerId: 3 }));
+
+  eq(lo, '280', '最小边界 clamp');
+  eq(hi, '640', '最大边界 clamp');
+  eq(widthApi.clamp(279), 280, 'clamp(279)');
+  eq(widthApi.clamp(641), 640, 'clamp(641)');
+  eq(widthApi.clamp(401.4), 401, 'clamp 取整（步进 1px）');
+  eq(widthApi.clamp(NaN), 400, 'clamp(NaN) 回默认 400');
+  eq(widthApi.min, 280, '范围下限常量');
+  eq(widthApi.max, 640, '范围上限常量');
+  demo.setWidth(400);
+  return true;
+});
+
+check('I2d 键盘可达：← +10 / → −10 / Home → 280 / End → 640', () => {
+  const sep = one('#panel-splitter');
+  demo.setWidth(400);
+  sep.dispatchEvent(makePointerEvent('keydown', sep, { key: 'ArrowLeft' }));
+  const left = one('#panel').getAttribute('data-width');
+  sep.dispatchEvent(makePointerEvent('keydown', sep, { key: 'ArrowRight' }));
+  const right = one('#panel').getAttribute('data-width');
+  sep.dispatchEvent(makePointerEvent('keydown', sep, { key: 'Home' }));
+  const home = one('#panel').getAttribute('data-width');
+  sep.dispatchEvent(makePointerEvent('keydown', sep, { key: 'End' }));
+  const end = one('#panel').getAttribute('data-width');
+  const nowEnd = sep.getAttribute('aria-valuenow');
+  eq(left, '410', '← 加宽 10px');
+  eq(right, '400', '→ 收窄 10px');
+  eq(home, '280', 'Home → 最小');
+  eq(end, '640', 'End → 最大');
+  eq(nowEnd, '640', 'aria-valuenow 跟随键盘');
+  eq(widthApi.step, 10, '键盘步进常量');
+  demo.setWidth(400);
+  return true;
+});
+
+check('I2e 双击复位 400：任意宽度 → dblclick → 400px（读数 / aria 同步）', () => {
+  const sep = one('#panel-splitter');
+  demo.setWidth(620);
+  eq(one('#panel').getAttribute('data-width'), '620', '复位前宽度');
+  sep.dispatchEvent(makePointerEvent('dblclick', sep, {}));
+  eq(one('#panel').getAttribute('data-width'), '400', '双击后 #panel[data-width]');
+  eq(one('#width-readout-value').textContent, '400px', '双击后读数');
+  eq(sep.getAttribute('aria-valuenow'), '400', '双击后 aria-valuenow');
+  eq(widthApi.def, 400, '默认值常量');
+  return true;
+});
+
+check('I2f 宽度 radio 组零残留：#width-switch / [data-width-set] / 宽度 radiogroup 全为 0', () => {
+  eq($$('#width-switch').length, 0, '#width-switch 残留数');
+  eq($$('[data-width-set]').length, 0, '[data-width-set] 残留数');
+  eq($$('#lb-width').length, 0, '原宽度 radiogroup 标签残留数');
+  eq($$('nav.demo-bar [role="radiogroup"]').length, 2, '演示台 radiogroup 仅剩场景 + 主题');
+  eq($$('nav.demo-bar [role="radiogroup"]')
+    .map(g => g.getAttribute('id')).join(','), 'scene-switch,theme-switch', 'radiogroup 归属');
+  eq($$('[role="radio"]').length, 10, '全局 role=radio 数（7 场景 + 3 主题）');
+  const keys = $$('[role="radio"]')
+    .map(r => r.getAttribute('data-scene-set') || r.getAttribute('data-theme-set')).join(',');
+  eq(keys, 'S1,S2,S3,S4,S5,S6,S7,auto,light,dark', 'radio 归属（仅场景 + 主题）');
+  ninc(html, 'data-width-set', '设计稿源码');
+  ninc(html, 'width-switch', '设计稿源码');
+  return true;
+});
+
+check('I2g 实时读数元素存在且随宽度联动（拖动 / 键盘 / 复位三路都更新）', () => {
+  const wrap = one('#width-readout');
+  const out = one('#width-readout-value');
+  if (!wrap || !out) throw new Error('缺 #width-readout / #width-readout-value');
+  eq(wrap.getAttribute('role'), 'status', '读数容器 role');
+  const samples = [];
+  demo.setWidth(300);
+  samples.push(out.textContent);
+  demo.setWidth(640);
+  samples.push(out.textContent);
+  demo.setWidth(400);
+  samples.push(out.textContent);
+  eq(samples.join(','), '300px,640px,400px', '读数三档采样');
+  inc(wrap.textContent, '拖动左侧分隔条', '读数提示文案');
+  inc(wrap.textContent, '←/→', '读数键盘提示');
+  return true;
+});
+
+check('I2h 连续宽度契约：setWidth 越界被 clamp，窄屏兜底改由 data-narrow（≤360px）触发', () => {
+  const sep = one('#panel-splitter');
+  demo.setWidth(9999);
+  const hi = one('#panel').getAttribute('data-width');
+  const hiNarrow = one('#panel').getAttribute('data-narrow');
+  demo.setWidth(300);
+  const lo = one('#panel').getAttribute('data-width');
+  const loNarrow = one('#panel').getAttribute('data-narrow');
+  const valueText = sep.getAttribute('aria-valuetext');
+  demo.setWidth(400);
+  eq(hi, '640', 'setWidth(9999) → 640');
+  eq(hiNarrow, 'false', '宽档不触发窄屏兜底');
+  eq(lo, '300', 'setWidth(300) 生效（连续宽度，非档位）');
+  eq(loNarrow, 'true', '≤360px 触发窄屏兜底');
+  eq(valueText, '300px', 'aria-valuetext 同步');
+  eq(one('#panel').getAttribute('data-narrow'), 'false', '回到 400px 后兜底关闭');
+  eq(density().panelWidthVar, '400', 'panelWidthVar 口径仍读 #panel[data-width]');
+  eq(widthApi.current(), 400, 'widthApi.current()');
+  return true;
 });
 
 check('I3 双主题切换器 + 工具栏主题按钮；切到深色真实生效，切回跟随系统移除属性', () => {
@@ -1120,6 +1284,6 @@ for (const r of results) {
 
 console.log('');
 console.log(`方案 G（option-g-all-in-next.html）DOM 垫片断言：${passed} passed / ${failed} failed`);
-console.log(`（共 ${results.length} 条；覆盖三区结构继承 / 12 kind 继承 / 法七无死端 / 法八零明文 / chip↔op 绑定 / op 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 / 宽度主题）`);
+console.log(`（共 ${results.length} 条；覆盖三区结构继承 / 12 kind 继承 / 法七无死端 / 法八零明文 / chip↔op 绑定 / op 管线四态 / 注册表视察器与场景联动 / 死端对比表 / 密度 / 可拖动侧栏宽度（280–640 · ARIA separator · 键盘 · clamp）与主题）`);
 
 process.exit(failed === 0 ? 0 : 1);
