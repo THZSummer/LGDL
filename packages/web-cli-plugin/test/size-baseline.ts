@@ -1281,7 +1281,7 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
       '③ **BLOCK-03 live 载体读数**（`sidepanel.ts`）：新增 `stripCarrierReading` / `stripChannelReading` / `stripCarrierCounts` / `stripChannelProblems` + `firstRun`「卡在 ⇒ 行不在」抑制口径；' +
       '④ **BLOCK-04** `title` 净化反证落在 node 用例（零产物字节）；I-01~I-06 为 plan / ADR / 台账口径回写（零产物字节）。' +
       '方向 = **提升**。`dist/content.js` 177,076 B 与 `dist/pick-layer.js` 33,900 B **逐字节不变**；容差 5% 未动；ceiling = floor(498,521 × 1.05) = **523,447 B**；档位 `ceilTo50KB(498,521) = 512,000`（**未下移**）⇒ `absoluteCeilingBytes = 563,200` 不变；判定 = min(563,200, 523,447) = 523,447。`SIDEPANEL_CEILING_CAP` 保持 record-only。' +
-      '**门禁只增不减**：node `npm test` 1044 → 1045；`test:l0` 227 → 234、`test:l1` 115 → 116、`test:density` 229 → 232 等只增（详见 build.md「review 修复轮」）。**无任何断言被删除或放宽。**',
+      '**门禁只增不减**：node `npm test` 1044 → 1045；`test:l0` 227 → 244、`test:l1` 115 → 116、`test:density` 229 → 232 等只增（详见 build.md「review 修复轮」）。**无任何断言被删除或放宽。**',
     baselineBeforeBytes: 493_501,
     baselineAfterBytes: 498_521,
     ceilingBeforeBytes: 518_176,

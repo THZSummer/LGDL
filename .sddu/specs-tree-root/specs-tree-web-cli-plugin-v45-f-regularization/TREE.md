@@ -32,7 +32,7 @@ specs-tree-web-cli-plugin-v45-f-regularization/
 | Feature ID | F-31（specs-tree-web-cli-plugin-v45-f-regularization） |
 | Phase | 任务分解 (4/7) |
 | Status | 🟢 tracked [tasked] |
-| 唯一叶 | specs-tree-v45-1-single-write-chronology（depth=2 / leaf=true / position=1） |
+| 唯一叶 | specs-tree-v45-1-single-write-chronology（depth=2 / leaf=true / position=1）—— 全部 7 阶段完成：`specified → planned → tasked → built → reviewed → **validated ✅ 通过**（0 阻塞）` |
 | 版本位 | v0.9.1（ROADMAP 登记留给收口） |
 | 任务 | TASK-V45-101~119（19 / 5 波 / 4 提交区间 / 2 spikeGate；父 tasks = 总览型） |
 
