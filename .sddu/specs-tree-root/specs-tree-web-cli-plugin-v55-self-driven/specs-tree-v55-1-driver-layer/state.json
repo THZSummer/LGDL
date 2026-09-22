@@ -1,0 +1,71 @@
+{
+  "feature": "V5.5-1 驱动者层 + 法七扩展底座（父：specs-tree-web-cli-plugin-v55-self-driven）",
+  "featureKey": "specs-tree-v55-1-driver-layer",
+  "version": "v5.5.0",
+  "name": "V5.5-1 驱动者层 + 法七扩展底座——驱动者注册表化（四元组机核 + driverClass）+ 时机源扩张（'answered'）+ ref-action 抑制重锚 + 驱动者终态词汇（已答 ask 三型 / 已交描述）+ applyRefAction 驱动化 + commandSends 消费面登记 + submitDescribe 补齐 + 后台 ask 迟到作答非死端 + 死端守护门禁扩张（双向反证）+ S0 全链机器化",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-self-driven",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 1,
+  "dependsOn": [],
+  "createdAt": "2026-09-22",
+  "updatedAt": "2026-09-22",
+  "description": "本叶 = v5.5 的首叶 / 底座叶，交付「可以让『用户已表达意图』之后有人接手」的那一层：驱动者成为注册表条目（不再是散落调用点），时机源扩张到能覆盖「已答」（'answered'），已答 ask / 已交描述进入驱动者终态词汇，applyRefAction 从「只计数」变为「有驱动」，submitDescribe 补齐驱动，后台 ask 迟到作答不再裸 errorResponse；并把 S0（真机 22:49 序列）全链机器化为可判回归（地位 = v5 之 S2）。本叶不做主题① 的引导内容（v55-2）、不做主题② 的主动性与护栏（v55-3）。",
+  "scope": {
+    "in": [
+      "驱动者注册表化（集合 ≡ provider 集合；四元组 driverId/timing/evidence/ops 可机核；driverClass 单源）",
+      "时机源扩张（RecommendTrigger 含 'answered'；求值入口仍恰一处；ref-action 的 openAsks===0 抑制显式重锚）",
+      "驱动者终态词汇单源（已答 ask 三型 / 已交描述；与 STREAM_TERMINALS 6 项正交）",
+      "「已答」四口径（非取消+非空 = 已答 / 取消另记 / ASK_CANCEL_REASONS 4 项不变 / 后台迟到不记）",
+      "applyRefAction = 裁决 + 驱动；commandSends 消费面显式登记（COR-1 口径：1 处只读投影 + 3 处测试，零驱动语义）或退役",
+      "submitDescribe 补齐驱动（空描述卡内校验、零副作用、不入终态）",
+      "后台 ask 迟到作答：固化 + 可达 next；不裸 errorResponse",
+      "死端守护门禁扩张 + 双向注入反证（禁恒真断言）",
+      "S0 全链机器化（骨架 + 分支 A 机制侧 + 分支 B 识别侧）"
+    ],
+    "out": [
+      "主题① 的引导流内容 / runChat 前置判据 / 配置完成自动续接（v55-2）",
+      "主题② 的 AI 主动性与护栏（v55-3）",
+      "content.js / pick-layer.js 任何改动（零容差）",
+      "判定链（policy.ts / auto-authorize.ts）与 zeroDiffFiles 冻结面",
+      "KIND_SET / 12 kind / 零宿主判据的改动",
+      "v5 产物的任何改写"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/TREE.md"
+  ],
+  "coversIssues": ["Q-SELF-001", "Q-SELF-002", "Q-SELF-004", "Q-SELF-005", "Q-SELF-006", "Q-SELF-009", "Q-SELF-011"],
+  "coversGaps": ["GAP-SELF-01", "GAP-SELF-02", "GAP-SELF-03", "GAP-SELF-04", "GAP-SELF-05", "GAP-SELF-06"],
+  "coversRisks": ["R-SELF-002", "R-SELF-003", "R-SELF-007", "R-SELF-008", "R-SELF-901", "R-SELF-902", "R-SELF-903", "R-SELF-904", "R-SELF-908"],
+  "coversSuperSede": ["X-SELF-1(未发生取代·如实登记)", "X-SELF-2", "X-SELF-4", "X-SELF-5", "X-SELF-6"],
+  "specCounts": {
+    "carriedParentFR": 40,
+    "parentACAnchors": ["AC-SELF-001", "AC-SELF-002", "AC-SELF-003", "AC-SELF-004", "AC-SELF-009", "AC-SELF-010", "AC-SELF-011", "AC-SELF-015", "AC-SELF-016", "AC-SELF-017", "AC-SELF-020", "AC-SELF-026"],
+    "leafGoals": 6,
+    "leafNonGoals": 7
+  },
+  "openPoints": [
+    "ref-action 抑制的两种读法（时机侧解决 vs when 侧重锚）——父 FR-SELF-031 已限定「答完后恰在一次 'answered' 求值内产出 next」，plan 可选",
+    "commandSends 保留登记 vs 退役——父 FR-SELF-026 已限定「二选一显式，无第三态」，plan 可选"
+  ],
+  "pendingObligations": [
+    "X-SELF-1 须如实登记「未发生取代」（requestTurn( 仍恰 2 处，diff = 0）——不得留空",
+    "commandSends 消费面须显式登记（COR-1 口径）或走退役登记",
+    "本叶体积五要素（本叶增量）——禁止在预算未评估前排全量落地",
+    "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
+  ],
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。"
+}

@@ -1,0 +1,74 @@
+{
+  "feature": "V5.5-2 主题① 确定性系统流（父：specs-tree-web-cli-plugin-v55-self-driven）",
+  "featureKey": "specs-tree-v55-2-deterministic-onboarding",
+  "version": "v5.5.0",
+  "name": "V5.5-2 主题① 确定性系统流——runChat 前置配置判据（主动式）+ llm.unconfigured 触发语义升级（被观测 → 被识别，双源并存）+ 多步确定性引导流（步骤单源 / 零 LLM 调用）+ 配置完成 → 自动续接悬置任务（S2 范式复用；悬置任务单源 + 失效重校验）+ 首装 / 已装未配两场景 + 取消非死端 + 不跳走（流内闭环）+ 掩码卡复用（法八不退化）",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-self-driven",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 2,
+  "dependsOn": ["specs-tree-v55-1-driver-layer"],
+  "createdAt": "2026-09-22",
+  "updatedAt": "2026-09-22",
+  "description": "本叶 = v5.5 的次叶，交付作者主题① 的完整形态：「没有配置 LLM 时：由系统代码流程驱动用户去配置 LLM」。关键约束（作者原话逐字）：「由系统代码流程」⇒ 零 LLM 调用、零 token、同输入同路径、可机核。终点 = 配置完成 → 自动续接悬置任务（复用 v5 的 S2 自动续流范式）。配置面不新造：执行体恒为既有 op.llm-config（掩码 secret 卡 + 值直达 key-store + 法八零明文 + 失败快照回滚）。",
+  "scope": {
+    "in": [
+      "runChat 前置配置判据（先于 providerChat；未配置 ⇒ 产出确定性引导，非 LLM 错误事件）",
+      "llm.unconfigured 双源并存（主动识别新增 + 被动观测保留；OPS_RECOVERY_ROWS / BLOCKED_RECOVERY_TRIGGER 按终态键控零改写）",
+      "多步确定性引导流（步骤集合单源 + 顺序确定 + 逐步骤可判；识别 → 引导 → 采集 → 完成）",
+      "配置完成 → 自动续接悬置任务（悬置任务单源登记 + 自动接上 + 不要求重输）",
+      "首装 / 已装未配两场景（后者不得依赖 firstRun）+ 取消非死端 + 不重复打扰",
+      "不跳走（流内闭环；零视图切换 / 零 #open-settings 调用）",
+      "掩码 secret 卡复用 + 法八四面零明文不退化（law8 >= 25）",
+      "配置探测判据（确定性单源；主题① ↔ 主题② 唯一分流依据）",
+      "S0 分支 B 必判项（未配置 ⇒ 引导 ⇒ 掩码卡 ⇒ 完成 ⇒ 自动续接悬置任务 ⇒ 续接后回合留痕）"
+    ],
+    "out": [
+      "主题② 的 AI 主动性与护栏（v55-3）",
+      "新造配置面 / 第二套配置引导 / 第二写入点（执行体恒为既有 op.llm-config）",
+      "把引导实现为跳转设置页 / options / 换视图",
+      "主题① 依赖 LLM（必须零 LLM 调用）",
+      "改写既有 onboarding provider（首装单行引导保留，扩张不取代）",
+      "悬置任务作为第二条事实通路（单源）",
+      "凭据存储侧加密 / 生命周期（out-of-scope）"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/TREE.md"
+  ],
+  "coversIssues": ["Q-SELF-003", "Q-SELF-007", "Q-SELF-008"],
+  "coversGaps": ["GAP-SELF-07"],
+  "coversRisks": ["R-SELF-002", "R-SELF-004(反面:零token)", "R-SELF-006", "R-SELF-902", "R-SELF-904", "R-SELF-905", "R-SELF-909", "R-SELF-910"],
+  "coversSuperSede": ["X-SELF-3"],
+  "specCounts": {
+    "carriedParentFR": 23,
+    "parentACAnchors": ["AC-SELF-001", "AC-SELF-003", "AC-SELF-007", "AC-SELF-012", "AC-SELF-013", "AC-SELF-016", "AC-SELF-017", "AC-SELF-020", "AC-SELF-025", "AC-SELF-026"],
+    "leafGoals": 6,
+    "leafNonGoals": 7
+  },
+  "openPoints": [
+    "配置判据的具体字段组合——父 FR-SELF-052 已限定「确定性 + 可机核 + 零 LLM 调用」，plan 可选",
+    "悬置任务的登记载体——父 FR-SELF-045 已限定「单源」，plan 可选",
+    "引导步骤的文案与步数（>= 4 步；识别 → 引导 → 采集 → 完成）——父 FR-SELF-042 已限定骨架，plan 可选"
+  ],
+  "pendingObligations": [
+    "主题① 恒零 LLM 调用（N-SELF-024）——任何「为文案自然而调 LLM」直接违规",
+    "配置面唯一（NG-SELF-016）：不得新增配置 op / 第二凭据写入点",
+    "S0 分支 B 的「配置完成 ⇒ 自动续接」为必判项（反证：删掉自动续接 => FAIL）",
+    "本叶体积五要素（本叶增量）+ 预算前移评估",
+    "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
+  ],
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。次叶 / P0 / 依赖 v55-1。权威条文见父 ../spec.md（§5.5 ONBOARD / §5.9 X-SELF-3 / §5.12 S0 分支 B / §5.10 / §5.11）。下游 = specs-tree-v55-3-ai-driven-orchestration（依赖本叶的配置判据 = 主题①② 唯一分流依据）。"
+}

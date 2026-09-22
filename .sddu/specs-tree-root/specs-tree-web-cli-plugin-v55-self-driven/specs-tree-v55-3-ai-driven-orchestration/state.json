@@ -1,0 +1,74 @@
+{
+  "feature": "V5.5-3 主题② AI 驱动编排 + 治理收口（父：specs-tree-web-cli-plugin-v55-self-driven）",
+  "featureKey": "specs-tree-v55-3-ai-driven-orchestration",
+  "version": "v5.5.0",
+  "name": "V5.5-3 主题② AI 驱动编排——AI / 系统经既有 op.turn 槽启动回合（requestTurn 仍恰 2 处，diff = 0）+ op 三档清分（auto 5 / confirm 2 / gesture 2；特权恒 gesture；新 op 必须归档机核）+ 护栏三件套（打扰控制 / token 预算 / 防环）+ 并发仲裁（chatBusy 丢弃语义 → 可判仲裁）+ AI 主动留痕三要素 + 否决 / 关断 + 零新增载体（12 kind / 零宿主 / KIND_SET 40）+ 三叶共享面收口",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-self-driven",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 3,
+  "dependsOn": ["specs-tree-v55-1-driver-layer", "specs-tree-v55-2-deterministic-onboarding"],
+  "createdAt": "2026-09-22",
+  "updatedAt": "2026-09-22",
+  "description": "本叶 = v5.5 的末叶 / 收口叶，交付作者主题② 的完整形态：「已配置 LLM 时：让 AI 来启动整个 chat/next」。关键约束：AI 的主动性必须有边界——op 三档清分（auto 5 / confirm 2 / gesture 2；特权 op 恒 gesture）与护栏三件套（打扰控制 / token 预算 / 防环），且用户可随时关断。同时本叶承担三叶共享面收口（体积五要素 / journey+binding 保护段 / 取代台账 / knownGap 一致性）。",
+  "scope": {
+    "in": [
+      "AI / 系统经既有 op.turn 槽启动回合（requestTurn( 仍恰 2 处；diff = 0）",
+      "op 三档清分表（单源 + 机核；5 / 2 / 2；与 ops.ts#IMPL 的 riskLevel/consent/layer 一致；新 op 未归档 => FAIL；AI 不得降档；confirm consent 不得代答；auto 零三表写入）",
+      "护栏三件套（频次上限 + 同因不重复 + 静默期 / token 预算 / 链深度上限 + 冷却；三常量单源 + 越限被抑制 + 可关断）",
+      "并发仲裁（chatBusy 丢弃语义 → 可判仲裁；用户输入永不静默丢失 + 留痕可判 + 有界）",
+      "AI 主动留痕三要素（driverId / ts / 依据摘要；零明文）+ 候选恒由注册表产出 + 失败非死端 + 不触碰判定链",
+      "用户否决权 + 总开关（关断后 AI 主动零发起；主题① 不受该开关控制，口径显式登记）",
+      "零新增载体（12 kind / REGISTERED_STRUCTURAL_HOSTS = [] / KIND_SET 40 项逐字）",
+      "三叶共享面收口（体积五要素含越限路径 / 保护段优先保段否则八步取代 / 取代台账 / knownGap 一致性）"
+    ],
+    "out": [
+      "主题① 的引导内容 / runChat 前置判据（v55-2）",
+      "驱动者层底座 / 时机源 / 终态词汇（v55-1）",
+      "判定链（policy.ts / auto-authorize.ts）与 zeroDiffFiles 冻结面",
+      "特权 op 的手势语义（只加固：清分 + 机核；不改手势边界）",
+      "新增静态权限 / manifest 静态面 / KIND_SET / 卡类型 / 流内固定宿主",
+      "把主动性实现为散落调用点或新增 requestTurn 调用点",
+      "外部竞品调研（O-SELF-007 已裁决不需要）"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/TREE.md"
+  ],
+  "coversIssues": ["Q-SELF-004", "Q-SELF-010", "Q-SELF-012", "Q-SELF-013", "Q-SELF-015"],
+  "coversGaps": ["GAP-SELF-08", "GAP-SELF-09"],
+  "coversRisks": ["R-SELF-001", "R-SELF-002", "R-SELF-004", "R-SELF-006", "R-SELF-010", "R-SELF-011", "R-SELF-906", "R-SELF-907", "R-SELF-909", "R-SELF-910"],
+  "coversSuperSede": ["X-SELF-1(未发生取代·如实登记)", "X-SELF-7"],
+  "specCounts": {
+    "carriedParentFR": 45,
+    "parentACAnchors": ["AC-SELF-004", "AC-SELF-005", "AC-SELF-006", "AC-SELF-008", "AC-SELF-014", "AC-SELF-016", "AC-SELF-017", "AC-SELF-018", "AC-SELF-019", "AC-SELF-020", "AC-SELF-021", "AC-SELF-022", "AC-SELF-023", "AC-SELF-024", "AC-SELF-025", "AC-SELF-026"],
+    "leafGoals": 6,
+    "leafNonGoals": 8
+  },
+  "openPoints": [
+    "并发仲裁的具体策略（排队 / 合并 / 明确拒绝）——父 FR-SELF-061 已限定「用户输入永不静默丢失 + 留痕 + 有界」，plan 可选",
+    "三护栏常量的具体取值——父 FR-SELF-090~092 已限定「单源 + 越限抑制 + 可判」，plan 可选",
+    "「同类不再主动」的持久范围（会话内 / 持久）——父 FR-SELF-068 已限定「可判」，plan 可选",
+    "token 预算的计量口径（回合数 / token 数 / 等价口径）——父 FR-SELF-091 已允许「等价口径」，plan 可选"
+  ],
+  "pendingObligations": [
+    "X-SELF-1 须如实登记「未发生取代」（requestTurn( 仍恰 2 处）——不得留空",
+    "三护栏未落地须显式登记（台账 + 未闭合义务），不得静默取消（N-SELF-026）",
+    "共享面（体积 / 保护段 / 取代台账 / knownGap）各恰一次登记（本叶收口职责）",
+    "体积档位 563,200 / 绝对上限 619,520 / authorConfirmation.status = pending-author-line —— 未闭合义务，不得伪称已确认",
+    "S0 人工面汇总：v5 人工面 9 项零改写（并列不覆盖），本 Feature 面逐项 ⏳ / PASS"
+  ],
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。末叶 / 收口叶 / P0 / 依赖 v55-1 + v55-2。权威条文见父 ../spec.md（§5.6 AIDRIVE / §5.7 OPSAFE / §5.8 GUARD / §5.9 X-SELF-1·7 / §5.10 GATE / §5.11 VOL）。无下游叶：本叶收尾 = 父 Feature 的最终验收锚（父 AC-SELF-026）。"
+}
