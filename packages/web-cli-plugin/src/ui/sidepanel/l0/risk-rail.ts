@@ -352,3 +352,12 @@ export function assertNoAllowControls(labels: readonly string[]): void {
   const bad = labels.filter((label) => FORBIDDEN_ALLOW_LABELS.some((f) => label.trim() === f));
   if (bad.length > 0) throw new RiskRowError(`硬底线被拦时不得提供允许控件：${bad.join(' / ')}`);
 }
+
+/**
+ * 【O-2 口径护栏】`RISK_COPY.unauthorized` 只可**派生**、**禁止渲染**：授权态的唯一常显载体是
+ * 状态栏 chip `#auth-state`（ADR-V5-006 §2③；`RAIL_RISK_CLASSES` 已把本类从 rail 子集排除）。
+ * 若后续把本条接回 rail 渲染，即构成授权态**第二投影** —— 会命中 `test:auth-chip` 的四词 /
+ * 语义位判据与 `test:l0` 的「rail 授权类零残留」判据。本类型为**类型位**（编译期擦除），故本
+ * 护栏注释零运行时字节。
+ */
+export type UnauthorizedCopyGuardrailNote = 'derivable-only-never-rendered';

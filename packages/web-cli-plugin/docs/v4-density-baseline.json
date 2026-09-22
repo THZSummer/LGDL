@@ -541,6 +541,7 @@
           "chars": 203
         },
         "reason": "〖显式重锚 · 五要素〗**前置**：R1 登记格 risk(staleRef)@320 = 6/6/17/203 / 增量违规 0 / base 复测 0 漂移。**改为**：登记格 7/7/18/208 / 增量违规 = 恰一条「非风险类新增可点+文本块占用风险增量预算：#scroll-bottom」/ base→baseAgain 漂移 = +1 可点 +1 文本块 +5 字符（键 `#scroll-bottom`）。**来源**：`npm run test:density` 实测（Chromium，2026-09-19 R2 轮），逐键归因见门禁「增量归因」日志：risk∖base 可点 = `#scroll-bottom`（非风险）+ `>footer[2]/div[1]/div[0]/button[0]`（**风险类**救援控件，`isRiskClass` 命中 `#risk-rail` 祖先 ⇒ 不违规）。**理由**：`#scroll-bottom` 是滚动提示（产品 affordance），其出现由风险步自身的**只追加**流内副作用（失效引用 ⇒ 新 `ref` 卡 ⇒ `#stream` 越过折线）触发，非风险内容本身；据编排器裁决 KL-V44-01 选②（显式重锚，不新增豁免类别）—— 元素仍全额计入 C1 并与登记格机对，仅把**增量归属的期望值**按新真值精确登记。**历史登记值 6/6/17/203 逐字保留于本键 `before`**。",
+        "narrativeCorrection": "〖O-3 订正 · v5-3 validate（2026-09-22）· 只追加不改写历史〗本 `previousExpectation` 块是 **V4-4 审查修复轮**重锚叙述的逐字留档（`rulingId = KL-V44-01-②`），其 `before 6/6/17/203` / `改为 7/7/18/208` 所指的轮次是 **V4-4 R2 轮**（2026-09-19 的 Chromium 复测），原文「R1」为历史叙述笔误（`before` 属更早一轮的登记值）。就 v5-3 的本次重锚（`removedCells = [risk(staleRef)@320]`）而言，**直接前值** = 上一条 `reanchorV45` 之后的登记格 `7/7/18/208`（`#scroll-bottom` 违规恰 1 条），本轮终值 = `7/7/18/237`（与 400/520 同值，见本键 `reason`）。本订正**不改写** `before` / `reason` / `rulingId` 等历史字段（只追加本键）；判定口径、阈值与登记格值均不受影响。",
         "measuredOn": "2026-09-19",
         "source": "npm run test:density（阶段 C 实测 + 阶段 F 机对）",
         "rulingId": "KL-V44-01-②",

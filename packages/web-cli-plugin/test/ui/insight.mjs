@@ -1732,7 +1732,16 @@ async function main() {
             authPointerCount: pointers.length,
             authPointerTargets: pointers.map((p) => p.getAttribute('data-auth-pointer')),
             pointerResolves: document.getElementById('auth-state') !== null,
-            noteVisible: Boolean(note) && note.getAttribute('data-auth-pointer') === '#auth-state' && /授权/.test(note.textContent || ''),
+            // V5-3 validate（O-R2-1 订正）：原判据只判「存在 ∧ 带指针 ∧ 文本匹配」，不看
+            // 计算可见性 —— 若祖先视图 hidden，节点仍 isConnected ⇒ 原判据会在「未真正可见」
+            // 时通过。补 hidden 位 + 布局盒（getClientRects().length > 0），使「运行期可见」
+            // 的成立不再依赖驱动前置。判据方向不变、断言数不变（等价强化）。
+            noteVisible:
+              Boolean(note) &&
+              note.getAttribute('data-auth-pointer') === '#auth-state' &&
+              /授权/.test(note.textContent || '') &&
+              note.hidden !== true &&
+              note.getClientRects().length > 0,
             hasSite: labels.includes(${JSON.stringify(siteLabel)}),
             hasSupport: labels.includes('支持的命令'),
             hasTool: labels.includes('site_notes'),

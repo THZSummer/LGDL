@@ -41,20 +41,20 @@
       "path": "/.sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/",
       "name": "V5-3 授权 chip + 可拖动宽度 + 死端守护 + 法八机核（末叶 / 收口叶）",
       "leaf": true,
-      "phase": "specified",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 3,
       "dependsOn": [
         "specs-tree-v5-1-next-registry-pipeline",
         "specs-tree-v5-2-ops-first-batch"
       ],
-      "note": "#auth-state 状态栏常显两态 chip（授权态全 UI 唯一载体 + 零双写五条 + 黄点击产 next / 绿点击管理详情）+ 可拖动宽度 280–640（ARIA separator + 键盘 + clamp + 双击复位 400 + rAF）+ data-narrow（≤360）窄屏兜底 + 三档 radio 删除 + 密度登记格口径与宽度解耦（320 锚点 / 阈值逐字不动）+ error 出生即带恢复区 + 死端守护门禁（5 类阻塞 + N = 0 + 死端 = 0 + 双向反证）+ 法八四面零明文机核（流内 payload / digest / 审计 / DOM value + 全属性 + key 直写 key-store）+ X5 显式取代 + 父级共享面收口（体积五要素 / journey 保护段 / 双契约 / 取代台账）。承载父 FR-ALLN-012·015 / 023·024 / 085~092 / 114·116 / 122~125 / 130~134 的切片。"
+      "note": "#auth-state 状态栏常显两态 chip（授权态全 UI 唯一载体 + 零双写五条 + 黄点击产 next / 绿点击管理详情）+ 可拖动宽度 280–640（ARIA separator + 键盘 + clamp + 双击复位 400 + rAF）+ data-narrow（≤360）窄屏兜底 + 三档 radio 删除 + 密度登记格口径与宽度解耦（320 锚点 / 阈值逐字不动）+ error 出生即带恢复区 + 死端守护门禁（5 类阻塞 + N = 0 + 死端 = 0 + 双向反证）+ 法八四面零明文机核（流内 payload / digest / 审计 / DOM value + 全属性 + key 直写 key-store）+ X5 显式取代 + 父级共享面收口（体积五要素 / journey 保护段 / 双契约 / 取代台账）。承载父 FR-ALLN-012·015 / 023·024 / 085~092 / 114·116 / 122~125 / 130~134 的切片。 〖2026-09-22 validate R1〗phase specified → validated / status tracked → completed（滞后登记订正 + 收口：门禁全绿 + 对抗探针 81/81 + 结论 ✅ 通过）。"
     }
   ],
   "leaf": false,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T05:10:00.000Z",
+  "updatedAt": "2026-09-22T16:40:00.000Z",
   "description": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）的 discovery 阶段产物。立项来源 = ① 作者主题指示（2026-09-21 逐字：「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成web-op-cli（类似LGDL的lgdl-web-op-cli），都要支持一站式在chat里面闭环」+「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，不允许让用户跳来跳去」）② 真机断流现场（23:12:51~23:12:59 逐字：未授权站点页面侧零注入之后无任何可达 next）③ 设计基准 option-g-all-in-next.html（定稿冻结，三轮优化终稿）+ option-g-shim.mjs（127/127 实跑全绿）④ 作者 5 裁决（optional_permissions / 掩码零明文 / F 式 HTML+shim / 设置视图保留管理面 / 断流并入首验收）。核心问题 5 条：真机死端（阻塞终态后流内零可达 next：error 卡裸奔 + risk-recovery 三动作不解未授权 + 授权入口仅首装态 + page-unavailable 仅风险行）· 用户操作面散落在 chat 之外（设置视图 8 分区 + options 页承载 LLM 配置 / 授权 / 浏览器权限 / 会话 / 诊断）· 架构不可扩张（推荐器 = 4 规则手写 + NEXTSTEP_ACTS 6 项逐字闭集 + handleCardAction 手写 switch 16 分支 + chip 绑 data-act 而非 opId）· 敏感值无流内入口且法二/法八未切分 · 授权态三处投影且非首装会话无授权入口。范围 = 核心 6（法七无死端 / web-op 管线 + NextProvider 注册表契约 v2 / 浏览器权限申请流内闭环 / LLM 配置流内闭环 + 法八 / 授权态下移状态栏常显 chip / 管理操作流内闭环 + 设置视图保留管理面）+ 附带 2（可拖动宽度 280–640 / S2 断流样板首验收）；非目标 8 项（content.js 与 pick-layer.js 冻结 / A2A F-29 不动 / 12 kind 不加 / 三区法则不变 / design 稿不改 / 判定链 zeroDiffFiles 零触碰 / 安装期静态权限不变 / L2 视图内部）。红线继承 N1~N21；显式取代 X1~X6。问题清单 Q-ALLN-001~014（核心 5 / 次要 5 / 潜在 4）；假设 A-ALLN-001~010；风险 R-ALLN-001~016（含 Top5 + 门禁迁移量估计）；开放问题 O-ALLN-001~012；叶子拆分草案 4 叶（串行）。",
   "scope": {
     "in": [

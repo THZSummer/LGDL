@@ -3,7 +3,7 @@
     "feature": "V5-3 授权 chip + 可拖动宽度 + 死端守护 + 法八机核（父：specs-tree-web-cli-plugin-v5-all-in-next）",
     "featureKey": "specs-tree-v5-3-chrome-face",
     "artifact": "tasks.json",
-    "phase": "tasked",
+    "phase": "validated",
     "agent": "sddu-tasks",
     "createdAt": "2026-09-22",
     "version": "1.0.0",
@@ -68,7 +68,9 @@
     },
     "volumeBudgetBytes": 3250,
     "volumeCaliber": "逐项 3,000 B（ADR-V5-011 §1 #8+#9+#10+#11）+ 胶水分摊 250 B = 3,250 B；本叶**收口承担三叶合计 17,600 B 登记**（父 tasks.md §4.1）",
-    "isCloseoutLeaf": true
+    "isCloseoutLeaf": true,
+    "updatedAt": "2026-09-22",
+    "phaseNote": "V5-3 收口：TASK-V5-167~176 已补 status=completed（v5-3 validate R1 记账，O-1 机器可读登记滞后订正；tasks.md §5.2 已逐条标 ✅）；meta.phase 由 tasked 前移至 validated。"
   },
   "redlineLegend": {
     "frozen": {
@@ -1163,7 +1165,8 @@
       "verify": [
         "npm run typecheck --workspace @lgdl/web-cli-plugin",
         "node -e \"const s=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts','utf8');if(/matchMedia/.test(s)&&/data-narrow/.test(s))throw new Error('must use ResizeObserver');if(!/ResizeObserver/.test(s))throw new Error('ResizeObserver missing')\""
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-168",
@@ -1208,7 +1211,8 @@
         "npm run typecheck --workspace @lgdl/web-cli-plugin",
         "git diff --quiet -- packages/web-cli-plugin/design",
         "npm run test:ui --workspace @lgdl/web-cli-plugin"
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-169",
@@ -1258,7 +1262,8 @@
       "verify": [
         "npm run test:l0 --workspace @lgdl/web-cli-plugin",
         "npm run test:density --workspace @lgdl/web-cli-plugin"
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-170",
@@ -1301,7 +1306,8 @@
       ],
       "verify": [
         "npm test --workspace @lgdl/web-cli-plugin -- density-thresholds"
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-171",
@@ -1345,7 +1351,8 @@
       "verify": [
         "npm run test:density --workspace @lgdl/web-cli-plugin",
         "node -e \"const d=require('./packages/web-cli-plugin/docs/v4-density-baseline.json');console.log('registeredCells:',d.registeredCells??d.v5Ledger?.registeredCells)\""
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-172",
@@ -1394,7 +1401,8 @@
       "verify": [
         "npm run test:supersession --workspace @lgdl/web-cli-plugin",
         "python3 -c \"import json;d=json.load(open('packages/web-cli-plugin/docs/v4-density-baseline.json'));print('v5Ledger cells:',len(d.get('v5Ledger',{}).get('cells',[])))\""
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-173",
@@ -1441,7 +1449,8 @@
       "verify": [
         "npm run test:ui --workspace @lgdl/web-cli-plugin",
         "npm run test:supersession --workspace @lgdl/web-cli-plugin"
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-174",
@@ -1491,7 +1500,8 @@
         "stat -c %s packages/web-cli-plugin/dist/content.js packages/web-cli-plugin/dist/pick-layer.js packages/web-cli-plugin/dist/sidepanel.js",
         "npm run test:size-budget --workspace @lgdl/web-cli-plugin",
         "npm run test:size-ruling-vol3 --workspace @lgdl/web-cli-plugin"
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-175",
@@ -1542,7 +1552,8 @@
       "verify": [
         "npm run test:supersession --workspace @lgdl/web-cli-plugin",
         "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin"
-      ]
+      ],
+      "status": "completed"
     },
     {
       "id": "TASK-V5-176",
@@ -1613,7 +1624,8 @@
         "npm run test:ui --workspace @lgdl/web-cli-plugin",
         "npm run test:binding --workspace @lgdl/web-cli-plugin",
         "npm run test:e2e --workspace @lgdl/web-cli-plugin"
-      ]
+      ],
+      "status": "completed"
     }
   ],
   "humanFacingChecklist": [

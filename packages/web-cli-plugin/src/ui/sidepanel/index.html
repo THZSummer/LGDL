@@ -1272,7 +1272,13 @@
         <div class="l2-views">
           <div class="l2-view" data-l2-view="tree" role="region" aria-label="全局连接树（四维度）" hidden>
             <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" title="连接树：四维度总览与撤销入口（收起/展开树主体）" hidden>连接树</button>
-            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。授权状态见状态栏授权 chip（本台账不复制状态值）。</div></aside>
+            <!-- V5-3 validate（O-R2-2 订正 · 单源化）：原静态占位 `.tree-note` 内含与
+                 `tree-view.ts#TREE_AUTH_POINTER_NOTE` **逐字相同**的指针句 ⇒ 同句两处字面量
+                 （占位词又在 `root.replaceChildren()` 后必然失效）。订正 = 删去该重复句、
+                 保留极简占位（对外壳摘要/计数判据的「非空摘要」仍成立；L0 ⑧ 豁免不得扩大）。
+                 指针说明的单源 = `TREE_AUTH_POINTER_NOTE`，运行期由 `tree-drawer.ts#ensureShell()`
+                 重建（`data-auth-pointer="#auth-state"`），故指针面不再有第二处字面量。 -->
+            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
             <!-- ── V4.5-1 W3（TASK-V45-109 / ADR-V45-002 §4 · DC-V45-011）：局部树归因的
                  落位 —— **只读归因块**，`#view-host` 内，不引入第二个滚动容器。
                  内容容器沿用 `#l1-local-tree-rows` / `#l1-local-tree-hint`（同 id、
