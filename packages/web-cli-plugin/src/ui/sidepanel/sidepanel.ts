@@ -41,6 +41,7 @@ import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definiti
 // `next-registry/drivers.ts`。本文件**只** re-export 类型（零第二声明）——`import type`
 // 会被擦除，因此本行对 `sidepanel.js` 体积贡献为 0；时机值的扩缩只发生在单源处。
 import type { RecommendTrigger } from './next-registry/drivers.js';
+import { listSuspensions, registerSuspension, resetSuspensions, timingOfSettle, type SettleSource } from './next-registry/drivers.js';
 export type { RecommendTrigger } from './next-registry/drivers.js';
 import { providerById } from '../../llm/providers.js';
 import { dispatchChipAction } from './next-registry/dispatch.js';
@@ -960,6 +961,8 @@ function installV3TestHooks(): void {
         // BLOCK-01: the recommendation anti-flicker clock is per-fixture state.
         lastNextstepProducedAt = undefined;
         lastRecommendOutcome = null;
+        // V5.5-1: 悬置任务登记同样是 per-fixture 状态。
+        resetSuspensions();
         // I-09: `firstRunEntryHandled` is deliberately **NOT** cleared here —— it is a
         // panel-LIFETIME fact (「首装」happens once per panel), not fixture state. A
         // fixture that reloads the page (which is what the panel fixtures do) gets a
@@ -982,6 +985,10 @@ function installV3TestHooks(): void {
       /** BLOCK-01 diagnostics: the last producer run (`trigger` / `rule` / `suppression`). */
       lastRecommend() {
         return lastRecommendOutcome;
+      },
+      /** V5.5-1 TASK-V55-122: 悬置任务读数（只读）——S0 面「答案不被丢弃」的证据面。 */
+      suspensions() {
+        return listSuspensions().map((s) => ({ source: s.source, kind: s.kind, late: s.late, instruction: s.instruction }));
       },
       /** V4-4: the channel's dedupe / rate read-out (total / dropped / rendered rows). */
       systemStats() {
@@ -1869,6 +1876,34 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-1 TASK-V55-113/114（ADR-V55-001 §5 · ADR-V55-002 §3 · FR-SELF-015/030/033）——
+ * `nextAfterSettle`：**唯一**的「结算 → 下一个驱动者」入口。
+ *
+ * 为什么要有它：`'answered'` 时机的触发点在三处「用户已表达的话」的结算路径上
+ * （`applyRefAction` / `submitDescribe` / 后台 ask 应答）。若每处就地写一行
+ * `maybeRecommend('answered')`，`maybeRecommend(` 的调用点计数会从 7 涨到 10 —— 那
+ * 正是 `test/op-wiring.test.ts` / `driver-timings` 钉死的「第 8 个散落调用点」（R-V55-101）。
+ * 因此把「结算 → 时机」的映射收口到这一个函数：**加时机 = 改这一处**，调用点不增。
+ * ──────────────────────────────────────────────────────────────────────────── */
+/**
+ * 结算 → 立刻求值一次驱动者。**定义恰 1**（调用点可多处，但都经此一处求值）。
+ *
+ * `force` 只对恢复行 / 失败行生效（防抖不得吞掉恢复面）；`'answered'` **恒不强制** ——
+ * 它必须受去重 + 10 s 防抖约束（EC-SELF-004，不得弹第二条）。
+ */
+function nextAfterSettle(src: SettleSource = { kind: 'idle' }): void {
+  maybeRecommend(timingOfSettle(src), src.kind === 'answered' ? {} : { force: src.force === true });
+}
+
+/** 后台 ask（由 SW 的 `ask-user-request` 投递）的 requestId 集 —— 迟到口径只对它成立。 */
+const bgAskIds = new Set<string>();
+/** 迟到作答的**固化文案**（零明文：不含答案文本本身，法八不破）。 */
+const LATE_ASK_TEXT = '回合已结束，未接住这条答案（它没有被丢弃：下方给出可走的一步）。';
+
+/** 悬置登记的 evidence 面（⊆ `CTX_FIELD_SERVICE` 登记面，与驱动者声明同一面）。 */
+const REF_SUSPENSION_EVIDENCE = Object.freeze(['ref.validCount', 'ref.latestRefNum']);
+
+/* ────────────────────────────────────────────────────────────────────────────
  * I-09（v4-4 快修轮）— the **first-run entry** of the recommendation producer.
  *
  * Why a dedicated helper: the review found that `maybeRecommend('firstRun')` had
@@ -2185,9 +2220,22 @@ function applyRefAction(refId: string, action: string): { allowed: boolean; reas
     return { allowed: false, reason: '引用层未就绪（按失效处理）', verdict: 'unknown', sent: false };
   }
   if (!outcome.allowed) {
+    /* EC-SELF-006：无效引用不是驱动 —— 既有阻塞终态 + 可达 next；驱动分支严格在 allowed 之后。 */
     dispatch({ type: 'notice', text: `✖ ${outcome.reason}` });
     return outcome;
   }
+  /* V5.5-1 TASK-V55-115（ADR-V55-004 §1 · FR-SELF-022/025 · X-SELF-5）：「裁决 + 计数」→
+     「裁决 + 驱动」—— 有效 ⇒ 答案成为悬置任务输入（不再丢弃）并立刻交驱动者层（'answered' 时机）。
+     `sends += 1` 仍存在，但它**不足以**满足「答案产生驱动」（门禁显式断言这一条）。 */
+  registerSuspension({
+    driverId: 'ref-action',
+    source: 'ref',
+    late: false,
+    kind: 'answered',
+    instruction: action,
+    evidence: REF_SUSPENSION_EVIDENCE,
+  });
+  nextAfterSettle({ kind: 'answered' });
   return outcome;
 }
 
@@ -2548,6 +2596,17 @@ function submitDescribe(value: string): void {
   if (!text) return;
   ensureTextAskCard();
   dispatch({ type: 'ask-resolved', requestId: 'ref-describe', answer: text, canceled: false, reason: 'user' });
+  /* V5.5-1 TASK-V55-116（ADR-V55-004 §2 · FR-SELF-027 · X-SELF-6）：「改用描述」过去只留痕不驱动
+     （旁路死端 R6）。已交描述 ⇒ 悬置 + 'answered' 时机；空描述已在上面的 return 退出（零副作用 ∧ 不入终态）。 */
+  registerSuspension({
+    driverId: 'ref-action',
+    source: 'describe',
+    late: false,
+    kind: 'answered',
+    instruction: text,
+    evidence: REF_SUSPENSION_EVIDENCE,
+  });
+  nextAfterSettle({ kind: 'answered' });
 }
 
 /**
@@ -2577,10 +2636,35 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
     }
     SECRET_ASKS.delete(rid);
     settleOp(isCanceled ? undefined : trimmed);
+    /* V5.5-1 TASK-V55-114（FR-SELF-021/022 · ADR-V55-004）：面板 op 的 params ask 已答 ⇒
+       记终态 + 驱动（驱动分支在 isCanceled 判定之后）；取消走稳态驱动集（仍有接管者）。 */
+    if (!isCanceled && trimmed) {
+      registerSuspension({ driverId: 'ref-action', source: 'op', late: false, kind: 'answered', instruction: trimmed, evidence: ['session.openAsks'] });
+      nextAfterSettle({ kind: 'answered' });
+    } else nextAfterSettle({ kind: 'settle', force: true });
     return;
   }
   if (rid && !isRef) {
-    void send(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false }));
+    /* V5.5-1 TASK-V55-114/117（ADR-V55-004 §3 · FR-SELF-028 · EC-SELF-008）：后台 ask 的迟到口径
+       只对 SW 真实投递过的 requestId 成立（bgAskIds，夹具造的卡不在内 ⇒ 既有闸门行为不变）。
+       SW 回 late ⇒ 固化事实（零明文）+ 可达 next（稳态驱动集）；回合内接住 ⇒ 记终态 + 驱动。 */
+    const bgAsk = bgAskIds.has(rid);
+    void send<{ late?: boolean }>(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false })).then(
+      (res) => {
+        if (!bgAsk) return;
+        const late = res?.data?.late === true;
+        if (late) dispatch({ type: 'system', kind: 'turn', text: LATE_ASK_TEXT });
+        registerSuspension({
+          driverId: 'ref-action',
+          source: late ? 'late' : 'bg',
+          late,
+          kind: late ? 'answered-late' : 'answered',
+          instruction: trimmed ?? '',
+          evidence: ['session.openAsks'],
+        });
+        nextAfterSettle({ kind: late ? 'answered-late' : 'answered', ...(late ? { force: true } : {}) });
+      },
+    );
   }
   dispatch({
     type: 'ask-resolved',
@@ -2590,6 +2674,7 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
     reason: 'user',
   });
   if (refId && !isCanceled && trimmed) applyRefAction(refId, trimmed);
+  else if (isRef) nextAfterSettle({ kind: 'settle', force: true });
 }
 
 /** Send the user's answer back to the background and clear the prompt (R7). */
@@ -3282,8 +3367,9 @@ function wire(): void {
       if (out.ok && String(target ?? '').startsWith('auto-auth:')) await refreshState();
       return out;
     },
-    reachableNext: () => {
-      maybeRecommend('idle', { force: true });
+    /* V5.5-1 TASK-V55-113: 取消 / 拒绝 / 失败与「已答」走同一求值入口；恢复行必须立刻可达（force）。 */
+    nextAfterSettle: (op, state) => {
+      nextAfterSettle({ kind: `op-${state}`, force: true, opId: op.opId });
     },
     snapshotTables: () => collectThreeTableSnapshot(threeTableAdapters()),
     restoreTables: (snap) => restoreThreeTableSnapshot(threeTableAdapters(), snap),
@@ -3420,9 +3506,12 @@ function wire(): void {
       // FR-017 / R7: task-internal clarification question → Q&A UI.
       const question = msg.question as { kind?: string; prompt?: string; options?: string[]; default?: string } | undefined;
       const kind = question?.kind === 'choice' || question?.kind === 'confirm' ? question.kind : 'text';
+      /* V5.5-1 TASK-V55-117: SW 真实投递过的后台 ask ⇒ 它的迟到口径成立（见 submitAskFor）。 */
+      const rid = String(msg.requestId ?? '');
+      bgAskIds.add(rid);
       dispatch({
         type: 'ask',
-        requestId: String(msg.requestId ?? ''),
+        requestId: rid,
         kind,
         prompt: question?.prompt ?? '（无问题文本）',
         ...(Array.isArray(question?.options) ? { options: question.options } : {}),

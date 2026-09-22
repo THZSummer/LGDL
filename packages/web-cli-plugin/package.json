@@ -27,13 +27,14 @@
     "size:attribution": "node test/size-attribution.mjs",
     "test:supersession": "node --test dist-test/test/supersession-ledger.test.js",
     "test:gate-integrity": "node --test dist-test/test/gate-integrity.test.js",
-    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:zero-injection && npm run test:page-input && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:l2 && npm run test:recommendation && npm run test:ref-pick-wiring && npm run test:size-ruling-vol3 && npm run test:design-contract && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e && npm run test:law8 && npm run test:dead-end && npm run test:auth-chip && npm run test:gate-integrity && npm run test:l1-reverse && npm run test:l2-reverse",
+    "test:v3": "npm run typecheck && npm run build && npm test && npm run test:supersession && npm run test:zero-injection && npm run test:page-input && npm run test:density && npm run test:l0 && npm run test:l1 && npm run test:l2 && npm run test:recommendation && npm run test:ref-pick-wiring && npm run test:size-ruling-vol3 && npm run test:design-contract && npm run test:ui && npm run test:insight && npm run test:binding && npm run test:hardening && npm run test:e2e && npm run test:law8 && npm run test:dead-end && npm run test:s0-self-driven && npm run test:auth-chip && npm run test:gate-integrity && npm run test:l1-reverse && npm run test:l2-reverse",
     "test:design-contract": "node --test dist-test/test/design-contract.test.js",
     "test:recommendation": "node test/ui/recommendation.mjs",
     "test:ref-pick-wiring": "node --test dist-test/test/ref-pick-wiring.test.js",
     "test:size-ruling-vol3": "node --test dist-test/test/size-ruling-vol3.test.js",
     "test:law8": "node test/ui/law8-plaintext.mjs",
     "test:dead-end": "node test/ui/no-dead-end.mjs",
+    "test:s0-self-driven": "node test/ui/s0-self-driven.mjs",
     "test:auth-chip": "node test/ui/auth-chip.mjs"
   },
   "dependencies": {

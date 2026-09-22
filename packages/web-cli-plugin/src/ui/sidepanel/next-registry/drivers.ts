@@ -215,12 +215,115 @@ export interface SettleSource {
   readonly kind: string;
   readonly terminal?: DriverTerminal;
   readonly opId?: string;
+  /** 恢复行 / 失败行**不得被防抖吞掉**（强制求值；`'answered'` 恒不强制）。 */
+  readonly force?: boolean;
 }
 
 /**
  * 结算种类 → 时机值。**新的时机触发点全部经既有单一求值入口**（`maybeRecommend`
  * 定义恰 1 / 调用点恰 7），因此本函数是「加时机 = 改这一处映射」而不是「加调用点」。
+ *
+ * 只有「已答」（`kind === 'answered'`）落到 `'answered'` 时机：它有明确的驱动者
+ * （`ref-action`）且**不复用** `firstRun` 的「至多一次」语义（FR-SELF-035）。
+ * 其余结算（`answered-late` / `settle` / `op-*` 取消·拒绝·失败）落到 `'idle'` ——
+ * 稳态驱动集**一定有接管者**，这正是「取消 / 迟到都不是死端」的机核落点。
  */
 export function timingOfSettle(src: SettleSource): DriverTiming {
   return src.kind === 'answered' ? 'answered' : 'idle';
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 9. 悬置任务登记（单点写入；ADR-V55-004 §1 / FR-SELF-022 / 132）
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * 一条悬置任务 =「用户已表达的一句话」变成**可被接手的输入**。
+ *
+ * 这正是会话 B 的缺口：`applyRefAction` 过去唯一的副作用是 `sends += 1`（只计数），
+ * 答案文本**物理上被丢弃**；`registerSuspension` 把答案固化成悬置输入，回答
+ * 「答案去哪了」——它成为驱动者的输入，而不再是计数。
+ *
+ * `source` 是**原始事实**（哪一路「已表达的话」），不是终态标签：终态词表在
+ * `terminals.ts` 单源（`DRIVER_TERMINAL_OF_SOURCE`），生产侧因此零第二声明。
+ * `late === true` ⇒ 后台 ask **迟到**（回合已结束）——按 FR-SELF-023 口径④
+ * **不记「已答」**，但仍固化事实（`kind: 'answered-late'`）。
+ */
+export interface Suspension {
+  /** 原始来源键：`ref` / `op` / `bg` / `describe` / `late`。 */
+  readonly source: string;
+  readonly kind: 'answered' | 'answered-late';
+  readonly late: boolean;
+  readonly driverId: string;
+  /** 用户的原话（悬置任务的输入；零明文纪律：只在**内存**里，不是流内文案）。 */
+  readonly instruction: string;
+  /** 支撑该次的 ctx 字段（⊆ `CTX_FIELD_SERVICE` 登记面，与驱动者声明同一面）。 */
+  readonly evidence: readonly string[];
+  readonly at: number;
+}
+
+const SUSPENSIONS: Suspension[] = [];
+
+/**
+ * 登记一条悬置任务（**单点写入**：全仓唯一 `SUSPENSIONS.push`）。
+ *
+ * 去重键 = `driverId + source + instruction`（§7 的 {@link dedupeKey} 单源）——
+ * 同因重复结算 ⇒ **不产生第二条悬置**（NFR-SELF-010 幂等），返回 `false`。
+ */
+export function registerSuspension(s: Omit<Suspension, 'at'> & { readonly at?: number }): boolean {
+  const key = dedupeKey(`${s.driverId}:${s.source}`, s.instruction);
+  if (SUSPENSIONS.some((x) => dedupeKey(`${x.driverId}:${x.source}`, x.instruction) === key)) return false;
+  SUSPENSIONS.push(Object.freeze({ ...s, at: s.at ?? Date.now() }));
+  return true;
+}
+
+/** 当前悬置任务快照（数组顺序 = 登记顺序）。 */
+export function listSuspensions(): readonly Suspension[] {
+  return SUSPENSIONS.slice();
+}
+
+/** 测试 seam：清空悬置登记（生产零调用）。 */
+export function resetSuspensions(): void {
+  SUSPENSIONS.length = 0;
+}
+
+/**
+ * **「答案不被丢弃」判据**（FR-SELF-132 / AC-SELF-001，**单源**）。
+ *
+ * `answer` 是用户原话；`turnInput` 是「答案作为回合输入」的可判形态（`'answered'`
+ * 驱动者把答案交给 `op.turn` 时的那段文本）。判据 = 答案文本在
+ * **悬置任务输入**（`instruction`）∨ **回合输入**（`turnInput`）里**可判命中**。
+ *
+ * 注意（COR-1 / ADR-V55-004 §1）：`commandSends` 递增**不足以**满足本判据 ——
+ * 本判据只认「文本作为输入可达」，不认任何计数。
+ */
+export function answerNotDropped(suspensions: readonly Suspension[], answer: string, turnInput?: string): boolean {
+  const needle = answer.trim();
+  if (!needle) return false;
+  if ((turnInput ?? '').includes(needle)) return true;
+  return suspensions.some((s) => s.instruction.includes(needle));
+}
+
+/**
+ * **静默窗口判据**（FR-SELF-133，窗口定义**单源**）。
+ *
+ * 窗口 = 「既无驱动者归因、又无终态事实、又无可达 next」的区间。
+ * 三段读数（`'ok'` / `'silent'` / `'n/a'`）——`'n/a'` 表示尚未结算，**单独计数**，
+ * 既不冒充绿也不冒充红（禁恒真）。
+ */
+export type SilentWindowReading = 'ok' | 'silent' | 'n/a';
+
+export interface SilentFacts {
+  /** 是否已经在「已表达意图的终态之后」。 */
+  readonly settled: boolean;
+  readonly driverAttribution?: string | null;
+  readonly terminalFact?: string | null;
+  readonly next?: string | null;
+}
+
+export function silentWindowReading(f: SilentFacts): SilentWindowReading {
+  if (!f.settled) return 'n/a';
+  const hasDriver = typeof f.driverAttribution === 'string' && f.driverAttribution.length > 0;
+  const hasTerminal = typeof f.terminalFact === 'string' && f.terminalFact.length > 0;
+  const hasNext = typeof f.next === 'string' && f.next.length > 0;
+  return hasDriver || hasTerminal || hasNext ? 'ok' : 'silent';
 }

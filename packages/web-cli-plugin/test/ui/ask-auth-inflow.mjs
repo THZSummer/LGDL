@@ -25,7 +25,9 @@
  * Serial discipline: exactly ONE Chromium instance, one page target (NFR-CHAT-009).
  */
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
+  PACKAGE_ROOT,
   CHROME,
   DIST,
   check,
@@ -564,6 +566,52 @@ async function main() {
 
     check('无未捕获页面异常（ask/auth 全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
+
+    // ══ ⑮ V5.5-1（TASK-V55-116 / ADR-V55-004 §2 · FR-SELF-027 · X-SELF-6）═══════
+    // 「改用描述」过去**只留痕、不驱动**（旁路死端 R6）。判据 = 已交描述 ⇒ 留痕之后**必须**
+    // 产生可判驱动（悬置登记 + `'answered'` 时机）；空描述 ⇒ 卡内校验、零副作用、**不入终态**。
+    console.log('\n▶ ⑮ V5.5-1：`submitDescribe` 补齐驱动（空描述零副作用逐字保留）');
+    const sidepanelSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    const describeBody = (() => {
+      const start = sidepanelSrc.indexOf('function submitDescribe(');
+      if (start < 0) return '';
+      const rest = sidepanelSrc.slice(start);
+      const end = rest.indexOf('\n/**');
+      return end < 0 ? rest : rest.slice(0, end);
+    })();
+    const describeProblems = (body) => {
+      const problems = [];
+      const emptyGuard = body.indexOf('if (!text) return;');
+      const trace = body.indexOf("dispatch({ type: 'ask-resolved'");
+      const drive = body.indexOf('registerSuspension(');
+      const trigger = body.indexOf('nextAfterSettle(');
+      if (emptyGuard < 0) problems.push('空描述必须在最前 `if (!text) return;`（卡内校验零副作用）');
+      if (trace < 0 || drive < 0 || trigger < 0) {
+        problems.push('已交描述必须留痕**并**产生驱动（registerSuspension + nextAfterSettle）—— 恢复「只 dispatch」⇒ 必红');
+        return problems;
+      }
+      if (!(emptyGuard < trace && trace < drive && drive < trigger)) problems.push('顺序必须 = 空校验 → 留痕 → 悬置 → 驱动');
+      return problems;
+    };
+    check('⑮ 前置：`submitDescribe` 源码体可抽取（判据非空转）', describeBody.length > 0, `len=${describeBody.length}`);
+    check('⑮ 已交描述 ⇒ 留痕 + 驱动（悬置登记 + answered 时机），顺序 = 空校验 → 留痕 → 悬置 → 驱动', describeProblems(describeBody).length === 0, describeProblems(describeBody).join(' | '));
+    check(
+      `⑮ (FAIL 段) 恢复「只 dispatch」⇒ 判据必 FAIL`,
+      describeProblems(describeBody.replace(/\n\s*registerSuspension\(\{[\s\S]*?\}\);\n\s*nextAfterSettle\(\{ kind: 'answered' \}\);/, '')).some((p) => p.includes('恢复「只 dispatch」')),
+      '只留痕不驱动 ⇒ 旁路死端复现',
+    );
+    check(
+      '⑮ (FAIL 段) 空描述守卫被移除 ⇒ 「零副作用」判据必 FAIL',
+      describeProblems(describeBody.replace('if (!text) return;', '')).some((p) => p.includes('卡内校验零副作用')),
+      '空描述守卫缺失 ⇒ 空值会入终态',
+    );
+    check('⑮ (PASS 段) 还原后顺序判据 PASS（判据非恒真）', describeProblems(describeBody).length === 0, 'restored=ok');
+    check(
+      '⑮ `op.describe` 的唯一生产入口仍是 `submitDescribe`（`bindPanelOps.describe` 转发；零第二实现）',
+      /describe: \(value\) => \{\s*if \(value\) submitDescribe\(value\);/.test(sidepanelSrc),
+      'op.describe → submitDescribe(value)',
+    );
+    check('⑮ 空描述零副作用（不落流 / 不入终态）：源码面 `submitDescribe` 的早退在一切 dispatch 之前', describeBody.indexOf('if (!text) return;') < describeBody.indexOf('dispatch({'), 'early-return-first');
 
     // ── ⑩ counter conservation ───────────────────────────────────────────────
     console.log('\n▶ ⑩ 计数守恒（D-005 只增）');

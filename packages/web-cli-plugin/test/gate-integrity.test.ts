@@ -237,6 +237,12 @@ export const EXPECTED_AUDITED_FILES = [
   'test/driver-timings.test.ts',
   'test/driver-quadruple.test.ts',
   'test/driver-terminals.test.ts',
+  // V5.5-1 W4（TASK-V55-121/122/123）：S0 node 面 + 法七扩展（node）+ S0 Chromium 面
+  // （只追加 ⇒ 改名 / 删除仍 FAIL；`CHROMIUM_GATES.length === 9` 逐字不动 ——
+  //  `s0-self-driven.mjs` 与 `no-dead-end.mjs` 一样走既有 `test:ui` 链）。
+  'test/s0-self-driven-chain.test.ts',
+  'test/law7x-ext.test.ts',
+  'test/ui/s0-self-driven.mjs',
 ] as const;
 
 /**
@@ -275,6 +281,9 @@ export const V551_NODE_GATE_FILES = [
   'test/driver-timings.test.ts',
   'test/driver-quadruple.test.ts',
   'test/driver-terminals.test.ts',
+  // ── W4（TASK-V55-121/123）：S0 node 面 + 法七扩展（本下界 3 → **5**，只增不减）────────
+  'test/s0-self-driven-chain.test.ts',
+  'test/law7x-ext.test.ts',
 ] as const;
 
 /** V4.5-1 W1: the node (non-Chromium) gates — discovered by {@link NODE_GATE_MARKER}. */

@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-1-driver-layer",
   "version": "v5.5.0",
   "name": "V5.5-1 驱动者层 + 法七扩展底座——驱动者注册表化（四元组机核 + driverClass）+ 时机源扩张（'answered'）+ ref-action 抑制重锚 + 驱动者终态词汇（已答 ask 三型 / 已交描述）+ applyRefAction 驱动化 + commandSends 消费面登记 + submitDescribe 补齐 + 后台 ask 迟到作答非死端 + 死端守护门禁扩张（双向反证）+ S0 全链机器化",
-  "phase": "tasked",
+  "phase": "builded",
   "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -14,7 +14,7 @@
   "deliveryOrder": 1,
   "dependsOn": [],
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22",
+  "updatedAt": "2026-09-23",
   "description": "本叶 = v5.5 的首叶 / 底座叶，交付「可以让『用户已表达意图』之后有人接手」的那一层：驱动者成为注册表条目（不再是散落调用点），时机源扩张到能覆盖「已答」（'answered'），已答 ask / 已交描述进入驱动者终态词汇，applyRefAction 从「只计数」变为「有驱动」，submitDescribe 补齐驱动，后台 ask 迟到作答不再裸 errorResponse；并把 S0（真机 22:49 序列）全链机器化为可判回归（地位 = v5 之 S2）。本叶不做主题① 的引导内容（v55-2）、不做主题② 的主动性与护栏（v55-3）。",
   "scope": {
     "in": [
@@ -131,7 +131,7 @@
     "本叶体积五要素（本叶增量）——禁止在预算未评估前排全量落地",
     "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-1-driver-layer/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（25 任务 / 4 波）。本阶段只做 tasks，零代码改动。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-1-driver-layer/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（25 任务 / 4 波）。本阶段只做 tasks，零代码改动。\n\nbuild 阶段完成（2026-09-23，sddu-build）：R1（W1+W2 = TASK-V55-101~112）与 R2（W3+W4 = TASK-V55-113~125）全部落地；SG-V55-01 = 可行（8/8）/ SG-V55-02 = 可行（seam 齐备）；`npm test` 1244/0（基线 1220/0，只增）；S0 双面（node 8 用例 / Chromium 22 check）与 `no-dead-end` 判据升级（39 → 49）全绿；体积 `dist/sidepanel.js` 557,761 B（本叶 +8,152 B ⇒ **超叶预算 7,000、未越上界 9,000**，如实登记于 build.md §10）；内容面 `dist/content.js` 177,076 B / `dist/pick-layer.js` 34,358 B 逐字节不变；保护段 journey 171 / binding 192 双绿。详见 build.md v2.0（R2）。",
   "phaseHistory": [
     {
       "phase": "planned",
@@ -144,6 +144,12 @@
       "agent": "sddu-tasks",
       "at": "2026-09-22",
       "artifact": "tasks.md + tasks.json v1.0（25 任务 / 4 波）"
+    },
+    {
+      "phase": "builded",
+      "agent": "sddu-build",
+      "at": "2026-09-23",
+      "artifact": "build.md v2.0（R1+R2：25/25 任务 · 6 新门禁 · S0 双面 · no-dead-end 升级 · 体积收口登记）"
     }
   ]
 }

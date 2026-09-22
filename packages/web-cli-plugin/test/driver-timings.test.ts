@@ -116,14 +116,27 @@ export function strayTimingLiteralProblems(files: readonly { readonly rel: strin
   const problems: string[] = [];
   const legacy = DRIVER_TIMINGS_LEGACY4 as readonly string[];
   let callSites = 0;
+  let mappingSites = 0;
   for (const f of files) {
     for (const raw of f.text.split('\n')) {
       const line = stripLineComments(raw);
       if (!line) continue;
-      for (const m of line.matchAll(/maybeRecommend\(\s*'([A-Za-z]+)'/g)) {
+      // V5.5-1 TASK-V55-113/114: the call-site count is now over **every** `maybeRecommend(`
+      // invocation (literal or not) — the `'answered'` trigger reaches the single evaluation
+      // entry through `nextAfterSettle`'s ONE `maybeRecommend(timingOfSettle(…))`, so the
+      // count仍恰 7 and the timing仍 from the single source.
+      const isCall = /maybeRecommend\(/.test(line) && !/function\s+maybeRecommend\s*\(/.test(line);
+      if (isCall) {
         callSites += 1;
-        if (!(DRIVER_TIMINGS as readonly string[]).includes(m[1])) {
-          problems.push(`${JUDGEMENTS[3].expectFailPattern}：${f.rel} 出现闭集外时机 '${m[1]}'`);
+        for (const m of line.matchAll(/maybeRecommend\(\s*'([A-Za-z]+)'/g)) {
+          if (!(DRIVER_TIMINGS as readonly string[]).includes(m[1])) {
+            problems.push(`${JUDGEMENTS[3].expectFailPattern}：${f.rel} 出现闭集外时机 '${m[1]}'`);
+          }
+        }
+        // 非字面量实参只允许**一处**：`timingOfSettle(`（结算 → 时机的单一映射）。
+        if (/maybeRecommend\(\s*timingOfSettle\s*\(/.test(line)) mappingSites += 1;
+        else if (!/maybeRecommend\(\s*'[A-Za-z]+'/.test(line)) {
+          problems.push(`${JUDGEMENTS[3].expectFailPattern}：${f.rel} 的调用点实参既不是闭集字面量、也不是单一映射 timingOfSettle(`);
         }
       }
       if (f.rel === DRIVERS_REL) continue;
@@ -140,6 +153,7 @@ export function strayTimingLiteralProblems(files: readonly { readonly rel: strin
     }
   }
   if (callSites !== 7) problems.push(`${JUDGEMENTS[3].expectFailPattern}：maybeRecommend( 调用点必须恰 7（不增），实测 ${callSites}`);
+  if (mappingSites !== 1) problems.push(`${JUDGEMENTS[3].expectFailPattern}：结算 → 时机映射（maybeRecommend(timingOfSettle(…)）必须恰 1 处，实测 ${mappingSites}`);
   return problems;
 }
 

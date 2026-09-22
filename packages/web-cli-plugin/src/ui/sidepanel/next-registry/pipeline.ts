@@ -26,7 +26,7 @@ import {
   collectOpParams,
   opReceiptText,
   panelNotice,
-  panelReachableNext,
+  panelNextAfterSettle,
   panelRestore,
   panelSnapshot,
   swExec,
@@ -113,13 +113,13 @@ async function defaultSettle(op: NextOp, state: SettleState, _ctx?: OpCtx, _snap
   if (state === 'failed') {
     // 失败 = 失败回执 + 可达 next（同一收口点，与抛错路径的 `errorWithRecovery` 同义）。
     panelNotice(opReceiptText(op.opId, out ?? { ok: false }));
-    panelReachableNext(op, 'failed');
+    panelNextAfterSettle(op, 'failed');
     return;
   }
   // V5-2 TASK-V5-143 (FR-ALLN-014 · 法七不破): a refusal固化为一行**事实**，并立刻
   // 给出可达的一步（恢复卡 / 紧随 nextstep）—— 拒绝不是死端，不重试同一授权、不改既有授权。
   panelNotice(`${state === 'cancelled' ? '已取消' : '已拒绝'}：${op.opId} 未执行（可继续其他操作，下方给出可选下一步）`);
-  panelReachableNext(op, state);
+  panelNextAfterSettle(op, state);
 }
 async function defaultSnapshot(op: NextOp): Promise<OpSnapshot> {
   // V5-2 TASK-V5-142 (R-ALLN-904): the panel owns the three tables (authorization /
@@ -130,7 +130,7 @@ async function defaultErrorWithRecovery(op: NextOp, boundary: string, err: unkno
   const reason = `${boundary}:${op.opId}:${String(err)}`;
   panelNotice(`✖ ${op.opId} 失败：${err instanceof Error ? err.message : String(err)}（可重试，下方给出可选下一步）`);
   // V5-2 TASK-V5-143/150: the ✖ row must not be bare — a reachable next follows it.
-  panelReachableNext(op, 'failed');
+  panelNextAfterSettle(op, 'failed');
   return { ok: false, reason };
 }
 async function defaultRollback(snap: OpSnapshot): Promise<void> {

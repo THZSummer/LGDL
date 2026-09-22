@@ -48,7 +48,7 @@ import { createWebCliHost, type WebCliHost } from './host.js';
 import { buildInsightTree, summarizeInsight } from '../insight/build-snapshot.js';
 import { suppressedCapabilitySurface, toolSubcommands, type ToolSurfaceEntry } from '../insight/command-catalog.js';
 import { normalizeStableOrigin } from '../insight/tree-model.js';
-import { createAskBridge, type AskBridge } from './ask-bridge.js';
+import { createAskBridge, settleOutcome, type AskBridge } from './ask-bridge.js';
 import { CHAT_HISTORY_KEY, createChatSession, type ChatSession } from './chat-session.js';
 import { createSessionStore, projectHistory, sessionLabel, type SessionStore } from './session-store.js';
 import { followActiveTab, tabOrigin, type FollowTabDeps } from './session-follow.js';
@@ -2812,15 +2812,19 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     }
     case 'ask-user-response': {
       // FR-017 / R7: side-panel answer to a task-internal clarification question.
+      //
+      // V5.5-1 TASK-V55-117 (ADR-V55-004 §3 · FR-SELF-028 · EC-SELF-008):「回合已结束」
+      // 是**事实**，不是错误 —— `settle` 未命中 ⇒ 回 `{settled:false, late:true}`（不再
+      // 裸 `errorResponse`，用户的答案不再被静默丢弃）。面板侧据此固化事实 + 给出可达 next。
       const rid = typeof message.requestId === 'string' ? message.requestId : '';
       const canceled = message.canceled === true;
       const value = typeof message.value === 'string' ? message.value : undefined;
-      const settled = s.askBridge.settle(rid, {
+      const outcome = settleOutcome(s.askBridge, rid, {
         ok: !canceled && value !== undefined,
         ...(value !== undefined ? { value } : {}),
         ...(canceled ? { canceled: true } : {}),
       });
-      return settled ? okResponse({ settled: true }) : errorResponse(`无待回答的 ask-user 请求：${rid}`);
+      return okResponse({ settled: outcome.settled, late: outcome.late, requestId: outcome.requestId });
     }
     default:
       return errorResponse(`未知消息类型：${message.kind}`);

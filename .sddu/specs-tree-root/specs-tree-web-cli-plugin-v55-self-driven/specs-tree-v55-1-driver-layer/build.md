@@ -194,3 +194,178 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1 = W1+W2：SG-V55-01 可行 / 12 任务 completed / 3 新门禁 / 体积中间登记 +4,967 B / npm test 1220·0） | 2026-09-23 | SDDU Build Agent |
+
+---
+---
+
+# 构建报告 v2.0（R2 = W3+W4，TASK-V55-113~125）
+
+> **文档定位**: SDDU 构建报告 —— **R2 轮**（本叶收口轮）的文件变更、实现结果、门禁读值与反证留证；`v1.0`（R1 = W1+W2）逐字保留于上文
+> **前置依赖**: 本叶 `tasks.md`（25 任务 / 4 波）、本叶 `plan.md`、父 `plan.md` + `ADR-V55-001~005/011/012`
+> **版本**: v2.0（本叶 25/25 任务 closed；本文件 = 本叶 build 的**最终**记录）
+> **更新时间**: 2026-09-23
+> **更新说明**: R2 落地 —— 答案驱动化（`nextAfterSettle` 单入口 + `'answered'` 时机 + `applyRefAction` 裁决+驱动 + `submitDescribe` 补齐 + 后台 ask 迟到非死端）+ S0 双面门禁 + `no-dead-end` 判据升级 + 法七扩展门禁 + 体积五要素**收口登记**
+
+---
+
+## 10. 构建概要（R2）
+
+| 维度 | 数值 |
+|------|:--:|
+| 完成任务数 | **13 / 13**（TASK-V55-113~125，W3+W4）；本叶累计 **25 / 25** |
+| 复杂度分布 | S×1（119） / M×9（113/114/115/116/117/118/123/124/125） / L×3（120/121/122） |
+| 新增文件 | **4 个**（fixture 1：`test/ui/fixtures/s0-chain.mjs`；门禁 3：`test/s0-self-driven-chain.test.ts` / `test/law7x-ext.test.ts` / `test/ui/s0-self-driven.mjs`） |
+| 修改文件 | **13 个**（源码 5：`drivers.ts` / `terminals.ts` / `sidepanel.ts` / `ask-bridge.ts` / `service-worker.ts`；既有门禁 8：`op-wiring` / `driver-timings` / `recommendation-sources` / `l1-ref-validity` / `ask-bridge` / `blocked-terminals` / `next-registry` / `no-dead-end` / `law8-plaintext` / `recommendation` / `ask-auth-inflow` / `gate-integrity` / `package.json`；台账 2：`docs/v4-supersession-ledger.json` / `docs/v4-density-baseline.json`；体积 4：`size-baseline` / `size-budget` / `size-growth-evidence` / `size-ruling-vol3`） |
+| 体积 | `dist/sidepanel.js` **557,761 B**（本叶增量 **+8,152 B**：R1 +4,967 + R2 **+3,185**）⇒ **超叶预算 7,000 B、未越上界 9,000 B**（如实登记，见 §13） |
+| 红线冻结面 | `dist/content.js` 177,076 B / sha `52a82620…`、`dist/pick-layer.js` 34,358 B **逐字节不变**；`KIND_SET` 40 逐字；12 kind / 零宿主 / 判定链 pin 零 diff |
+| 保护段 | journey **171 PASS**（保段）/ binding **192 PASS**（保段，一次环境性 flake 后同产物重跑通过，见 §16） |
+| 测试计数 | `npm test` 1220 → **1244 / 0**（+24，只增不减） |
+
+## 11. 文件变更（R2）
+
+| 操作 | 文件路径 | 对应任务 | 说明 |
+|:--:|------|:--:|------|
+| MODIFY | `src/ui/sidepanel/next-registry/drivers.ts` | 113 / 115 / 116 / 117 / 123 | `SettleSource.force`；`timingOfSettle`（`answered` ⇒ `'answered'`，其余 ⇒ `'idle'`）；**悬置任务登记单点**（`Suspension` / `registerSuspension` 幂等 / `listSuspensions` / `resetSuspensions`）；「答案不被丢弃」判据 `answerNotDropped`（只认输入、不认计数）；「静默窗口」三段读数 `silentWindowReading`（`ok`/`silent`/`n/a`） |
+| MODIFY | `src/ui/sidepanel/next-registry/terminals.ts` | 123 | `DRIVER_TERMINAL_OF_SOURCE` + `terminalOfSource`（**判定侧**单源：生产只记 `source`，终态词由本表给出 ⇒ `src/**` 零第二声明） |
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` | 113 / 114 / 115 / 116 / 117 / 122 | `nextAfterSettle`（**唯一**「结算 → 驱动」入口）；ops 恢复缝改经同一入口（`force`）；`applyRefAction` = 裁决 + **驱动**（驱动分支严格在 `allowed` 之后）；`submitDescribe` 补齐驱动（空描述早退逐字保留）；`submitAskFor` 四条路径（ref / op-ask / 后台 ask 回合内 / 后台 ask 迟到）；`bgAskIds` 限定迟到口径只对 SW 真实投递的 ask 成立；`LATE_ASK_TEXT` 固化行；`testing.suspensions()` 只读 seam |
+| MODIFY | `src/background/ask-bridge.ts` | 117 | `SettleOutcome` + `lateSettleOutcome` + `settleOutcome`（迟到 = **事实**，不是错误；`settle` 布尔签名不动 ⇒ 既有断言零改） |
+| MODIFY | `src/background/service-worker.ts` | 117 | `ask-user-response` 未命中 ⇒ `okResponse({settled:false, late:true})`（**不再裸 `errorResponse`**） |
+| NEW | `test/ui/fixtures/s0-chain.mjs` | 120 | S0 十环节**样本单源**（纯数据 + 注入式依赖，零 import）+ `s0SilentWindow` + `judgeBeat` / `judgeChain` / `aggregateChain`（两面共用） |
+| NEW | `test/s0-self-driven-chain.test.ts` | 121 | S0 **node 面**门禁（S0N-1~6，**8 用例**）：逐拍读数 + 三条总判据 + 窗口定义等价（16 组合）+ 答案驱动接线 + 两段证伪 + 与 S2 并列 |
+| NEW | `test/ui/s0-self-driven.mjs` | 122 | S0 **Chromium 面**门禁（`S0C-1~6`，**22 check**）：真面板 ①绑定→②探测→②'授权→③拾取→④ask 登记→⑤作答→⑥答案产生驱动→⑦A 机制侧 / ⑦B 识别侧→⑩终局；**A/B 两侧独立计数** |
+| NEW | `test/law7x-ext.test.ts` | 123 | 法七扩展门禁（L7X-1~3）：四类「已表达意图」逐类五段 + 双向反证 + 禁恒真三段控制（口径与 `driver-terminals` 同源） |
+| MODIFY | `test/op-wiring.test.ts` | 113 | 新增 **OP-W-6 主流程 diff = 0 复合读数**（`requestTurn(` 恰 2 ∧ `maybeRecommend` 1 定义 / 7 调用点 ∧ `nextAfterSettle` 1 定义）+ 反证（第 8 个调用点 / 删唯一入口） |
+| MODIFY | `test/driver-timings.test.ts` | 113 / 114 | DT-4 等价重锚：调用点计数改按**全部** `maybeRecommend(` 调用（仍恰 7），非字面量实参**只允许** `timingOfSettle(`（恰 1 处） |
+| MODIFY | `test/recommendation-sources.test.ts` | 114 | 时机源值集：恰 5 ∧ 含 `answered` ∧ 旧 4 逐字 ∧ 防抖三常量逐字 + 值集反证（删 / 改写 / 第 6 项） |
+| MODIFY | `test/l1-ref-validity.test.ts` | 115 | 「`sends` 递增**不足以**满足」（计数 vs 输入）+ 唯一入口「裁决 + 驱动」源码序判据 + 「恢复只计数 ⇒ 必红」反证 + `commandSends` 保留且零驱动语义 |
+| MODIFY | `test/ask-bridge.test.ts` | 117 | 迟到 outcome（`settled:false ∧ late:true`）+ 「不伪造接住」+ SW 不再裸 `errorResponse` 的接线断言 |
+| MODIFY | `test/blocked-terminals.test.ts` | 118 | BT-5：5 类阻塞逐字不变 ∧ 驱动者终态正交不混入 + 反证（混入 / 删一类） |
+| MODIFY | `test/next-registry.test.ts` | 118 | NR-10：驱动者声明 10 行 ↔ provider 集合**双向包含** ∧ `answered` 有接手者 + 反证（多一行 / 少一行） |
+| MODIFY | `test/ui/law8-plaintext.mjs` | 118 | ⑤/⑥：答案驱动化的零明文面（悬置输入**不落 digest** + 答案不被丢弃 + digest 注入反证 + 迟到固化文案静态零明文）**25 → 33 check** |
+| MODIFY | `test/ui/recommendation.mjs` | 114 | ⑯ `answered` 时机段（真面板：trigger === `answered` ∧ 可达 next ∧ 悬置 + 时机映射单源 + 「删掉时机 ⇒ 必红」反证 + `firstRun` 语义未污染）**65 → 72 check** |
+| MODIFY | `test/ui/ask-auth-inflow.mjs` | 116 | ⑮ `submitDescribe` 补齐驱动（顺序 = 空校验 → 留痕 → 悬置 → 驱动 + 两个 FAIL 段 + 还原 PASS + `op.describe` 唯一入口）**71 → 78 check** |
+| MODIFY | `test/ui/no-dead-end.mjs` | 124 | **判据升级**：ND-8/ND-9（4 类「已表达意图」终态逐类必有可达 next + 双向反证 + 真面板引用意图驱动）**39 → 49 check**（5 类阻塞逐条保留） |
+| MODIFY | `test/gate-integrity.test.ts` | 112 / 125 | `V551_NODE_GATE_FILES` 3 → **5**（+`s0-self-driven-chain` / `law7x-ext`）；`EXPECTED_AUDITED_FILES` 追加三者（含 Chromium 面 `test/ui/s0-self-driven.mjs`）；`CHROMIUM_GATES === 9` **逐字不动** |
+| MODIFY | `package.json` | 125 | `test:s0-self-driven` 新脚本 + 串入 `test:v3` 链（**无新依赖**） |
+| MODIFY | `docs/v4-supersession-ledger.json` | 125 | 41 条硬 pin `newTitle` **换锚**；新增 `V551-R2-SVOL-1`；`v3Vol3Closeout.⑤.newBaselineBytes` → 557,761 / `⑥` formula+effective → 585,649；`V43-E-35` 组数 24 → 25 换锚；r4 叶段新增 3 行删除面登记 + `summary` 复算（66 → 69 行 / 8 文件） |
+| MODIFY | `docs/v4-density-baseline.json` | 125 | `volume.registeredBaselineBytes` 557,761 / `ceilingBytes` 585,649（与源码常量同源） |
+| MODIFY | `test/size-baseline.ts` / `size-budget.test.ts` / `size-growth-evidence.test.ts` / `size-ruling-vol3.test.ts` | 125 | 五要素收口登记（`SIDEPANEL_BASELINE_BYTES` 557,761 / ceiling 585,649 / `v551R2Rows` / `v55-1-r2` 条目 / `latestRowsKey` / 累计 deltaBytes 262,536 / 桶和 / 组数 25 / 边界 +1 B 锚点） |
+| MODIFY | `.sddu/.../state.json`（+ `TREE.md` 由 `sddu-tree` 更新） | 125 | phase → `builded` / workflow `5.build` / phaseHistory 追加 |
+
+> **未触碰（显式 NOOP）**：`src/content/**` / `dist/content.js` / `dist/pick-layer.js` / `manifest.json` / `KIND_SET` / `docs/v3-*-ledger.json` / `ROADMAP.md` / `design/**` / journey·binding 保护段。
+
+## 12. 任务完成清单（R2）
+
+| 任务 | 名称 | 复杂度 | 状态 | 对应 FR |
+|------|------|:--:|:--:|------|
+| TASK-V55-113 | `nextAfterSettle` 单入口 | M | ✅ completed | FR-SELF-015 / 033 |
+| TASK-V55-114 | `'answered'` 触发通路 | M | ✅ completed | FR-SELF-030 / 031 / 034 / 035 |
+| TASK-V55-115 | `applyRefAction` = 裁决 + 驱动 | M | ✅ completed | FR-SELF-022 / 025 / 026 |
+| TASK-V55-116 | `submitDescribe` 补齐驱动 | M | ✅ completed | FR-SELF-027 |
+| TASK-V55-117 | 后台 ask 迟到作答非死端 | M | ✅ completed | FR-SELF-028 |
+| TASK-V55-118 | X-SELF-4/5/6 等价重锚 | M | ✅ completed | FR-SELF-103 / 104 / 105 / 110 / 111 |
+| TASK-V55-119 | **SG-V55-02** S0 真链 seam 探针 | S | ✅ completed（结论 = **可行**，见 §14；探针已删，未入库） | FR-SELF-130 |
+| TASK-V55-120 | `s0-chain.mjs` 样本单源 | L | ✅ completed | FR-SELF-130 |
+| TASK-V55-121 | `s0-self-driven-chain.test.ts` node 面 | L | ✅ completed | FR-SELF-130 / 131 |
+| TASK-V55-122 | `s0-self-driven.mjs` Chromium 面 | L | ✅ completed | FR-SELF-130 / 131 |
+| TASK-V55-123 | `law7x-ext.test.ts` 法七扩展门禁 | M | ✅ completed | FR-SELF-020~028 |
+| TASK-V55-124 | `no-dead-end.mjs` 判据升级 | M | ✅ completed | FR-SELF-103 |
+| TASK-V55-125 | 体积五要素 + 台账 + 本叶收尾 | M | ✅ completed | FR-SELF-003 / 110 / 113 / 116 / 120~124 |
+
+**本叶 25/25 全部 completed**；R1 的 12 任务见 §3（v1.0）。
+
+## 13. 体积五要素（本叶**收口**登记）
+
+| 要素 | 读值 |
+|---|---|
+| ① 基线 | `SIDEPANEL_BASELINE_BYTES` 549,609 → 554,576（R1）→ **557,761**（R2 收口；`dist/build-meta.json` 实测 `outputs['dist/sidepanel.js'].bytes === 557,761`） |
+| ② 时间线（只追加） | `SIDEPANEL_BASELINE_BYTES_TIMELINE` 追加 `557_761`（`554_576` / `549_609` 逐字保留） |
+| ③ 增长正当性（逐模块 metafile 归因） | `v551R2Rows`：`next-registry/drivers.ts` 2,662 → **3,307（+645）** / `sidepanel.ts` 97,036 → **99,566（+2,530）**；Σ 模块 **+3,175** + 未归因胶水 **+10** == 登记增量 **+3,185**（R1 的 `v551R1Rows` 逐字保留） |
+| ④ ceiling（公式，无 cap） | `floor(557,761 × 1.05)` = **585,649**（cap 保持 `record-only`；判定 = `min(619,520, 585,649) = 585,649`） |
+| ⑤ 档位 / 绝对上限 | `ceilTo50KB(557,761) = **563,200**`（未下移、未上移）、绝对上限 **619,520** 均**不变** |
+
+- **预算对账（如实登记）**：本叶预算 **7,000 B**、上界 **9,000 B**；R1 **+4,967** + R2 **+3,185** = **+8,152 B** ⇒ **超出叶预算 7,000 B（+1,152 B）**、**未越上界 9,000 B（余 848 B）** ⇒ **不停机上报**（仅越叶预算，按 tasks.md「越叶预算 7,000 如实登记」口径执行）。**未删判据 / 未放宽容差 / 未静默降档**：按 ADR-V55-011 §5 的减体积优先级核查后**无可删项** —— 打包器已擦除全部块注释（保留的字节全是判据本体 + 驱动语义 + 1 个只读 seam）。**超预算根因（登记不静默）**：ADR-V55-011 §1 给 `sidepanel.ts` 2,400 B / `drivers.ts` 2,600 B，实测 R2 `sidepanel.ts` +2,530（四条结算路径 + 迟到口径 + 悬置 seam）、`drivers.ts` +645 ⇒ 计划侧**低估约 1.3 倍**。
+- **取代链**：`SIDEPANEL_RE_REGISTRATIONS['v55-1-r2']`（收口）取代 `['v55-1-r1']`（中间登记，逐字保留）；`docs/v4-density-baseline.json#volume` 与 `test/size-baseline.ts` 常量同源（`test:size-ruling-vol3` 12/12、`test:supersession` 36/36 绿）。
+- **红线冻结面**：`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B **逐字节不变**。
+
+## 14. SG-V55-02 先验闸门结论（TASK-V55-119）
+
+**结论 = 可行**（五要素报告：探针 `test/_spike/sg-v55-02-probe.mjs` 运行后即删，`git status --short` 无新增探针文件 ⇒ 未入库；日志 `/tmp/opencode/v4-gate-logs/v55-1-r2/20-sg-v55-02.log`）。
+
+| 假设 | 探针方法 | 实跑证据 | 结论 |
+|---|---|---|---|
+| ① `when(ctx)` 可注入（S0 逐拍可复刻） | 编译产物 `candidateRules(input)` 纯函数驱动 5 拍 ctx | ①bind ⇒ `risk-recovery`/`op.rebind`；②probe ⇒ `risk-recovery`；③pick ⇒ `ref-action`/`op.turn`；④ask-open ⇒ `capability-discovery`；⑤answered(A) ⇒ `ref-action`；⑤answered(B) ⇒ `risk-recovery`/`op.llm-config`（**零假 provider**） | **可行** |
+| ② 驱动者产出可判 | `driversForTiming` / `driversForMoment` / `timingOfSettle` | `driversForTiming('answered') = [ref-action]` ∧ `driverClass = 'ai-driven'` ∧ `timingOfSettle({kind:'answered'}) = 'answered'` / `{kind:'answered-late'} = 'idle'` | **可行** |
+| ③ 回合输入可判 | `registerSuspension` + `answerNotDropped` | 只计数 ⇒ `false`；悬置登记后 ⇒ `true`；回合输入 ⇒ `true`；空值 ⇒ `false`（**会话 B 的题眼可判**） | **可行** |
+| ④ 窗口判据可判 | `silentWindowReading` 五读 | `n/a / ok / ok / ok / silent`（三态，禁恒真） | **可行** |
+| ⑤ 终态映射单源 | `terminalOfSource` | `'ref' ⇒ 'answered-ref'` / `'late' ⇒ null` / `'ghost' ⇒ undefined`（loud） | **可行** |
+
+**对下游影响**：BLK-V55-2 **未触发** —— TASK-V55-120/121/122 具备开工条件；**未**以场景脚本假绿替代链路可判。
+
+## 15. S0 双面 + 门禁对账（R2 vs 基线；串行逐门禁）
+
+| 门禁 | 基线 | R2 | 判定 |
+|---|--:|--:|---|
+| `npm test`（node，全量） | 1220 / 0 | **1244 / 0** | ✅ +24（只增） |
+| **S0 node 面** `s0-self-driven-chain.test.ts`（新） | — | **8 用例 / 0 fail** | ✅ 新增（①~⑩ 逐拍 + 三条总判据 + 16 组合窗口等价 + 两段证伪） |
+| **S0 Chromium 面** `s0-self-driven.mjs`（新） | — | **22 passed / 0 failed** | ✅ 新增（分支 A 机制侧 = `trigger==='answered'` ∧ 可达 next ∧ ref-action 候选可达；分支 B 识别侧 = `op.llm-config` ∧ 零用户回合） |
+| **法七扩展** `law7x-ext.test.ts`（新） | — | **4 用例 / 0 fail** | ✅ 新增（四类逐类 + 双向反证 + 三段控制） |
+| `test:dead-end`（`no-dead-end` 判据升级） | 39 | **49 / 0** | ✅ +10（5 类阻塞逐条保留 + 4 类已表达意图终态新增） |
+| `test:recommendation` | 65 | **72 / 0** | ✅ +7 |
+| `test:ask-auth` | 71 | **78 / 0** | ✅ +7 |
+| `test:law8` | 25 | **33 / 0** | ✅ +8 |
+| `op-wiring`（`requestTurn(` 恰 2 **原判据不改**） | 2 调用点 | **2**（定义 1 / 调用点 3232·3256）；`maybeRecommend` **定义 1 / 调用点 7**；`nextAfterSettle` **定义 1**；`nextAfterSettle(` 调用点 7 | ✅ diff = 0 |
+| `driver-timings` | 11 | **11 / 0** | ✅（DT-4 等价重锚，无断言删除） |
+| `driver-quadruple` / `driver-terminals` | 14 / 8 | **14 / 8** | ✅ |
+| `blocked-terminals` | 9 | **11 / 0** | ✅ +2 |
+| `next-registry` | 16 | **18 / 0** | ✅ +2 |
+| `gate-integrity` | 16 | **16**（`V551_NODE_GATE_FILES` 3 → 5；`CHROMIUM_GATES === 9` 逐字） | ✅ |
+| `supersession` | 36 | **36 / 0** | ✅ |
+| `design-contract` | 19 | **19 / 0** | ✅ |
+| `size-ruling-vol3` | 12 | **12 / 0** | ✅ |
+| `ref-pick-wiring` | 11 | **11 / 0** | ✅ |
+| `stream` / `l0` / `l1` / `l2` | 73 / 248 / 120 / 74 | **73 / 248 / 120 / 74** | ✅ |
+| `page-input` | 118 | **118** | ✅ |
+| `density` | 242 | **242** | ✅ |
+| `insight` / `hardening` / `auth-chip` | 118 / 24 / 37 | **118 / 24 / 37** | ✅ |
+| `l1-reverse` / `l2-reverse` | 9 / 10 | **9 / 10** | ✅ |
+| `zero-injection` | 28 | **28** | ✅ |
+| `journey`（保护段） | 171 | **171 PASS** | ✅ 保段 |
+| `binding`（保护段） | 192 | **192 PASS**（重跑） | ✅ 保段 |
+| `e2e` | PASS | **PASS** | ✅ |
+
+> 日志全量落盘 `/tmp/opencode/v4-gate-logs/v55-1-r2/`（`00-*` … `64-*`），逐门禁**串行**执行。
+
+## 16. 反证摘要（R2，每任务一行；均为「注入 ⇒ 实跑 FAIL ⇒ 还原 ⇒ PASS」）
+
+| 任务 | 反证（注入 ⇒ 必红；还原 ⇒ 必绿） |
+|---|---|
+| V55-113 | 新增第 8 个 `maybeRecommend(` 调用点 ⇒ OP-W-6 必红；删掉 `nextAfterSettle` 唯一入口 ⇒ 定义计数归零（必红）；还原 PASS |
+| V55-114 | 把 `timingOfSettle` 的 `answered` 映射改为恒 `idle`（= 删掉 `answered` 时机）⇒ ⑯ 判据必红（复现会话 B 静默）；删 `answered` 值 / 改写旧项 / 加第 6 项 ⇒ 值集判据各红；还原 PASS |
+| V55-115 | 删掉驱动分支（恢复「只计数」）⇒ 必红；把驱动挪到 `allowed` 判定**之前** ⇒ 顺序判据必红；还原 PASS |
+| V55-116 | 恢复「只 `dispatch`」⇒ 必红（旁路死端复现）；移除空描述守卫 ⇒ 零副作用判据必红；还原 PASS |
+| V55-117 | 迟到 outcome：`settled:false ∧ late:true`；SW 侧「不得再出现裸 `errorResponse`」静态判据；还原 PASS |
+| V55-118 | 阻塞枚举混入驱动者终态 ⇒ 正交判据必红；声明表多/少一行 ⇒ 双向包含必红；law8 digest 注入一条泄漏 ⇒ 扫描命中；还原 PASS |
+| V55-119 | 探针为**只读**（未改动 HEAD 源上实跑取样），文件已删（不入库） |
+| V55-120/121 | 逐拍抽掉 next / 悬空 chip ⇒ 该拍必死端；清空驱动者 + 终态 + 候选 ⇒ 静默窗口 ≥1（复现会话 B）；抽掉悬置 ⇒ 答案不被丢弃必红；删一环 ⇒ 环节完备必红；还原 PASS |
+| V55-122 | 真面板：删掉 `bgAskIds` 限定外的路径不变（夹具零扰动）；A/B 两侧独立计数（禁互相掩盖）；环境探测相位可让恢复类优先一事**如实登记**（见 §17） |
+| V55-123 | 新增终态无 next ⇒ `violated`；已有 next 被删 ⇒ `violated`；取消 / 空值 / 迟到 ⇒ 「已答」**必不成立**；终态不存在 ⇒ `n/a`（禁恒真） |
+| V55-124 | 注入「无 provider 的第 6 类阻塞」/「移除铸造期恢复面」⇒ 死端 ≥1 必红；删一项终态词 / 改写一项 ⇒ 单源集合判据必红；删 `answered-ask` 驱动者声明 ⇒ 该时刻无驱动者必红；还原 PASS |
+| V55-125 | 体积五要素同源：`size-budget` / `size-growth-evidence` / `size-ruling-vol3` / `supersession` 全绿；`+1 B` 边界锚点重 pin（585,649 PASS / 585,650 FAIL）；台账三值同源（554,576-级滞后 ⇒ 必红） |
+
+## 17. 遗留 / 登记（R2，如实，不静默）
+
+1. **体积超叶预算（已登记，见 §13）**：本叶实际 **+8,152 B** > 预算 7,000 B（未越上界 9,000 B）。按 §8 规则第 4 条只登记不停机；减体积优先级核查后无可删项。
+2. **S0 Chromium 面的探测相位（环境事实）**：headless 下被绑定站点无夹具内容脚本 ⇒ 探测相位可能停在等待态，`probe` 恢复类（priority 0）会**正确地**优先于 `ref-action`（2）。因此 Chromium 面断言「`answered` 触发 + 可达 next + 规则 ∈ 闭集」，而「已配置 ⇒ 恰好是 `ref-action`」这条 **ctx → 驱动者映射**由 node 面（受控 ctx，S0N-1/4）机核；机制侧的 `ref-action` 候选可达另以 `recommend('idle')`（seam 强制稳态）在真面板上佐证。
+3. **`test:law7x-ext.test.ts` 的路径（与 tasks.md 的差异，登记）**：tasks.md 写作 `test/ui/law7x-ext.test.ts`，但 node 门禁的自动发现（`gate-integrity#NODE_GATE_DIR = 'test'`）与 `npm test` 的编译 glob（`tsc test/*.test.ts`）都只覆盖 `test/*.test.ts` —— 落在 `test/ui/` 会成为**不运行**的死文件。故实现为 **`test/law7x-ext.test.ts`**（唯一能让它真的成为受审 node 门禁的路径），已登记于 `gate-integrity#V551_NODE_GATE_FILES` / `EXPECTED_AUDITED_FILES`。差异**如实登记**，未静默。
+4. **`terminals.ts` 不进 sidepanel 包（登记）**：终态词是**判定侧**单源（`DRIVER_TERMINAL_OF_SOURCE` / `driverTerminalReading`），生产只记 `source` 键 ⇒ 该模块 `bytesInOutput = 0`，`DRIVER_TERMINALS` 的「恰 4 ∧ 单源 ∧ 字面量不外泄」由 node 门禁（DTM-1 / L7X-1）在源文本上机核。原 TASK-V55-115 描述里的 `nextAfterSettle({kind:'answered', terminal})` 实现为 `{kind:'answered'}`（终态由 `source` 判定），语义等价且**避免了 `src/**` 第二声明**——差异如实登记。
+5. **`op.describe` 非空描述的生产触达面（登记）**：DOM 上「改用描述」chip 走 `revealAskFallback()`（无值），带值入口是 op 管线（`bindPanelOps.describe` → `submitDescribe`）；因此 `test:ask-auth` ⑮ 以**源码序判据 + 两个注入 FAIL 段**机核该链路，真值面由 `law7x-ext`（终态）与 S0 node 面（悬置 + 触发）承担。
+6. **环境性 flake（K L-N-10 / 既有登记）**：`test:binding` 首次 `CDP socket not open`（环境），第二次单点 `#54B7` 失败（并行干扰），清理残留 Chromium 后**同产物重跑 PASS 192** ⇒ 判定为**环境性 flake**（与产物无关），保段已取得。
+7. **人工面（不得冒充 PASS）**：S0 的主动接手**体感** / 打断感 / 引导文案可读性 / 主动回合等待感 —— 并列 v5 人工面 9 项（**⏳ 未执行**），不覆盖。
+
+## 修订记录（v2.0）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | R1 = W1+W2（12 任务 · SG-V55-01 可行 · 3 新门禁 · 体积中间登记 +4,967 B · npm test 1220/0） | 2026-09-23 | SDDU Build Agent |
+| v2.0 | R2 = W3+W4（13 任务 · SG-V55-02 可行 · 答案驱动化 + S0 双面 + 法七扩展 + `no-dead-end` 升级 · 体积收口 +8,152 B（超叶预算未越上界，如实登记）· npm test 1244/0 · 本叶 25/25 completed） | 2026-09-23 | SDDU Build Agent |

@@ -38,6 +38,42 @@ export interface AskBridge {
   cancelAll(): number;
 }
 
+/**
+ * V5.5-1 TASK-V55-117 (ADR-V55-004 §3 · FR-SELF-028 · EC-SELF-008) — the **honest
+ * settle outcome**.
+ *
+ * `settle()` used to be read as a boolean, so「未命中」collapsed into「失败」and the SW
+ * answered a bare `errorResponse` — the user's answer was silently dropped (会话 B 的
+ * 后台迟到形态). The outcome separates the two facts:
+ *
+ *   · `{ settled: true, late: false }` — the in-flight turn really received the answer;
+ *   · `{ settled: false, late: true }` — the turn already ended (**not an error**): the
+ *     panel固化 the fact and reaches a next step instead of losing the answer
+ *     (「未接住」如实说明，绝不伪造接住 — R-SELF-008).
+ */
+export interface SettleOutcome {
+  readonly settled: boolean;
+  readonly late: boolean;
+  readonly requestId: string;
+}
+
+/** The late outcome (a pure value — the single construction point). */
+export function lateSettleOutcome(requestId: string): SettleOutcome {
+  return { settled: false, late: true, requestId };
+}
+
+/**
+ * The ONE outcome projection of `settle`: 迟到**不是**错误，故不再有裸 `errorResponse`
+ * 分支。`settle` 的布尔签名保持不动（既有断言零改），本函数是它的结果面收口点。
+ */
+export function settleOutcome(
+  bridge: Pick<AskBridge, 'settle'>,
+  requestId: string,
+  answer: AskUserAnswer,
+): SettleOutcome {
+  return bridge.settle(requestId, answer) ? { settled: true, late: false, requestId } : lateSettleOutcome(requestId);
+}
+
 const DEFAULT_ASK_TIMEOUT_MS = 60000;
 
 export function createAskBridge(opts: AskBridgeOptions): AskBridge {

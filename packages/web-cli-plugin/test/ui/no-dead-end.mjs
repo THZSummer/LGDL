@@ -74,6 +74,9 @@ export const JUDGEMENTS = [
   { id: 'ND-5-inject-1', expectFailPattern: '注入第 6 类阻塞（无 provider）⇒ 判据必须 FAIL' },
   { id: 'ND-6-inject-2', expectFailPattern: '移除铸造期恢复面 ⇒ 判据必须 FAIL' },
   { id: 'ND-7-single-source', expectFailPattern: '阻塞枚举必须唯一源自 BLOCKED_TERMINALS（声明恰一次）' },
+  // V5.5-1 TASK-V55-124（判据升级，不是改布尔值）：4 类「已表达意图」终态逐类必有可达 next。
+  { id: 'ND-8-intent-terminals', expectFailPattern: '4 类已表达意图终态逐类必有可达 next（判据升级）' },
+  { id: 'ND-9-intent-driven', expectFailPattern: '引用意图作答必须产生悬置登记 + 可达 next（答案不被丢弃）' },
 ];
 
 /* ── in-page helpers (one implementation, shipped in the gate) ───────────────── */
@@ -125,6 +128,40 @@ function srcFiles(dir) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) out.push(...srcFiles(full));
     else if (entry.name.endsWith('.ts')) out.push(full);
+  }
+  return out;
+}
+
+/* ── V5.5-1 TASK-V55-124（FR-SELF-103 / X-SELF-4 / N-SELF-019）判据升级的取材面 ──
+ *
+ * 「判据升级」= 5 类阻塞判据**逐条保留** + **新增** 4 类「已表达意图」终态必有可达 next。
+ * 终态词表与驱动者声明都是**单源**，本门禁从源文本抽取（不复制第二份词表）。
+ */
+
+/** `terminals.ts#DRIVER_TERMINALS` 的 4 个字面量（缺块 / 项数变化 ⇒ 空 / 非 4 ⇒ 判红）。 */
+export function driverTerminalsOf(src) {
+  const block = /export const DRIVER_TERMINALS = Object\.freeze\(\[([\s\S]*?)\] as const\)/.exec(src);
+  if (!block) return [];
+  return [...block[1].matchAll(/'([a-z-]+)'/g)].map((m) => m[1]);
+}
+
+/** `DRIVER_TERMINAL_OF_SOURCE` 的四类「已表达的话」来源键（迟到 `late` 不记「已答」）。 */
+export function intentSourcesOf(src) {
+  const block = /export const DRIVER_TERMINAL_OF_SOURCE[\s\S]*?=\s*Object\.freeze\(\(?\{([\s\S]*?)\}\)?\)/.exec(src);
+  if (!block) return [];
+  return [...block[1].matchAll(/^\s*([a-z]+):/gm)].map((m) => m[1]).filter((s) => s !== 'late');
+}
+
+/** `providers.ts#DRIVER_DECLS_SRC` 的 `moments:` 面 ⇒ `moment → [driverId]`（声明单源）。 */
+export function momentDriversOf(src) {
+  const out = {};
+  const decls = /export const DRIVER_DECLS_SRC[\s\S]*?=\s*Object\.freeze\(\{([\s\S]*?)\n\}\);/.exec(src);
+  if (!decls) return out;
+  for (const line of decls[1].split('\n')) {
+    const id = /^\s*'?([A-Za-z0-9._-]+)'?:\s*\{/.exec(line);
+    const moments = /moments:\s*\[([^\]]*)\]/.exec(line);
+    if (!id || !moments) continue;
+    for (const m of moments[1].matchAll(/'([a-z-]+)'/g)) (out[m[1]] ??= []).push(id[1]);
   }
   return out;
 }
@@ -337,6 +374,92 @@ async function main() {
     await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.blockedError('site.unauthorized', '✖ 还原'); true`);
     const restored2 = JSON.parse(await evaluate(cdp, STREAM_READING));
     check('ND-6 (PASS 段) 还原铸造期恢复面后死端 = 0', restored2.deadEnds === 0 && restored2.form2 >= 0, JSON.stringify(restored2.dead));
+
+    // ── ND-8/ND-9 判据升级（V5.5-1 TASK-V55-124 · FR-SELF-103 / X-SELF-4 / N-SELF-019）──
+    // 「不是改布尔值，而是**判据升级**」：5 类阻塞判据逐条保留（上文 ND-1~ND-7），
+    // **新增** 4 类「已表达意图」终态（`DRIVER_TERMINALS`）必有可达 next。
+    console.log('\n▶ ND-8/ND-9 法七扩展：4 类已表达意图终态逐类必有可达 next（判据升级，5 类阻塞不减）');
+    const terminalsSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/terminals.ts'), 'utf8');
+    const providersSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/providers.ts'), 'utf8');
+    const terminals = driverTerminalsOf(terminalsSrc);
+    const sources = intentSourcesOf(terminalsSrc);
+    const momentDrivers = momentDriversOf(providersSrc);
+    check(
+      'ND-8 驱动者终态词汇恰 4（单源：三型 answered-* + describe-submitted）',
+      JSON.stringify(terminals) === JSON.stringify(['answered-ref', 'answered-op', 'answered-bg', 'describe-submitted']),
+      JSON.stringify(terminals),
+    );
+    check(
+      'ND-8 四类「已表达意图」来源键齐备（ref / op / bg / describe ⇒ 与终态单源映射）',
+      JSON.stringify(sources) === JSON.stringify(['ref', 'op', 'bg', 'describe']),
+      JSON.stringify(sources),
+    );
+    check(
+      'ND-8 四类终态逐类有驱动者（answered-ask / describe-submitted 时刻各 ≥1 行声明）',
+      (momentDrivers['answered-ask'] ?? []).length >= 1 && (momentDrivers['describe-submitted'] ?? []).length >= 1,
+      JSON.stringify(momentDrivers),
+    );
+    check(
+      'ND-8 5 类阻塞判据逐条保留（判据升级不是改布尔值：BLOCKED_TERMINALS 5 逐字仍在，本拍仍为 5）',
+      S2_BLOCKED_STATES.length === 5 && declared.length === 5,
+      JSON.stringify({ sample: S2_BLOCKED_STATES.length, declared: declared.length }),
+    );
+    // 双向反证（注入 ⇒ 必 FAIL ⇒ 还原 ⇒ PASS）。
+    const terminalSetOk = (src) => JSON.stringify(driverTerminalsOf(src)) === JSON.stringify(['answered-ref', 'answered-op', 'answered-bg', 'describe-submitted']);
+    check(
+      `ND-8 (FAIL 段) ${JUDGEMENTS[7].expectFailPattern}`,
+      !terminalSetOk(terminalsSrc.replace("'answered-bg',", '')) && !terminalSetOk(terminalsSrc.replace("'answered-bg',", "'answered-ghost',")),
+      '删一项 / 改写一项 ⇒ 单源集合判据必失败（判据非恒真）',
+    );
+    check(
+      `ND-8 (FAIL 段) 删掉 answered-ask 的驱动者声明 ⇒ 该时刻无驱动者 ⇒ 判据必 FAIL`,
+      momentDriversOf(providersSrc.replace("moments: ['answered-ask', 'describe-submitted', 'pick-complete', 'turn-end']", "moments: ['pick-complete', 'turn-end']"))['answered-ask'] === undefined,
+      '删掉 answered-ask 的声明行 ⇒ 该时刻无驱动者',
+    );
+    check(
+      'ND-8 (PASS 段) 还原后单源恰 4 ∧ 四类来源齐备 ∧ 时刻驱动者齐备（判据非恒真）',
+      driverTerminalsOf(terminalsSrc).length === 4 &&
+        intentSourcesOf(terminalsSrc).length === 4 &&
+        (momentDriversOf(providersSrc)['answered-ask'] ?? []).length >= 1,
+      '逐字节还原后判据恢复 PASS',
+    );
+
+    // ND-9：真面板上驱动**引用意图**（可触达的一类）⇒ 悬置登记（答案不被丢弃）+ 可达 next。
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const refDrive = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin: 'https://s0-nodeadend.test',
+            documentId: 'doc-nd', navSeq: 1, declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: 'https://s0-nodeadend.test', authorized: true, documentId: 'doc-nd', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          window.__v3.testing.streamSeed([{ kind: 'askuser', cardId: 'nd-ask', payload: { askKind: 'choice', prompt: '已捕获引用：要用它做什么？', requestId: 'ref-round-' + rec.facts.refId, options: ['原地翻译为中文', '纳入下一步（作为上下文）'] } }]);
+          document.querySelector('[data-msg-type="askuser"] [data-act="choose"]').click();
+          const susp = window.__v3.testing.suspensions();
+          const opNodes = [...document.querySelectorAll('#stream [data-op]')].map((b) => b.getAttribute('data-op'));
+          return JSON.stringify({ susp, opNodes, trigger: window.__v3.testing.lastRecommend()?.trigger ?? null, deadEnds: document.querySelectorAll('#stream [data-op]').length === 0 ? 1 : 0 });
+        })()`,
+      ),
+    );
+    check(
+      'ND-9 (PASS 段) 引用意图作答 ⇒ 悬置登记（答案不被丢弃，可判命中）',
+      refDrive.susp.length === 1 && refDrive.susp[0].source === 'ref' && refDrive.susp[0].instruction.includes('原地翻译为中文'),
+      JSON.stringify(refDrive.susp),
+    );
+    check(
+      'ND-9 (PASS 段) 作答后无死端（`answered` 时机求值 ∧ 流内可达 [data-op] 非空）',
+      refDrive.trigger === 'answered' && refDrive.opNodes.length >= 1 && refDrive.deadEnds === 0,
+      JSON.stringify({ trigger: refDrive.trigger, ops: refDrive.opNodes.length }),
+    );
+    check(
+      `ND-9 (FAIL 段) ${JUDGEMENTS[8].expectFailPattern}`,
+      refDrive.susp.length === 1 && driverTerminalsOf(terminalsSrc.replace("'describe-submitted',", '')).length === 3,
+      '注入：删掉 describe-submitted / 清掉悬置 ⇒ 本判据必 FAIL',
+    );
 
     // ── N = 0 口径（源文本：无 sleep / 无轮询） ────────────────────────────────
     const self = readFileSync(new URL('./no-dead-end.mjs', import.meta.url), 'utf8');

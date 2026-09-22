@@ -30,6 +30,8 @@ import {
   validateNextProvider,
 } from '../src/ui/sidepanel/next-registry/registry.js';
 import type { NextProvider } from '../src/ui/sidepanel/next-registry/definition.js';
+// V5.5-1 TASK-V55-118: 注册表**内**扩张的声明表（与 provider 集合双向包含的判据面）。
+import { DRIVER_DECLS_SRC, builtinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const REGISTRY_SRC = readFileSync(join(PKG, 'src/ui/sidepanel/next-registry/registry.ts'), 'utf8');
@@ -242,4 +244,34 @@ test('NR-9 chips 悬空：setKnownOpIds 后未知 chip ⇒ loud', () => {
   const good = registerNextProvider(prov(withPrefix('dangle2'), { chips: ['op.nope'] }));
   assert.equal(good.ok, true, '未配置 knownOps 时不应误报');
   good.ok && good.unregister();
+});
+
+/* ── V5.5-1 TASK-V55-118（ADR-V55-001 §1 · FR-SELF-012/017/036 · X-SELF-2）──────
+ *
+ * X-SELF-2 的等价重锚（**改写 ≠ 删除**）：注册表**内**扩张 —— 10 行驱动者声明与
+ * provider 集合双向包含，「答完之后恰 ≥1 驱动者」（`'answered'` 时机非空）。
+ * 既有 16 条判据一条不减；以下只**增**。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test('NR-10（V5.5-1）：驱动者声明 10 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
+  const decls = Object.values(DRIVER_DECLS_SRC);
+  const providerIds = new Set(builtinProviders().map((p) => p.id));
+  assert.equal(decls.length, providerIds.size, `驱动者集合 ≡ provider 集合（实测 ${decls.length} vs ${providerIds.size}）`);
+  for (const d of decls) assert.ok(providerIds.has(d.driverId), `声明行 ${d.driverId} 必须在注册表内`);
+  for (const id of providerIds) assert.ok(decls.some((d) => d.driverId === id), `注册表 ${id} 必须有声明行（双向包含，不得漂移）`);
+  // 「答完之后谁会接手」必须在声明层可回答（FR-SELF-036 / ADR-V55-002 §4）。
+  const answered = decls.filter((d) => d.timings.includes('answered'));
+  assert.ok(answered.length >= 1, "answered 时机必须至少 1 个驱动者（答完不是死端）");
+  for (const d of answered) assert.ok(['deterministic', 'ai-driven'].includes(d.driverClass), `${d.driverId} 的 driverClass 必须明确`);
+});
+
+test('NR-10 反证：声明表多一行 / 少一行 ⇒ 双向包含必红 → 还原 PASS', () => {
+  const decls = Object.values(DRIVER_DECLS_SRC);
+  const extra = [...decls, { ...decls[0], driverId: 'ghost-driver' }];
+  const providerIds = new Set(builtinProviders().map((p) => p.id));
+  assert.ok(extra.some((d) => !providerIds.has(d.driverId)), '多一行（表有注册表无）⇒ 必红');
+  const missing = decls.filter((d) => d.driverId !== 'ref-action');
+  assert.equal(missing.length, decls.length - 1);
+  assert.ok([...providerIds].some((id) => !missing.some((d) => d.driverId === id)), '少一行（注册表有表无）⇒ 必红');
+  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 10, '还原 PASS（声明行恰 10）');
 });

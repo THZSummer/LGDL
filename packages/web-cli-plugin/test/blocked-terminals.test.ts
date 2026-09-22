@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 
 import { BLOCKED_TERMINALS, type NextCtx, type NextProvider } from '../src/ui/sidepanel/next-registry/definition.js';
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
+import { DRIVER_TERMINALS } from '../src/ui/sidepanel/next-registry/terminals.js';
 import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
 import {
   LLM_BLOCKED_RISK,
@@ -470,4 +471,31 @@ test('BT 元判据：每条 judgement 都声明非占位 expectFailPattern', () 
     assert.ok(j.expectFailPattern.trim().length >= 8, `${j.id}: expectFailPattern 不得为空/占位`);
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);
   }
+});
+
+/* ── V5.5-1 TASK-V55-118（ADR-V55-003 §1 · FR-SELF-103 · X-SELF-4）─────────────
+ *
+ * X-SELF-4 的等价重锚（**改写 ≠ 删除**）：5 类阻塞**逐字不变**（N-SELF-019）∧ 新增的
+ * **驱动者终态词汇**（4 项，与流终态正交）**不得**混入阻塞枚举 —— 两个词表互不污染。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test('BT-5（V5.5-1 X-SELF-4）：5 类阻塞逐字不变 ∧ 驱动者终态词汇正交且不混入阻塞枚举', () => {
+  const blocked = [...BLOCKED_TERMINALS];
+  assert.deepEqual(blocked, ['site.unauthorized', 'llm.unconfigured', 'perm.missing', 'binding.stale', 'ref.all-invalid'], '5 类阻塞逐字（只增不减的底线）');
+  assert.equal(blocked.length, 5);
+  // 驱动者终态（4）与阻塞枚举（5）**交集为空**：两个词表不得混用（R-V55-103）。
+  const inter = DRIVER_TERMINALS.filter((t) => (blocked as readonly string[]).includes(t));
+  assert.deepEqual(inter, [], '驱动者终态不得混入阻塞枚举（正交）');
+  assert.equal(DRIVER_TERMINALS.length, 4);
+  // 「已表达意图」不会把某个阻塞态挤出恢复面：5 个 P0 provider 仍逐类在册。
+  assert.equal(blockedMapProblems(BLOCKED_P0_MAP, blocked).length, 0, '5 类阻塞的恢复面不得因新增终态而缺行');
+});
+
+test('BT-5 反证：把驱动者终态混进阻塞枚举 / 删一类阻塞 ⇒ 正交与逐字判据各必红 → 还原 PASS', () => {
+  const withDriverTerminal = [...BLOCKED_TERMINALS, DRIVER_TERMINALS[0]];
+  assert.ok(DRIVER_TERMINALS.some((t) => (withDriverTerminal as readonly string[]).includes(t)), '混入后交集非空 ⇒ 必红');
+  const dropped = [...BLOCKED_TERMINALS].filter((t) => t !== 'binding.stale');
+  assert.notDeepEqual(dropped, [...BLOCKED_TERMINALS], '删一类阻塞 ⇒ 逐字判据必红');
+  assert.equal(dropped.length, 4);
+  assert.deepEqual([...BLOCKED_TERMINALS], ['site.unauthorized', 'llm.unconfigured', 'perm.missing', 'binding.stale', 'ref.all-invalid'], '还原 PASS');
 });

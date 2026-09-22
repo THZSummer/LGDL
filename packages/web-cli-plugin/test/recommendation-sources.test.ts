@@ -50,6 +50,7 @@ import { NEXT_SOURCE_NAMES } from '../src/ui/sidepanel/next-registry/definition.
 import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
 import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/pipeline.js';
 import { RECOVERY_CHIP_ORDER } from '../src/ui/sidepanel/recommend.js';
+import { DRIVER_TIMINGS, DRIVER_TIMINGS_LEGACY4, DRIVER_TIMING_ANSWERED } from '../src/ui/sidepanel/next-registry/drivers.js';
 
 import { join } from 'node:path';
 
@@ -444,4 +445,41 @@ test('V5-1 X3：chip act 视角与 opId 视角一致（双采集等价，能力�
   const siteChips = RECOVERY_CHIP_ORDER.site.slice(0, MAX_CHIPS_PER_CARD).map((a) => ACT_TO_OP[a]);
   assert.equal(siteChips[0], 'op.rebind', 'site 触发在 op 词汇下仍由 rebind 打头（等价，非重排）');
   assert.deepEqual(siteChips.length, 3, '单卡 chips 仍 ≤3');
+});
+
+/* ── V5.5-1 TASK-V55-114（ADR-V55-002 §1/§3 · FR-SELF-030/031/035 · AC-SELF-009）──
+ *
+ * 时机源扩张：`RecommendTrigger` 从 4 项扩到 **恰 5**（含 `'answered'`），旧 4 项**逐字**
+ * 保留。这里机核的是「时机词汇的**值集事实**」；「答完 ⇒ 恰在一次求值内产出 next」由
+ * `test/ui/recommendation.mjs`（Chromium，真实生产者）承担。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test('V5.5-1 时机源：恰 5 含 answered ∧ 旧 4 逐字 ∧ 语义不复用 firstRun 的「至多一次」', () => {
+  assert.equal(DRIVER_TIMINGS.length, 5, '时机源必须恰 5 项（4 → 5，纯加法）');
+  assert.ok((DRIVER_TIMINGS as readonly string[]).includes('answered'), "时机源必须含 'answered'");
+  assert.deepEqual([...DRIVER_TIMINGS_LEGACY4], ['pick', 'stale', 'idle', 'firstRun'], '旧 4 项逐字保留');
+  assert.equal(DRIVER_TIMING_ANSWERED, 'answered');
+  // 纯加法：新值集 = 旧 4 项 + 1。
+  assert.deepEqual([...DRIVER_TIMINGS], [...DRIVER_TIMINGS_LEGACY4, 'answered']);
+  // FR-SELF-035：「至多一次」语义**只**属于 firstRun 面（`maybeRecommendFirstRunEntry`），
+  // 新时机不得被并入 —— 源码面断言：`answered` 不出现在 first-run 入口的守卫里。
+  const panic = RECOMMEND_SRC;
+  assert.match(panic, /NEXTSTEP_MIN_INTERVAL_MS\s*=\s*10_000/, '防抖间隔逐字');
+  assert.match(panic, /MAX_CHIPS_PER_CARD\s*=\s*3/, '单卡 ≤3 逐字');
+});
+
+test('V5.5-1 时机源反证：删 answered / 改写旧项 / 加第 6 项 ⇒ 值集判据各必红 → 还原 PASS', () => {
+  const judge = (set: readonly string[]): string[] => {
+    const problems: string[] = [];
+    if (set.length !== 5) problems.push(`恰 5：实测 ${set.length}`);
+    if (!set.includes('answered')) problems.push('缺 answered');
+    DRIVER_TIMINGS_LEGACY4.forEach((t, i) => {
+      if (set[i] !== t) problems.push(`旧 4 逐字：第 ${i + 1} 项 ${set[i]} ≠ ${t}`);
+    });
+    return problems;
+  };
+  assert.deepEqual(judge([...DRIVER_TIMINGS]), []);
+  assert.ok(judge(['pick', 'stale', 'idle', 'firstRun']).length > 0, "删 answered 必红");
+  assert.ok(judge(['pick', 'stale', 'idle', 'idle', 'answered']).length > 0, '改写旧项必红');
+  assert.ok(judge([...DRIVER_TIMINGS, 'ghost']).length > 0, '第 6 项必红');
 });

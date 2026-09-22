@@ -25,7 +25,9 @@
  * Serial discipline: exactly ONE Chromium instance, one page target (NFR-CHAT-009).
  */
 import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
+  PACKAGE_ROOT,
   CHROME,
   DIST,
   check,
@@ -642,6 +644,47 @@ async function main() {
       Object.keys(ACT_TO_OP_IN_GATE).length === 6 && new Set(Object.values(ACT_TO_OP_IN_GATE)).size === 6,
       JSON.stringify(ACT_TO_OP_IN_GATE),
     );
+
+    // ══ ⑯ V5.5-1（TASK-V55-114 / ADR-V55-002 · FR-SELF-030/031/035 · AC-SELF-009）══
+    // 「答完之后恰在一次 `'answered'` 求值内产出 next」——本叶的题眼在真面板上可判。
+    console.log('\n▶ ⑯ V5.5-1：`answered` 时机（答完恰在一次求值内产出 next；不复用 firstRun 语义）');
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const answered = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin: 'https://v4-reco-answered.test',
+            documentId: 'doc-ans', navSeq: 1, declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: 'https://v4-reco-answered.test', authorized: true, documentId: 'doc-ans', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          window.__v3.testing.streamSeed([{ kind: 'askuser', cardId: 'ans-ask', payload: { askKind: 'choice', prompt: '已捕获引用：要用它做什么？', requestId: 'ref-round-' + rec.facts.refId, options: ['原地翻译为中文', '纳入下一步'] } }]);
+          document.querySelector('[data-msg-type="askuser"] [data-act="choose"]').click();
+          const card = document.querySelector('#stream [data-msg-type="nextstep"]');
+          return JSON.stringify({
+            trigger: window.__v3.testing.lastRecommend()?.trigger ?? null,
+            rule: window.__v3.testing.lastRecommend()?.rule ?? null,
+            susp: window.__v3.testing.suspensions().length,
+            ops: card ? card.querySelectorAll('[data-op]').length : 0,
+            acts: card ? [...card.querySelectorAll('[data-act]')].map((b) => b.getAttribute('data-act')) : [],
+          });
+        })()`,
+      ),
+    );
+    check('⑯ 前置：引用回合作答必须经唯一求值入口触发（lastRecommend.trigger === answered）', answered.trigger === 'answered', JSON.stringify(answered));
+    check('⑯ 答完之后恰在一次求值内产出可达 next（nextstep 卡内 [data-op] ≥1）', answered.ops >= 1, JSON.stringify(answered));
+    check('⑯ 答案不被丢弃（悬置登记恰 1 条，与 FR-SELF-132 同判据）', answered.susp === 1, JSON.stringify(answered));
+    // 时机源单源 + 触发点：源文本断言 + 反证（删掉 answered 映射 ⇒ 判据必红）。
+    const driversSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/drivers.ts'), 'utf8');
+    const sidepanelSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    const timingJudge = (src) => /return src\.kind === 'answered' \? 'answered' : 'idle';/.test(src);
+    check('⑯ 时机映射单源：`answered` ⇒ timing `answered`（其余 ⇒ idle：稳态驱动集必有接管者）', timingJudge(driversSrc), 'timingOfSettle 单源映射');
+    check('⑯ 反证：把映射改为恒 idle（= 删掉 `answered` 时机）⇒ 本判据必红 → 还原 PASS', !timingJudge(driversSrc.replace("src.kind === 'answered' ? 'answered' : 'idle'", "'idle'")) && timingJudge(driversSrc), '注入⇒红 / 还原⇒绿');
+    const answeredTriggers = (sidepanelSrc.match(/nextAfterSettle\(\{ kind: 'answered'/g) ?? []).length;
+    check('⑯ 触发点接线：三处「用户已表达的话」结算路径均经 `nextAfterSettle({ kind: \'answered\'`（≥3 处）', answeredTriggers >= 3, `triggers=${answeredTriggers}`);
+    check('⑯ `answered` 不复用 firstRun 的「至多一次」语义（源码面：firstRun 入口只含 `maybeRecommend(\'firstRun\')`）', /maybeRecommendFirstRunEntry[\s\S]{0,1500}?maybeRecommend\('firstRun'\)/.test(sidepanelSrc) && !/maybeRecommendFirstRunEntry[\s\S]{0,1500}?kind: 'answered'/.test(sidepanelSrc), 'firstRun 语义未污染');
 
     cdp.close();
 

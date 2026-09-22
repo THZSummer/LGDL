@@ -47,6 +47,9 @@ export const JUDGEMENTS: readonly OpWiringJudgement[] = [
   { id: 'OP-W-3-no-requestTurn', expectFailPattern: '本地 op 槽不得出现 requestTurn' },
   { id: 'OP-W-4-local-not-pending-gated', expectFailPattern: '本地 op 不得受 pending 门控（零卡片状态的 op 永不入队）' },
   { id: 'OP-W-5-table-same-source', expectFailPattern: '登记表 opId 集必须与 OP_IDS 同源' },
+  // V5.5-1 TASK-V55-113（ADR-V55-001 §5 · FR-SELF-015/033 · R-V55-101）——
+  // **主流程 diff = 0 复合读数**：新增「答案驱动化」时的三条计数判据同屏机核。
+  { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 2 / maybeRecommend 1 定义 7 调用点 / nextAfterSettle 1 定义）' },
 ];
 
 /**
@@ -203,4 +206,52 @@ test('OP-W 反证 ③: 让本地 op 受 pending 门控 ⇒ 门控判据必红', 
   assert.ok(problems.length > 0, JUDGEMENTS[3].expectFailPattern);
   // 还原 ⇒ PASS（判据不是恒真）。
   assert.deepEqual(pendingGateProblems(OPS_BY_ID), []);
+});
+
+/* ── V5.5-1 TASK-V55-113（ADR-V55-001 §5 · FR-SELF-015/033 · R-V55-101）──────────
+ *
+ * 「答案驱动化」把三处「用户已表达的话」的结算路径接进推荐器。若每处就地写一行
+ * `maybeRecommend('answered')`，`maybeRecommend(` 的调用点会从 7 涨到 10（**第 8 个散落
+ * 调用点**，R-V55-101）。因此主流程必须 **diff = 0**：三处都经**唯一**的
+ * `nextAfterSettle` 入口，而 `nextAfterSettle` 自己只含 1 个 `maybeRecommend(`。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** `symbol(` 的出现点数（排除注释行 / import / 定义行）——与 {@link callSites} 同口径。 */
+export function occurrenceProblems(
+  source: string,
+  symbol: string,
+  expected: number,
+  label: string,
+): string[] {
+  const sites = callSites(source, symbol);
+  return sites.length === expected ? [] : [`${JUDGEMENTS[5].expectFailPattern}：${label} 实测 ${sites.length} 处 ≠ ${expected} 处（行号 ${sites.join(', ')}）`];
+}
+
+/** `nextAfterSettle(` 的**定义**处数（调用点不在此列）。 */
+export function definitionCount(source: string, symbol: string): number {
+  const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return (source.match(new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escaped}\\s*\\(`, 'gm')) ?? []).length;
+}
+
+test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 2 ∧ maybeRecommend 1 定义 / 7 调用点 ∧ nextAfterSettle 1 定义', () => {
+  const problems = [
+    ...requestTurnProblems(SIDEPANEL),
+    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),
+    ...(definitionCount(SIDEPANEL, 'maybeRecommend') === 1 ? [] : [`${JUDGEMENTS[5].expectFailPattern}：maybeRecommend 定义实测 ${definitionCount(SIDEPANEL, 'maybeRecommend')} 处`]),
+    ...(definitionCount(SIDEPANEL, 'nextAfterSettle') === 1 ? [] : [`${JUDGEMENTS[5].expectFailPattern}：nextAfterSettle 定义实测 ${definitionCount(SIDEPANEL, 'nextAfterSettle')} 处`]),
+  ];
+  assert.deepEqual(problems, [], problems.join(' | '));
+  // 「answered」触发点确实接线（三处结算路径 + ops 恢复缝），但都不新增 maybeRecommend 调用点。
+  assert.ok(callSites(SIDEPANEL, 'nextAfterSettle').length >= 4, 'answered 触发点必须接线（applyRefAction / submitDescribe / ask 应答 / ops 缝）');
+});
+
+test('OP-W ⑥ 反证：新增第 8 个 maybeRecommend( 调用点 ⇒ 必红 → 还原 PASS', () => {
+  const forged = `${SIDEPANEL}\nmaybeRecommend('idle');\n`;
+  const problems = occurrenceProblems(forged, 'maybeRecommend', 7, 'maybeRecommend 调用点');
+  assert.ok(problems.some((p) => p.includes(JUDGEMENTS[5].expectFailPattern)), problems.join(' | '));
+  // 反证之二：删掉唯一入口 ⇒ 定义计数必红。
+  const noEntry = SIDEPANEL.replace('function nextAfterSettle(src: SettleSource = { kind: \'idle\' }): void {', 'function renamedEntry(src: SettleSource = { kind: \'idle\' }): void {');
+  assert.notEqual(noEntry, SIDEPANEL, '前置：注入锚点必须存在');
+  assert.equal(definitionCount(noEntry, 'nextAfterSettle'), 0, '删掉唯一入口 ⇒ 定义计数必须归零（判据非恒真）');
+  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'), []);
 });

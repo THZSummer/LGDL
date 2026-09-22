@@ -47,6 +47,29 @@ export const DRIVER_TERMINALS = Object.freeze([
 export type DriverTerminal = (typeof DRIVER_TERMINALS)[number];
 
 /**
+ * 终态词的**语义键**（**判定侧**单源）。
+ *
+ * 为什么生产侧只记 `source` 而不是直接记终态词：`DriverTerminal` 是类型，编译期擦除后
+ * 运行时不再存在 —— 调用方若直接写 `'answered-ref'` 就构成**第二声明**
+ * （`test/driver-terminals.test.ts#DTM-1` 明令纯终态字面量在 `src/**` 只允许出现在本文件）。
+ * 生产把**原始事实**（是哪一路「已表达的话」+ 是否迟到）交给驱动者层，终态**判定标签**由
+ * 本表**唯一**给出；`drivers.ts#Suspension` 因此不带字面量，`src/**` 也零第二声明。
+ */
+export const DRIVER_TERMINAL_OF_SOURCE: Readonly<Record<string, DriverTerminal | null>> = Object.freeze({
+  ref: 'answered-ref',
+  op: 'answered-op',
+  bg: 'answered-bg',
+  describe: 'describe-submitted',
+  /** 迟到作答：回合已结束 ⇒ **不记「已答」**（ADR-V55-003 §4 口径④）。 */
+  late: null,
+});
+
+/** `source` → 终态词（未知来源 ⇒ loud `undefined`，禁静默默认）。 */
+export function terminalOfSource(source: string): DriverTerminal | null | undefined {
+  return DRIVER_TERMINAL_OF_SOURCE[source];
+}
+
+/**
  * 正交判据：`STREAM_TERMINALS`（6 逐字）∩ `DRIVER_TERMINALS`（4）=== ∅。
  * 参数可注入（门禁用注入副本实跑反证；默认读真实两表）。
  */

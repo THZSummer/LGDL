@@ -105,8 +105,13 @@ export interface PanelOps {
    * after a consent refusal / a denied permission / a cancelled ask the panel mints its
    * recovery card (the live recommendation), so「拒绝」固化事实之后仍有可走的一步
    * (法七不破: the refusal is a trace, not a dead end).
+   *
+   * V5.5-1 TASK-V55-113 (ADR-V55-001 §5 · FR-SELF-015/033): renamed to the ONE
+   * 「结算 → 下一个驱动者」entry (`nextAfterSettle`) — the same panel function the three
+   * 「用户已表达的话」settle paths call, so「取消 / 拒绝 / 失败」与「已答」走**同一**求值入口
+   * (零第二推荐器, 零新增 `maybeRecommend(` 调用点).
    */
-  reachableNext?(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void;
+  nextAfterSettle?(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void;
 }
 
 let PANEL: PanelOps = {};
@@ -119,8 +124,8 @@ export function panelNotice(text: string): void {
 }
 
 /** V5-2 TASK-V5-143 — mint the reachable recovery card after a refusal / failure. */
-export function panelReachableNext(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void {
-  PANEL.reachableNext?.(op, state);
+export function panelNextAfterSettle(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void {
+  PANEL.nextAfterSettle?.(op, state);
 }
 
 /** V5-2 TASK-V5-142 — the panel's **three-table** snapshot (absent ⇒ empty snapshot). */

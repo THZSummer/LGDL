@@ -311,6 +311,53 @@ async function main() {
     const r4 = JSON.parse(await evaluate(cdp, SCAN_4));
     check('④ (PASS 段) 还原后零命中', r4.hits.length === 0, JSON.stringify(r4.hits));
 
+    // ── ⑤/⑥ V5.5-1（TASK-V55-118 · FR-SELF-132 · 法八 × 答案驱动化）──────────────
+    // 答案驱动化把「用户已表达的话」变成**悬置任务输入**（内存），本条机核：该输入
+    // **不新增任何持久化明文面**（digest 仍零命中），且答案**确实没被丢弃**（悬置逐字持有）。
+    console.log('\n▶ ⑤/⑥ 答案驱动化的零明文面（悬置输入不落 digest ∧ 迟到固化行静态零明文）');
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const driven = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin: 'https://v5-law8.test',
+            documentId: 'doc-law8', navSeq: 1, declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: 'https://v5-law8.test', authorized: true, documentId: 'doc-law8', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          window.__v3.testing.streamSeed([{ kind: 'askuser', cardId: 'l8-ask', payload: { askKind: 'choice', prompt: '已捕获引用：要用它做什么？', requestId: 'ref-round-' + rec.facts.refId, options: [${JSON.stringify(SENTINEL)}, '纳入下一步'] } }]);
+          const before = window.__v3.testing.openAsks().length;
+          document.querySelector('[data-msg-type="askuser"] [data-act="choose"]').click();
+          const susp = window.__v3.testing.suspensions();
+          return JSON.stringify({ before, susp, answered: document.querySelector('[data-msg-type="askuser"]')?.getAttribute('data-answered') ?? null });
+        })()`,
+      ),
+    );
+    check('⑤ 前置：引用意图作答真的驱动了（悬置登记恰 1 条 + 卡已结算）', driven.susp.length === 1 && driven.answered === 'true', JSON.stringify({ susp: driven.susp.length, answered: driven.answered }));
+    check('⑤ 答案不被丢弃：悬置任务输入**逐字持有**用户原话（法八下也不丢）', driven.susp[0]?.instruction === SENTINEL, `instruction=${String(driven.susp[0]?.instruction).slice(0, 24)}…`);
+    const f2b = JSON.parse(await evaluate(cdp, SCAN_2));
+    check('⑤ 悬置输入零落盘：digest 面仍零命中（答案只作驱动输入，不进持久化明文面）', f2b.hits.length === 0, JSON.stringify(f2b.hits));
+    // (FAIL 段) 注入一条 digest 泄漏 ⇒ 同一扫描必命中 ⇒ 还原 ⇒ 零命中（判据非恒真）。
+    const injDigest = JSON.parse(
+      await evaluate(cdp, `(async () => { await chrome.storage.local.set({ 'v5-stream-digest-probe': ${JSON.stringify(SENTINEL)} }); return ${SCAN_2}; })()`),
+    );
+    check(`⑤ (FAIL 段) ${FACES[1].expectFailPattern}`, injDigest.hits.length > 0, JSON.stringify(injDigest.hits));
+    await evaluate(cdp, `chrome.storage.local.remove('v5-stream-digest-probe'); true`);
+    const resDigest = JSON.parse(await evaluate(cdp, SCAN_2));
+    check('⑤ (PASS 段) 还原后 digest 零命中（判据非恒真）', resDigest.hits.length === 0, JSON.stringify(resDigest.hits));
+    // ⑥ 迟到作答的**固化文案**静态零明文（不含 URL query / 密钥 / 原始标记形态）。
+    const panelSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    const lateCopy = /const LATE_ASK_TEXT = '([^']+)'/.exec(panelSrc)?.[1] ?? '';
+    check('⑥ 迟到固化文案单源存在（LATE_ASK_TEXT 恰 1 处声明）', (panelSrc.match(/const LATE_ASK_TEXT = '/g) ?? []).length === 1 && lateCopy.length > 0, lateCopy);
+    check(
+      '⑥ 迟到固化文案零明文（无 URL query / 无密钥 / 无原始标记；如实说明「未接住」）',
+      !/[?&][A-Za-z]+=/.test(lateCopy) && !/\bsk-/.test(lateCopy) && !/<[a-z/]/i.test(lateCopy) && lateCopy.includes('未接住'),
+      lateCopy,
+    );
+    check('⑥ 迟到固化文案零明文反证：注入 URL query 形态 ⇒ 静态判据必红 → 还原 PASS', /[?&][A-Za-z]+=/.test(`${lateCopy}https://x.test/?q=1`), 'injected=hit');
+
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

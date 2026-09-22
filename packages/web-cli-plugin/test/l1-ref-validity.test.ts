@@ -8,6 +8,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 import {
   REASON_TEMPLATES,
@@ -27,6 +29,7 @@ import { buildL1Receipt, assertNoPlaintext, receiptPiecesPresent, targetDigest }
 import { L1_PANEL_IDS, L1_GESTURE_COUNT, isDestructiveOption, decisionHistoryLabel } from '../src/ui/sidepanel/view-model.js';
 import { COLLAPSIBLE_TARGETS, assertFoldable, DisclosureError } from '../src/ui/sidepanel/disclosure.js';
 import type { OwnershipTree } from '../src/insight/ownership-tree.js';
+import { answerNotDropped, listSuspensions, registerSuspension, resetSuspensions } from '../src/ui/sidepanel/next-registry/drivers.js';
 
 const FACTS: RefFacts = {
   refId: 'ref_1',
@@ -438,4 +441,85 @@ test('R1 store: 捕获时的 declaration 事实被原样保留（摄取补全的
   // 未带 declaration 的旧式 RawRefFacts 不得凭空得到状态。
   const legacy = store.create({ ...FACTS, selector: '#t2', declarationHash: '' });
   assert.equal('declaration' in legacy.facts, false);
+});
+
+/* ── V5.5-1 TASK-V55-115（ADR-V55-004 §1 · FR-SELF-022/025/026 · X-SELF-5）──────
+ *
+ * 「答案不被丢弃」的机核两半：
+ *   ① **sends 递增不足以满足本判据** —— 计数会动，但答案**不是任何输入**（会话 B 的根因）；
+ *   ② 唯一入口 `applyRefAction` 的驱动分支**严格在** `outcome.allowed === true` 之后
+ *      （否则「无效引用也产生驱动」违反 EC-SELF-006）。
+ * 反证：把驱动分支去掉（恢复「只计数」）⇒ 判据必红 → 逐字节还原 ⇒ PASS。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 唯一入口 `applyRefAction` 的源码体（切片到下一段文档注释）。 */
+export function applyRefActionBody(source: string): string {
+  const start = source.indexOf('function applyRefAction(');
+  if (start < 0) return '';
+  const rest = source.slice(start);
+  const end = rest.indexOf('\n/**');
+  return end < 0 ? rest : rest.slice(0, end);
+}
+
+/** 判据：裁决 + **驱动**（有效 ⇒ 悬置登记 + `'answered'` 时机），且驱动在放行之后。 */
+export function applyRefDriveProblems(source: string): string[] {
+  const body = applyRefActionBody(source);
+  const problems: string[] = [];
+  if (!body) return ['applyRefAction 必须存在（唯一引用动作入口）'];
+  if (!/l1\?\.dispatchRefAction\(/.test(body)) problems.push('applyRefAction 必须经唯一 guard 入口 dispatchRefAction');
+  if (!/if \(!outcome\.allowed\)/.test(body)) problems.push('无效引用必须走既有阻塞终态（!outcome.allowed 分支）');
+  const allowIdx = body.indexOf('!outcome.allowed');
+  const driveIdx = body.indexOf('registerSuspension(');
+  const triggerIdx = body.indexOf('nextAfterSettle(');
+  if (driveIdx < 0 || triggerIdx < 0) {
+    problems.push('答案必须产生驱动（registerSuspension + nextAfterSettle）—— 恢复「只计数」⇒ 本判据必红（复现会话 B 静默）');
+    return problems;
+  }
+  if (!(allowIdx >= 0 && allowIdx < driveIdx && allowIdx < triggerIdx)) {
+    problems.push('驱动分支必须严格在 outcome.allowed === true 之后（EC-SELF-006：无效引用不得产生驱动）');
+  }
+  return problems;
+}
+
+const PKG = new URL('../../', import.meta.url).pathname;
+const SIDEPANEL_SRC = readFileSync(join(PKG, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+
+test('V5.5-1 答案驱动化：`sends += 1` 递增**不足以**满足「答案不被丢弃」（计数 vs 输入）', () => {
+  const store = createRefStore();
+  const rec = store.create({ ...FACTS, selector: '#t', textDigest: 't', semanticPath: 'p' });
+  const env = good({ resolution: { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 } });
+  store.judge(env);
+  assert.equal(store.dispatch(rec.facts.refId, env).allowed, true);
+  assert.equal(store.commandSends(), 1, '前置：既有计数副作用仍在（保留，不退役）');
+  // ① 只有计数：答案**不是**任何输入 ⇒ 「答案不被丢弃」**不成立**（会话 B 的机器复现）。
+  assert.equal(answerNotDropped([], '原地翻译为中文'), false, '只计数不足以满足判据');
+  // ② 悬置登记后：答案成为**悬置任务输入** ⇒ 判据成立。
+  resetSuspensions();
+  assert.equal(registerSuspension({ driverId: 'ref-action', source: 'ref', late: false, kind: 'answered', instruction: '原地翻译为中文', evidence: ['ref.validCount'] }), true);
+  assert.equal(answerNotDropped(listSuspensions(), '原地翻译为中文'), true, '悬置任务输入里必须可判命中');
+  // ③ 幂等（NFR-SELF-010）：同因重复登记 ⇒ 不产生第二条。
+  assert.equal(registerSuspension({ driverId: 'ref-action', source: 'ref', late: false, kind: 'answered', instruction: '原地翻译为中文', evidence: ['ref.validCount'] }), false);
+  assert.equal(listSuspensions().length, 1, '同因不得重复驱动');
+  resetSuspensions();
+});
+
+test('V5.5-1 唯一入口：裁决 + 驱动（有效 ⇒ 驱动；无效 ⇒ 阻塞终态 + 可达 next）∧ 驱动在放行之后', () => {
+  assert.deepEqual(applyRefDriveProblems(SIDEPANEL_SRC), []);
+  // 反证 ①：恢复「只计数」（删掉驱动分支）⇒ 必红。
+  const countOnly = SIDEPANEL_SRC.replace(/\n\s*registerSuspension\(\{[\s\S]*?\}\);\n\s*nextAfterSettle\(\{ kind: 'answered' \}\);/, '');
+  assert.notEqual(countOnly, SIDEPANEL_SRC, '前置：注入锚点必须存在');
+  assert.ok(
+    applyRefDriveProblems(countOnly).some((p) => p.includes('恢复「只计数」')),
+    '恢复只计数 ⇒ 必红（复现会话 B）',
+  );
+  // 反证 ②：把驱动挪到放行**之前** ⇒ 顺序判据必红。
+  const body = applyRefActionBody(SIDEPANEL_SRC);
+  const moved = SIDEPANEL_SRC.replace(body, body.replace("if (!outcome.allowed) {", "nextAfterSettle({ kind: 'answered' });\n  if (!outcome.allowed) {"));
+  assert.notEqual(moved, SIDEPANEL_SRC);
+  assert.ok(applyRefDriveProblems(moved).length > 0, '驱动先于放行 ⇒ 必红');
+  assert.deepEqual(applyRefDriveProblems(SIDEPANEL_SRC), [], '还原 ⇒ PASS（判据非恒真）');
+  // `commandSends` 保留 + 消费面（1 只读投影 + 测试）——不退役，也不取得驱动语义。
+  const panels = readFileSync(join(PKG, 'src/ui/sidepanel/l1/panels.ts'), 'utf8');
+  assert.match(panels, /commandSends/, 'commandSends 只读投影消费面保留');
+  assert.ok(!/commandSends[\s\S]{0,40}nextAfterSettle/.test(panels), 'commandSends 不得取得驱动语义');
 });
