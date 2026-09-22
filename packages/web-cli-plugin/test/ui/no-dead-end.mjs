@@ -144,7 +144,10 @@ async function main() {
 
     // ── ND-7 阻塞枚举单源（消费 v5-1 单源 + 声明恰一次扫描） ────────────────────
     const defSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/definition.ts'), 'utf8');
-    const declared = [...defSrc.matchAll(/'([a-z][a-z.]*\.[a-z-]+)'/g)].map((m) => m[1]).filter((t) => t.includes('.'));
+    // V5-3 review R1（I-05）：`definition.ts` 现在还在 `BLOCKED_RECOVERY_TRIGGER` 的**对象键**上
+    // 复用同一组终态字面量（编译期穷尽检查），故声明面按**去重后的集合**判定 —— 判据仍是
+    // 「声明的阻塞态集合 == 共享样本集合」（去的只是同一字面量在同一声明源里的重复出现）。
+    const declared = [...new Set([...defSrc.matchAll(/'([a-z][a-z.]*\.[a-z-]+)'/g)].map((m) => m[1]).filter((t) => t.includes('.')))];
     const sites = {};
     for (const file of srcFiles(join(PACKAGE_ROOT, 'src'))) {
       const rel = file.slice(file.indexOf(PACKAGE_ROOT) + PACKAGE_ROOT.length + 1);
@@ -202,14 +205,112 @@ async function main() {
     // 无 ✖ 行裸奔：每个载体的 nextOf 都解析到已注册 op。
     check('ND-3 ✖ 行不裸奔：全部载体 nextOf 的 opId 均非空', sameScreen.ops.every((o) => typeof o === 'string' && o.startsWith('op.')), JSON.stringify(sameScreen.ops));
 
-    // ── S2 全链 10 环节主验收（AC-ALLN-001，消费 v5-2 样本） ────────────────────
-    console.log('\n▶ S2 全链主验收：10 环节逐环节 + 死端 = 0');
-    // ⑤ 授权 next 产出 / ⑩ 拾取 next 产出 = 面板自己的推荐生产者所铸的 `nextstep` 卡。
-    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.blockedError('site.unauthorized', '✖ 未授权站点'); window.__v3.testing.recommend('idle'); true`);
-    const s2Readings = JSON.parse(await evaluate(cdp, STREAM_READING));
+    // ── S2 全链 10 环节主验收（AC-ALLN-001，消费 v5-2 样本；逐环节驱动 + 各自读数）──
+    // v5-3 review R1 **I-03**: the old landing only asserted `S2_CHAIN.length === 10` plus
+    // `form2 > 0`, i.e. the「10 环节主验收」claim was stronger than the judgement. Each of the
+    // 10 beats is now **driven** and read individually (①~⑤ the blocked segment this leaf owns;
+    // ⑥~⑩ driven through the same reducers / seams the product uses).
+    console.log('\n▶ S2 全链主验收：10 环节逐环节驱动 + 各自读数 + 死端 = 0');
+    const S2_ORIGIN = 'https://v3-nodeadend.test';
+    const s2Beats = [];
+    const beat = (id, ok, reading) => s2Beats.push({ id, ok: ok === true, reading: String(reading) });
     check('S2 ① 10 环节逐环节可判（共享样本导入无副作用）', S2_CHAIN.length === 10 && new Set(S2_CHAIN.map((b) => b.id)).size === 10, JSON.stringify(S2_CHAIN.map((b) => b.id)));
+    // ① 绑定当前标签页 / ② 探测声明 / ③ 未授权：真实后台 `discover` → 会话绑定 + 声明吸收。
+    const bindProbe = JSON.parse(
+      await evaluate(
+        cdp,
+        `(async () => {
+          await chrome.runtime.sendMessage({ kind: 'discover', origin: ${JSON.stringify(S2_ORIGIN)}, state: 'supported' });
+          await window.__v3.testing.refresh();
+          const s = document.getElementById('status');
+          const chip = document.getElementById('auth-state');
+          return JSON.stringify({ status: s ? s.textContent : '', auth: chip ? chip.getAttribute('data-auth') : null, chipText: chip ? chip.textContent : null });
+        })()`,
+      ),
+    );
+    beat('bind', bindProbe.status.includes(`站点 ${S2_ORIGIN}`), bindProbe.status);
+    beat('probe', /发现=supported/.test(bindProbe.status), bindProbe.status);
+    // ③ 未授权：chip 黄态逐字（授权态唯一常显载体的现场读数）。
+    beat('unauthorized', bindProbe.auth === 'yellow' && bindProbe.chipText === '未授权 · 零注入', `${bindProbe.auth} / ${bindProbe.chipText}`);
+    // ④ ✖ 阻塞（行内可判）：铸造期恢复面 + 行内 [data-op]（法七）。
+    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.blockedError('site.unauthorized', '✖ 未授权站点'); true`);
+    const s2Blocked = JSON.parse(await evaluate(cdp, STREAM_READING));
+    const s2BlockedErr = JSON.parse(s2Blocked.lastError ?? 'null');
+    beat(
+      'blocked',
+      s2BlockedErr !== null && s2BlockedErr.form1 === true && s2BlockedErr.deadEnd === false && s2Blocked.deadEnds === 0,
+      JSON.stringify({ lastError: s2BlockedErr, deadEnds: s2Blocked.deadEnds }),
+    );
+    // ⑤ 授权 next 产出：面板自己的推荐生产者铸 risk-recovery 卡（含 op.authorize）。
+    await evaluate(cdp, `window.__v3.testing.recommend('idle'); true`);
+    const s2Readings = JSON.parse(await evaluate(cdp, STREAM_READING));
+    beat(
+      'authorize-next',
+      s2Readings.nextstepOps.includes('op.authorize') && s2Readings.form2 > 0,
+      JSON.stringify({ nextstepOps: s2Readings.nextstepOps, form2: s2Readings.form2 }),
+    );
+    // ⑥ auth 卡（consent）：同一 reducer + 渲染器铸 auth 卡（与产品 `confirm` 路径同卡型）。
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamReset(); window.__v3.testing.streamSeed([{ kind: 'auth', cardId: 's2-auth', payload: { askKind: 'confirm', prompt: 'S2：批准站点授权（consent）', requestId: 's2-req' } }]); true`,
+    );
+    const authCard = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => { const c = document.querySelector('#stream [data-msg-type="auth"]'); const has = (t) => Boolean(c && [...c.querySelectorAll('button')].some((b) => b.textContent === t));
+          return JSON.stringify({ present: Boolean(c), decision: c ? c.getAttribute('data-decision') : null, summary: c ? c.querySelector('.auth-consequence')?.textContent ?? '' : '', allow: has('批准'), deny: has('拒绝') }); })()`,
+      ),
+    );
+    beat('auth-card', authCard.present === true && authCard.decision === 'pending' && authCard.allow && authCard.deny, JSON.stringify(authCard));
+    // ⑦ 握手执行（面板侧 commit）：批准 ⇒ `data-decision=approved`。真实 SW 两段握手 / 手势面
+    //    由 `test:ask-auth` ⑥⑦ 覆盖（跨门禁引用，避免措辞强于判据）。
+    const commit = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => { const c = document.querySelector('#stream [data-msg-type="auth"]'); [...c.querySelectorAll('button')].find((x) => x.textContent === '批准').click();
+          return JSON.stringify({ decision: c.getAttribute('data-decision'), actionsGone: c.querySelector('.auth-actions') === null }); })()`,
+      ),
+    );
+    beat('execute', commit.decision === 'approved' && commit.actionsGone === true, JSON.stringify(commit));
+    // ⑧ ✓ 回执（留痕）：固化「已批准」+ 审计入口 + 终态零操作控件（append-only 留痕）。
+    const receipt = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => { const c = document.querySelector('#stream [data-msg-type="auth"]'); const b = c.querySelector('.card-fixed b');
+          return JSON.stringify({ fixedText: b ? b.textContent : null, audit: Boolean(c.querySelector('.audit-entry')), controls: c.querySelectorAll('button').length }); })()`,
+      ),
+    );
+    beat('receipt', receipt.fixedText === '已批准' && receipt.audit === true && receipt.controls === 0, JSON.stringify(receipt));
+    // ⑨ 探测恢复：真实 `authorize` → 状态回执 ⇒ chip 转绿（同一场景，声明仍 supported）。
+    const recovered = JSON.parse(
+      await evaluate(
+        cdp,
+        `(async () => {
+          await chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(S2_ORIGIN)}, hostPermissionGranted: false });
+          await window.__v3.testing.refresh();
+          const chip = document.getElementById('auth-state');
+          const s = document.getElementById('status');
+          return JSON.stringify({ auth: chip ? chip.getAttribute('data-auth') : null, chipText: chip ? chip.textContent : null, status: s ? s.textContent : '' });
+        })()`,
+      ),
+    );
+    beat('probe-recovered', recovered.auth === 'green' && recovered.chipText === '已授权 · supported' && /发现=supported/.test(recovered.status), JSON.stringify(recovered));
+    // ⑩ 拾取 next 产出：授权后同场景推进 ⇒ 真实推荐生产者铸可行动卡。判据口径 =「可行动的
+    //    next ∧ opId 已注册」（**N-09** 如实登记：该拍产出 `act='next'`→`op.turn`，非字面 op.pick）。
+    await evaluate(cdp, `window.__v3.testing.recommend('ref'); true`);
+    const pickNext = JSON.parse(await evaluate(cdp, STREAM_READING));
+    beat('pick-next', pickNext.nextstepOps.length > 0 && pickNext.nextstepOps.every((o) => typeof o === 'string' && o.startsWith('op.')), JSON.stringify({ nextstepOps: pickNext.nextstepOps, form2: pickNext.form2 }));
+    // 逐环节读数齐备（10/10，id 与共享样本逐序一致）。
+    check(
+      'S2 ① 十环节逐环节读数齐备（10/10，id 与共享样本逐序一致）',
+      s2Beats.length === 10 && s2Beats.every((b, i) => b.id === S2_CHAIN[i].id),
+      JSON.stringify(s2Beats.map((b) => b.id)),
+    );
+    for (const b of s2Beats) {
+      const label = S2_CHAIN.find((s) => s.id === b.id)?.label ?? b.id;
+      check(`S2 ${label} 逐环节读数`, b.ok === true, b.reading);
+    }
     check('S2 ④/② 同屏死端 = 0（阻塞全链无死端）', s2Readings.deadEnds === 0, JSON.stringify(s2Readings.dead));
-    check('S2 ⑤/⑩ 授权 next 产出 ∧ 拾取 next 产出均可达（risk-recovery 卡在屏）', s2Readings.form2 > 0, JSON.stringify({ form2: s2Readings.form2 }));
     // 人工面：浏览器原生权限弹窗体感（EC-ALLN-007）—— 不得冒充 PASS。
     check('S2 人工面：浏览器原生权限弹窗体感 = ⏳ 未执行（headless 无弹窗 UI，不得冒充 PASS）', true, '⏳ 未执行（PENDING_TIMEOUT：headless 无原生弹窗）');
 

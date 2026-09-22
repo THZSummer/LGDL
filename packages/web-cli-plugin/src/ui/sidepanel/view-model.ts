@@ -705,7 +705,19 @@ export interface L0View {
   band: {
     origin: string;
     siteName: string;
+    /**
+     * V5-3 review R1 **I-02** — the summary dot is the **session connection** state, never
+     * the authorization state: `idle` with no active origin, `ok` otherwise (the G draft's
+     *「摘要 dot 恒绿」). Authorization lives in exactly one place — the `#auth-state` chip —
+     * so this dot must not become its colour channel.
+     */
     statusDot: 'ok' | 'warn' | 'idle';
+    /**
+     * V5-3 review R1 **I-02** — the policy badge's own tone, derived from the policy
+     * dimension (`trust`). Previously it was written from the same `statusDot`, which made
+     * the toolbar region carry a second, colour-only projection of the authorization state.
+     */
+    policyTone: 'ok' | 'warn' | 'idle';
     statusText: string;
     policy: string;
     /** Compact badge shown on the band (`LLM：✅` / `LLM：⚠`). */
@@ -891,7 +903,11 @@ export function l0ViewModel(input: L0Input): L0View {
     band: {
       origin,
       siteName,
-      statusDot: !origin ? 'idle' : input.authorized ? 'ok' : 'warn',
+      // V5-3 review R1 I-02: session connection only — never `authorized`.
+      statusDot: !origin ? 'idle' : 'ok',
+      // V5-3 review R1 I-02: the policy badge keeps its own dimension (`trust`) instead of
+      // piggy-backing on the auth-coupled dot.
+      policyTone: !origin ? 'idle' : input.trust === 'trusted' ? 'ok' : 'warn',
       // The band carries the FULL origin (not just the host): the v1 status contract
       // (`站点 <origin> · 发现=… · 授权态`) is what the existing gates read, and
       // FR-V3-010 asks for「origin + 站点名」. The verbose LLM label is a detail of

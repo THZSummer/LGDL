@@ -11,7 +11,7 @@
  */
 import { RECOVERY_CHIP_ORDER, RECOVERY_CHIP_TEXT, type NextstepAct, type RecoveryTrigger } from '../recommend.js';
 import { ACT_TO_OP } from './dispatch.js';
-import { BLOCKED_TERMINALS, type NextCtx, type NextProvider } from './definition.js';
+import { BLOCKED_RECOVERY_TRIGGER, type BlockedTerminal, type NextCtx, type NextProvider } from './definition.js';
 import { registerNextProvider } from './registry.js';
 
 /** The 5 P0 recovery providers ↔ their 5 triggers (逐条, registration order = precedence). */
@@ -65,7 +65,10 @@ export const OPS_RECOVERY_PROVIDER_IDS: readonly string[] = Object.freeze(OPS_RE
 export function blockedRecovery(blocked: string): { readonly text: string; readonly opId: string }[] {
   const row = OPS_RECOVERY_ROWS.find((r) => r.blocked === blocked);
   if (row) return [{ text: row.text, opId: row.op }];
-  const t = (['site', '', '', 'hardFloor', 'refInvalid'] as (RecoveryTrigger | '')[])[BLOCKED_TERMINALS.indexOf(blocked as never)];
+  // V5-3 review R1 **I-05**: the terminal → trigger pairing is an **object keyed by the
+  // terminal** (`definition.ts#BLOCKED_RECOVERY_TRIGGER`, compile-time exhaustive) — the
+  // old positional array silently mis-paired on any `BLOCKED_TERMINALS` reorder.
+  const t = BLOCKED_RECOVERY_TRIGGER[blocked as BlockedTerminal];
   const acts = t ? RECOVERY_CHIP_ORDER[t] : undefined;
   return acts ? acts.slice(0, 3).map((a) => ({ text: RECOVERY_CHIP_TEXT[a], opId: ACT_TO_OP[a] })) : [];
 }

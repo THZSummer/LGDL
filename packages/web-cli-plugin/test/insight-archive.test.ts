@@ -109,6 +109,10 @@ function assertPinnedHash(label: string, actualHash: string, pinnedHash: string)
 //                  R2-2 b4392d651076080cdaa31ae76f06ae647563048f914e0c42b3a8be5f02e9c187
 //   R2-3 (2026-09-13, A1/A2)：tree-view.ts 追加 tightenOnly 控件分层 + crossTargets 透传 →
 //                  b0075d15b25dfef8c604a8efe7a21305d735ae3435ce8357397e95ba486e0849
+//   v5-3 review R1 修复轮 (2026-09-22, BLOCK-01 / FR-ALLN-086⑤)：tree-view.ts 站点行文案由
+//                  授权态值改为**指针**（`TREE_AUTH_POINTER_NOTE` 常量 + 站点行 sublabel）→
+//                  b0075d15… ⇒ **004f617400a744e350154df0b3e030511cfc14fda961369a539a21b79b002dce**
+//                  （上一值逐字保留；显式重 pin，理由 = 台账不复制授权态值）。
 //     tree-ops.ts  abf9cdaba89ab63c7f0fa3f9b3ef9e829a702ec45b169de6e378eafacece9257 →
 //                  R2-1/R2-2 4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658（R2-2 未改）
 //   tree-receipt.ts 不变（未改动）→ 保持旧值。
@@ -118,7 +122,7 @@ const TREE_NO_ESCALATION_NOTE_SHA256 =
 const TREE_ACTION_IDS_JSON_SHA256 =
   '71f743ed688d10ad74224b340d0e1b827f39a2b41aa625ca1d43dc9895aec1ac';
 const TREE_MODULE_SHA256: Readonly<Record<string, string>> = {
-  'src/ui/tree/tree-view.ts': 'b0075d15b25dfef8c604a8efe7a21305d735ae3435ce8357397e95ba486e0849',
+  'src/ui/tree/tree-view.ts': '004f617400a744e350154df0b3e030511cfc14fda961369a539a21b79b002dce',
   'src/ui/tree/tree-ops.ts': '4163a6cb6d402f1d54d5a251599edf1cb618b92fa4cabdb4bf99ed4a428ed658',
   'src/ui/tree/tree-receipt.ts': '484bf84f6f7eddf203f519826bb415399a5f4819c3e6e91329cd2b47430d3db6',
 };

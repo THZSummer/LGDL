@@ -41,6 +41,29 @@ export const BLOCKED_TERMINALS = Object.freeze([
 export type BlockedTerminal = (typeof BLOCKED_TERMINALS)[number];
 
 /**
+ * V5-3 review R1 **I-05** — each blocked terminal ↔ its **recovery trigger**, declared as an
+ * **object keyed by the terminal itself** (never a positional array).
+ *
+ * The born recovery chips (`providers.ts#blockedRecovery`) used to read a magic array
+ * (`['site','','','hardFloor','refInvalid'][BLOCKED_TERMINALS.indexOf(...)]`): any reorder
+ * of `BLOCKED_TERMINALS` silently mis-paired the chips. Keying by the terminal removes the
+ * positional coupling and makes the map **exhaustive at compile time** — the `satisfies`
+ * check below fails if a terminal is added, removed or renamed (a missing / extra key is a
+ * type error), so the pairing can no longer shift silently.
+ *
+ * `null` marks the two **op-driven** terminals (`llm.unconfigured` / `perm.missing`) whose
+ * chips are the repairing op itself (`OPS_RECOVERY_ROWS`), not a trigger's act list.
+ * The literals live here (the declaration site) so the single-source scan BT-1 stays green.
+ */
+export const BLOCKED_RECOVERY_TRIGGER = Object.freeze({
+  'site.unauthorized': 'site',
+  'llm.unconfigured': null,
+  'perm.missing': null,
+  'binding.stale': 'hardFloor',
+  'ref.all-invalid': 'refInvalid',
+} as const satisfies Readonly<Record<BlockedTerminal, string | null>>);
+
+/**
  * The idle-state anti-flicker interval — a **re-export** of the ONE declaration in
  * `recommend.ts` (V5-1 validate R1 finding I-04: this module used to carry a second,
  * product-unreferenced copy of the literal `10_000`; two independent declarations of

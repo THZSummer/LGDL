@@ -185,7 +185,16 @@ test('V2-1 sites: unauthorized sites are visible; revoke control only when autho
   const b = siteGroup.children.find((c) => c.id === 'site:https://b.test') as SiteNode;
   assert.equal(b.authorized, false, 'unauthorized site must still be visible');
   assert.deepEqual(b.controls, [], 'unauthorized site must not offer a revoke control');
-  assert.ok(b.badges.some((x) => x.kind === 'unauthorized'));
+  // V5-3 review R1 BLOCK-01 (FR-ALLN-086⑤ / ADR-V5-006 §2⑤): the 台账 **never copies** the
+  // authorization state — no `authorized` / `unauthorized` badge value on either site row;
+  // the row carries a **pointer** to the ONE carrier (`#auth-state`) instead.
+  assert.equal(
+    [a, b].some((s) => s.badges.some((x) => x.kind === 'authorized' || x.kind === 'unauthorized')),
+    false,
+    'site rows must not copy the authorization state value',
+  );
+  assert.ok(a.badges.some((x) => x.kind === 'auth-pointer'), 'authorized site row must point at the chip');
+  assert.ok(b.badges.some((x) => x.kind === 'auth-pointer'), 'unauthorized site row must point at the chip');
 });
 
 // ---------------------------------------------------------------------------
@@ -478,7 +487,11 @@ test('V2-1 summarizeInsight: counts + badge histogram are a small, additive summ
   assert.equal(summary.counts.capabilities, 16); // 5 static + 4 optional + 7 toggles
   assert.equal(summary.counts.llms, 1);
   assert.equal(summary.counts.sessions, 2);
-  assert.equal(typeof summary.badges.authorized, 'number');
+  // V5-3 review R1 BLOCK-01: the badge histogram no longer counts authorization-state
+  // values (the 台账 points at the chip); it counts the pointer + the other dimensions.
+  assert.equal(summary.badges.authorized, undefined);
+  assert.equal(summary.badges.unauthorized, undefined);
+  assert.equal(typeof summary.badges['auth-pointer'], 'number');
   assert.equal(summary.degraded, false);
 });
 

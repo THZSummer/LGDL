@@ -134,6 +134,10 @@
 | FR-ALLN-125 | 新门禁（死端守护 / 法八四面）纳入 `gate-integrity` | P0 |
 | FR-ALLN-130~134 | 体积：五要素重登记（三叶合计）+ 生效上限 + V3-VOL-3 三值同源 + 红线逐字节 + **预算前移评估** | P0 |
 
+> **口径回写（v5-3 review R1 I-01）**：FR-ALLN-086② 的「四词工具栏区零出现」按**授权态语义位**判定，非裸词全局禁 —— `#status` 的 `发现=support` / `发现=supported` 是站点**探测协议态**（连接事实，允许保留）；`supported` 以授权短语 `已授权 · supported` 为准。权威条文见父 `ADR-V5-006 §2`「四词扫描口径」，机核见 `test/ui/auth-chip.mjs`（`[data-auth]` 唯一 + 工具栏区零出现 + 注入反证）。
+>
+> **BLOCK-01 修复口径（v5-3 review R1）**：FR-ALLN-086⑤ 的「L2 树视图站点行指向 chip（台账不复制状态）」为**硬口径**：站点行**零授权态值**（无 `authorized`/`unauthorized` 徽标、行文案零「已授权/未授权」），改以 `auth-pointer` 指针指向唯一载体 `#auth-state`，且在 `#tree-drawer` 的 `replaceChildren()` 之后**运行期仍可见**（指针说明节点随壳体重建）。
+
 ---
 
 ## 5. 非功能需求（本叶相关）

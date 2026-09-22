@@ -758,9 +758,14 @@ function installV3TestHooks(): void {
        * Re-pull the authoritative state from the service worker — the same call the
        * panel makes on load and after every action. The gates use it after driving
        * a background message directly (there is no generic state push to listen to).
+       *
+       * V5-3 review R1 **I-03**: returns the underlying promise so a gate can **await**
+       * the applied reply (`await window.__v3.testing.refresh()` inside an async driver)
+       * instead of polling. Existing callers use the `…; true` form and ignore the value,
+       * so their behaviour is unchanged.
        */
-      refresh() {
-        void refreshState();
+      refresh(): Promise<void> {
+        return refreshState();
       },
       /** Reveal the fallback input + the full-text composer (ADR-V3-014 §5). */
       revealFallback() {

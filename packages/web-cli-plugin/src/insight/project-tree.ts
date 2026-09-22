@@ -96,16 +96,31 @@ const BASE_SOURCES = [
   'session-store',
 ] as const;
 
+/**
+ * FR-ALLN-086⑤ / ADR-V5-006 §2⑤（v5-3 review R1 **BLOCK-01** 修复）— 站点行徽标**永不复制授权状态值**。
+ *
+ * The L2 tree view is a **台账**（inventory）: it names what exists; it is **not** a second
+ * carrier of the authorization state. That state has exactly one always-resident carrier —
+ * the status-bar chip (`#auth-state`, FR-ALLN-085) — so this row contributes a
+ * machine-readable **pointer** (`kind: 'auth-pointer'`, rendered with
+ * `data-auth-pointer="#auth-state"`) instead of the value「已授权 / 未授权」.
+ *
+ * The `trust` tier stays: it is a *different* dimension (policy), rendered by its own
+ * always-visible channel — not the authorization state.
+ */
+export const AUTH_STATE_POINTER_BADGE = Object.freeze({
+  kind: 'auth-pointer' as const,
+  label: '授权态→状态栏 chip',
+  tone: 'muted' as const,
+});
+
 function siteBadges(site: InsightSourceSite): SiteNode['badges'] {
-  const badges: SiteNode['badges'] = [
-    site.authorized
-      ? { kind: 'authorized', label: '已授权', tone: 'ok' }
-      : { kind: 'unauthorized', label: '未授权', tone: 'warn' },
+  return [
+    { ...AUTH_STATE_POINTER_BADGE },
     site.trust === 'trusted'
       ? { kind: 'trusted', label: 'trusted', tone: 'ok' }
       : { kind: 'untrusted', label: 'untrusted', tone: 'muted' },
   ];
-  return badges;
 }
 
 function projectSites(sites: readonly InsightSourceSite[]): SiteNode[] {

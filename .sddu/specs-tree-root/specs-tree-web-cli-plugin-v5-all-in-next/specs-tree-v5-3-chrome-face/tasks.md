@@ -1085,3 +1085,30 @@ git status --short
 
 **门禁全局读数（R2 末）**：`npm test` **1181/0** · `l0` **248/0** · `density` **242/0** · `zero-injection` **28/0** · `binding` **192 PASS** · `ui`(journey) **171 PASS** · `stream` **73/0** · `ask-auth` **71/0** · `recommendation` **65/0** · `insight` **116 PASS** · `hardening` **24 PASS** · `page-input` **108/0** · `l1` **116/0** · `l2` **74/0** · `l1-reverse` **9 PASS** · `l2-reverse` **10 PASS** · `law8` **25/0** · `dead-end` **29/0** · `auth-chip` **30/0** · `e2e` **PASS** · `supersession` **36/0** · `gate-integrity` **15/0** · `size-ruling-vol3` **12/0** · `design-contract` **19/0**。
 体积：**546,370 B**（Δ **+4,306** ≤ 三叶合计口径）；红线 `content.js` **177,076 B** / `pick-layer.js` **33,900 B** 逐字节不变。
+
+---
+
+## 6. review R1 修复轮（`BLOCK-01` + `I-01~I-05`）— **已完成**（2026-09-22，基线 `b0a679e`）
+
+> 输入 = `review-report.md` R1（对象 `f8e50e8` / 叶基线 `9b262ae`，**❌ 不通过：1 阻塞 + 5 改进 + 3 观察**）。本轮**不新增任务编号**（修复轮增量按 §6.1 登记；`TASK-V5-153~176` 的编号与状态保持不变）。
+
+### 6.1 处置清单
+
+| # | 项 | 处置 | 状态 | 门禁读值 |
+|:--:|------|------|:--:|------|
+| 1 | **BLOCK-01**（FR-ALLN-086⑤） | 走「**修**」：`project-tree.ts#siteBadges` 授权态值 → `auth-pointer` 指针；`tree-view.ts` 站点行 sublabel → `TREE_AUTH_POINTER_NOTE`；`tree-drawer.ts` 指针属性 + 运行期指针说明节点；`insight.mjs#I-20a` **等价重锚**（`#I-20a1`/`#I-20a3`） | ✅ completed | `insight` **118 PASS**（116→118）；**两段证伪**：回退徽标值 ⇒ `EXIT=1`（`#I-20a1` 红，读数含 `siteAuthStateValues:["已授权"]` / `authPointerCount:0`）；逐字节还原 ⇒ `EXIT=0` 且产物 547,558 B |
+| 2 | **I-01**（四词 `supported` 口径） | 权威条文回写 `ADR-V5-006 §2`（新增「四词扫描口径」）+ 叶 `spec.md §4` 注；`auth-chip.mjs` 增**语义位**判据（`[data-auth]` 唯一 + 工具栏区 0 处）+ 注入反证 | ✅ completed | `auth-chip` ② 两条新判据绿 + FAIL/PASS 两段实跑 |
+| 3 | **I-02**（`data-status-dot` 颜色通道） | dot 只表**会话连接态**（无 origin ⇒ `idle` / 否则 `ok`）；新增 `policyTone` 走 policy 维度（`trust`），`l0/shell.ts` 写入点 | ✅ completed | `auth-chip` ② dot=ok ∧ green；③ 前置 green→yellow 翻转后 dot **仍 ok**（解耦实证） |
+| 4 | **I-03**（S2 全链口径） | `no-dead-end.mjs` **十环节逐环节驱动 + 各自读数**；`sidepanel.ts#refresh()` 测试缝可 await（无轮询） | ✅ completed | `dead-end` **39 / 0**（29→39）；`N=0` 口径断言仍绿 |
+| 5 | **I-04**（v5-2 移交 N-04~N-09） | 本叶（末叶 / 收口叶）**逐项处置登记**：N-04/N-05/N-06/N-07 维持登记（owner 明确，N-06/N-07 转安全小项）；N-08 本叶统一登记（复核零 diff，不伪称闭环）；N-09 口径沿用 | ✅ completed | `build.md §9.5` + 本表 + `state.json#v52HandoverFindings` + `docs/v4-supersession-ledger.json#reviewFixFindingsV53` |
+| 6 | **I-05**（`blockedRecovery` 顺序耦合） | 魔法数组 → `definition.ts#BLOCKED_RECOVERY_TRIGGER` **对象键对齐 + 编译期穷尽**（`satisfies Record<BlockedTerminal, …>`） | ✅ completed | **编译期证伪**：删键 ⇒ `tsc TS1360`；还原 ⇒ `tsc 0` + sha 复核；`dead-end` 39/0 |
+| 7 | 体积五要素（BLOCK-01/I 项字节） | **六文件同源重登记**：546,370 → **547,558 B**（+1,188；Σ 模块 +1,188 + glue 0） | ✅ completed | 档位 563,200 / 绝对上限 619,520 不变；生效上限 574,935 |
+| 8 | 台账 `modifiedRanges[]` | 新增 `V53R1-MR-insight-I20a` / `V53R1-MR-insight-archive-treeview-pin` / `V53R1-MR-insight-projection-站点徽标` / `V53R1-MR-insight-projection-直方图` / `V53R1-MR-volume-reviewfix` + 叶段逐字登记 + `newTitle` 换链 | ✅ completed | `supersession` **36 / 0**；`npm test` **1181 / 0** |
+
+### 6.2 门禁全局读数（修复轮末）
+
+`npm test` **1181/0** · `law8` **25/0** · `dead-end` **39/0** · `auth-chip` **37/0** · `density` **242/0** · `l0` **248/0** · `insight` **118/0** · `binding` **192 PASS** · `ui`(journey) **171 PASS** · `zero-injection` **28/0** · `stream` **73/0** · `ask-auth` **71/0** · `l2` **74/0** · `page-input` **108/0** · `recommendation` **65/0** · `gate-integrity` **15/0** · `supersession` **36/0** · `design-contract` **19/0** · `size-ruling-vol3` **12/0** · `e2e` **PASS**。
+体积：**547,558 B**（Δ +1,188；生效上限 574,935）；红线 `content.js` **177,076 B** / `pick-layer.js` **33,900 B** 逐字节不变；journey / binding 保护段三值不变。
+日志：`/tmp/opencode/v4-gate-logs/v5-3-reviewfix/`（含 `falsify/`）。
+
+> **状态**：`phase` 保持 `reviewed`（`status=tracked`）；修复轮完成，**建议 R2 复审** → `@sddu-review specs-tree-v5-3-chrome-face`。

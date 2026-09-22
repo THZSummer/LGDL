@@ -32,6 +32,9 @@ export const INSIGHT_DIMENSIONS: readonly Dimension[] = ['site', 'capability', '
 export type BadgeTone = 'ok' | 'warn' | 'danger' | 'muted';
 
 export type BadgeKind =
+  // V5-3 review R1 BLOCK-01 (FR-ALLN-086⑤): the site row carries a **pointer** to the
+  // unique authorization carrier (`#auth-state`), never a copy of the state value.
+  | 'auth-pointer'
   | 'authorized'
   | 'unauthorized'
   | 'revocable'

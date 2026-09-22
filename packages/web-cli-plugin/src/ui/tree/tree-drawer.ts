@@ -28,6 +28,7 @@
  */
 import type { PolicyAction } from '@lgdl/web-cli-base';
 import {
+  TREE_AUTH_POINTER_NOTE,
   TREE_MODEL_NOTE,
   TREE_NO_ESCALATION_NOTE,
   buildTreeRows,
@@ -227,7 +228,13 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
     const notes = el('div', 'tree-notes');
     const noteModel = el('div', 'tree-note tree-note-model', TREE_MODEL_NOTE);
     const noteNoEscalation = el('div', 'tree-note tree-note-no-escalation', TREE_NO_ESCALATION_NOTE);
-    notes.append(noteModel, noteNoEscalation);
+    // FR-ALLN-086⑤ (v5-3 review R1 BLOCK-01): the static copy in `index.html` is removed by
+    // this very `root.replaceChildren()` (L215), so the pointer note must be re-created HERE
+    // to stay runtime-visible — the pointer is part of the rendered ledger, not a pre-JS
+    // placeholder.
+    const noteAuthPointer = el('div', 'tree-note tree-note-auth-pointer', TREE_AUTH_POINTER_NOTE);
+    noteAuthPointer.setAttribute('data-auth-pointer', '#auth-state');
+    notes.append(noteModel, noteNoEscalation, noteAuthPointer);
 
     const breadcrumb = el('div', 'tree-breadcrumb');
     breadcrumb.id = 'tree-breadcrumb';
@@ -625,6 +632,10 @@ export function mountTreeDrawer(deps: TreeDrawerDeps): TreeDrawerHandle {
         const badgeEl = el('span', 'tree-badge', badge.label);
         badgeEl.dataset.tone = badge.tone;
         badgeEl.dataset.kind = badge.kind;
+        // FR-ALLN-086⑤ (v5-3 review R1 BLOCK-01): the site row's badge is a machine-readable
+        // **pointer** to the unique authorization carrier — `data-auth-pointer="#auth-state"`.
+        // It carries no state value, so no second projection of「已授权 / 未授权」exists here.
+        if (badge.kind === 'auth-pointer') badgeEl.dataset.authPointer = '#auth-state';
         badges.append(badgeEl);
       }
       head.append(badges);

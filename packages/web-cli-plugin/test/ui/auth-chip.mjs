@@ -44,16 +44,26 @@ const FIXTURE_ORIGIN = 'https://v3-authchip.test';
 export const FOUR_WORDS = ['未授权', '已授权', '零注入'];
 /**
  * The `supported` half is scanned as the **auth phrase** (`已授权 · supported`), never as a
- * bare token: `发现=supported` is the site's declaration state — an unrelated fact that a
- * bare-token match would flag as a false positive (口径登记，见 build.md)。
+ * bare token: `发现=supported` is the site's declaration/probing **protocol** state — a
+ * connection fact, not an authorization state — so a bare-token match would be a false
+ * positive. **This caliber is registered (v5-3 review R1 I-01)** in the parent ADR
+ * (`ADR-V5-006 §2`「四词扫描范围」) and in the leaf `spec.md`, not only in build.md.
+ *
+ * The judgement is therefore about the **authorization-state semantic slot**, not a global
+ * bare-word ban: the machine-readable slot is `data-auth` (see {@link AUTH_SLOT}) plus the
+ * two literal state phrases. `#status`'s `发现=support`/`发现=unsupported` protocol token
+ * is explicitly allowed to stay (it is the connection state that the toolbar summary carries).
  */
 export const AUTH_PHRASES = ['未授权 · 零注入', '已授权 · supported'];
+/** The authorization-state semantic slot (I-01): the ONE machine-readable carrier. */
+export const AUTH_SLOT = '[data-auth]';
 /** The two-state copy, 逐字 (FR-ALLN-085). */
 export const STATE_TEXT = { yellow: '未授权 · 零注入', green: '已授权 · supported' };
 
 export const JUDGEMENTS = [
   { id: 'AC-1-two-states', expectFailPattern: '两态恒显其一（chip 永不为 hidden）' },
   { id: 'AC-2-unique-carrier', expectFailPattern: '四词唯一命中必须 = #auth-state（工具栏 / rail 零出现）' },
+  { id: 'AC-2b-auth-slot', expectFailPattern: '授权态语义位（[data-auth]）必须唯一：工具栏区零出现（I-01 口径）' },
   { id: 'AC-3-yellow-click', expectFailPattern: '黄态点击必须产 op.authorize next 卡 + 系统行（不跳走）' },
   { id: 'AC-4-green-click', expectFailPattern: '绿态点击必须展开管理详情（默认折叠 / 不跳走）' },
   { id: 'AC-5-j1-j4', expectFailPattern: 'J1~J4 不得被授权 chip 破坏' },
@@ -75,6 +85,11 @@ const SCAN = `(() => {
     for (const ph of ${JSON.stringify(AUTH_PHRASES)}) if (textContent.includes(ph)) hits.push(name + ':phrase:' + ph);
   }
   const vis = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
+  // I-01 (v5-3 review R1): the authorization-state **semantic slot** — the machine-readable
+  // channel, judged independently of the discovery-protocol token. It must be exactly ONE
+  // element in the whole panel (the chip) and ZERO inside the toolbar region.
+  const authSlot = [...document.querySelectorAll('${AUTH_SLOT}')];
+  const toolbarSlot = toolbar ? [...(toolbar.hasAttribute('data-auth') ? [toolbar] : []), ...toolbar.querySelectorAll('${AUTH_SLOT}')] : null;
   // 密度口径（ADR-V4-020）：测量根 = document.body，豁免子树 = #stream（只认 hidden 祖先）。
   const stream = document.getElementById('stream');
   const clickables = [...document.body.querySelectorAll('*')].filter((el) => {
@@ -93,6 +108,9 @@ const SCAN = `(() => {
     railAuth: rail ? rail.querySelectorAll('[data-risk-class="unauthorized"]').length : -1,
     hits,
     clickables,
+    authSlotCount: authSlot.length,
+    authSlotIds: authSlot.map((el) => el.id || '(no-id)'),
+    toolbarAuthSlotCount: toolbarSlot ? toolbarSlot.length : -1,
     detailHidden: document.getElementById('auth-detail') ? document.getElementById('auth-detail').hidden : null,
   });
 })()`;
@@ -140,6 +158,40 @@ async function main() {
     console.log('\n▶ ② 零双写：四词在工具栏区 / 风险区零出现，唯一命中 = #auth-state');
     check(`② 扫描范围（工具栏 ∪ 状态行 ∪ #risk-chips ∪ rail）四词零命中`, green.hits.length === 0, JSON.stringify(green.hits));
     check('② 唯一命中 = #auth-state（其文本即两态之一）', green.chipText === STATE_TEXT.green, JSON.stringify(green.chipText));
+    // I-01（v5-3 review R1）：覆盖「授权态**语义位**」而非裸词全局禁 —— 机器可读位 `data-auth`
+    // 全 UI 恰 1 处（= chip），工具栏区 0 处；`发现=supported`（探测协议态 / 连接态）不参与本判据。
+    check(
+      '② 授权态语义位（I-01）：全 UI `[data-auth]` 恰 1 处 = #auth-state',
+      green.authSlotCount === 1 && green.authSlotIds[0] === 'auth-state',
+      JSON.stringify({ authSlotCount: green.authSlotCount, authSlotIds: green.authSlotIds }),
+    );
+    check('② 授权态语义位（I-01）：工具栏区 `[data-auth]` 恰 0 处（无颜色 / 属性第二投影）', green.toolbarAuthSlotCount === 0, JSON.stringify({ toolbarAuthSlotCount: green.toolbarAuthSlotCount }));
+    // 反证：把授权态语义位塞进工具栏 ⇒ 语义位判据必红；还原 ⇒ 绿。
+    const injSlot = JSON.parse(
+      await evaluate(cdp, `(() => { const t = document.getElementById('region-toolbar'); t.setAttribute('data-auth', 'green'); const r = ${SCAN}; t.removeAttribute('data-auth'); return r; })()`),
+    );
+    check(
+      '② (FAIL 段) 授权态语义位第二投影注入工具栏 ⇒ 语义位判据必红',
+      injSlot.toolbarAuthSlotCount === 1 && injSlot.authSlotCount === 2,
+      JSON.stringify({ toolbarAuthSlotCount: injSlot.toolbarAuthSlotCount, authSlotCount: injSlot.authSlotCount }),
+    );
+    const restSlot = JSON.parse(await evaluate(cdp, SCAN));
+    check('② (PASS 段) 还原后语义位回到恰 1 处（判据非恒真）', restSlot.authSlotCount === 1 && restSlot.toolbarAuthSlotCount === 0, JSON.stringify({ authSlotCount: restSlot.authSlotCount, toolbarAuthSlotCount: restSlot.toolbarAuthSlotCount }));
+    // I-02（v5-3 review R1）：工具栏摘要 dot 只表**会话连接态**（G 稿「摘要 dot 恒绿」）——
+    // 非 idle 恒 ok，与授权态解耦（授权态只在 chip 的语义位里）。
+    const dots = JSON.parse(
+      await evaluate(cdp, `(() => { const s = document.querySelector('.site-summary'); const p = document.getElementById('l0-policy-badge'); return JSON.stringify({ statusDot: s ? s.getAttribute('data-status-dot') : null, policyTone: p ? p.getAttribute('data-tone') : null, policy: p ? p.textContent : null, auth: document.getElementById('auth-state').getAttribute('data-auth') }); })()`),
+    );
+    check(
+      '② 摘要 dot（I-02）只表会话连接态：有站点 ⇒ ok（与授权态解耦；G 稿「摘要 dot 恒绿」）',
+      dots.statusDot === 'ok' && dots.auth === 'green',
+      JSON.stringify(dots),
+    );
+    check(
+      '② 策略徽标 tone（I-02）走 policy 维度（trusted ⇒ ok / untrusted ⇒ warn），不再搭授权 dot 的便车',
+      dots.policyTone === (dots.policy === '策略：trusted' ? 'ok' : 'warn'),
+      JSON.stringify(dots),
+    );
     // 反证：把四词写回工具栏 ⇒ 必红；还原 ⇒ 绿。
     const inj2 = JSON.parse(
       await evaluate(cdp, `(() => { const s = document.getElementById('status'); const old = s.textContent; s.textContent = old + ' · 已授权'; const r = ${SCAN}; s.textContent = old; return r; })()`),
@@ -173,6 +225,16 @@ async function main() {
     await sleep(250);
     const beforeClick = JSON.parse(await evaluate(cdp, SCAN));
     check('③ 前置：回到黄态', beforeClick.state === 'yellow', JSON.stringify(beforeClick));
+    // I-02 direct decoupling proof: with the SAME active origin, the dot stays `ok` while the
+    // authorization state flips green → yellow. A dot coupled to `authorized` would be `warn` here.
+    const yellowDot = JSON.parse(
+      await evaluate(cdp, `(() => { const s = document.querySelector('.site-summary'); const p = document.getElementById('l0-policy-badge'); return JSON.stringify({ statusDot: s ? s.getAttribute('data-status-dot') : null, policyTone: p ? p.getAttribute('data-tone') : null, auth: document.getElementById('auth-state').getAttribute('data-auth') }); })()`),
+    );
+    check(
+      '③ 前置 摘要 dot（I-02）：授权态由 green→yellow 翻转后 dot 仍 ok ⇒ 与授权态解耦（同上 origin）',
+      yellowDot.statusDot === 'ok' && yellowDot.auth === 'yellow',
+      JSON.stringify(yellowDot),
+    );
     const yellowClick = JSON.parse(
       await evaluate(
         cdp,
@@ -230,7 +292,7 @@ async function main() {
           const viewBefore = document.getElementById('view-host').hidden;
           document.getElementById('auth-state').click();
           const expanded = document.getElementById('auth-detail').hidden === false;
-          const vis = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
+  const vis = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
           const st = document.getElementById('stream');
           const clickables = [...document.body.querySelectorAll('*')].filter((el) => { if (st && st.contains(el)) return false; if (!vis(el)) return false; const t = el.tagName || ''; return /^(BUTTON|A|INPUT|SELECT|TEXTAREA)$/.test(t) || (el.hasAttribute('tabindex') && el.getAttribute('tabindex') !== '-1'); }).length;
           const sel = document.getElementById('auth-detail-actions');

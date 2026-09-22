@@ -256,9 +256,127 @@
 
 ---
 
+## 9. build **review R1 修复轮**（BLOCK-01 + I-01~05 · 2026-09-22）
+
+> **输入**: 本叶 `review-report.md` R1（对象 HEAD `f8e50e8` / 叶基线 `9b262ae`）——**结论 ❌ 不通过**（1 阻塞 + 5 改进 + 3 观察）。
+> **本轮基线**: `b0a679e`（review R1 报告提交）。
+> **更新说明**: BLOCK-01 走「**修**」方案（站点行授权态改**指针**，唯一载体彻底闭环）；I-01~I-05 逐项处置；体积五要素同源重登记；两段证伪实跑。
+
+### 9.1 交付概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 处置项 | **BLOCK-01（修）** + **I-01 / I-02 / I-03 / I-04 / I-05（5/5）** |
+| 改动文件（`src`） | 9 个（`insight/project-tree.ts` · `insight/tree-model.ts` · `ui/tree/tree-view.ts` · `ui/tree/tree-drawer.ts` · `ui/sidepanel/view-model.ts` · `ui/sidepanel/l0/shell.ts` · `ui/sidepanel/next-registry/providers.ts` · `ui/sidepanel/next-registry/definition.ts` · `ui/sidepanel/sidepanel.ts`） |
+| 改动文件（`test`） | 7 个（`ui/insight.mjs` · `ui/auth-chip.mjs` · `ui/no-dead-end.mjs` · `insight-archive.test.ts` · `insight-projection.test.ts` · `size-baseline.ts` · `size-budget.test.ts` · `size-ruling-vol3.test.ts` · `size-growth-evidence.test.ts`） |
+| 文档 / 台账 | `ADR-V5-006 §2`（I-01 口径回写）· 叶 `spec.md §4`（注）· `docs/v4-density-baseline.json` · `docs/v4-supersession-ledger.json` |
+| 体积 | `dist/sidepanel.js` **546,370 → 547,558 B**（**Δ = +1,188 B，+0.22%**）；档位 563,200 / 绝对上限 619,520 未变；生效上限 → **574,935** |
+| 红线冻结面 | `content.js` 177,076 B / sha `52a82620…`、`pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变** |
+| 保护段 | journey `43054..58287` / sha `cc79f413…` / 240 行 **三值不变**；binding `107780..115930` / sha `be9ad0e9…` **不变** |
+| 门禁（串行） | `npm test` **1181 / 0** · law8 **25 / 0** · dead-end **39 / 0**（29 → 39，I-03 补 10） · auth-chip **37 / 0**（30 → 37，I-01/I-02 补 7） · density **242 / 0** · l0 **248 / 0** · insight **118 / 0**（116 → 118，BLOCK-01 重锚） · binding **192 PASS** · journey **171 PASS** · zero-injection 28 / 0 · stream 73 / 0 · ask-auth 71 / 0 · l2 74 / 0 · page-input 108 / 0 · recommendation 65 / 0 · gate-integrity 15 / 0 · supersession 36 / 0 · design-contract 19 / 0 · size-ruling-vol3 12 / 0 · e2e PASS |
+
+日志：`/tmp/opencode/v4-gate-logs/v5-3-reviewfix/`（含 `falsify/` 两段证伪原文）。
+
+### 9.2 BLOCK-01（走「修」方案）：L2 站点行授权态改**指针**
+
+**问题（review R1 BLOCK-01 原文摘要）**：FR-ALLN-086⑤ / AC-ALLN-012 / ADR-V5-006 §2⑤「L2 树视图站点行改指向 chip（不复制状态）」未落地：① 站点行仍渲染授权态徽标「已授权 / 未授权」（`siteBadges` → 站点节点 `badges` → `.tree-badge`）；② 唯一的静态指针文案被 `tree-drawer.ts:215 root.replaceChildren()` 清除 ⇒ 运行期不可见；③ `test/ui/insight.mjs#I-20a` 仍**断言**站点行 `siteAuthorized === '已授权'`。build.md §2/§3 却称已完成。
+
+**修法（唯一载体彻底闭环，两处状态值 + 一处运行期）**：
+
+| # | 位置 | 修法 |
+|:--:|------|------|
+| ① | `src/insight/project-tree.ts#siteBadges` | 移除授权态值徽标（`已授权`/`未授权`），改**指针**常量 `AUTH_STATE_POINTER_BADGE`（`kind: 'auth-pointer'`，label `授权态→状态栏 chip`，tone `muted`）；`trust` 徽标保留（不同维度）。`BadgeKind` 新增 `'auth-pointer'` 成员。 |
+| ② | `src/ui/tree/tree-view.ts` | 站点行 `sublabel` 由 `node.authorized ? '已授权站点（可撤销授权）' : '未授权站点（不构成授权）'` 改为单一指针常量 `TREE_AUTH_POINTER_NOTE`（`授权状态见状态栏授权 chip（本台账不复制状态值）`）—— 行文案层也零状态值。 |
+| ③ | `src/ui/tree/tree-drawer.ts` | 徽标渲染：`kind === 'auth-pointer'` ⇒ `data-auth-pointer="#auth-state"`（机器可读指针）；`ensureShell()` 内**重建**指针说明节点 `.tree-note-auth-pointer`（`data-auth-pointer="#auth-state"`）—— 修复「静态文案被 `replaceChildren()` 清除」⇒ 指针运行期可见。 |
+
+**等价重锚（`test/ui/insight.mjs#I-20a`）**：旧读数面 `siteAuthorized === '已授权'`（第二投影）**反向重锚**为：
+
+- `#I-20a`（保留）：逐层展开 + `hasSite/hasSupport/hasTool/toolRole` 不变（**不再**断言站点行授权态值）；
+- `#I-20a1`（新，语义）：站点行 **0 枚**授权态徽标 ∧ 行文案**零**「已授权/未授权」 ∧ 存在 `[data-auth-pointer="#auth-state"]` 指针 ∧ 指针目标 `#auth-state` 真实存在；
+- `#I-20a3`（新）：`.tree-note-auth-pointer` 存活于 `replaceChildren()` 之后 ∧ 指向 `#auth-state`；
+- `#I-20a2`：子命令层（`site_notes list/show`）不变。
+
+**两段证伪（实跑，原文）**：
+
+- **① 回退徽标值 ⇒ 红**（`falsify/block01-revert-insight.log`）：把 `siteBadges` 改回 `{ kind: 'authorized', label: '已授权' }` 后重跑 `test:insight` ⇒ `EXIT=1`，唯一失败：
+  - `✖ #I-20a1 台账零授权态值：… — {"siteAuthStateValues":["已授权"],"siteRowText":"▾站点 http://127.0.0.1:36511已授权untrusted 授权状态见状态栏授权 chip（本台账不复制状态值）","authPointerCount":0,…}`
+  - 即判据精确抓到了「第二投影回来 + 指针消失」。
+- **② 逐字节还原 ⇒ 绿**（`falsify/block01-restore-insight.log`）：`cp` 还原 `project-tree.ts` 后重跑 `test:insight` ⇒ `EXIT=0`，`#I-20a1`/`#I-20a3` 双绿，`UI insight PASS — 118 assertions`；产物 `dist/sidepanel.js` **547,558 B** 与登记值逐字节一致。
+
+**重锚对账（insight 116 → 118）**：`#I-20a` 的数量面**只增**（+2：`#I-20a1`/`#I-20a3`）；旧断言面**零删除**，其旧文本逐字登记于台账 `leafBases['specs-tree-v5-3-chrome-face'].registeredUncoveredLines` + `modifiedRanges['V53R1-MR-insight-I20a']`。投影层单测 `insight-projection.test.ts` 同口径重锚（站点行 0 枚授权态徽标 + `auth-pointer` 指针；直方图不再计授权态值），旧行逐字登记于 `V53R1-MR-insight-projection-*`。
+
+### 9.3 build.md 声明订正（原文如实保留引用）
+
+- **原文（§2 文件变更表，逐字引用）**：`+ L2 树视图站点行改**指向 chip**（不复制状态值）`（`src/ui/sidepanel/index.html` 行）。
+- **事实**：该声明在 R2 提交 `f8e50e8` 时**只有静态文案**，且被 `tree-drawer.ts#ensureShell()` 的 `root.replaceChildren()` 清除；站点行徽标仍复制「已授权 / 未授权」，`test:insight#I-20a` 还把它钉死 ⇒ 该轮「已完成」的措辞**强于产物**。
+- **订正**：该声明在本轮（review R1 修复轮）**才真正落地**（见 §9.2）；原文如实保留于此，**不追改历史语句**，以本订正条为准。R2 修订记录表中该行的「已完成」口径由本条显式收窄。
+
+### 9.4 I-01~I-05 逐项处置
+
+| # | 处置 | 落点 | 证据 |
+|:--:|------|------|------|
+| **I-01** | **四词扫描口径回写（权威条文）**：`未授权/已授权/零注入` 按裸词扫；`supported` **按授权短语**扫（`已授权 · supported`），`#status` 的 `发现=support`/`发现=supported` 是**探测协议态 / 连接事实**，**允许保留**；判据对象 = 授权态**语义位**（`[data-auth]` 唯一 + 工具栏区 0 处 + 两态逐字短语），非裸词全局禁 | 父 `ADR-V5-006 §2`（新增「四词扫描口径」条）+ 叶 `spec.md §4` 注 + `test/ui/auth-chip.mjs`（`AUTH_SLOT` 语义位读 + 两条新判据 + **注入反证**） | `auth-chip` ② 新判据绿：`[data-auth]` 全 UI 恰 1 处 = `#auth-state` ∧ 工具栏区 0 处；FAIL 段：把 `data-auth` 塞进 `#region-toolbar` ⇒ `authSlotCount 2 / toolbarAuthSlotCount 1` 必红；PASS 段还原 ⇒ 绿 |
+| **I-02** | 工具栏摘要 `data-status-dot` **与授权态解耦**（只表**会话连接态**：无 origin ⇒ `idle`，否则 `ok`，对齐 G 稿「摘要 dot 恒绿」）；策略徽标新增 `policyTone` 走 **policy 维度**（`trust`），不再搭授权 dot 的便车 | `view-model.ts#band.statusDot / policyTone` + `l0/shell.ts` 写入点 | `auth-chip` ②：green 态 dot=ok ∧ green；③ 前置：同 origin 由 green→yellow 翻转后 dot **仍 ok** ⇒ 解耦实证；`policyTone === (policy==='策略：trusted' ? 'ok' : 'warn')` |
+| **I-03** | `no-dead-end.mjs` S2 全链 **10/10 环节各自读数**（取消「只用长度 + form2>0 冒充主验收」）：①绑定 ②探测 ③未授权 ④阻塞 ⑤授权 next ⑥auth 卡 ⑦面板侧 commit ⑧回执留痕 ⑨探测恢复 ⑩拾取 next 逐环节**驱动 + 读数 + 一条断言**；⑨/⑩ 经 `authorize` → `refresh()` | `test/ui/no-dead-end.mjs`（新增 `beat()` 逐环节读数 + 10 条逐环节断言 + 1 条 10/10 齐备断言）+ `sidepanel.ts#refresh()` 测试缝改为**可 await**（无轮询，保 `N=0` 口径） | `dead-end` **39 / 0**（29 → 39）；N=0 口径断言仍绿（源文本无 `sleep`/定时器/`new Promise`，`waitFor` 仍恰 1 处）；⑦ 读数口径如实：面板侧 `data-decision=approved`（真实 SW 两段握手 / 手势面由 `test:ask-auth` ⑥⑦ 覆盖，措辞不夸大）；⑩ 判据 =「可行动 next ∧ opId 已注册」（**N-09** 口径） |
+| **I-04** | v5-2 移交 **N-04~N-09 在本叶显式处置**（末叶 / 收口叶，N-08 明示「建议 v5-3 统一」）—— 逐项现状见 §9.5；台账 `reviewFixFindingsV53` 追加登记 | 本 `build.md §9.5` + `tasks.md`（修复轮节）+ `state.json`（`reviewFixRound.nFindings`）+ `docs/v4-supersession-ledger.json#reviewFixFindingsV53` | 同 §9.5 |
+| **I-05** | `blockedRecovery` **魔法数组**（`['site','','','hardFloor','refInvalid'][indexOf(...)]`）改为**对象键对齐** + **编译期穷尽**：`definition.ts#BLOCKED_RECOVERY_TRIGGER`（`satisfies Readonly<Record<BlockedTerminal, string \| null>>`），值经 `RECOVERY_CHIP_ORDER` 单源派生 | `next-registry/definition.ts`（新增常量）+ `next-registry/providers.ts`（改对象键查表，删数组） | **编译期证伪**（`falsify/i05-compile-fail.log`）：删掉 `'ref.all-invalid'` 键 ⇒ `tsc` **TS1360**（`Property '"ref.all-invalid"' is missing`）；还原 ⇒ `tsc EXIT=0` 且三文件 sha 复核 OK。`dead-end` 39/0 证明 5 类 chips 运行期等价。 |
+
+### 9.5 v5-2 移交 N-04~N-09 处置现状（I-04 · 末叶收口，如实登记）
+
+> 出处：v5-2 `build.md §C-5`（validate R1 的 N-04~N-09 / KL-N-10）。本叶为**末叶 / 收口叶**，逐项给出处置（闭环 / 维持登记 + owner），保持 F/N 账连续。
+
+| # | 项（v5-2 移交） | 本叶处置 | owner / 去向 |
+|:--:|------|------|------|
+| **N-04** | `options.ts#bindPanelOps` 无 `snapshotTables`/`restoreTables` ⇒ options 面失败回滚 no-op（单 sink 原子写，无半完成态） | **维持登记**（口径项非缺陷）：本叶无 options 面改动；口径仍成立 | options 面 / 后续波次（**显式非本叶范围**） |
+| **N-05** | `op-bodies.ts#revoke('permission')` 多能力撤销中途失败 ⇒ permission 表只能 reconcile（Chrome 仅手势可授） | **维持登记**（平台限制口径）：本叶无 revoke 执行体改动 | 平台限制口径（不接受为「可修」） |
+| **N-06** | `op-executors.ts#execSwOp` 的 `op.perm.request` commit 只校验 `permission` 字段存在性（`ghost-cap` ⇒ `ok:true`）；在册判据在页侧 | **维持登记**（建议并入后续**安全小项**）：本叶未触及 SW op commit 校验，范围外 | **安全小项 backlog**（显式非本叶范围） |
+| **N-07** | `service-worker.ts#onMessage` 对**任何** kind 无发送方校验 ⇒ `op-exec` 与 legacy `authorize` 同等可伪造（I-08 口径，非新增边界） | **维持登记**（原编号口径）：本叶法八 / 死端 / 授权 chip 三门禁均为**面板侧**判据，未声明 SW 发送方校验 | **安全小项 backlog**（显式非本叶范围） |
+| **N-08** | `src/ui/settings/panel.ts:786#requestCapability` 第二手势入口（pre-existing，对 `8526ef8` 零 diff） | **本叶统一登记**（v5-2 建议「v5-3 统一」）：本叶收口时复核该入口**未被本叶任何改动触碰**（`git diff 9b262ae..HEAD -- src/ui/settings/panel.ts` 零 diff），故维持 pre-existing 登记，不伪称闭环 | v5-3 统一登记（**本轮完成登记**）→ 后续波次实现收敛 |
+| **N-09** | S2 样本恢复态 ⑩ 拍产出 `act='next'`（→`op.turn`）chip 而非字面 `op.pick`（口径如实） | **本叶消费并如实沿用**：I-03 的 ⑩ 读数判据显式写为「可行动 `next` ∧ opId 已注册」，**不**声称字面 `op.pick` | 口径（已在 `no-dead-end.mjs` ⑩ 注释逐字引用 N-09） |
+| **KL-N-10** | `test:binding` 环境性 flake（残留 headless Chromium 争用 → CDP socket） | 本轮 binding **首轮即 192 PASS**（无 flake）；纪律沿用「隔离复跑」 | 环境 |
+
+**结论**：N-04~N-09 **全部有显式处置**（0 悬空）；其中 N-06 / N-07 与 N-08 明确**不在本叶范围**并移交后续波次 / 安全小项，本叶不伪称闭环。
+
+### 9.6 体积五要素（同源重登记 · 六文件）
+
+**五要素**：① 前值 **546,370 B**；② 后值（**实测产物**）**547,558 B**（**+1,188 B，+0.22%**）；③ 日期 2026-09-22 / 来源 `packages/web-cli-plugin/dist/sidepanel.js`；④ 理由 = review R1 BLOCK-01 + I-01~05；⑤ 历史值逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` + `SIDEPANEL_RE_REGISTRATIONS['v5-3-reviewfix']`。
+
+**逐模块归因**（真实 `dist/build-meta.json` bytesInOutput，`SIDEPANEL_GROWTH_BREAKDOWN.v53FixRows`）：`sidepanel.ts` 95,702 → 96,037 (+335) / `view-model.ts` 23,668 → 23,946 (+278) / `tree-drawer.ts` 39,893 → 40,174 (+281) / `tree-view.ts` 21,267 → 21,392 (+125) / `next-registry/definition.ts` 703 → 917 (+214) / `next-registry/providers.ts` 4,880 → 4,834 (**−46**) / `l0/shell.ts` 3,285 → 3,286 (+1)；**Σ 模块 +1,188 + glue 0 == 登记增量 +1,188**。
+
+三值：档位 `ceilTo50KB(547,558) = 563,200`（未变）· 绝对上限 619,520（未变）· 生效上限 `min(619,520, floor(547,558 × 1.05) = 574,935) = 574,935`（由公式抬高；容差 5% 未动）。`authorConfirmation` 保持 `pending-author-line`（占位，不伪称已确认）。六文件：① `size-baseline.ts` ② `size-budget.test.ts` ③ `size-ruling-vol3.test.ts` ④ `size-growth-evidence.test.ts` ⑤ `docs/v4-density-baseline.json` ⑥ `docs/v4-supersession-ledger.json`。
+
+### 9.7 门禁复跑 vs 基线（串行，日志目录见 §9.1）
+
+| 门禁 | R2 基线 | 本轮 | 判定 |
+|---|:--:|:--:|:--:|
+| `npm test` | 1181 / 0 | **1181 / 0** | ✅ 计数不变（断言级只增；`test(` 注册数未增） |
+| `test:law8` | 25 / 0 | **25 / 0** | ✅ |
+| `test:dead-end` | 29 / 0 | **39 / 0** | ✅ I-03 补 10 条逐环节读数 |
+| `test:auth-chip` | 30 / 0 | **37 / 0** | ✅ I-01/I-02 补 7 条（含语义位注入反证） |
+| `test:insight` | 116 PASS | **118 PASS** | ✅ BLOCK-01 重锚 +2 |
+| `test:density` | 242 / 0 | **242 / 0** | ✅ 密度口径与阈值逐字未动 |
+| `test:l0` | 248 / 0 | **248 / 0** | ✅ |
+| `test:binding` | 192 PASS | **192 PASS** | ✅ 保护段 `be9ad0e9…` 不变 |
+| `test:ui`（journey） | 171 PASS | **171 PASS** | ✅ 保护段三值不变 |
+| `test:zero-injection` / `stream` / `ask-auth` / `l2` | 28 / 73 / 71 / 74 | **28 / 73 / 71 / 74** | ✅ |
+| `size-ruling-vol3` + size 三门禁（`npm test` 内） | — | **全绿** | ✅ 547,558 / 574,935 / 563,200 / 619,520 四值同源 |
+| `gate-integrity` / `supersession` / `design-contract` | 15 / 36 / 19 | **15 / 36 / 19** | ✅ |
+| `test:page-input` / `recommendation` / `e2e` | 108 / 65 / PASS | **108 / 65 / PASS** | ✅ |
+| 红线 / 保护段 / 冻结面 | — | **逐字节 / 零 diff** | ✅ |
+
+### 9.8 诚实登记
+
+1. **未修改任何已完成 spec/plan 的**需求条文**：I-01 的「口径回写」只**追加**判据口径注解（ADR-V5-006 §2 新增条 + 叶 spec §4 注），无条款删改、无阈值放宽。
+2. **⑦ 握手的口径**：本叶 `no-dead-end` 的 ⑦ 只判**面板侧 commit**（`data-decision=approved`）；真实 SW 两段握手 / 手势面由 `test:ask-auth` ⑥⑦ 承担 —— 不在本叶夸大。
+3. **I-02 的 `policyTone` 为新增字段**（policy 维度的原有语义载体），不是新真值源：`trust` 早已在 band 的 `policy` 文案中常显。
+4. **体积由公式抬高**（573,688 → 574,935），**不是**放宽 5% 容差（容差逐字未动），档位 / 绝对上限均未动。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.2 | **review R1 修复轮**（BLOCK-01 + I-01~05，对象 HEAD `f8e50e8`）：**BLOCK-01 走「修」**——L2 站点行授权态改**指针**（`auth-pointer` + `data-auth-pointer="#auth-state"` + 运行期指针说明节点；站点行零状态值）+ `insight#I-20a` 反向重锚（116 → 118）+ **两段证伪**（回退徽标值 ⇒ 红 / 逐字节还原 ⇒ 绿）；I-01 四词扫描**口径回写 ADR-V5-006 §2** + 语义位判据与注入反证；I-02 摘要 dot 与授权态**解耦**（+`policyTone`）；I-03 S2 **十环节逐环节读数**（29 → 39）；I-04 v5-2 N-04~N-09 **逐项处置登记**；I-05 `blockedRecovery` **对象键对齐 + 编译期穷尽**（TS1360 证伪）；体积 **546,370 → 547,558 B**（+1,188）五要素六文件同源 · 全门禁串行复跑绿（`npm test` 1181/0） | 2026-09-22 | SDDU Build Agent |
 | v1.1 | **R2 = `TASK-V5-167~176`**（末叶 / 收口叶）：`data-narrow`（`ResizeObserver`，360/361 + R-V5-106 反证）· 零宽度控件 + 诚实登记 · **13 条载体重锚**（l0 248/0 · density 242/0 · zero-injection 28/0 · binding 192 PASS）· 密度口径解耦 + `v5Ledger` 31 格逐格留痕 · `tiers` 重锚 + X5 取代台账 · journey **保段**（三不变）+ binding `#20e` **字节中立**重锚 · 体积三叶合计 **542,064 → 546,370 B**（+4,306）· **法八面③ `maskedLength` 审计列落地**（+566 B）· `gate-integrity` 8 新门禁受审收口 · **25 门禁全绿**（`npm test` 1181/0） | 2026-09-22 | SDDU Build Agent |
 | v1.0 | 初始创建（R1 = `TASK-V5-153~166`：SG-4 seam-available 5/5 · 法八四面机核（含四类注入反证 + digest 掩码 + key 直写恰 1 点）· `error` 出生恢复区 · 死端守护门禁（5 类 + 死端 0 + 双注入 + S2 主验收）· 零宿主复核 · 授权 chip 两态与零双写 + 黄 / 绿点击；体积 545,273 B ≤ 545,314 / Δ +3,209 ≤ 3,250；4 门禁 10 条载体重锚 + 4 条体积登记面按波次归 R2） | 2026-09-22 | SDDU Build Agent |

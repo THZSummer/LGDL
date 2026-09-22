@@ -1717,8 +1717,22 @@ async function main() {
           const tool = [...document.querySelectorAll('#tree-drawer li.tree-node')].find(
             (n) => n.querySelector(':scope > .tree-node-head > .tree-label')?.textContent === 'site_notes',
           );
+          // V5-3 review R1 BLOCK-01 (FR-ALLN-086⑤ / ADR-V5-006 §2⑤): the site row must carry
+          // **zero** authorization-state values and point at the ONE carrier (#auth-state).
+          const authBadges = [...(site?.querySelectorAll('.tree-badge') ?? [])].filter(
+            (b) => b.getAttribute('data-kind') === 'authorized' || b.getAttribute('data-kind') === 'unauthorized',
+          );
+          const head = site?.querySelector(':scope > .tree-node-head');
+          const sub = site?.querySelector(':scope > .tree-sublabel');
+          const pointers = [...(site?.querySelectorAll('[data-auth-pointer]') ?? [])];
+          const note = document.querySelector('#tree-drawer .tree-note-auth-pointer');
           return {
-            siteAuthorized: site?.querySelector('.tree-badge[data-kind="authorized"]')?.textContent ?? '',
+            siteAuthStateValues: authBadges.map((b) => b.textContent),
+            siteRowText: ((head?.textContent ?? '') + ' ' + (sub?.textContent ?? '')).trim(),
+            authPointerCount: pointers.length,
+            authPointerTargets: pointers.map((p) => p.getAttribute('data-auth-pointer')),
+            pointerResolves: document.getElementById('auth-state') !== null,
+            noteVisible: Boolean(note) && note.getAttribute('data-auth-pointer') === '#auth-state' && /授权/.test(note.textContent || ''),
             hasSite: labels.includes(${JSON.stringify(siteLabel)}),
             hasSupport: labels.includes('支持的命令'),
             hasTool: labels.includes('site_notes'),
@@ -1731,14 +1745,31 @@ async function main() {
         })()`,
       );
     }
+    // V5-3 review R1 BLOCK-01 re-anchor: the old reading pinned `siteAuthorized === '已授权'`
+    // (the second projection the review blocked). The new semantic is the **opposite** —
+    // the row must render no authorization value at all, and must point at the chip.
     check(
       siteDrill !== null &&
         siteDrill.hasSite === true &&
         siteDrill.hasSupport === true &&
         siteDrill.hasTool === true &&
-        siteDrill.siteAuthorized === '已授权' &&
         siteDrill.toolRole === 'treeitem',
-      '#I-20a 作者示例① 逐层展开：连接树→授权的站点→站点 xxx→支持的命令→工具（真实 DOM；子命令层见 #I-20a2）',
+      '#I-20a 作者示例① 逐层展开：连接树→站点→支持的命令→工具（真实 DOM；子命令层见 #I-20a2）',
+      JSON.stringify(siteDrill),
+    );
+    check(
+      siteDrill !== null &&
+        siteDrill.siteAuthStateValues.length === 0 &&
+        !/已授权|未授权/.test(siteDrill.siteRowText) &&
+        siteDrill.authPointerCount >= 1 &&
+        siteDrill.authPointerTargets.every((t) => t === '#auth-state') &&
+        siteDrill.pointerResolves === true,
+      '#I-20a1 台账零授权态值：站点行 0 枚授权态徽标 ∧ 行文案零「已授权/未授权」∧ 存在指向 #auth-state 的指针（FR-ALLN-086⑤）',
+      JSON.stringify(siteDrill),
+    );
+    check(
+      siteDrill !== null && siteDrill.noteVisible === true,
+      '#I-20a3 指针说明运行期可见：`#tree-drawer .tree-note-auth-pointer` 存活于 `replaceChildren()` 之后且指向 #auth-state',
       JSON.stringify(siteDrill),
     );
     check(

@@ -122,7 +122,7 @@ export function mountL0(deps: MountL0Deps): L0Handle {
     llmStatus.setAttribute('title', view.band.llmDetail);
     sessionLabel.textContent = view.band.session;
     policyBadge.textContent = view.band.policy;
-    policyBadge.setAttribute('data-tone', view.band.statusDot);
+    policyBadge.setAttribute('data-tone', view.band.policyTone);
     if (summary) {
       summary.setAttribute('data-status-dot', view.band.statusDot);
       summary.setAttribute('title', view.band.origin ? `完整 origin：${view.band.origin}` : '无活跃站点');

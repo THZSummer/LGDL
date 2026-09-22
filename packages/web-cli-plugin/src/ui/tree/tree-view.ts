@@ -69,6 +69,16 @@ export const TREE_NO_ESCALATION_NOTE =
   '命令档位 delay（= deny，fail-closed，非可配置档位；与命令间 delayMs 无关）不可放宽；' +
   '硬底线 deny/delay 节点不提供任何开关（并展示不可覆盖原因），非硬底线命令节点可在树内设置 allow/ask/deny。';
 
+/**
+ * FR-ALLN-086⑤ / ADR-V5-006 §2⑤（v5-3 review R1 **BLOCK-01** 修复）— the L2 站点行文案是
+ * 一个**指针**，不是授权状态值。授权态的唯一常显载体是状态栏 chip（`#auth-state`），
+ * 台账（L2 树视图）只指向它、**不复制状态值**。
+ *
+ * Single source: the row's `sublabel` and the drawer's runtime note both read this constant,
+ * so the pointer cannot drift into a second value copy.
+ */
+export const TREE_AUTH_POINTER_NOTE = '授权状态见状态栏授权 chip（本台账不复制状态值）';
+
 export const TREE_GROUP_ORDER: readonly Dimension[] = ['site', 'capability', 'command', 'llm'];
 
 /** 维度空态文案（EC-V22-003：可读空态 + 下一步）。 */
@@ -546,7 +556,8 @@ function renderOwnershipNode(ownership: OwnershipNode, index: SnapshotIndex): Tr
       return {
         ...structuralRow(ownership, 'site'),
         label: `站点 ${node.origin}`,
-        sublabel: node.authorized ? '已授权站点（可撤销授权）' : '未授权站点（不构成授权）',
+        // FR-ALLN-086⑤ (R1 BLOCK-01): pointer, never `node.authorized ? '已授权站点…' : …`.
+        sublabel: TREE_AUTH_POINTER_NOTE,
         badges: [...node.badges],
         controls: siteControls(node),
         revocable: node.revocable,
