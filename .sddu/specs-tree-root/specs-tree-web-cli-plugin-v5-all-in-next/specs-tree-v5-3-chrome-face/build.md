@@ -170,8 +170,95 @@
 
 ---
 
+## 8. build R2（`TASK-V5-167~176` · 波 E 后段~G）—— 末叶 / 收口叶 + 三叶合计终轮
+
+> **本轮起点**：HEAD `ad8e8af`（R1 后：`npm test` **1175**（1171 pass / 4 fail = 体积五要素登记面）· 体积 **545,273 B** · 4 门禁 10 条红 = 授权态载体下移的等价重锚）。**本轮终点**：**25 门禁全绿**、体积 **546,370 B**、`npm test` **1181/0**。
+
+### 8.1 交付概要（`167~176`）
+
+| 任务 | 交付 | 关键读数 |
+|---|---|---|
+| `167` `data-narrow` | `sidepanel.ts#installNarrowObserver`（`ResizeObserver` 观测 `#panel` **实际宽度**，≤360 → `"true"` / ≥361 → `"false"`）；`index.html` `<body id="panel">` + 3 条窄屏样式（复用既有样式语言） | `density` ⑯：360 ⇒ `true` / 361 ⇒ `false` 逐值；320px 零水平溢出 |
+| `168` 零宽度控件 + 诚实登记 | 产品侧零宽度切换控件扫描（7 项模式逐项零命中）+ **两条注入反证**（三档 radio ⇒ 红；按视口口径 ⇒ 红） | `density-thresholds` W3（含 3 条判据自证）；`knownLimitations` 新增第 8 条 |
+| `169` 13 条载体重锚 | `l0` ⑤ 的 `unauthorized` 改读 `#auth-state`（三通道 = 文字 + `data-auth` + `aria-controls`）；`❾` 摘要改 `origin · 会话`（并**加严**：四词零出现）；`density` `default` 准入 5 → **6**（+ 授权 chip）；`risk(unauthorized)` 载体改 chip；`zero-injection` / `page-input` 的「零注入」明示面改 chip；`binding` `#20e` 改读 chip | `l0` 245 → **248/0**；`density` 232 → **242/0**；`zero-injection` 27 → **28/0**；`page-input` 108/0；`binding` **192 PASS** |
+| `170` 阈值 + 边界 | `density-thresholds.test.ts` 新增 **W1~W4**（阈值六值**字面**比对 + 机读基线同源；`data-narrow` 边界 + `ResizeObserver`/非 `matchMedia`；**宽度 → 控件计数不变**；`v5Ledger` 宽度维留痕） | `density-thresholds` 全绿（`npm test` 内） |
+| `171` 口径解耦 + 31 格留痕 | 格 = **控件计数**（与宽度解耦）；`v5Ledger` 31 格**逐格留痕**（`before` / `after` / `delta` / 六字段 / `reason ≥40`）+ 边界 2 格 + 宽度不变性 1 组；320 锚点保留 | `registeredCells === 31`（不删格）；`stageF` 逐格同源机核 |
+| `172` `tiers` 重锚 + X5 | `tiers` 31 格等价重锚（授权 chip 载荷：`clickables +1` / `blocks +1` / `chars +5`；`unauthorized` 载体下移 ⇒ 8→7 / 17→16 / 256→212）；`v5Ledger` 取代 `v45Ledger` 为**最新同源台账**（后者逐字保留为历史）；`modifiedRanges[]` 追加 X5 逐行（五要素） | `supersession` **36/0**；`density` F 28 格全绿 |
+| `173` journey 保段 + binding 避让 | **显式二选一 = 保段**：journey 保护段 sha `cc79f413…` / `startByte 43054` / 240 行**三不变**（`data-narrow` 只改样式层、不新增行、不动 DOM 结构）；binding `#20e` 重锚为**字节中立**改写（改写点全在保护段之前 ⇒ 与旧行**等量置换**，`startByte 107780` 与段 sha `be9ad0e9…` 双绿） | `journey` **171 PASS**；`protectedPinFailures` 双绿；RP-V4-08 反证绿（`npm test` 内） |
+| `174` 体积三叶合计 + `maskedLength` | 五要素：542,064 → **546,370 B**（Δ **+4,306**，`v53Rows` Σ 模块 +4,306 + glue 0）；`_TIMELINE` / `_HISTORY` / `SIDEPANEL_RE_REGISTRATIONS['v5-3-r2']` / `SIDEPANEL_GROWTH_BREAKDOWN.v53Rows` / `roundRowRegistrationIds` 全部只追加；**档位 563,200 / 绝对上限 619,520 / `pending-author-line` 三值同源且不变**；生效上限 `floor(546,370 × 1.05) = 573,688`；**法八面③ `maskedLength` 审计列落地** | `size-budget` 16/0 · `size-growth-evidence` 17/0 · `size-ruling-vol3` **12/0**；`density` F 产物字节同源 |
+| `175` 台账一致性 + 受审收口 | X5 逐行五要素机核 + 体积三值同源机核（新增专用用例）；`gate-integrity` 新增「父 Feature 8 新门禁逐项在册」用例并把 `test/next-registry.test.ts` 补入下界声明 | `supersession` **36/0** · `gate-integrity` **15/0** |
+| `176` 全门禁串行收口 | 见 §8.3 的 25 项对账表 + §8.4 人工面清单 | **25/25 全绿** |
+
+### 8.2 文件变更（R2）
+
+| 操作 | 文件路径 | 对应任务 | 说明 |
+|:--:|------|:--:|------|
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` | 167 / 174 | `installNarrowObserver()`（`ResizeObserver` 观测 `#panel` 实际宽度，≤360 → `data-narrow="true"`）+ bootstrap 调用；`submitSecret` 落审计面（只发**长度类别** `8+`/`8-`，不发值）|
+| MODIFY | `src/ui/sidepanel/index.html` | 167 | `<body id="panel">`（面板根可寻址）+ `#panel[data-narrow='true']` 三条窄屏样式（`.view-label` 隐藏 / `site-origin` 压缩 / `site-session` 隐藏）|
+| MODIFY | `src/ui/sidepanel/l2/audit.ts` | 174 | **法八面③ `maskedLength` 审计列**：白名单 + 渲染列 + `AuditRow.maskedLength?` + `toAuditRow`（**只接受 `8+`/`8-` 两个字面量** ⇒ 该列不可能成为侧信道）+ `renderAudit` 单元格 + 零明文说明补注 |
+| MODIFY | `src/security/audit-sink.ts` | 174 | `PluginAuditEvent.maskedLength?: string`（类型位；**不是值、也不是原始长度**）|
+| MODIFY | `src/background/service-worker.ts` | 174 | `case 'llm-config'`：仅当载荷携带合法长度类别时落一条审计行（`decision: 'write-masked'`）；纯查询零写入、返回形状逐字不变 |
+| MODIFY | `test/ui/density.mjs` | 167~172 | 13 条载体重锚 + 新增 **⑯ 宽度组**（边界双值 / 宽度不变性 / 320 零溢出 / R-V5-106 反证 + 注入反证 / `v5Ledger` 宽度维机核）|
+| MODIFY | `test/ui/l0.mjs` | 169 | ⑤ `unauthorized` 载体改 `#auth-state`（新增 `AUTH_CHIP_PROBE`）；⑨ 摘要断言改 `origin · 会话` 并**加严**（四词零出现）|
+| MODIFY | `test/ui/zero-injection.mjs` / `test/ui/page-input.mjs` / `test/ui/l2.mjs` | 169 | 「零注入」明示面 / `#l2-entry-summary` 摘要断言按新载体等价重锚 |
+| MODIFY | `test/ui/binding.mjs` | 173 | `#20e` 读数面改 `#auth-state`（`waitFor` 载荷加 `auth`）—— **字节中立**（保护段 `be9ad0e9…` + `startByte 107780` 双绿）|
+| MODIFY | `test/ui/law8-plaintext.mjs` | 174 | 面③ 白名单改八列 + 新增「掩码写入行带 `maskedLength`（8+/8-）」断言（法八面③ 四元组在**渲染面**可机核）|
+| MODIFY | `test/density-thresholds.test.ts` | 168 / 170 / 171 | 新增 W1~W4 用例（阈值字面 / 窄屏观测器与非 `matchMedia` / 零宽度控件扫描 / 宽度解耦 + 台账宽度维）|
+| MODIFY | `test/size-baseline.ts` | 174 | 五要素三叶合计：`SIDEPANEL_BASELINE_BYTES` 546,370 / `SIDEPANEL_FINAL_ARTIFACT_BYTES` / `_TIMELINE` / `META` / `SIDEPANEL_RE_REGISTRATIONS['v5-3-r2']` / `SIDEPANEL_GROWTH_BREAKDOWN.v53Rows` + glue / `roundRowRegistrationIds` / `closeoutDeltaBytes` / 桶分摊 |
+| MODIFY | `test/size-budget.test.ts` / `test/size-growth-evidence.test.ts` / `test/size-ruling-vol3.test.ts` | 174 | 档位闸门 / 生效上限 / 最新一轮 rows 指向 `v53Rows` / N-05 组数 20 → 21 的等价重锚 |
+| MODIFY | `test/l2-counts.test.ts` | 174 | 审计白名单 8 → 9 / 渲染列 7 → 8（`maskedLength`）+ 两方向可核（探针值齐备）+ 只接受两字面量的负例 |
+| MODIFY | `test/gate-integrity.test.ts` | 175 | 新增「父 Feature 8 新门禁逐项在册」用例 + `test/next-registry.test.ts` 补入下界声明（只追加）|
+| MODIFY | `test/supersession-ledger.test.ts` | 175 | 新增「X5 逐行五要素 + 体积三值同源」用例（只追加）|
+| MODIFY | `docs/v4-density-baseline.json` | 171 / 172 / 174 | `tiers` 31 格等价重锚 + `v5Ledger`（31 格 + 边界 2 + 宽度不变性 1）+ `riskIncrementRegistry.reanchorV5`（`staleRef@320` 收紧为 0 违规，旧期望逐字保留）+ `knownLimitations` 第 8 条（诚实登记「产品侧不实现 280–640 拖动」）+ `volume` 546,370 / 573,688 |
+| MODIFY | `docs/v4-supersession-ledger.json` | 172 / 173 / 175 | 新增 v5-3 叶段（`leafBase 9b262ae`：scope 35 文件 / 逐字登记 83 行）+ X5 `modifiedRanges[]`（`V53-MR-binding-*` 五要素）+ `V53-E-1` 语义改写条目 + `v3Vol3Closeout.⑤三值闭合.newBaselineBytes → 546,370` |
+
+### 8.3 门禁对账（25 项，**全绿**）
+
+| # | 门禁 | 基线 | R2 实测 | # | 门禁 | 基线 | R2 实测 |
+|:--:|---|---|:--:|:--:|---|---|:--:|
+| 1 | `npm test` | 1175 | **1181 / 0** | 14 | `l2-reverse` | 10 | **10 PASS** |
+| 2 | `test:ui`(journey) | 171 | **171 PASS** | 15 | `test:law8` | 24 | **25 / 0** |
+| 3 | `test:binding` | 192 | **192 PASS** | 16 | `test:dead-end` | 29 | **29 / 0** |
+| 4 | `test:l0` | 244 | **248 / 0** | 17 | `test:auth-chip` | 30 | **30 / 0** |
+| 5 | `test:l1` | 116 | **116 / 0** | 18 | `test:e2e` | PASS | **PASS** |
+| 6 | `test:l2` | 74 | **74 / 0** | 19 | `test:supersession` | 35 | **36 / 0** |
+| 7 | `test:density` | 232 | **242 / 0** | 20 | `test:gate-integrity` | 13 | **15 / 0** |
+| 8 | `test:insight` | 116 | **116 PASS** | 21 | `test:size-ruling-vol3` | 12 | **12 / 0** |
+| 9 | `test:hardening` | 24 | **24 PASS** | 22 | `test:design-contract` | 13 | **19 / 0** |
+| 10 | `test:page-input` | 108 | **108 / 0** | 23 | `test:ref-pick-wiring` | 11 | **11 / 0** |
+| 11 | `test:stream` | 73 | **73 / 0** | 24 | `test:size-budget` | — | **16 / 0** |
+| 12 | `test:ask-auth` | 71 | **71 / 0** | 25 | `test:size-growth-evidence` | — | **17 / 0** |
+| 13 | `test:recommendation` | 65 | **65 / 0** |  | `test:zero-injection` | 27 | **28 / 0** |
+
+**体积（三叶合计终轮）**：542,064 → **546,370 B**（Δ **+4,306**；逐模块 Σ +4,306 + glue 0）；档位 **563,200** / 绝对上限 **619,520** / `pending-author-line` **均不变**；生效上限 **573,688**。红线：`dist/content.js` **177,076 B** / sha `52a82620…`、`dist/pick-layer.js` **33,900 B** / sha `5f567d7e…` **逐字节不变**；`src/content/**` / `manifest.json` / `design/**` / `docs/v3-supersession-ledger.json` / `ROADMAP.md` **零 diff**。
+
+### 8.4 人工面清单（9 项，**不得冒充 PASS**）
+
+| # | 人工面 | 状态 |
+|:--:|---|:--:|
+| 1 | 浏览器原生权限弹窗体感（`chrome.permissions.request` 原生弹窗） | ⏳ 未执行 |
+| 2 | 授权 chip 两态观感（黄 / 绿 + 布局） | ⏳ 未执行 |
+| 3 | 拖动宽度体感与性能（**G 稿契约侧**；产品侧不实现 —— 见 §8.5） | ⏳ 未执行 |
+| 4 | 绿态管理详情手感（展开 / 键盘） | ⏳ 未执行 |
+| 5 | 双主题（auto / light / dark）观感 | ⏳ 未执行 |
+| 6 | 320px 真机体感 | ⏳ 未执行 |
+| 7 | 键盘可达（Tab 序 / `:focus-visible`） | ⏳ 未执行 |
+| 8 | 读屏（掩码输入 + chip 播报） | ⏳ 未执行 |
+| 9 | 真机 S2 断流走查 | ⏳ 未执行 |
+
+### 8.5 诚实登记与已知差距（R2）
+
+1. **`maskedLength` 审计列已落地**（编排器裁决「落」）：`AUDIT_RENDERED_FIELDS` 8 列（+`maskedLength`）；生产路径 = `submitSecret`（掩码卡提交，只发**长度类别**）→ SW `llm-config` 落审计行（`decision: 'write-masked'`）→ L2 审计行渲染该列 ⇒ 法八面③ 四元组 `{命令/动作 · 时间 · 结果 · 掩码长度类别}` 在**渲染面**可机核（`law8` 面③ 新增断言）。**值从未离开面板的 key store 写入点**；该列只接受 `8+` / `8-` 两个字面量（其他形状一律丢弃）。成本实测 **+566 B**（估 +246 B 偏乐观），已按三叶合计口径重登记。预算口径诚实登记：`ADR-V5-011 §1` 的 v5-3 逐项预算 **3,250 B** 被 R1 用满（+3,209），R2 的 `maskedLength` 列 + `data-narrow` 使本叶合计 **+4,306 B** ⇒ **显式超出行预算**并按三叶合计重登记（未删格、未放宽容差、未下调档位、未伪称已确认）。
+2. **产品侧不实现 280–640 拖动**（FR-ALLN-089 = 设计稿契约；G 127 断言在 `design-contract` 冻结）：产品侧落地 = `data-narrow` 兜底 + 密度口径解耦；已登记于 `v4-density-baseline.json#knownLimitations` 第 8 条，防被误读为「089 未实现」。
+3. **存储侧边界**：只保证**流内 / 审计渲染面零明文**（四面 + 审计列）；存储侧加密仍 **out-of-scope**（NG-ALLN-017），无「存储已加密」类声明。
+4. **`staleRef@320` 收紧**：`data-narrow` 落地后 320px 不再越过折线（`#scroll-bottom` 漂移消失）⇒ 该格由「1 条违规」收紧为 0，旧期望逐字保留于 `riskIncrementRegistry.reanchorV5.previousExpectation`。
+5. **`#auth-state` 的三通道** = 可见文字 + `data-auth`（机器态）+ `aria-controls → #auth-detail`（关系通道）；**未加 `aria-label`**（可访问名即文字内容，避免与 `aria-expanded` 语义重复）—— 与 R1 的 `auth-chip` 门禁口径一致。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.1 | **R2 = `TASK-V5-167~176`**（末叶 / 收口叶）：`data-narrow`（`ResizeObserver`，360/361 + R-V5-106 反证）· 零宽度控件 + 诚实登记 · **13 条载体重锚**（l0 248/0 · density 242/0 · zero-injection 28/0 · binding 192 PASS）· 密度口径解耦 + `v5Ledger` 31 格逐格留痕 · `tiers` 重锚 + X5 取代台账 · journey **保段**（三不变）+ binding `#20e` **字节中立**重锚 · 体积三叶合计 **542,064 → 546,370 B**（+4,306）· **法八面③ `maskedLength` 审计列落地**（+566 B）· `gate-integrity` 8 新门禁受审收口 · **25 门禁全绿**（`npm test` 1181/0） | 2026-09-22 | SDDU Build Agent |
 | v1.0 | 初始创建（R1 = `TASK-V5-153~166`：SG-4 seam-available 5/5 · 法八四面机核（含四类注入反证 + digest 掩码 + key 直写恰 1 点）· `error` 出生恢复区 · 死端守护门禁（5 类 + 死端 0 + 双注入 + S2 主验收）· 零宿主复核 · 授权 chip 两态与零双写 + 黄 / 绿点击；体积 545,273 B ≤ 545,314 / Δ +3,209 ≤ 3,250；4 门禁 10 条载体重锚 + 4 条体积登记面按波次归 R2） | 2026-09-22 | SDDU Build Agent |

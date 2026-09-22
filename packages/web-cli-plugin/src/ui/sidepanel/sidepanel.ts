@@ -1346,7 +1346,10 @@ async function submitSecret(requestId: string, value: string): Promise<void> {
   // V5-2 review R1 I-04 (ADR-V5-010 §2 缩窄侧信道): the固化区 carries the length
   // **category** (`8+` / `8-`), never the raw length — the number stays inside this
   // function, so the payload/state face cannot leak it either.
-  dispatch({ type: 'ask-resolved', requestId, answer: undefined, maskedLength: secret.length >= 8 ? '8+' : '8-' });
+  const maskedLength = secret.length >= 8 ? '8+' : '8-';
+  // V5-3（TASK-V5-174）：掩码写入的**事实**落审计面（只发长度类别，不发值）。
+  void send(makeMessage('llm-config', { maskedLength })).catch(() => {});
+  dispatch({ type: 'ask-resolved', requestId, answer: undefined, maskedLength });
   settle?.(secret);
 }
 
@@ -3477,6 +3480,19 @@ function applyEnvGuard(env: EnvGuardResult): void {
   ($('input') as HTMLInputElement).disabled = true;
 }
 
+// V5-3（FR-ALLN-090）：`data-narrow` = 面板**实际宽度** ≤360 的窄屏兜底（ResizeObserver，
+// 非 matchMedia 视口；宽度只改样式、不改控件计数 —— 密度格与宽度解耦）。
+function installNarrowObserver(): void {
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+  const apply = (width: number): void => {
+    panel.dataset.narrow = width <= 360 ? 'true' : 'false';
+  };
+  apply(panel.clientWidth || window.innerWidth);
+  if (typeof ResizeObserver === 'undefined') return;
+  new ResizeObserver(() => apply(panel.clientWidth)).observe(panel);
+}
+
 // Only bootstrap in a real extension page; guarded so the module (and its
 // consent/boundary text) stays importable in node tests. On a non-extension page
 // (e.g. `file://.../sidepanel.html`) we still render the blocking banner instead
@@ -3489,6 +3505,7 @@ if (typeof document !== 'undefined') {
     // only retries the automatic probe while it is (bounded; no background poll).
     // The port auto-disconnects on panel close → retries stop.
     panelPort = chrome.runtime.connect({ name: 'web-cli-panel' });
+    installNarrowObserver();
     wire();
     renderConsent();
     render();

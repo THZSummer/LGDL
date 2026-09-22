@@ -257,8 +257,16 @@ test('command-catalog: delay 措辞取自单一常量（不得另写），动作
 // ── 6. audit: strict whitelist + URL de-parameterisation ────────────────────
 
 test('audit: 字段白名单外零渲染（apiKey / 摘要 / 正文零命中）且 URL 去参', () => {
-  assert.deepEqual([...AUDIT_FIELD_WHITELIST], ['tool', 'subcommand', 'type', 'decision', 'ok', 'durationMs', 'ts', 'origin']);
-  assert.deepEqual([...AUDIT_RENDERED_FIELDS], ['id', 'command', 'action', 'result', 'ms', 'time', 'origin']);
+  // V5-3（TASK-V5-174 / 法八面③）：白名单与渲染列各追加 `maskedLength`（掩码写入的**长度
+  // 类别** `8+` / `8-`）—— 只增不减：原有 8 个读入字段 / 7 个渲染列逐字保留。
+  assert.deepEqual([...AUDIT_FIELD_WHITELIST], ['tool', 'subcommand', 'type', 'decision', 'ok', 'durationMs', 'ts', 'origin', 'maskedLength']);
+  assert.deepEqual([...AUDIT_RENDERED_FIELDS], ['id', 'command', 'action', 'result', 'ms', 'time', 'origin', 'maskedLength']);
+  // 长度类别只接受两个字面量；其他形状（含原始长度）一律丢弃 —— 该列不是侧信道。
+  assert.equal(toAuditRow({ type: 'llm-config', maskedLength: '8+' }, 0).maskedLength, '8+');
+  assert.equal(toAuditRow({ type: 'llm-config', maskedLength: '8-' }, 0).maskedLength, '8-');
+  assert.equal(toAuditRow({ type: 'llm-config', maskedLength: 12 }, 0).maskedLength, undefined);
+  assert.equal(toAuditRow({ type: 'llm-config', maskedLength: 'sk-live-DEADBEEF' }, 0).maskedLength, undefined);
+  assert.equal(toAuditRow({ type: 'origin-authorize' }, 0).maskedLength, undefined);
 
   const row = toAuditRow(
     {
@@ -327,6 +335,9 @@ test('audit: AUDIT_FIELD_WHITELIST 与 toAuditRow 的真实输入面逐项一致
     durationMs: 12,
     ts: Date.UTC(2026, 8, 16, 3, 4, 5),
     origin: 'https://a.test/path?token=SECRET#frag',
+    // V5-3（TASK-V5-174）：白名单第 9 项也必须在**两个方向**可核 —— 有探针值，改动它必须
+    // 改变渲染列（否则该条目是装饰性的）。
+    maskedLength: '8+',
   };
   const PROBE: Record<string, unknown> = {
     tool: 'PROBE-tool',
@@ -337,6 +348,7 @@ test('audit: AUDIT_FIELD_WHITELIST 与 toAuditRow 的真实输入面逐项一致
     durationMs: 999,
     ts: Date.UTC(2025, 0, 2, 3, 4, 5),
     origin: 'https://PROBE.test/y?secret=1#f',
+    maskedLength: '8-',
   };
   const drift: string[] = [];
   for (const key of AUDIT_FIELD_WHITELIST) {

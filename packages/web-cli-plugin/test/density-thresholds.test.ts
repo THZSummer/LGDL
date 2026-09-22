@@ -21,6 +21,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -948,4 +949,140 @@ test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复�
     [],
     '零宿主真实读数必须通过',
   );
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// V5-3（TASK-V5-168 / 170 / 171 · FR-ALLN-090 / 091 / 114 · X5）
+//
+// 宽度面的**静态半**：阈值逐字（不可数值化放宽）/ 单源 / `data-narrow` 边界 +
+// 「产品侧零宽度切换控件」/ 宽度 → 控件计数不变（解耦）。运行时半在
+// `test/ui/density.mjs#stageW`（360/361 双值 + R-V5-106 反证 + 两条注入反证）。
+// ══════════════════════════════════════════════════════════════════════════════
+
+const SIDEPANEL_DIR = resolve(PKG, 'src/ui/sidepanel');
+const SIDEPANEL_TS = resolve(SIDEPANEL_DIR, 'sidepanel.ts');
+
+/** 递归收集 `src/ui/sidepanel/**` 下的源文件（含 index.html）。 */
+function sidepanelSources(): Array<{ rel: string; text: string }> {
+  const out: Array<{ rel: string; text: string }> = [];
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (/\.(ts|html|css)$/.test(entry.name)) {
+        out.push({ rel: full.slice(PKG.length + 1), text: readFileSync(full, 'utf8') });
+      }
+    }
+  };
+  walk(SIDEPANEL_DIR);
+  return out;
+}
+
+/**
+ * 「产品侧零宽度切换控件」的判据（TASK-V5-168）。
+ *
+ * X5 是**删**三档宽度 radio（320/400/520）而不是加控件；产品侧本就没有宽度切换控件
+ * （实测零命中）⇒ 判据 = 对 `src/ui/sidepanel/**` 的现场扫描逐项零命中。注意 `separator`
+ * 作为**英文单词**（session separator 系统行）是合法的，本判据只禁 **ARIA 形态**
+ * `role="separator"`。
+ */
+const WIDTH_CONTROL_PATTERNS: ReadonlyArray<[string, RegExp]> = Object.freeze([
+  ['data-width 属性', /data-width/i],
+  ['WIDTH_MIN 常量', /WIDTH_MIN/],
+  ['三档宽度 radio', /type\s*=\s*["']radio["']/],
+  ['ARIA separator（拖动分隔条）', /role\s*=\s*["']separator["']/],
+  ['draggable 拖动手柄', /\bdraggable\b/],
+  ['pointermove 拖动事件', /pointermove/],
+  ['setPointerCapture 拖动捕获', /setPointerCapture/],
+]);
+
+function widthControlViolations(text: string): string[] {
+  return WIDTH_CONTROL_PATTERNS.filter(([, re]) => re.test(text)).map(([label]) => label);
+}
+
+test('V5-3 W1: 阈值六值逐字（不可数值化放宽）+ 机读基线与单源逐项同源', () => {
+  // 字面比对（不是数值断言）：六个阈值一旦被写成「≥7」这类可放宽的形态即 FAIL。
+  const metricsSource = readFileSync(resolve(PKG, 'test/ui/density-metrics.mjs'), 'utf8');
+  const literal = /export const DENSITY_LIMITS = Object\.freeze\(\{([\s\S]*?)\n\}\);/.exec(metricsSource)?.[1] ?? '';
+  assert.match(literal, /default: Object\.freeze\(\{ clickables: 7, lines: 15 \}\)/);
+  assert.match(literal, /firstRun: Object\.freeze\(\{ clickables: 9, lines: 20 \}\)/);
+  assert.match(literal, /risk: Object\.freeze\(\{ clickables: 17, lines: 35 \}\)/);
+  assert.equal(/>=|<=|>|<|\?|\|\|/.test(literal), false, '阈值块不得含任何比较 / 回退形态（数值化放宽）');
+  const baseline = JSON.parse(readFileSync(CURRENT_BASELINE_JSON, 'utf8')) as {
+    thresholds: Record<string, { clickables: number; lines: number }>;
+    streamHeightRatioMin: number;
+    logClientHeightFloor: number;
+    registeredCells: number;
+  };
+  assert.deepEqual(baseline.thresholds, {
+    default: { clickables: 7, lines: 15 },
+    firstRun: { clickables: 9, lines: 20 },
+    risk: { clickables: 17, lines: 35 },
+  });
+  assert.equal(baseline.streamHeightRatioMin, 0.65, '高度比只允许上调');
+  assert.equal(baseline.logClientHeightFloor, 488, '几何下界逐字');
+  assert.equal(baseline.registeredCells, 31, '登记格 31 不删格');
+});
+
+test('V5-3 W2: data-narrow 由 ResizeObserver 观测面板实际宽度（≤360），不用 matchMedia 视口', () => {
+  const ts = readFileSync(SIDEPANEL_TS, 'utf8');
+  assert.match(ts, /function installNarrowObserver/, '窄屏观测器必须存在');
+  assert.match(ts, /installNarrowObserver\(\);/, '窄屏观测器必须被 bootstrap 调用');
+  // 判据只作用于**观测器函数体**：`matchMedia` 在别处（主题跟随系统）是合法的，
+  // 但只要它出现在窄屏判据里就是 R-V5-106（宽视口 + 窄面板会误判）。
+  const body = /function installNarrowObserver\(\)[\s\S]*?\n\}/.exec(ts)?.[0] ?? '';
+  assert.ok(body.length > 100, '观测器函数体必须可定位');
+  assert.match(body, /new ResizeObserver\(/, '必须用 ResizeObserver（观测元素实际宽度）');
+  assert.match(body, /dataset\.narrow/, '必须写 `data-narrow`');
+  assert.match(body, /<=\s*360/, '边界必须逐字为 ≤360（360 → true / 361 → false）');
+  assert.match(body, /getElementById\('panel'\)/, '观测对象必须是面板根 `#panel`（实际宽度），不是视口');
+  assert.equal(/matchMedia/.test(body), false, 'R-V5-106：不得用 matchMedia 判视口（宽视口 + 窄面板会误判）');
+  const htmlText = readFileSync(INDEX_HTML, 'utf8');
+  assert.match(htmlText, /<body id="panel">/, '面板根必须可寻址（`#panel` = `<body>`）');
+  for (const rule of [
+    "#panel[data-narrow='true'] .view-btn .view-label { display: none; }",
+    "#panel[data-narrow='true'] .site-summary .site-origin { max-width: 96px; }",
+    "#panel[data-narrow='true'] .site-summary .site-session { display: none; }",
+  ]) {
+    assert.ok(htmlText.includes(rule), `窄屏样式块必须逐字存在：${rule}`);
+  }
+});
+
+test('V5-3 W3: 产品侧零宽度切换控件（src/ui/sidepanel/** 逐项零命中）', () => {
+  const violations: string[] = [];
+  const counts = { files: 0 };
+  for (const { rel, text } of sidepanelSources()) {
+    counts.files += 1;
+    for (const label of widthControlViolations(text)) violations.push(`${rel}: ${label}`);
+  }
+  assert.ok(counts.files >= 20, `扫描面必须覆盖整个 sidepanel 源目录（实测 ${counts.files} 个文件）`);
+  assert.deepEqual(violations, [], `产品侧不得有宽度切换控件 → ${violations.join(' | ')}`);
+  // 反证：判据不是恒真 —— 注入三档 radio / ARIA separator / matchMedia 版窄屏实现都必须被判红。
+  assert.deepEqual(widthControlViolations('<input type="radio" name="w" data-width="320">'), ['data-width 属性', '三档宽度 radio']);
+  assert.deepEqual(widthControlViolations('<div role="separator" draggable="true">'), ['ARIA separator（拖动分隔条）', 'draggable 拖动手柄']);
+  assert.equal(widthControlViolations('const WIDTH_MIN = 280;').includes('WIDTH_MIN 常量'), true);
+});
+
+test('V5-3 W4: 宽度 → 控件计数不变（测量口径与宽度解耦）', () => {
+  // 口径源码（含模板）不得读取任何宽度通道 ⇒ 宽度变化不可能改变 C1/C2/C3。
+  const template = readFileSync(resolve(PKG, 'test/ui/density-metrics.mjs'), 'utf8');
+  const expression = /export const DENSITY_MEASURE_TEMPLATE = `([\s\S]*?)`;/.exec(template)?.[1] ?? '';
+  assert.ok(expression.length > 400, '测量表达式必须真实存在');
+  for (const banned of ['innerWidth', 'outerWidth', 'clientWidth', 'offsetWidth', 'getBoundingClientRect', 'matchMedia', 'ResizeObserver']) {
+    assert.equal(DENSITY_MEASURE_SOURCE.includes(banned), false, `测量口径不得依赖宽度通道：${banned}`);
+  }
+  // 台账（v5Ledger）必须带宽度维度留痕，且与 tiers 同源（不删格、不改格值）。
+  const baseline = JSON.parse(readFileSync(CURRENT_BASELINE_JSON, 'utf8')) as {
+    v5Ledger?: { cells: unknown[]; narrowBoundary: Array<{ width: number; attr: string }>; widthInvariance: Array<{ decoupled: boolean }> };
+    tiers: Record<string, unknown>;
+    registeredCells: number;
+  };
+  assert.ok(baseline.v5Ledger, 'V5-3 必须新增 v5Ledger（逐格留痕）');
+  assert.equal(baseline.v5Ledger?.cells.length, 31, 'v5Ledger 必须覆盖 31 格（不删格）');
+  assert.deepEqual(baseline.v5Ledger?.narrowBoundary, [
+    { width: 360, attr: 'true', measuredOn: '2026-09-22', source: 'npm run test:density（stageW：setViewport 360）', reason: 'EC-ALLN-014：面板实际宽度 360 ⇒ `#panel[data-narrow="true"]`（边界含端点）。' },
+    { width: 361, attr: 'false', measuredOn: '2026-09-22', source: 'npm run test:density（stageW：setViewport 361）', reason: 'EC-ALLN-014：面板实际宽度 361 ⇒ `#panel[data-narrow="false"]`（边界含端点，与 360 逐值成对）。' },
+  ]);
+  assert.equal(baseline.v5Ledger?.widthInvariance.length, 1);
+  assert.equal(baseline.v5Ledger?.widthInvariance[0]?.decoupled, true);
 });

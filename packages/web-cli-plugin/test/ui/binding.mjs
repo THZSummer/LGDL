@@ -1552,22 +1552,21 @@ async function phase1(mock) {
     check(su.invalidated === false, '#20b 新域名会话有效（未落入 markStale 死路）', switchedByUrl ?? '');
     check(su.authorized === false, '#20c 新域名未授权：自动切会话 ≠ 自动授权', switchedByUrl ?? '');
 
-    // The already-open panel must follow via the background `session-changed` push
-    // (no Page.reload between the tab switch above and this assertion).
+    // 已打开面板必须经后台 `session-changed` 推送跟随（未重开）。
+    // V5-3：授权态读数面改状态栏 chip `#auth-state`（载体重锚）。
     const panelFollow = await waitFor(
       ext,
       `(() => {
-        const label = document.getElementById('session-label')?.textContent ?? '';
-        const status = document.getElementById('status')?.textContent ?? '';
+        const [label, status, auth] = ['session-label', 'status', 'auth-state'].map((id) => document.getElementById(id)?.textContent ?? '');
         return label.includes(${JSON.stringify(newOrigin)}) && status.includes(${JSON.stringify(newOrigin)})
-          ? JSON.stringify({ label, status })
+          ? JSON.stringify({ label, status, auth })
           : '';
       })()`,
       80,
       150,
     );
     check(Boolean(panelFollow), '#20d 已打开面板自动跟随新域名会话（收到后台推送后更新，未重开）', panelFollow ?? 'panel not updated');
-    check(/未授权/.test((panelFollow ? JSON.parse(panelFollow).status : '') ?? ''), '#20e 面板显示新域名「未授权」+ 可点授权路径', panelFollow ?? '');
+    check(/未授权/.test((panelFollow ? JSON.parse(panelFollow).auth : '') ?? ''), '#20e 面板显示新域名「未授权」+ 可点授权路径', panelFollow ?? '');
 
     // Zero injection for the unauthorized origin: no content script receiver.
     const injectProbe = await evaluate(sw, `chrome.tabs.sendMessage(${newTabId}, { kind: 'ping' }).then(() => 'responded').catch(() => 'no-receiver')`);

@@ -346,9 +346,13 @@ async function main() {
     // ── FIX-3（F 还原度快修轮，2026-09-20）─────────────────────────────────────
     // `#l2-entry-summary` 由计数串改为 origin · 授权态 · 会话 digest：计数不再三处
     // 重复（摘要 + 标签 + 徽标），收敛为两处（标签 + 徽标）。
+    // 〖V5-3 等价重锚（FR-ALLN-086② / N23 零双写②）〗授权态已独占状态栏授权 chip
+    // `#auth-state` ⇒ 摘要只保留 origin · 会话，且**不得**再出现四词（更强判据）。
     check(
-      '① 入口摘要（#l2-entry-summary）= origin · 授权态 · 会话 digest（替代旧计数串）',
-      /v3-l2\.test/.test(defaultCounts.summary) && /已授权/.test(defaultCounts.summary) && /会话/.test(defaultCounts.summary),
+      '① 入口摘要（#l2-entry-summary）= origin · 会话 digest（V5-3：授权态独占状态栏 chip，摘要四词零出现）',
+      /v3-l2\.test/.test(defaultCounts.summary) &&
+        /会话/.test(defaultCounts.summary) &&
+        !/未授权|已授权|零注入|supported/.test(defaultCounts.summary),
       defaultCounts.summary,
     );
     check(

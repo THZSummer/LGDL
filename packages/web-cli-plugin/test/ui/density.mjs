@@ -201,6 +201,39 @@ async function judgeCards(cdp, tier) {
  * `opacity:0` ancestor gap is fixed in exactly one place. */
 const riskVisibleExpr = riskVisibilityProbeSource;
 
+/**
+ * V5-3 等价重锚（FR-ALLN-086 / N23 / R-V5-105）—— **`unauthorized` 的载体是状态栏授权 chip**。
+ *
+ * `#auth-state` 是授权态全 UI 唯一载体（两态**恒显其一**，永不 `hidden`）；它**不在
+ * `#stream` 内**（零宿主），故「可见」的口径与风险位同源（隐藏祖先 / 折叠容器 / CSS 隐身 /
+ * 视口内 / 三通道 = 文字 + `data-auth` + `aria-label`）。未授权时文案必须含「零注入」。
+ */
+const authChipVisibleExpr = `(() => {
+  const chip = document.getElementById('auth-state');
+  if (!chip) return { ok: false, why: '授权 chip 不存在' };
+  const chain = []; let n = chip; while (n) { chain.push(n); n = n.parentElement; }
+  const hiddenAncestor = chain.find((x) => x.hidden === true);
+  if (hiddenAncestor) return { ok: false, why: '祖先链含 hidden=' + (hiddenAncestor.id || hiddenAncestor.tagName) };
+  const folded = chain.find((x) => x.hasAttribute && (x.hasAttribute('data-l1-panel') || x.hasAttribute('data-l2-view') || x.hasAttribute('data-disclose-panel')));
+  if (folded) return { ok: false, why: '祖先链含折叠容器 ' + (folded.id || folded.className) };
+  const cs = getComputedStyle(chip);
+  if (cs.visibility === 'hidden' || cs.opacity === '0') return { ok: false, why: 'CSS 隐身（visibility=' + cs.visibility + ' opacity=' + cs.opacity + '）' };
+  const rect = chip.getBoundingClientRect();
+  if (!(rect.height > 0)) return { ok: false, why: '渲染高度为 0' };
+  if (rect.top < 0 || rect.bottom > window.innerHeight) return { ok: false, why: '不在默认视口内' };
+  const text = (chip.textContent ?? '').trim();
+  const state = chip.getAttribute('data-auth') ?? '';
+  const controls = chip.getAttribute('aria-controls') ?? '';
+  if (!text) return { ok: false, why: '文字通道为空' };
+  if (state !== 'yellow' && state !== 'green') return { ok: false, why: '状态通道非两态：' + state };
+  if (!controls || !document.getElementById(controls)) return { ok: false, why: '关系通道（aria-controls）不成立：' + controls };
+  if (!/零注入/.test(text)) return { ok: false, why: '未授权文案未含「零注入」：' + text };
+  return { ok: true, text, state, controls };
+})()`;
+
+/** 授权态场景的载体读数（V5-3：`unauthorized` 读 chip，其余读风险位）。 */
+const carrierVisibleExpr = (key) => (key === 'unauthorized' ? authChipVisibleExpr : riskVisibilityProbeSource(key));
+
 /** Per-element contribution snapshot for the RP-V3-03 counter-proof. */
 const c1Probe = `(() => {
   const root = document.body;
@@ -664,9 +697,13 @@ async function stageB(cdp) {
         // V4-1 显式取代（redlineRemap：v3「default 恰 7 可点」）：三区骨架把 L1 入口面板与
         // 状态带整体退役，可点准入 = **工具栏 4 入口 + 主题 = 恰 5**（ADR-V4-018；#region-statusbar
         // 内零常驻可点，chips 只在风险态出现）。等价改写为「default 档可点 == 工具栏准入值」。
+        //
+        // V5-3 等价重锚（FR-ALLN-085 / ADR-V5-006 §4 / N23）：授权 chip `#auth-state` 是
+        // 状态栏**常显两态**的净新增可点（授权态全 UI 唯一载体）⇒ 准入值 5 → **6**
+        // （4 入口 + 主题 + 授权 chip），仍 **≤ 默认阈值 7**（阈值逐字未动）。
         check(
-          `default@${vp} 可点预算恰为工具栏准入值（v4-1 取代 v3「恰 7」：4 入口 + 主题 = 5）`,
-          measured.clickables === 5 && measured.clickables <= DENSITY_LIMITS.default.clickables,
+          `default@${vp} 可点预算恰为工具栏准入值（v4-1「恰 5」+ V5-3 授权 chip = 6；≤ 阈值 ${DENSITY_LIMITS.default.clickables}）`,
+          measured.clickables === 6 && measured.clickables <= DENSITY_LIMITS.default.clickables,
           `实测 ${measured.clickables}`,
         );
         check(
@@ -877,7 +914,7 @@ async function stageC(cdp) {
       const measured = await measure(cdp);
       const verdict = evaluateDensity(measured, 'risk');
       const delta = evaluateDelta(base, measured);
-      const probe = await evaluate(cdp, riskVisibleExpr(sub.key));
+      const probe = await evaluate(cdp, carrierVisibleExpr(sub.key));
       // stability: re-measure the *base* after the risk window; a drift means the
       // fixture (not the product) moved, and it must be reported as such.
       // V4-4 R2: the expected drift is **registered** (see `riskExpectationFor`) —
@@ -933,9 +970,13 @@ async function stageC(cdp) {
         console.log(`                   baseAgain∖base 文本块=${keySets.driftBlocks.join(' | ') || '（无）'}`);
         console.log(`                   登记期望：违规=${JSON.stringify(expected.expectedViolations)} 漂移=${JSON.stringify(expected.baseWindowDrift)} 漂移键=${JSON.stringify(expected.driftKeys)}`);
       }
-      console.log(`  · risk(${sub.key})@${vp}: ${fmt(measured)} → ${verdict.ok ? 'PASS' : 'FAIL'} | 增量违规 ${delta.violations.length} | 风险行可见 ${probe.ok ? 'YES' : `NO(${probe.why})`} | base 文本 ${baseText}`);
+      console.log(`  · risk(${sub.key})@${vp}: ${fmt(measured)} → ${verdict.ok ? 'PASS' : 'FAIL'} | 增量违规 ${delta.violations.length} | 载体可见 ${probe.ok ? 'YES' : `NO(${probe.why})`} | base 文本 ${baseText}`);
       check(`risk(${sub.key})@${vp} C1/C2 ≤ 风险档上限`, verdict.ok, verdict.message);
-      check(`risk(${sub.key})@${vp} 风险行在 L0 可见且三通道齐备`, probe.ok === true, JSON.stringify(probe));
+      check(
+        `risk(${sub.key})@${vp} ${sub.key === 'unauthorized' ? '授权 chip 在 L0 可见且三通道齐备（V5-3 载体下移）' : '风险行在 L0 可见且三通道齐备'}`,
+        probe.ok === true,
+        JSON.stringify(probe),
+      );
       // ── V4-4 R2：双向精确期望（登记外的任何新增/减少都 FAIL；未登记格仍要求 0 违规）──
       check(
         `risk(${sub.key})@${vp} 风险增量只被风险类元素占用（实测违规必须逐字等于登记期望${
@@ -1003,8 +1044,9 @@ async function stageC(cdp) {
 
   // V4-4 TASK-806 (FR-V3-014 等价重锚): the panel-side `#l0-pick` is retired, so
   //「未授权 / 探测中不得有可点的拾取入口」is now proven structurally (the element is
-  // absent) plus the readable path (the settings-view guidance + the「页面侧零注入」
-  // risk row). The intent is preserved; only the anchor moved.
+  // absent) plus the readable path (the settings-view guidance + the「零注入」statement).
+  // V5-3 等价重锚（FR-ALLN-086）：后者的载体由 rail 风险行下移到状态栏授权 chip
+  // （`#auth-state[data-auth="yellow"]` 文案「未授权 · 零注入」）。
   await resetFixture(cdp, { authorized: false, ask: true });
   await setRisk(cdp, 'unauthorized', 'natural');
   await sleep(200);
@@ -1013,11 +1055,16 @@ async function stageC(cdp) {
     `(() => ({
       retired: document.getElementById('l0-pick') === null,
       guidance: document.getElementById('pick-guidance') ? document.getElementById('pick-guidance').textContent : '',
-      zeroInjection: (document.getElementById('risk-rail').textContent || '').includes('页面侧零注入'),
+      zeroInjection: (document.getElementById('auth-state')?.textContent || '').includes('零注入'),
+      authState: document.getElementById('auth-state')?.getAttribute('data-auth') ?? '',
     }))()`,
   );
   check('unauthorized 时面板侧拾取入口已退役（无假入口）', pickState.retired === true && /拾取/.test(pickState.guidance), JSON.stringify(pickState));
-  check('unauthorized 时风险位明示「页面侧零注入」', pickState.zeroInjection === true, JSON.stringify(pickState));
+  check(
+    'unauthorized 时状态栏授权 chip 明示「零注入」（V5-3 载体下移；rail 零残留）',
+    pickState.zeroInjection === true && pickState.authState === 'yellow',
+    JSON.stringify(pickState),
+  );
   await setRisk(cdp, 'probing', 'force');
   await sleep(200);
   const pickProbing = await evaluate(cdp, `document.getElementById('l0-pick') === null && /拾取/.test(document.getElementById('pick-guidance').textContent)`);
@@ -1161,13 +1208,17 @@ async function stageF(cdp, rows, cells, worst, extraRows = []) {
   // the 3 risk viewport cells that only ever exist as members of the 15-cell
   // sub-scenario set (9 mandatory + 15 risk + 1 worst ≠ the 22 cells actually
   // compared: 6 non-risk rows + 15 risk sub-cells + 1 worst).
-  // ── V4.5-1（TASK-V45-116 / ADR-V45-006 §2c）：`v45Ledger` 逐格留痕判据 ──────────
-  // 台账（`docs/v4-density-baseline.json#v45Ledger`）必须覆盖全部 31 个登记格，且每格的
-  // `after` 必须**与当前登记值同源**（`tiers` 里的值），`before` / `delta` / `measuredOn` /
-  // `source` / `reason` / `historyRetained` 六项齐备。台账滞后或与登记值脱钩 ⇒ FAIL
-  // ——「逐格留痕」因此不是散文，而是可复算的。
+  // ── V4.5-1（TASK-V45-116 / ADR-V45-006 §2c）：逐格留痕判据 ──────────────────────
+  // 台账（`docs/v4-density-baseline.json#v45Ledger` ∨ **V5-3 新增的 `#v5Ledger`**）必须覆盖
+  // 全部 31 个登记格，且每格的 `after` 必须**与当前登记值同源**（`tiers` 里的值），
+  // `before` / `delta` / `measuredOn` / `source` / `reason` / `historyRetained` 六项齐备。
+  // V5-3（TASK-V5-171/172）：**最新一轮留痕优先** —— 本叶新增 `v5Ledger` 后，同源比对
+  // 以 `v5Ledger` 为准；`v45Ledger` 作为历史**逐字保留**（其 `before` 是 v4.5 的历史值，
+  // 不再被要求追平当前 `tiers`，否则等于要求把历史台账改写成本轮值）。台账滞后或与
+  // 登记值脱钩 ⇒ FAIL ——「逐格留痕」因此不是散文，而是可复算的。
   {
-    const ledgerRows = baseline.v45Ledger?.cells ?? [];
+    const ledgerKey = (baseline.v5Ledger?.cells ?? []).length > 0 ? 'v5Ledger' : 'v45Ledger';
+    const ledgerRows = baseline[ledgerKey]?.cells ?? [];
     const problems = [];
     const expectedCells = [
       ...rows.filter((r) => r.tier !== 'risk').map((r) => `${r.tier}@${r.vp}`),
@@ -1177,12 +1228,12 @@ async function stageF(cdp, rows, cells, worst, extraRows = []) {
       ...['320', '400', '520'].map((vp) => `risk@${vp}（名义格）`),
     ];
     if (ledgerRows.length !== expectedCells.length) {
-      problems.push(`v45Ledger 格数 ${ledgerRows.length} ≠ 登记格数 ${expectedCells.length}`);
+      problems.push(`${ledgerKey} 格数 ${ledgerRows.length} ≠ 登记格数 ${expectedCells.length}`);
     }
     for (const name of expectedCells) {
       const entry = ledgerRows.find((c) => c.cell === name);
       if (!entry) {
-        problems.push(`${name}: v45Ledger 缺该格`);
+        problems.push(`${name}: ${ledgerKey} 缺该格`);
         continue;
       }
       for (const field of ['cell', 'tier', 'vp', 'before', 'after', 'delta', 'measuredOn', 'source', 'reason', 'historyRetained']) {
@@ -1191,10 +1242,30 @@ async function stageF(cdp, rows, cells, worst, extraRows = []) {
       if (String(entry.reason ?? '').trim().length < 40) problems.push(`${name}: reason 必须 ≥40 字符`);
       const registered = resolveBaselineCell(baseline, name);
       if (registered && JSON.stringify(entry.after) !== JSON.stringify(registered)) {
-        problems.push(`${name}: v45Ledger.after=${JSON.stringify(entry.after)} ≠ 当前登记值 ${JSON.stringify(registered)}（台账滞后）`);
+        problems.push(`${name}: ${ledgerKey}.after=${JSON.stringify(entry.after)} ≠ 当前登记值 ${JSON.stringify(registered)}（台账滞后）`);
       }
     }
-    check('F v45Ledger 逐格留痕（31 格齐备 ∧ after == 当前登记值 ∧ 六项字段齐备）', problems.length === 0, problems.slice(0, 8).join(' | '));
+    check(
+      `F ${ledgerKey} 逐格留痕（31 格齐备 ∧ after == 当前登记值 ∧ 六项字段齐备）`,
+      problems.length === 0,
+      problems.slice(0, 8).join(' | '),
+    );
+    // V5-3（TASK-V5-171）：`data-narrow` 边界 2 格 + 宽度不变性 1 组必须随台账一起留痕
+    // （不删格、不改格值：新增的是**宽度维度**的判据，不是密度格）。
+    const wide = baseline.v5Ledger;
+    if (wide) {
+      const boundary = wide.narrowBoundary ?? [];
+      const invariance = wide.widthInvariance ?? [];
+      check(
+        'F v5Ledger 宽度维度留痕（data-narrow 边界 2 格 360/361 ∧ 宽度不变性 1 组）',
+        boundary.length === 2 &&
+          boundary.some((b) => b.width === 360 && b.attr === 'true') &&
+          boundary.some((b) => b.width === 361 && b.attr === 'false') &&
+          invariance.length >= 1 &&
+          invariance[0].decoupled === true,
+        `${JSON.stringify(boundary)} | ${JSON.stringify(invariance)}`,
+      );
+    }
   }
   // 实测读数全量 JSON（构建期生成 v45Ledger 的数据源；诊断输出，非断言）
   console.log(`    measured-cells-json: ${JSON.stringify([
@@ -1975,6 +2046,120 @@ async function reverseRpV409(cdp) {
   check('RP-V4-09 (还原后 PASS 段) 还原后首屏预算 + guard 均回到 PASS', restored.firstScreen.ok === true && restored.guard === 'pass', res.restored);
 }
 
+/**
+ * V5-3（TASK-V5-167 / 168 · FR-ALLN-090 / 091 / ADR-V5-007 §1 / X5）—— **宽度面**：
+ *
+ *   ① `data-narrow` 边界 **360 → "true" / 361 → "false"**（EC-ALLN-014 / EC-ALLN-015）；
+ *   ② **宽度 → 控件计数不变**（登记格 = 控件计数，与宽度**解耦**；320 仍是验收锚点）；
+ *   ③ **产品侧零宽度切换控件**（零三档 `radio` / 零 `data-width` / 零 `role=separator` /
+ *      零拖动手柄 —— 实测产品侧本就零控件，X5 = **删**三档而不是加）—— 两条**实跑反证**；
+ *   ④ **R-V5-106 反证**：**宽视口 + 窄面板** ⇒ `data-narrow === "true"`（若实现读 `matchMedia`
+ *      视口则本判据**必红**，这正是「观测面板实际宽度」的机核面）；
+ *   ⑤ 320px 窄栏**零水平溢出**（NFR-ALLN-002）。
+ *
+ * 这段放在 A/B/C/B2/D/E/F **之后**：它只改视口与临时属性/覆盖宽度，且 `finally` 语义由
+ * 末尾的还原段保证，故不影响任何既有登记格的实测值。
+ */
+async function stageW(cdp) {
+  console.log('\n▶ ⑯ X5：data-narrow（360/361）+ 宽度→控件计数不变 + 零宽度控件 + R-V5-106 反证');
+  const narrowProbe = `(() => { const p = document.getElementById('panel');
+    return { w: p.clientWidth, attr: p.dataset.narrow ?? null, want: p.clientWidth <= 360 ? 'true' : 'false' }; })()`;
+  const zeroWidthControlScan = `(() => { const p = document.getElementById('panel');
+    return { radios: p.querySelectorAll('input[type="radio"]').length,
+      widthAttrs: p.querySelectorAll('[data-width]').length,
+      separators: p.querySelectorAll('[role="separator"]').length,
+      dragHandles: p.querySelectorAll('[data-width-handle],[draggable="true"]').length }; })()`;
+
+  // V5-3：`ResizeObserver` 的回调在「更新渲染」步骤投递 —— 面板标签页若被前置的
+  // 设计稿目标挤到后台，渲染步骤会被节流（实测 attr 停在 boot 值）。先把它前置，
+  // 判据仍是**产品代码**按面板实际宽度写的 `data-narrow`（不是测试代写）。
+  await cdp.send('Page.bringToFront');
+  await setViewport(cdp, 360, VIEWPORT_HEIGHT);
+  await sleep(300);
+  const at360 = await evaluate(cdp, narrowProbe);
+  check(
+    '⑯ data-narrow 边界：面板实际宽度 360 ⇒ "true"（EC-ALLN-014）',
+    at360.w === 360 && at360.attr === 'true',
+    JSON.stringify(at360),
+  );
+  await cdp.send('Page.bringToFront');
+  await setViewport(cdp, 361, VIEWPORT_HEIGHT);
+  await sleep(300);
+  const at361 = await evaluate(cdp, narrowProbe);
+  check(
+    '⑯ data-narrow 边界：面板实际宽度 361 ⇒ "false"（EC-ALLN-014）',
+    at361.w === 361 && at361.attr === 'false',
+    JSON.stringify(at361),
+  );
+
+  const scan0 = await evaluate(cdp, zeroWidthControlScan);
+  check(
+    '⑯ 产品侧零宽度切换控件（零三档 radio / 零 data-width / 零 role=separator / 零拖动手柄）',
+    scan0.radios === 0 && scan0.widthAttrs === 0 && scan0.separators === 0 && scan0.dragHandles === 0,
+    JSON.stringify(scan0),
+  );
+
+  // ② 宽度 → 控件计数不变（320 与 520 逐项相等；解耦判据，不是「取最大值」）
+  await setViewport(cdp, 320, VIEWPORT_HEIGHT);
+  await sleep(180);
+  const at320 = await measure(cdp);
+  await setViewport(cdp, 520, VIEWPORT_HEIGHT);
+  await sleep(180);
+  const at520 = await measure(cdp);
+  check(
+    '⑯ 宽度 → 控件计数不变（解耦判据：320 与 520 的 C1/C2/C3 逐项相等）',
+    at320.clickables === at520.clickables && at320.lines === at520.lines && at320.blocks === at520.blocks,
+    `320=${JSON.stringify(at320)} 520=${JSON.stringify(at520)}`,
+  );
+
+  await setViewport(cdp, 320, VIEWPORT_HEIGHT);
+  await sleep(180);
+  const overflow = await evaluate(
+    cdp,
+    `(() => ({ doc: document.documentElement.scrollWidth, body: document.body.scrollWidth, vw: window.innerWidth }))()`,
+  );
+  check('⑯ 320px 窄栏零水平溢出（NFR-ALLN-002）', overflow.doc <= overflow.vw && overflow.body <= overflow.vw, JSON.stringify(overflow));
+
+  // ④ R-V5-106：宽视口 + 窄面板 ⇒ "true"（matchMedia 视口实现必红）
+  await cdp.send('Page.bringToFront');
+  await setViewport(cdp, 800, VIEWPORT_HEIGHT);
+  await evaluate(cdp, `(() => { document.getElementById('panel').style.width = '340px'; return true; })()`);
+  await sleep(320);
+  const wideNarrow = await evaluate(cdp, narrowProbe);
+  check(
+    '⑯ R-V5-106 反证：宽视口（800）+ 窄面板（340）⇒ data-narrow === "true"（matchMedia 视口实现必红）',
+    wideNarrow.w === 340 && wideNarrow.attr === 'true',
+    JSON.stringify(wideNarrow),
+  );
+  // ④ FAIL 段：把属性改成「按视口（800）判定」的口径 ⇒ 宽度一致判据必红
+  const tampered = await evaluate(
+    cdp,
+    `(() => { const p = document.getElementById('panel'); p.dataset.narrow = 'false';
+      return { attr: p.dataset.narrow, want: p.clientWidth <= 360 ? 'true' : 'false' }; })()`,
+  );
+  check('⑯ R-V5-106 (FAIL 段) 属性改按视口口径（false）⇒ 宽度一致判据必红', tampered.attr !== tampered.want, JSON.stringify(tampered));
+
+  // ③ 反证：注入三档 radio ⇒ 零宽度控件扫描必红 → 还原 ⇒ 零命中
+  await evaluate(
+    cdp,
+    `(() => { const d = document.createElement('div'); d.id = 'rp-w-inject';
+      d.innerHTML = '<input type="radio" name="w" data-width="320"><input type="radio" name="w" data-width="400">';
+      document.getElementById('panel').appendChild(d); return true; })()`,
+  );
+  const injected = await evaluate(cdp, zeroWidthControlScan);
+  check('⑯ (FAIL 段) 注入三档 radio ⇒ 零宽度控件扫描必红（radios/data-width 各 2）', injected.radios === 2 && injected.widthAttrs === 2, JSON.stringify(injected));
+  await evaluate(cdp, `(() => { document.getElementById('rp-w-inject')?.remove(); return true; })()`);
+  const cleaned = await evaluate(cdp, zeroWidthControlScan);
+  check('⑯ (还原段) 移除注入 ⇒ 扫描回到零命中', cleaned.radios === 0 && cleaned.widthAttrs === 0, JSON.stringify(cleaned));
+
+  // 还原：撤掉覆盖宽度 ⇒ 观测器接管，属性回到按实际宽度判定
+  await evaluate(cdp, `(() => { document.getElementById('panel').style.width = ''; return true; })()`);
+  await sleep(220);
+  const restored = await evaluate(cdp, narrowProbe);
+  check('⑯ (还原段) 撤掉覆盖宽度 ⇒ data-narrow 回到按实际宽度判定（一致）', restored.attr === restored.want, JSON.stringify(restored));
+  await setViewport(cdp, 400, VIEWPORT_HEIGHT);
+}
+
 // ── main ────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(`▶ chrome: ${CHROME}`);
@@ -2042,6 +2227,9 @@ async function main() {
         `实测 ${machineComparedCells}（登记 ${registeredCells} − 名义 ${nominalRiskRowCells}）`,
       );
       await stageF(cdp, rows, cells, worst, extraRows);
+      // V5-3（TASK-V5-167/168）：宽度面（data-narrow 边界 / 解耦 / 零宽度控件 / R-V5-106）
+      // 放在全部既有登记格**之后**，只动视口与临时属性，不参与任何既有格的口径。
+      await stageW(cdp);
     } else {
       switch (REVERSE) {
         case 'RP-V3-01':

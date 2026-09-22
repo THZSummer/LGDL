@@ -1128,6 +1128,13 @@
         .site-summary .site-origin { max-width: 96px; }
         #statusbar-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       }
+      /* V5-3（FR-ALLN-090 / ADR-V5-007 §1）：`data-narrow` = **面板实际宽度** ≤360px 的
+         窄屏兜底（由 `ResizeObserver` 置值，**不是** 视口 `matchMedia`）。仅样式层、复用
+         既有窄屏样式语言（`@media (max-width:380px)` 同族），不新建样式依赖、不动 DOM。
+         宽度只改变「哪些样式生效」，**不改变控件计数**（密度口径与宽度解耦）。 */
+      #panel[data-narrow='true'] .view-btn .view-label { display: none; }
+      #panel[data-narrow='true'] .site-summary .site-origin { max-width: 96px; }
+      #panel[data-narrow='true'] .site-summary .site-session { display: none; }
 
       /* ══ V3-2 (ADR-V3-021 / ADR-V3-022 / ADR-V3-023): the L1 in-place layer ══
          Eight content classes, every one of them `hidden` in the default state, so
@@ -1206,7 +1213,7 @@
       #l1-ref-rescue[hidden] { display: none !important; }
     </style>
   </head>
-  <body>
+  <body id="panel">
     <!-- ══ 区一（V4-1 / ADR-V4-017 / ADR-V4-018）：工具栏（常驻，文档序第一） ══
          构成 = `.site-summary`（**只读** `role=status`，非 button/a/input ⇒ 不计入
          可点预算）+ 4 个视图入口（`#l2-entry-*`，带计数徽标，与视图标题计数同源）

@@ -227,6 +227,26 @@ export const EXPECTED_AUDITED_FILES = [
   'test/ui/law8-plaintext.mjs',
   'test/ui/no-dead-end.mjs',
   'test/ui/auth-chip.mjs',
+  // V5-3 收口（TASK-V5-175）：V5-1 的注册表单源门禁（父 Feature 的 8 个新门禁之一，此前
+  // 只在目录扫描里被自动纳入 —— 本下界让「改名 / 删除」也 FAIL）。
+  'test/next-registry.test.ts',
+] as const;
+
+/**
+ * V5-3 收口（TASK-V5-175 / FR-ALLN-125）—— **父 Feature 的 8 个新门禁**。
+ *
+ * 逐项必须在「受审集合」内（目录扫描发现 ∧ `EXPECTED_AUDITED_FILES` 下界声明），任一未纳入
+ * 即 FAIL。`CHROMIUM_GATES.length === 9` 不动（其中三个是 Chromium 门禁，五个是 node 门禁）。
+ */
+export const V5_NEW_GATE_FILES = [
+  'test/ui/no-dead-end.mjs',
+  'test/ui/law8-plaintext.mjs',
+  'test/next-registry.test.ts',
+  'test/next-obligation-table.test.ts',
+  'test/next-dispatch-diff0.test.ts',
+  'test/op-wiring.test.ts',
+  'test/sw-op-mirror.test.ts',
+  'test/op-protocol.test.ts',
 ] as const;
 
 /** V5-1：本轮新增 / 加严的 node 门禁（发现由 `NODE_GATE_MARKER` 自动完成）。 */
@@ -692,6 +712,21 @@ test('元门禁（V5-1）：四个新 node 门禁由 JUDGEMENTS 标记自动纳�
     assert.ok(discovered.includes(file), `v4.5-1 的 node 门禁 ${file} 不得因本次追加而脱离受审集合`);
   }
   assert.equal(CHROMIUM_GATES.length, 9, 'Chromium 门禁计数常量不得改动（无新增 Chromium 门禁文件）');
+});
+
+// ── 0a-2. V5-3 closeout: the parent Feature's eight new gates are all audited ─
+test('元门禁（V5-3 收口）：父 Feature 的 8 个新门禁逐项在受审集合内（只增不减）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V5_NEW_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新增门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+  }
+  assert.deepEqual(problems, [], `父 Feature 的新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  assert.equal(V5_NEW_GATE_FILES.length, 8, '父 Feature 的新门禁恰 8 个（逐项在册）');
+  assert.equal(CHROMIUM_GATES.length, 9, 'Chromium 门禁计数常量不得改动（其中 3 个新门禁是 Chromium，5 个是 node）');
+  console.log(`  ℹ V5 新门禁受审：8/8 在册（目录扫描 ∧ 下界声明双命中）`);
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────

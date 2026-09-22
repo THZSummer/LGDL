@@ -190,8 +190,13 @@ async function main() {
       pCdp,
       `(() => {
          const rail = document.getElementById('risk-rail');
+         const chip = document.getElementById('auth-state');
          return {
            railText: rail ? rail.textContent : '',
+           // V5-3 等价重锚（FR-ALLN-086 / N23）：unauthorized 的载体已从 rail 下移到
+           // 状态栏授权 chip（授权态全 UI 唯一载体）⇒ 「零注入」的 L0 明示面改读 chip。
+           authText: chip ? chip.textContent : '',
+           authState: chip ? (chip.getAttribute('data-auth') ?? '') : '',
            // V4-4 TASK-806: the panel-side pick entry is retired; the unauthorized
            // discoverability path is the settings-view guidance (TEXT ONLY — the
            // guidance itself performs no injection).
@@ -201,7 +206,12 @@ async function main() {
          };
        })()`,
     );
-    check('AC-V3-018：L0 风险位明示「页面侧零注入」', /零注入/.test(String(l0?.railText ?? '')), String(l0?.railText));
+    check(
+      'AC-V3-018：L0 明示「页面侧零注入」（V5-3 载体 = 状态栏授权 chip）',
+      /零注入/.test(String(l0?.authText ?? '')),
+      `${String(l0?.authText)} | rail=${String(l0?.railText)}`,
+    );
+    check('AC-V3-018：授权 chip 处于未授权态（yellow）且零注入不得只在文案里', l0?.authState === 'yellow', String(l0?.authState));
     check('AC-V3-018：面板侧 `#l0-pick` 已退役（未授权不再有可点入口）', l0?.pickRetired === true, JSON.stringify(l0));
     check('AC-V3-018：未授权拾取指引可读（授权入口 + 页面内拾取，纯文案零注入）', /授权/.test(String(l0?.pickGuidance ?? '')) && /拾取/.test(String(l0?.pickGuidance ?? '')), String(l0?.pickGuidance));
     check('未授权时侧栏自身也不带拾取层', l0?.layerMarker === 'undefined', String(l0?.layerMarker));

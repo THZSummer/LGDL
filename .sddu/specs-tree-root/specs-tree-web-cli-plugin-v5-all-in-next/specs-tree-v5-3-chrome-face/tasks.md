@@ -1067,3 +1067,21 @@ git status --short
 - **`169` / `173` / `175`**：授权态**载体下移**引起的既有门禁等价重锚 —— `l0`(3) · `density`(10) · `zero-injection`(1) · `binding` `#20e`(1)（binding 重锚须**偏移避让**，保护段 `107780..115930` 本轮零触碰）。
 - **`172` / `174`**：`docs/v4-density-baseline.json#tiers` 重锚 + `v5Ledger` 逐格留痕 + **X5 取代台账**；`test/size-baseline.ts` 五要素**三叶合计**（以 R1 实测 545,273 B 起算）+ 档位闸门。
 - **已登记差距**：法八面③ 的 `{opId, ts, result, maskedLength}` 完整四元组在产品侧无渲染面（`AUDIT_RENDERED_FIELDS` 无 `maskedLength` 列），补列需 **+246 B**（越本轮预算 3,250）⇒ 与体积轮一并评估，**不以文案冒充已渲染**。
+
+### 5.3 build R2（`TASK-V5-167~176` · 波 E 后段~G）— **已完成**（2026-09-22，HEAD `ad8e8af` 起）
+
+| 区间 | 任务 | 状态 | 门禁读值 |
+|:--:|------|:--:|---|
+| E | `167` `data-narrow` | ✅ completed | `ResizeObserver` 观测 `#panel` 实际宽度（≤360 → `true` / ≥361 → `false`）；窄屏样式 3 条（复用既有样式语言）；`density` ⑯ 边界双值 + R-V5-106 反证（宽视口 800 + 窄面板 340 ⇒ `true`）实跑 |
+| E | `168` 零宽度控件 | ✅ completed | 产品侧零宽度切换控件扫描逐项零命中 + **两条注入反证**（三档 radio ⇒ 红；按视口口径 ⇒ 红）；诚实登记入 `v4-density-baseline.json#knownLimitations` |
+| E | `169` 载体重锚 | ✅ completed | `l0` **248/0**（245→248，与 3 红等价重锚到 `#auth-state`）/ `density` **242/0**（232→242，10 红全绿 + 新增 ⑯ 组）/ `zero-injection` **28/0**（27→28）/ `binding` **192 PASS**（`#20e` 段外**偏移避让**重锚，保护段 sha + 107780 双绿） |
+| F | `170` 阈值 + 边界 | ✅ completed | `density-thresholds` 新增 **W1~W4**（阈值逐字 / `data-narrow` 边界 + 零宽度控件 / 宽度→控件计数不变 / 台账宽度维留痕）|
+| F | `171` 口径解耦 + 31 格 | ✅ completed | 格 = 控件计数（与宽度解耦）；31 格**逐格留痕**（`v5Ledger`）；320 锚点保留；`registeredCells === 31` 不删格 |
+| F | `172` 台账重锚 | ✅ completed | `tiers` 等价重锚（31 格）+ `v5Ledger`（31 格 + 边界 2 格 + 宽度不变性 1 组）+ **X5 取代台账**（`modifiedRanges[]` 五要素）|
+| G | `173` journey 保段 + binding 避让 | ✅ completed | **显式二选一 = 保段**（`cc79f413…` / `43054` / 240 行三不变；`journey` **171 PASS**）；`#20e` 段外**字节中立**重锚 |
+| G | `174` 体积终轮 + `maskedLength` | ✅ completed | 三叶合计五要素：542,064 → **546,370 B**（Δ **+4,306**；`v53Rows` Σ 模块 +4,306 + glue 0）；档位 **563,200** / 绝对上限 **619,520** / `pending-author-line` 均不变；生效上限 573,688；**法八面③ `maskedLength` 审计列落地**（+566 B，编排器裁决「落」）|
+| G | `175` 台账一致性 + 受审收口 | ✅ completed | `supersession` **36/0**（≥35）+ `gate-integrity` **15/0**（≥13，**父 Feature 8 新门禁逐项在册**）+ X5 五要素 + 体积三值同源机核 |
+| G | `176` 全门禁串行收口 | ✅ completed | **25 门禁全绿**（`npm test` **1181/0** / `ui` 171 / `binding` 192 / `e2e` PASS / 其余逐项 ≥ 基线）|
+
+**门禁全局读数（R2 末）**：`npm test` **1181/0** · `l0` **248/0** · `density` **242/0** · `zero-injection` **28/0** · `binding` **192 PASS** · `ui`(journey) **171 PASS** · `stream` **73/0** · `ask-auth` **71/0** · `recommendation` **65/0** · `insight` **116 PASS** · `hardening` **24 PASS** · `page-input` **108/0** · `l1` **116/0** · `l2` **74/0** · `l1-reverse` **9 PASS** · `l2-reverse` **10 PASS** · `law8` **25/0** · `dead-end` **29/0** · `auth-chip` **30/0** · `e2e` **PASS** · `supersession` **36/0** · `gate-integrity` **15/0** · `size-ruling-vol3` **12/0** · `design-contract` **19/0**。
+体积：**546,370 B**（Δ **+4,306** ≤ 三叶合计口径）；红线 `content.js` **177,076 B** / `pick-layer.js` **33,900 B** 逐字节不变。

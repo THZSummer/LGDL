@@ -98,15 +98,20 @@ const SCAN_3 = `(async () => {
   const keys = Object.keys(all).filter((k) => k.indexOf('audit') !== -1);
   const stored = JSON.stringify(keys.map((k) => all[k]));
   if (stored.includes(S)) hits.push('audit-storage');
-  // 审计面的字段口径（NFR-ALLN-011）：渲染出的每一个 [data-field] 必须 ∈ 审计白名单七列；
-  // 零明文说明必须在位；审计行事实三元组（action/time/result）逐行齐备。
+  // 审计面的字段口径（NFR-ALLN-011）：渲染出的每一个 [data-field] 必须 ∈ 审计白名单
+  // （V5-3 TASK-V5-174：八列 = 原七列 + 掩码写入的**长度类别** maskedLength）；
+  // 零明文说明必须在位；审计行事实三元组（action/time/result）逐行齐备，且掩码写入行
+  // 必须带 maskedLength 列 —— 法八面③ 的 {命令/动作 · 时间 · 结果 · 掩码长度类别}
+  // 四元组因此在**渲染面**可机核（不再只是「可得面」的降级读数）。
   const fields = [...document.querySelectorAll('#l2-audit-host [data-field]')].map((n) => n.getAttribute('data-field'));
-  const allowed = ['id', 'command', 'action', 'result', 'ms', 'time', 'origin'];
+  const allowed = ['id', 'command', 'action', 'result', 'ms', 'time', 'origin', 'maskedLength'];
   const outside = [...new Set(fields.filter((f) => !allowed.includes(f)))];
   const rows = [...document.querySelectorAll('#l2-audit-host .l2-audit-row')];
   const tuple = rows.every((r) => ['action', 'time', 'result'].every((f) => r.querySelector('[data-field="' + f + '"]')));
+  const maskedRows = rows.filter((r) => r.querySelector('[data-field="maskedLength"]'));
+  const maskedCategories = [...new Set(maskedRows.map((r) => r.querySelector('[data-field="maskedLength"]').textContent))];
   const note = Boolean(document.querySelector('#l2-audit-host .l2-note-zero-plaintext'));
-  return JSON.stringify({ hits, keys, outside, tuple, note, rows: rows.length });
+  return JSON.stringify({ hits, keys, outside, tuple, note, rows: rows.length, maskedRows: maskedRows.length, maskedCategories });
 })()`;
 
 /** ④ every element's value / text-y props / ALL attributes, under the measurement root. */
@@ -231,8 +236,13 @@ async function main() {
     check('② digest 含掩码 `••••••`（掩码卡写入的 digest 痕迹 = 掩码令牌，不只零命中）', f2.masked >= 1, JSON.stringify(f2));
     const f3 = JSON.parse(await evaluate(cdp, SCAN_3));
     check('③ 审计面（渲染 + 存储）零命中', f3.hits.length === 0, JSON.stringify(f3));
-    check('③ 审计渲染列口径：`[data-field]` ⊆ 七列白名单 ∧ 零明文说明在位（NFR-ALLN-011）', f3.outside.length === 0 && f3.note === true, JSON.stringify(f3));
+    check('③ 审计渲染列口径：`[data-field]` ⊆ 八列白名单 ∧ 零明文说明在位（NFR-ALLN-011）', f3.outside.length === 0 && f3.note === true, JSON.stringify(f3));
     check('③ 审计行事实三元组逐行齐备（action/time/result；零行时该判据不空转由下方行数记录）', f3.tuple === true, JSON.stringify({ rows: f3.rows }));
+    check(
+      '③ 法八面③ 四元组在审计渲染面齐备：掩码写入行带 `maskedLength` 长度类别（8+ / 8-，非值非原始长度）',
+      f3.maskedRows >= 1 && f3.maskedCategories.every((c) => c === '8+' || c === '8-'),
+      JSON.stringify({ rows: f3.rows, maskedRows: f3.maskedRows, maskedCategories: f3.maskedCategories }),
+    );
     const f4 = JSON.parse(await evaluate(cdp, SCAN_4));
     check('④ DOM value + 全部属性（逐项）零命中', f4.hits.length === 0, JSON.stringify(f4.hits));
     const fact = await evaluate(

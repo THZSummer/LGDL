@@ -53,6 +53,11 @@ export interface PluginAuditEvent {
   ok?: boolean;
   durationMs?: number;
   outputChars?: number;
+  /**
+   * V5-3（TASK-V5-174 / ADR-V5-010 §2 · 法八面③）：掩码写入的**长度类别**（`8+` / `8-`）。
+   * 绝不是值，也不是原始长度 —— 审计渲染面据此可读四元组，零明文边界不变。
+   */
+  maskedLength?: string;
   origin?: string;
   trust?: 'untrusted' | 'trusted';
   risk?: string;

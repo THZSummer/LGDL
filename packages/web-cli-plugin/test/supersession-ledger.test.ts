@@ -992,6 +992,51 @@ test('ledger(V4 段): binding 保段双绿（sha + startByte 107780）+ 两处�
   );
   console.log('  ℹ binding 保段：sha be9ad0e9… + startByte 107780 双绿 · 两处段外改写逐行登记 · 3 反证实跑');
 });
+/**
+ * V5-3 收口（TASK-V5-172 / 175 / ADR-V5-012 §4）—— **X5 逐行登记五要素 + 共享面「恰一次」**。
+ *
+ * 1. X5（`data-narrow` + 授权态载体重锚）在本叶的改写必须在 v4 台账的 `modifiedRanges[]` 里
+ *    **逐行登记**：`oldRange` / `newRange` / `oldId` / `decision: 'equivalent-rewrite'` /
+ *    `reason ≥40` 五项缺一即 FAIL（登记不是散文）。
+ * 2. 体积面（`test/size-baseline.ts` 五要素 + 三叶合计）在 `v4-supersession-ledger.json#v3Vol3Closeout`
+ *    的 `newBaselineBytes` 与源码常量**同源**（同一轮只登记一次：`SIDEPANEL_RE_REGISTRATIONS['v5-3-r2']`）。
+ */
+test('ledger(V4 段 · V5-3 收口): X5 逐行五要素齐备 + 体积「恰一次」登记（三值同源）', () => {
+  const v4 = readV4Ledger();
+  const x5 = (v4.modifiedRanges ?? []).filter((r) =>
+    String((r as { oldId?: string }).oldId ?? '').startsWith('V53-MR-'),
+  );
+  assert.ok(x5.length >= 1, 'X5（v5-3 载体重锚）必须在 modifiedRanges[] 里逐行登记');
+  const problems: string[] = [];
+  for (const r of x5) {
+    const row = r as { oldId?: string; decision?: string; reason?: string; oldRange?: number[]; newRange?: number[] };
+    if (!Array.isArray(row.oldRange) || row.oldRange.length !== 2) problems.push(`${row.oldId}: 缺 oldRange`);
+    if (!Array.isArray(row.newRange) || row.newRange.length !== 2) problems.push(`${row.oldId}: 缺 newRange`);
+    if (row.decision !== 'equivalent-rewrite') problems.push(`${row.oldId}: decision 必须是 equivalent-rewrite（等价重锚）`);
+    if ((row.reason ?? '').trim().length < 40) problems.push(`${row.oldId}: reason 必须 ≥40 字符`);
+  }
+  assert.deepEqual(problems, [], `X5 逐行五要素不全：\n${problems.join('\n')}`);
+
+  // 体积「恰一次」：v3Vol3Closeout ⑤三值闭合 与源码常量同源（不得两处各改一次）。
+  const baseline = readV4Ledger() as unknown as {
+    v3Vol3Closeout?: { steps?: { '⑤三值闭合'?: { newBaselineBytes?: number; absoluteCeilingBytes?: number } } };
+  };
+  const closeout = baseline.v3Vol3Closeout?.steps?.['⑤三值闭合'];
+  assert.ok(closeout, 'v3Vol3Closeout.⑤三值闭合 必须存在（体积收口的三值载体）');
+  // 源码常量用**文本读取**（本文件不额外引入 size-baseline 模块，避免新增 import 面）。
+  const sizeSrc = readFileSync(resolve(REPO, 'packages/web-cli-plugin/test/size-baseline.ts'), 'utf8');
+  const literal = /export const SIDEPANEL_BASELINE_BYTES = ([\d_]+);/.exec(sizeSrc)?.[1] ?? '';
+  const baselineBytes = Number(literal.replace(/_/g, ''));
+  assert.ok(Number.isFinite(baselineBytes) && baselineBytes > 0, 'size-baseline.ts 的基线常量必须可读');
+  assert.equal(
+    closeout?.newBaselineBytes,
+    baselineBytes,
+    '⑤三值闭合.newBaselineBytes 必须与 size-baseline 源码常量同源（同一条目不得两叶各改一次）',
+  );
+  assert.equal(closeout?.absoluteCeilingBytes, 619_520, '绝对上限逐字（不下移）');
+  console.log(`  ℹ X5 逐行登记：${x5.length} 条五要素齐备 · 体积三值同源（${closeout?.newBaselineBytes} B）`);
+});
+
 
 /**
  * RP-V4-08 (TASK-513 八步 ⑧) — **the protected-pin judge must be able to go red

@@ -30,6 +30,8 @@ export const AUDIT_FIELD_WHITELIST = Object.freeze([
   'durationMs',
   'ts',
   'origin',
+  // V5-3（TASK-V5-174 / 法八面③）：掩码写入的**长度类别**（`8+`/`8-`），非值非原始长度。
+  'maskedLength',
 ] as const);
 
 /** Registered field set of the rendered row (what the gate scans for). */
@@ -41,11 +43,13 @@ export const AUDIT_RENDERED_FIELDS = Object.freeze([
   'ms',
   'time',
   'origin',
+  // V5-3（TASK-V5-174）：法八面③ 四元组（命令/动作 · 时间 · 结果 · 掩码长度类别）齐备。
+  'maskedLength',
 ] as const);
 
 export const AUDIT_ZERO_PLAINTEXT_NOTE =
-  '零明文：仅渲染 {命令名, 动作 id, 结果, 耗时, 时间, 审计 id} 六列 + 去参站点列；' +
-  '参数摘要 / 原因 / 剪贴板与通知正文等一律不进入本视图（URL 已去参）。';
+  '零明文：仅渲染 {命令名, 动作 id, 结果, 耗时, 时间, 审计 id} 六列 + 去参站点列（掩码写入另带长度类别列）' +
+  '；参数摘要 / 原因 / 剪贴板与通知正文等一律不进入本视图（URL 已去参）。';
 
 /** One rendered audit row — every value already sanitized. */
 export interface AuditRow {
@@ -57,6 +61,8 @@ export interface AuditRow {
   ms: string;
   time: string;
   origin: string;
+  /** V5-3: the masked-write length **category** (`8+` / `8-`); absent otherwise. */
+  maskedLength?: string;
 }
 
 /**
@@ -111,6 +117,8 @@ export function toAuditRow(event: unknown, index: number): AuditRow {
   const tool = readable(ev.tool);
   const sub = readable(ev.subcommand);
   const command = sub ? `${tool} ${sub}` : tool || '（未标注命令）';
+  // V5-3：长度类别只接受 `8+` / `8-` 两个字面量（其他形状一律丢弃 ⇒ 该列不是侧信道）。
+  const maskedLength = ev.maskedLength === '8+' || ev.maskedLength === '8-' ? ev.maskedLength : undefined;
   return {
     id: `ev-${index}`,
     command,
@@ -119,6 +127,7 @@ export function toAuditRow(event: unknown, index: number): AuditRow {
     ms: typeof ev.durationMs === 'number' && Number.isFinite(ev.durationMs) ? `${Math.round(ev.durationMs)}ms` : '—',
     time: timeText(ev.ts),
     origin: stripUrlParams(ev.origin),
+    ...(maskedLength ? { maskedLength } : {}),
   };
 }
 
@@ -161,6 +170,7 @@ export function renderAudit(doc: Document, host: HTMLElement, rows: readonly Aud
       ['ms', row.ms],
       ['time', row.time],
       ['origin', row.origin],
+      ['maskedLength', row.maskedLength ?? ''],
     ] as const) {
       if (!value) continue;
       const cell = doc.createElement('span');

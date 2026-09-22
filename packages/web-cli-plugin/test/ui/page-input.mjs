@@ -152,7 +152,10 @@ async function main() {
              fallbackHidden: document.getElementById('ask-fallback')?.hidden !== false,
              optionKeys: Array.from(document.querySelectorAll('[data-msg-type="askuser"] button, [data-msg-type="auth"] button')).map((b) => b.getAttribute('data-key') || b.id),
              pageUnavailable: document.getElementById('l0-page-unavailable')?.textContent ?? '',
+             // V5-3 等价重锚（FR-ALLN-086 / N23）：未授权的「零注入」明示面已从 rail 下移到
+             // 状态栏授权 chip（授权态全 UI 唯一载体）。
              riskRail: document.getElementById('risk-rail')?.textContent ?? '',
+             authText: document.getElementById('auth-state')?.textContent ?? '',
              // V4-4 TASK-806: the panel-side #l0-pick is retired. The readable
              // unavailability fact now lives on the status bar's risk row, which is
              // the same projection the v4-1「页面侧不可用」row renders.
@@ -1219,9 +1222,9 @@ async function main() {
       return panel.dom();
     })();
     check(
-      'AC-V3-018（撤销态）：撤销后 L0 风险位明示「页面侧零注入」',
-      /零注入/.test(String(goneReadback.riskRail ?? '')),
-      String(goneReadback.riskRail).slice(0, 140),
+      'AC-V3-018（撤销态）：撤销后 L0 明示「零注入」（V5-3 载体 = 状态栏授权 chip）',
+      /零注入/.test(String(goneReadback.authText ?? '')),
+      `${String(goneReadback.authText)} | rail=${String(goneReadback.riskRail).slice(0, 80)}`,
     );
     check(
       'AC-V3-018（撤销态）：撤销后「从页面拾取」入口被禁用（可读原因，不静默）',

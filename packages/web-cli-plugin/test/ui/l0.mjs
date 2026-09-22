@@ -512,6 +512,32 @@ async function main() {
 
     // ══ ⑤ AC-V3-008：5 类风险 × 2 场景 ════════════════════════════════════════
     console.log('\n▶ ⑤ AC-V3-008：5 类风险 × 2 场景（默认视口可见 + 全折叠后仍可见）');
+    // V5-3 等价重锚（FR-ALLN-086 / N23 / R-V5-105）：`unauthorized` 的风险载体已从
+    // `#risk-rail` **下移**到状态栏授权 chip `#auth-state`（授权态全 UI 唯一载体，
+    // 零双写五条③）⇒ 该子场景的「可见 + 三通道齐备」判据改读 chip。其余 4 类风险
+    // 仍以 `#risk-rail` 为唯一载体（断言数量只增：原 5×2 保留，另加 chip 的 2 条）。
+    const AUTH_CHIP_PROBE = `(() => {
+      const chip = document.getElementById('auth-state');
+      if (!chip) return { ok: false, why: '授权 chip 不存在' };
+      const chain = []; let n = chip; while (n) { chain.push(n); n = n.parentElement; }
+      const hiddenAncestor = chain.find((x) => x.hidden === true);
+      if (hiddenAncestor) return { ok: false, why: '祖先链含 hidden=' + (hiddenAncestor.id || hiddenAncestor.tagName) };
+      const folded = chain.find((x) => x.hasAttribute && (x.hasAttribute('data-l1-panel') || x.hasAttribute('data-l2-view') || x.hasAttribute('data-disclose-panel')));
+      if (folded) return { ok: false, why: '祖先链含折叠容器 ' + (folded.id || folded.className) };
+      const cs = getComputedStyle(chip);
+      if (cs.visibility === 'hidden' || cs.opacity === '0') return { ok: false, why: 'CSS 隐身（visibility=' + cs.visibility + ' opacity=' + cs.opacity + '）' };
+      const rect = chip.getBoundingClientRect();
+      if (!(rect.height > 0)) return { ok: false, why: '渲染高度为 0' };
+      if (rect.top < 0 || rect.bottom > window.innerHeight) return { ok: false, why: '不在默认视口内（top=' + Math.round(rect.top) + ' bottom=' + Math.round(rect.bottom) + '）' };
+      const text = (chip.textContent ?? '').trim();
+      const state = chip.getAttribute('data-auth') ?? '';
+      const controls = chip.getAttribute('aria-controls') ?? '';
+      if (!text) return { ok: false, why: '文字通道为空' };
+      if (state !== 'yellow' && state !== 'green') return { ok: false, why: '状态通道（data-auth）非两态：' + state };
+      if (!controls || !document.getElementById(controls)) return { ok: false, why: '关系通道（aria-controls → 管理详情）不成立：' + controls };
+      if (!/未授权/.test(text) || !/零注入/.test(text)) return { ok: false, why: '未授权文案未含「未授权/零注入」：' + text };
+      return { ok: true, text, state, controls };
+    })()`;
     await evaluate(
       cdp,
       `chrome.runtime.sendMessage({ kind: 'revoke', origin: ${JSON.stringify(FIXTURE_ORIGIN)} }).then(() => true)`,
@@ -522,12 +548,14 @@ async function main() {
     for (const sub of RISK_SUBSCENARIOS) {
       await evaluate(cdp, `window.__v3.testing.setRisk(${JSON.stringify(sub.key)}, ${JSON.stringify(sub.key === 'unauthorized' ? 'natural' : 'force')}); true`);
       await sleep(250);
-      const visibleProbe = await evaluate(cdp, riskVisibilityProbeSource(sub.key));
-      check(`⑤ ${sub.label}：默认视口内可见且三通道齐备`, visibleProbe.ok === true, JSON.stringify(visibleProbe));
+      const carrier = sub.key === 'unauthorized' ? '授权 chip（状态栏唯一载体）' : '风险位';
+      const probeExpr = sub.key === 'unauthorized' ? AUTH_CHIP_PROBE : riskVisibilityProbeSource(sub.key);
+      const visibleProbe = await evaluate(cdp, probeExpr);
+      check(`⑤ ${sub.label}：默认视口内可见且三通道齐备（${carrier}）`, visibleProbe.ok === true, JSON.stringify(visibleProbe));
       await evaluate(cdp, `window.__v3.testing.collapseAll(); true`);
       await sleep(200);
-      const collapsedProbe = await evaluate(cdp, riskVisibilityProbeSource(sub.key));
-      check(`⑤ ${sub.label}：全部 L1/L2 收起后仍可见（永不折叠）`, collapsedProbe.ok === true, JSON.stringify(collapsedProbe));
+      const collapsedProbe = await evaluate(cdp, probeExpr);
+      check(`⑤ ${sub.label}：全部 L1/L2 收起后仍可见（永不折叠）（${carrier}）`, collapsedProbe.ok === true, JSON.stringify(collapsedProbe));
       await evaluate(cdp, `window.__v3.testing.setRisk(${JSON.stringify(sub.key)}, 'off'); true`);
       await sleep(150);
     }
@@ -912,8 +940,10 @@ async function main() {
     // 徽标）。旧断言（摘要含四类计数）与它守护的「三处同源」一起被新语义取代：
     // 摘要不再重复计数，而入口标签 ≡ data-count 仍然逐项机对（EC-V3-016 不合并）。
     check(
-      '⑨ 工具栏摘要（#l2-entry-summary）= origin · 授权态 · 会话 digest（非计数串）',
-      /v3-l0\.test/.test(l2Parsed.summary ?? '') && /已授权/.test(l2Parsed.summary ?? '') && /会话/.test(l2Parsed.summary ?? ''),
+      '⑨ 工具栏摘要（#l2-entry-summary）= origin · 会话 digest（非计数串；V5-3 零双写② 授权态已独占状态栏 chip）',
+      /v3-l0\.test/.test(l2Parsed.summary ?? '') &&
+        /会话/.test(l2Parsed.summary ?? '') &&
+        !/未授权|已授权|零注入|supported/.test(l2Parsed.summary ?? ''),
       JSON.stringify(l2Parsed.summary),
     );
     check(

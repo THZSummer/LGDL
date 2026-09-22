@@ -2666,10 +2666,25 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     }
     case 'audit-export':
       return okResponse(await s.audit.exportEvents());
-    case 'llm-config':
+    case 'llm-config': {
+      // V5-3（TASK-V5-174 / 法八面③ 四元组补全 / ADR-V5-010 §2）：掩码写入的**事实**在此
+      // 落审计行 —— 只带**长度类别**（`8+` / `8-`），既不是值也不是原始长度（值从未离开
+      // 面板的 key store 写入点）。审计渲染面因此可读 `{命令/动作, 时间, 结果, 掩码长度类别}`
+      // 四元组；纯查询调用（无 `maskedLength`）零写入、零副作用，返回形状逐字不变。
+      const maskedLength = message.maskedLength;
+      if (maskedLength === '8+' || maskedLength === '8-') {
+        s.audit.recordPlugin({
+          type: 'llm-config',
+          ts: Date.now(),
+          decision: 'write-masked',
+          maskedLength,
+          detail: `凭据掩码写入（长度类别 ${maskedLength}；值不入审计 / 不入流）`,
+        });
+      }
       // W3: no key-derived string (not even a mask) leaves the background — the
       // non-sensitive summary is the only shape ever returned to a caller.
       return okResponse(toLlmStatusSummary(await s.keys.maskedConfig()));
+    }
     case 'llm-status':
       // F-2: side panel gets a non-sensitive summary only (never the API key).
       return okResponse(toLlmStatusSummary(await s.keys.maskedConfig()));

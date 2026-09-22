@@ -18,52 +18,52 @@
   },
   "streamHeightRatioMin": 0.65,
   "logClientHeightFloor": 488,
-  "logClientHeightMeasuredWorst": 748,
+  "logClientHeightMeasuredWorst": 744,
   "tiers": {
     "default": {
       "320": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 211
+        "chars": 216
       },
       "400": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 211
+        "chars": 216
       },
       "520": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 213
+        "chars": 218
       }
     },
     "firstRun": {
       "320": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 213
+        "chars": 218
       },
       "400": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 213
+        "chars": 218
       },
       "520": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 213
+        "chars": 218
       }
     },
     "risk": {
@@ -71,93 +71,93 @@
         "unauthorized": {
           "320": {
             "clickables": 6,
-            "lines": 8,
-            "blocks": 17,
+            "lines": 7,
+            "blocks": 16,
             "regions": 4,
-            "chars": 256
+            "chars": 212
           },
           "400": {
             "clickables": 6,
-            "lines": 8,
-            "blocks": 17,
+            "lines": 7,
+            "blocks": 16,
             "regions": 4,
-            "chars": 256
+            "chars": 212
           },
           "520": {
             "clickables": 6,
-            "lines": 8,
-            "blocks": 17,
+            "lines": 7,
+            "blocks": 16,
             "regions": 4,
-            "chars": 256
+            "chars": 212
           }
         },
         "probing": {
           "320": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 245
+            "chars": 250
           },
           "400": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 245
+            "chars": 250
           },
           "520": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 245
+            "chars": 250
           }
         },
         "hardline": {
           "320": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 241
+            "chars": 246
           },
           "400": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 241
+            "chars": 246
           },
           "520": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 241
+            "chars": 246
           }
         },
         "confirm": {
           "320": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 242
+            "chars": 247
           },
           "400": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 242
+            "chars": 247
           },
           "520": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 8,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 242
+            "chars": 247
           }
         },
         "staleRef": {
@@ -169,18 +169,18 @@
             "chars": 237
           },
           "400": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 7,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 232
+            "chars": 237
           },
           "520": {
-            "clickables": 6,
+            "clickables": 7,
             "lines": 7,
-            "blocks": 17,
+            "blocks": 18,
             "regions": 4,
-            "chars": 232
+            "chars": 237
           }
         }
       },
@@ -189,65 +189,65 @@
         "lines": 8,
         "blocks": 18,
         "regions": 4,
-        "chars": 256
+        "chars": 250
       }
     },
     "empty": {
       "320": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 213
+        "chars": 218
       },
       "400": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 213
+        "chars": 218
       },
       "520": {
-        "clickables": 5,
+        "clickables": 6,
         "lines": 7,
-        "blocks": 15,
+        "blocks": 16,
         "regions": 4,
-        "chars": 215
+        "chars": 220
       }
     },
     "riskDetailOpen": {
       "320": {
-        "clickables": 6,
+        "clickables": 7,
         "lines": 8,
-        "blocks": 18,
+        "blocks": 19,
         "regions": 4,
-        "chars": 267
+        "chars": 272
       },
       "400": {
-        "clickables": 6,
+        "clickables": 7,
         "lines": 8,
-        "blocks": 18,
+        "blocks": 19,
         "regions": 4,
-        "chars": 267
+        "chars": 272
       },
       "520": {
-        "clickables": 6,
+        "clickables": 7,
         "lines": 8,
-        "blocks": 18,
+        "blocks": 19,
         "regions": 4,
-        "chars": 267
+        "chars": 272
       }
     }
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 542064,
-    "ceilingBytes": 569167,
+    "registeredBaselineBytes": 546370,
+    "ceilingBytes": 573688,
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
     "ceilingFormula": "floor(baseline × (1 + tolerance))",
-    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；v3-3 + v3-4（328,476 → 362,777 B，+10.44%）低于 15% 线，但守卫改为「最差相邻对」后告警仍然存在（守卫只增不减）。另：当前产物 **425,094 B**（v4-2 聊天流事件模型轮 + review 修复轮重登记的实测值，2026-09-19）从 266,500 B 起算的 Feature 累计增幅 **+59.53%**（425,094 / 266,500 − 1）；〖review 修复轮〗同轮的**中间登记值 425,442 B / +59.64%** 作为历史逐字保留于下行 v4-2 段 —— **R3 后越过已登记的 40% 停工线**（历史文本中的 375,102 B / +40.75% 是上一轮登记值，逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_META.note` 的历史段），已在 R3 缺陷修复轮回报中**显式列出并如实上报**（未放宽任何口径）。增量构成见 test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN（逐模块，esbuild metafile 可复现）。 ⚠️ **该 Feature 级 40% 累计停工线已由作者裁决 V3-VOL-3（2026-09-18，选 B）显式撤销**：266,500 B 基线口径的百分比线在活跃开发期已无参照意义（R3 后实际 +40.75%，上句历史文本逐字保留）；本轮起不再作为停工/放行判据。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。**新增义务（硬约束）**：方案 F 重构（聊天流统一承载）落地收口时必须重定基线 + 设绝对上限（见 `pendingAbsoluteCap` / `test/size-baseline.ts#PENDING_ABSOLUTE_CAP`）。 〖v4-2（2026-09-19）〗基线 385,319 → **425,442 B**（+40,123 B，+10.41%，十二个新必需模块 stream-* ×3 + cards/* ×9 = +34,044 B + 四个既有模块接线 +5,617 B + 未归因胶水 +462 B）；ceiling = floor(425,442 × 1.05) = **446,714 B**；容差 5% 未动、cap 仍 record-only。**v4-1 + v4-2 相邻两轮累计 +13.42%（<15% 线，仍如实登记）。** 〖v4-2 review 修复轮（2026-09-19，I-01~I-12 全处置后按**最终实测产物**订正）〗基线 **425,442 → 425,094 B**（−348 B，死代码/死 CSS 移除 + 空态单一投影源 + stream-merge 双键去重；Σ 模块 +39,381 + 未归因胶水 +394 == +39,775 == 425,094 − 385,319）；ceiling = floor(425,094 × 1.05) = **446,348 B**（≤ 上一登记 ceiling 446,714，方向为**下调**，不是放宽容差）；中间登记值 425,442 B / ceiling 446,714 B 逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v4-2'].reason`；**v4-1 + v4-2 相邻两轮累计 +13.33%（<15% 线，仍如实登记）**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(478,163 × 1.05) = **502,071 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖v4-3 build 轮（2026-09-19，TASK-711）〗按**最终实测产物**再登记：426,487 → **440,698 B**（+14,211 B，+3.33%）；ceiling = floor(440,698 × 1.05) = **462,732 B**；容差 5% 未动、cap 仍 record-only。v4-2 + v4-3 相邻两轮累计 +3.33%（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-3 审查修复轮（2026-09-19）〗基线 440,698 → **444,962 B**（+4,264 B，+0.97%，逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows`）；ceiling = floor(445,300 × 1.05) = **467,565 B**；容差 5% 未动、cap 仍 record-only；相邻两轮（v4-3 + v4-3 审查修复轮）+0.97%（<15% 线，仍如实登记）。 〖v4-4 收口轮（2026-09-19，TASK-811，V3-VOL-3 带值闭合）〗基线 445,300 → **465,000 B**（+19,700 B，+4.42%），ceiling = floor(465,000 × 1.05) = **488,250 B**；**绝对上限带值闭合** = ceilTo50KB(464,491) × 1.10 = **563,200 B**，判定 = min(563,200, 488,250) = 488,250；容差 5% 未动、cap 仍 record-only；相邻两轮（v4-3 审查修复轮 + v4-4）+4.42%（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖V4-4 R2（2026-09-19，编排器 KL-V44-01 选②）〗基线 465,000 → **465,277 B**（+277 B，+0.06%；唯一改动模块 `chat-state.ts`），ceiling = floor(478,163 × 1.05) = **502,071 B**（容差 5% 未动、cap 仍 record-only）；相邻两轮（v4-4 + v4-4-r2）+0.06%（<15% 线，仍如实登记）；**档位 512,000 / 绝对上限 563,200 未变**（`ceilTo50KB(465,277)` 与 `ceilTo50KB(465,000)` 同档）。 〖V4-4 审查修复轮（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08 全处置）〗基线 465,277 → **478,163 B**（+12,886 B，+2.77%；逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.rows`，输入模块 75 → 76 新增 `host-registry.ts`）；ceiling = floor(478,163 × 1.05) = **502,071 B**（容差 5% 未动、cap 仍 record-only）；相邻两轮（v4-4-r2 + v4-4-reviewfix）+2.73%（<15% 线，仍如实登记）；**档位 512,000 / 绝对上限 563,200 未变**（`ceilTo50KB(477,960)` 与 `ceilTo50KB(465,000)` 同档）。 〖V4-4 快修轮（2026-09-20，review R2 的 I-09~I-11 处置）〗基线 478,163 → **478,897 B**（+734 B，+0.15%；唯一 `src` 改动 = `sidepanel.ts` 的「首装」推荐时机真实接线 I-09）；ceiling = floor(478,897 × 1.05) = **502,841 B**（容差 5% 未动、cap 仍 record-only）；相邻两轮（v4-4 审查修复轮 + v4-4 快修轮）+0.15%（<15% 线，仍如实登记）；**档位 512,000 / 绝对上限 563,200 未变**（`ceilTo50KB(478,897)` 与 `ceilTo50KB(478,163)` 同档）。 〖V4-4 收口轮（2026-09-20，validate R1 的 F-01 + N-01~N-05 处置）〗基线 478,897 → **479,021 B**（+124 B，+0.03%；唯一 `src` 改动 = `sidepanel.ts#projectRef` 的投影唯一性键改为 `refNum + 状态`，修掉 `dom-gone` 救援观察落地时同序号 ref 卡被重复投影，validate R1 实测 `data-ref-num=[\"1\",\"1\"]`）；ceiling = floor(479,021 × 1.05) = **502,972 B**（容差 5% 未动、cap 仍 record-only）；相邻两轮（v4-4 快修轮 + v4-4 收口轮）+0.03%（<15% 线，仍如实登记）；**档位 512,000 / 绝对上限 563,200 未变**（`ceilTo50KB(479,021)` 与 `ceilTo50KB(478,897)` 同档）；N-01~N-05 为登记/口径项（零字节）；门禁侧只新增 `test/ui/page-input.mjs` ⑯（4 条断言 + 两段证伪），本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖F 还原度快修轮（2026-09-20，真机首屏评估 FIX-1~FIX-4；修复记录 docs/f-fidelity-fix-2026-09-20.md）〗基线 479,021 → **480,026 B**（+1,005 B，+0.21%；逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.fFidelityFixRows`：view-model +1,230 / sidepanel +115 / recommend +199 / l2/counts −409（树摇）/ l0/shell −130，Σ +1,005 + glue 0 == +1,005）；ceiling = floor(480,026 × 1.05) = **504,027 B**（容差 5% 未动、cap 仍 record-only）；相邻两轮（v4-4 收口轮 + F 快修轮）+0.21%（<15% 线，仍如实登记）；**档位 512,000 / 绝对上限 563,200 未变**（`ceilTo50KB(480,026)` 与 `ceilTo50KB(479,021)` 同档）；`dist/content.js` 177,076 / `dist/pick-layer.js` 33,900 逐字节不变。〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗**当前产物 480,896 B**（ceiling = floor(480,896 × 1.05) = 504,940 B；档位 `ceilTo50KB(480,896) = 512,000` 未下移 ⇒ 绝对上限 563,200 不变）。本轮为**单写化 + strips DOM 真退役**（净减只出现在 `sidepanel.ts` 单模块，Σ +870 B），31 格实测重算在 W4/TASK-V45-116 落地；阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）**逐字未动**。",
+    "directionalAlert": "⚠️ 已触发（裁决 V3-VOL-1 ④）：**最差连续两功能轮**为 v3-1（266,500 → 291,523 B）+ v3-2（295,225 → 327,679 B）累计增幅 **+22.96%** > 15% —— **必须显式回报编排器**（不得无声膨胀）；守卫只增不减。〖V5-3 R2（2026-09-22）〗当前登记基线 **546,370 B**（末叶 / 收口叶：授权 chip 唯一载体 + `data-narrow` + 密度口径解耦 + 死端守护 + 法八四面机核 + 法八面③ `maskedLength` 审计列；本叶 +4,306 B）；档位 `ceilTo50KB(546,370) = 563,200` 与绝对上限 619,520 均未变，生效上限 = `min(619,520, floor(546,370 × 1.05) = 573,688) = 573,688`。作者裁决 V3-VOL-3 撤销 40% Feature 级停工线的结论保持（历史文本逐字保留）。**保留项（零改动）**：单轮 5% 容差 · 重登记五要素披露 · 相邻两轮 >15% 告警 · floor(当前值 × 1.05)。",
     "absoluteCeilingBytes": 563200,
     "effectiveCeilingRule": "min(absoluteCeilingBytes 563,200, floor(480,026 × 1.05) = 504,027) = 504,027 〖F 还原度快修轮（2026-09-20，授权 chip 直达授权流 / 过时文案订正 / 工具栏摘要 digest / 决策槽 kicker）〗档位 ceilTo50KB(480,026) 仍是 512,000、绝对上限仍是 563,200（三值中的后两值未动）；历史值 min(563,200, 502,972) = 502,972（v4-4 收口轮）逐字保留于 test/size-baseline.ts#SIDEPANEL_RE_REGISTRATIONS['v4-4-closeout'].reason",
     "reviewfixR1Note": "〖V4.5-1 review R1 修复轮（2026-09-21）〗基线 **493,501 → 498,521 B**、ceiling **518,176 → 523,447 B**（= floor(498,521 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 512,000 / 绝对上限仍 563,200）。前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v45-1-reviewfix']`。",
@@ -450,7 +450,8 @@
     "〖N-01（收口轮，v4-1 validate R1）—— 口径双轨期说明〗密度口径有**两条并存**的测量表达式：① **产品口径** `DENSITY_MEASURE_SOURCE`（排除 `#stream` 的三区外壳口径，阶段 B/C/F 与 RP-V4-01~07 用）；② **未排除口径** `c1Probe`（`density.mjs` 内联，整页可见可点计数 —— RP-V3-03 / RP-V4-04 用它判「CSS 隐身不豁免 / hidden 是唯一豁免通道」，那里判的正是这条口径**本身**）。N-01 指出的是**误用**：RP-V4-06 曾在产品口径的反证里用未排除口径断言「C1 不得下降」——页面内移元素不可能改变整页计数，故恒真（实测 14 → 14）。现已改为产品口径（注入后必须 5 → 4）+ 对照段（移入非豁免 `#region-statusbar` ⇒ C1 不变）；未排除口径的既有用途（RP-V3-03/RP-V4-04）保持不变。",
     "〖N-02（收口轮，v4-1 validate R1）—— 豁免守卫是双层防线（两层都已实测）〗① **guard 即时拦**：`src/ui/sidepanel/density-scope.ts#assertChromeNotInStream()` 只认 `[data-chrome-control]` 标记，带标记控件被移入 `#stream` 时抛错（validate P1 实测 throw；`density.mjs --reverse RP-V4-06` in-gate 实跑）。② **阶段 F 基线兜底**：抹掉标记后的移入不会被 guard 拦住（`pass`），但**阶段 F 逐格比对**必然判红 —— validate A2-1 在真门禁上静态注入实测 `167 passed / 4 failed`（`default@320/400/520 可点实测 4 ≠ 5` + 阶段 F `clickables 4≠5` / `blocks 13≠15` / `chars 176≠181`）。因此「未标记控件移入豁免子树」不是未覆盖面，而是**第二层承担**的形态；补齐基于形态（`data-toolbar-slot`/`.view-btn`）或位置（三区外壳）的第一层反向判定需改产品代码（`toolbar.ts` 字节）—— 收口轮按红线只登记不修，留待下游在有产品改动时一并落地。",
     "〖V4-3 前置义务（v4-2 review I-05 跨叶移交，2026-09-19）—— 必须在 v4-3 复算，禁默认沿用〗「首屏可见卡**合计**可点 ≤ 8」（`perCardBudget.streamResidentClickableLimit` / `aggregateLimit`）的推导前提是**首屏 = 1 张 askuser（5 可点）+ 1 张 nextstep（3 可点）**。该组合在本轮（v4-2）成立，因为 v4-2 **不把 ask 流入 `#stream`**（ask/confirm 仍由 `#l0-decision` 占位宿主承载，见 `test/size-baseline.ts` 与 build.md §11 偏差 3）。**但 v4-3 会把 ask-user（含破坏性确认）流内化**：届时若首屏同时可见**两张 askuser 卡**，每张各 5 可点（单卡 ≤6 各自合规）⇒ 合计 **10 > 8**，按现行判据必 FAIL。因此 v4-3 必须：① 用真实产品态复算首屏合计上限（而不是沿用 8）；② 若「两张 ask 卡 = 10」被判定为**合法**产品态，则必须显式裁决（提高 `aggregateLimit` 并同时给出单卡/首屏/合计三者的新推导，或由形态/位置判据禁止两张 ask 卡同屏），并在本文件与`docs/v4-supersession-ledger.json` 同步登记 —— **禁静默沿用 8 或静默放宽**；③ 复跑 `npm run test:density -- --reverse RP-V4-09` 证明判据仍会红。移交落点：`.sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/specs-tree-v4-3-ask-auth-inflow/tasks.md`（跨叶移交登记，编排器授权）。",
-    "〖I-03（v4-3 审查修复轮，2026-09-19）—— HO-1 展开态裁决：**收紧（互斥披露）**，不设预算豁免〗v4-3 复算的「最坏合计 = 4 + 4 = 8」只在**收起态**成立：choice ask 卡点开「其他…（我来描述）」后，3 个选项 + 末项按钮 + 输入 + 提交 + 取消 = **7 可点 > MAX_CLICKABLES_PER_CARD(6)**；两张展开卡合计 **14 > MAX_STREAM_RESIDENT_CLICKABLES(8)**。裁决：**收紧**而不是登记豁免 —— `cards/askuser.ts#setAskFallbackOpen()` 做**互斥披露**（展开兜底即 `hidden` 掉选项行；关闭兜底即恢复选项行），因此展开态单卡 = 4（输入 + 提交 + 取消 + 切换按钮）、两卡展开合计 = 8 ≤ 8，与收起态**同一口径**（无需「临时态」豁免，也不需要「展开态登记格」这类不参与判定的格）。可判定判据落在 `test/ui/ask-auth-inflow.mjs` ⑪（展开态单卡 ≤6 ∧ 两卡合计 ≤8，判据用与 `density.mjs` 同源的可见性/可点口径）+ 同段 in-gate 反证（注入「选项行不收起」⇒ 该判据必须 FAIL，还原后 PASS）；`l0/shell.ts#revealFallback`（L1「改用描述」入口）走同一函数，使两处入口产出的 DOM 状态一致。附带修正的失真注释（原 `cards/askuser.ts` 称「实际只有一张 open ask 卡」）与 v4-2 I-05 移交义务的 ③（`test:density -- --reverse RP-V4-09` 仍会红）一并满足。"
+    "〖I-03（v4-3 审查修复轮，2026-09-19）—— HO-1 展开态裁决：**收紧（互斥披露）**，不设预算豁免〗v4-3 复算的「最坏合计 = 4 + 4 = 8」只在**收起态**成立：choice ask 卡点开「其他…（我来描述）」后，3 个选项 + 末项按钮 + 输入 + 提交 + 取消 = **7 可点 > MAX_CLICKABLES_PER_CARD(6)**；两张展开卡合计 **14 > MAX_STREAM_RESIDENT_CLICKABLES(8)**。裁决：**收紧**而不是登记豁免 —— `cards/askuser.ts#setAskFallbackOpen()` 做**互斥披露**（展开兜底即 `hidden` 掉选项行；关闭兜底即恢复选项行），因此展开态单卡 = 4（输入 + 提交 + 取消 + 切换按钮）、两卡展开合计 = 8 ≤ 8，与收起态**同一口径**（无需「临时态」豁免，也不需要「展开态登记格」这类不参与判定的格）。可判定判据落在 `test/ui/ask-auth-inflow.mjs` ⑪（展开态单卡 ≤6 ∧ 两卡合计 ≤8，判据用与 `density.mjs` 同源的可见性/可点口径）+ 同段 in-gate 反证（注入「选项行不收起」⇒ 该判据必须 FAIL，还原后 PASS）；`l0/shell.ts#revealFallback`（L1「改用描述」入口）走同一函数，使两处入口产出的 DOM 状态一致。附带修正的失真注释（原 `cards/askuser.ts` 称「实际只有一张 open ask 卡」）与 v4-2 I-05 移交义务的 ③（`test:density -- --reverse RP-V4-09` 仍会红）一并满足。",
+    "〖V5-3（TASK-V5-168 / FR-ALLN-089 / ADR-V5-007 §3）—— **诚实登记：产品侧不实现 280–640 拖动**〗G 稿契约（可拖动宽度 280–640 + ARIA `separator` 四属性 + 键盘 ←/→ ±10 · Home/End · 双击复位 400 + clamp + `pointermove` 经 rAF 合并 + 原三档 320/400/520 radio 删除）是**设计稿契约**（`design-contract` 门禁冻结的 127 断言，ADR-V5-008；v5-1 已入册），**不是产品 UI 需求**：Chrome 侧栏宽度由**浏览器**控制（用户拖浏览器边缘），扩展页面无法设置自身宽度 ⇒ 产品侧实现拖动手柄只会是「改内容宽度的假控件」。产品侧承接的是 FR-ALLN-090/091：① `#panel[data-narrow=\"true\"]`（**面板实际宽度 ≤360px**，由 `ResizeObserver` 置值，**不是** 视口 `matchMedia`）触发窄屏样式；② 密度登记格口径与宽度**解耦**（格 = 控件计数，320px 仍为验收锚点，阈值逐字不动）。**产品侧本就零宽度切换控件**（零三档 radio / 零 `data-width` / 零 `role=separator` / 零拖动手柄）—— 由 `test/ui/density.mjs#stageW` 的现场扫描 + 两条实跑反证（注入三档 radio ⇒ FAIL；`data-narrow` 改按视口口径 ⇒ FAIL）机核。本条目的义务：**防止本裁决被误读为「FR-ALLN-089 未实现」** —— G 契约侧归属与对账见 `docs/v4-supersession-ledger.json#designContractChanges`。"
   ],
   "riskIncrementRegistry": {
     "caliberNote": "〖V4-4 R2（2026-09-19，KL-V44-01 裁决②：**显式重锚**，不新增豁免类别）〗风险增量归属（AC-V3-003 / evaluateDelta）与跨风险窗口稳定性（base 复测）两条判据的**精确期望值**（机读；单源 = 本键）。**为何需要**：`staleRef` 的风险步骤本身是产品行为 —— 失效引用会追加一张真实 `ref` 卡（`FR-CHAT-050`：卡片只追加、永不移除）与一条 `system` 行；当该副作用让 320px 的 `#stream` 越过折线时，`#scroll-bottom`（滚动提示，**非风险类**）出现。**处置（不是放宽）**：① `#scroll-bottom` 照旧计入 C1（实测 7）并与登记格逐格机对（阶段 F，无豁免）；② 增量归属判据改为**双向精确期望** —— 实测违规必须逐字等于登记值（多一条、少一条、文字不符都 FAIL），未登记格一律适用 `defaultExpectation`（= 0 违规，与 R1 判据逐字一致）；③ 稳定性判据同样双向精确（漂移逐项等于登记值 ∧ 漂移键逐字等于 `driftKeys`）；④ 登记表**非空转**：每个非默认条目都必须在本轮真实出现，`coverage` 必须与夹具矩阵（5 子场景 × 3 视口）逐项一致 —— 夹具增删格而登记不更新即 FAIL。阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）**逐字未动**。 〖V4-4 审查修复轮（2026-09-19，BLOCK-01 + I-07）〗BLOCK-01 把推荐生产者接到产品路径后，「引用失效后」时机追加的 risk-recovery 卡使 @400（而非 @520）也越过折线 ⇒ 该格按同一纪律**显式重锚**为 7/7/18/208（`before` 保留历史值）。同时按 **I-07** 给每个登记格加上**溯源门槛字段**（`rulingId` / `rulingDate` / `approvedBy` / `reason`）；`test/ui/density.mjs` 新增机核：缺任一字段 ⇒ FAIL（机制上不能再「登记任意新增控件即过」）。",
@@ -478,35 +479,7 @@
       },
       "driftKeys": []
     },
-    "cells": {
-      "risk(staleRef)@320": {
-        "expectedViolations": [
-          "非风险类新增可点+文本块占用风险增量预算：#scroll-bottom"
-        ],
-        "baseWindowDrift": {
-          "clickables": 1,
-          "lines": 0,
-          "blocks": 1,
-          "chars": 5
-        },
-        "driftKeys": [
-          "#scroll-bottom"
-        ],
-        "before": {
-          "clickables": 6,
-          "lines": 6,
-          "blocks": 17,
-          "regions": 4,
-          "chars": 203
-        },
-        "reason": "〖显式重锚 · 五要素〗**前置**：R1 登记格 risk(staleRef)@320 = 6/6/17/203 / 增量违规 0 / base 复测 0 漂移。**改为**：登记格 7/7/18/208 / 增量违规 = 恰一条「非风险类新增可点+文本块占用风险增量预算：#scroll-bottom」/ base→baseAgain 漂移 = +1 可点 +1 文本块 +5 字符（键 `#scroll-bottom`）。**来源**：`npm run test:density` 实测（Chromium，2026-09-19 R2 轮），逐键归因见门禁「增量归因」日志：risk∖base 可点 = `#scroll-bottom`（非风险）+ `>footer[2]/div[1]/div[0]/button[0]`（**风险类**救援控件，`isRiskClass` 命中 `#risk-rail` 祖先 ⇒ 不违规）。**理由**：`#scroll-bottom` 是滚动提示（产品 affordance），其出现由风险步自身的**只追加**流内副作用（失效引用 ⇒ 新 `ref` 卡 ⇒ `#stream` 越过折线）触发，非风险内容本身；据编排器裁决 KL-V44-01 选②（显式重锚，不新增豁免类别）—— 元素仍全额计入 C1 并与登记格机对，仅把**增量归属的期望值**按新真值精确登记。**历史登记值 6/6/17/203 逐字保留于本键 `before`**。",
-        "measuredOn": "2026-09-19",
-        "source": "npm run test:density（阶段 C 实测 + 阶段 F 机对）",
-        "rulingId": "KL-V44-01-②",
-        "rulingDate": "2026-09-19",
-        "approvedBy": "编排器裁决 KL-V44-01 ②（显式重锚）"
-      }
-    },
+    "cells": {},
     "reanchorV45": {
       "removedCells": [
         "risk(staleRef)@400"
@@ -542,6 +515,45 @@
       "reason": "〖V4.5-1 R3（TASK-V45-116，2026-09-21）〗W4+W5 终态下 `risk(staleRef)@400` 的风险步**不再**让 `#stream` 越过折线（实测：增量违规 [] / base 窗口漂移 0 / 漂移键 []），因此其登记期望回到 `defaultExpectation`（未登记格一律 0 违规 ∧ 0 漂移，判据双向、无放宽）。方向是**收紧**（违规集合由 1 条降为 0 条），「登记项非空转」判据因此不再对 @400 要求非零期望；@320 的非零登记**逐字保留**（实测仍逐字命中），上一轮期望原文完整保留在本字段 `previousExpectation`（历史不丢）。",
       "measuredOn": "2026-09-21",
       "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v45Ledger 同源判据）"
+    },
+    "reanchorV5": {
+      "removedCells": [
+        "risk(staleRef)@320"
+      ],
+      "previousExpectation": {
+        "expectedViolations": [
+          "非风险类新增可点+文本块占用风险增量预算：#scroll-bottom"
+        ],
+        "baseWindowDrift": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "driftKeys": [
+          "#scroll-bottom"
+        ],
+        "before": {
+          "clickables": 6,
+          "lines": 6,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 203
+        },
+        "reason": "〖显式重锚 · 五要素〗**前置**：R1 登记格 risk(staleRef)@320 = 6/6/17/203 / 增量违规 0 / base 复测 0 漂移。**改为**：登记格 7/7/18/208 / 增量违规 = 恰一条「非风险类新增可点+文本块占用风险增量预算：#scroll-bottom」/ base→baseAgain 漂移 = +1 可点 +1 文本块 +5 字符（键 `#scroll-bottom`）。**来源**：`npm run test:density` 实测（Chromium，2026-09-19 R2 轮），逐键归因见门禁「增量归因」日志：risk∖base 可点 = `#scroll-bottom`（非风险）+ `>footer[2]/div[1]/div[0]/button[0]`（**风险类**救援控件，`isRiskClass` 命中 `#risk-rail` 祖先 ⇒ 不违规）。**理由**：`#scroll-bottom` 是滚动提示（产品 affordance），其出现由风险步自身的**只追加**流内副作用（失效引用 ⇒ 新 `ref` 卡 ⇒ `#stream` 越过折线）触发，非风险内容本身；据编排器裁决 KL-V44-01 选②（显式重锚，不新增豁免类别）—— 元素仍全额计入 C1 并与登记格机对，仅把**增量归属的期望值**按新真值精确登记。**历史登记值 6/6/17/203 逐字保留于本键 `before`**。",
+        "measuredOn": "2026-09-19",
+        "source": "npm run test:density（阶段 C 实测 + 阶段 F 机对）",
+        "rulingId": "KL-V44-01-②",
+        "rulingDate": "2026-09-19",
+        "approvedBy": "编排器裁决 KL-V44-01 ②（显式重锚）"
+      },
+      "direction": "tighten-only",
+      "reason": "〖V5-3 R2（2026-09-22，末叶 / 收口叶 · TASK-V5-169/171/172）〗`data-narrow` 落地后，320px 面板（≤360 ⇒ 窄屏样式生效：视图文字标签隐藏）使 `#stream` 不再越过折线 ⇒ `risk(staleRef)@320` 的风险步实测**增量违规 [] ∧ base 窗口漂移 0 ∧ 漂移键 []**（前值：违规恰 1 条 `#scroll-bottom` / 漂移 +1 可点 +1 文本块 +5 字符）。其登记期望因此回到 `defaultExpectation`（未登记格一律 0 违规 ∧ 0 漂移，判据双向、无放宽）。方向是**收紧**（违规集合由 1 条降为 0 条）；`#scroll-bottom` 照旧全额计入 C1 并与登记格逐格机对（无豁免）；旧登记原文完整保留在本字段 `previousExpectation`（历史不丢），登记格值重锚为 7/7/18/237（与 400/520 同值）。",
+      "measuredOn": "2026-09-22",
+      "source": "npm run test:density（阶段 C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+      "rulingId": "V5-3-X5-data-narrow",
+      "rulingDate": "2026-09-22",
+      "approvedBy": "SDDU v5-3 build R2（末叶 / 收口叶；W5 `data-narrow` 的等价重锚）"
     }
   },
   "differencesFromV3": [
@@ -572,6 +584,922 @@
     "aggregateLimit": 8
   },
   "closeoutNote": "〖收口轮（2026-09-19，处置 v4-1 validate R1 的 N-01~N-08）〗本基线文件除新增上述两条 knownLimitations 外**零改动**：31 格实测值、阈值 7/15·9/20·17/35、几何下界 488px、体积登记 385,319 / 404,584、designCaliber 分列均逐字不变（阈值与上限只允许收紧，本轮无任何放宽）。密度门禁复跑实测 **171 passed / 0 failed**（R3 现场 169 → 171，为 review 修复轮 I6/I10 新增断言所致，已同步 v4 取代台账 counts.density）。 〖V4-2 build 轮（2026-09-19，TASK-613）〗本文件新增 `perCardBudget.streamResidentClickableLimit=8` / `aggregateCaliber` / `residentNavFormCriterion` 三项登记并把 `knownLimitations[0]` 从「v4-2 必须重审」更新为「已重审 + 结论」；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（体积字节重登记见 §volume 与 `test/size-baseline.ts`）。 〖V4-2 review 修复轮（2026-09-19，I-01~I-12）〗`volume` 按**最终实测产物**订正为 425,094 B / ceiling 446,348 B（中间值 425,442 / 446,714 逐字保留）；`knownLimitations` 追加 **v4-3 前置义务**（首屏合计 ≤8 的前提须在 v4-3 复算）；31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**。 〖v4-2 收口轮（2026-09-19，处置 validate R1 的 F-01/F-02/F-03 + N-02）〗体积按**最终实测产物**再登记：425,094 → **426,487 B**（+1,393 B，+0.33%；F-01 stream-model +910 / F-02 chat-state +539 / F-03 stream-digest −33 / N-02 sidepanel −23，未归因胶水 0），ceiling = floor(426,487 × 1.05) = **447,811 B**（容差 5% 未动、cap 仍 record-only）；中间登记值 425,094 / 446,348 与 build 轮的 425,442 / 446,714 均逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与各轮 `SIDEPANEL_RE_REGISTRATIONS[].reason`；v4-1 + v4-2 相邻两轮累计 **+13.70%**（<15% 线，仍如实登记）。本册 31 格实测值与阈值 7/15 · 9/20 · 17/35 **零改动**（守卫只允许收紧）。 〖V4-4 R2 裁决落地轮（2026-09-19，编排器 KL-V44-01 选② **显式重锚**）〗体积按**最终实测产物**再登记：465,000 → **465,277 B**（+277 B，+0.06%；唯一改动模块 `chat-state.ts` 15,838 → 16,115 = +277 B，未归因胶水 0），ceiling = floor(465,277 × 1.05) = **488,540 B**（容差 5% 未动、cap 仍 record-only）；`PENDING_ABSOLUTE_CAP.newBaselineBytes` 随现行基线同源前移（**档位 512,000 / 绝对上限 563,200 / resolvedOn 均未变**）。同轮：`riskIncrementRegistry` 新增（风险增量归属 + 跨风险窗口稳定性的**双向精确期望**机读登记）、`risk(staleRef)@320` 登记格 6/6/17/203 → **7/7/18/208**（`#scroll-bottom` 因该子场景自身的只追加流内副作用而出现）、`risk.worst` clickables 6→7 / blocks 17→18；三视口重测（320/400/520）中 **400/520 零漂移**，其余 30 格零漂移。**阈值 7/15 · 9/20 · 17/35 与豁免口径（只认 `hidden`）逐字未动，无新增豁免类别。** 〖F 还原度快修轮（2026-09-20，真机首屏评估 FIX-1~FIX-4）〗工具栏摘要由计数串改为 `origin · 授权态 · 会话` digest（`view-model.ts#toolbarDigest`） ⇒ 摘要自身文本 +30 字符、多一格换行，28 个登记格按 Chromium 实测**显式重锚**（default 6/181 → 7/211 等；阈值 7/15 · 9/20 · 17/35 与豁免口径 `hidden` 唯一**零改动**；默认档 chars 跨视口差 = 2（≤ 登记上界 3，且较旧值更稳 —— 摘要不再含会跳位的审计计数））。实测值与 31 格逐格机对；`risk(staleRef)` 的增量归属期望（1 违规 / base 漂移键 `#scroll-bottom`）未变。 〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗`volume` 按**最终实测产物**订正为 480,896 B / ceiling 504,940 B（上一轮 480,026 / 504,027 逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v45-1-w2'].reason`）；31 格实测值/差值在 W4/TASK-V45-116 重算并写入 `v45Ledger`。",
+  "v5Ledger": {
+    "caliber": "每格留痕：{cell, tier, vp, before, after, delta, measuredOn, source, reason, historyRetained}（与 v45Ledger 同构；v45Ledger 作为历史逐字保留）",
+    "registeredOn": "2026-09-22",
+    "registeredBy": "SDDU v5-3 build R2（TASK-V5-171/172 · X5）",
+    "direction": "tighten-only（本轮 31 格为**等价重锚**：授权态载体下移到状态栏 chip ⇒ clickables/blocks/chars 平移；阈值 / 豁免口径 / registeredCells / 几何下界逐字未动，**无格被删除**）",
+    "counts": {
+      "total": 31,
+      "machineCompared": 28,
+      "nominal": 3,
+      "changed": 27
+    },
+    "note": "V5-3 X5 等价重锚的 31 格台账（28 实测机对 + 3 名义）。**阈值 7/15 · 9/20 · 17/35、streamHeightRatioMin、logClientHeightFloor(488)、registeredCells(31)、perCardBudget 本轮零 diff**；豁免口径只认 hidden（`DENSITY_EXCLUDED_SUBTREES = ['#stream']` 单源）。口径**与宽度解耦**：登记格 = 控件计数（`#panel` 内非 hidden 子树的 button/a/input/select/textarea/[tabindex≠-1]），宽度变化只改变「哪些样式生效」（`data-narrow`），不改变控件数 —— 见 `narrowBoundary` / `widthInvariance`。本块由 `test/ui/density.mjs#stageF` 的「逐格留痕」判据机核：格数、十项字段、`after` 与 `#tiers` 当前登记值同源，任一不满足即 FAIL。",
+    "narrowBoundary": [
+      {
+        "width": 360,
+        "attr": "true",
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（stageW：setViewport 360）",
+        "reason": "EC-ALLN-014：面板实际宽度 360 ⇒ `#panel[data-narrow=\"true\"]`（边界含端点）。"
+      },
+      {
+        "width": 361,
+        "attr": "false",
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（stageW：setViewport 361）",
+        "reason": "EC-ALLN-014：面板实际宽度 361 ⇒ `#panel[data-narrow=\"false\"]`（边界含端点，与 360 逐值成对）。"
+      }
+    ],
+    "widthInvariance": [
+      {
+        "id": "W-INV-1",
+        "decoupled": true,
+        "statement": "宽度变化不改变控件计数：320 与 520 的 C1/C2/C3 逐项相等（登记格 = 控件计数，与宽度解耦）",
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（stageW：320 vs 520 逐项比对）",
+        "reason": "O-ALLN-007 / DC-ALLN-007：连续宽度只改变「哪些样式生效」；格统计的是控件数 ⇒ 31 格与阈值可逐字不动，窄屏兜底另由 data-narrow 机核。"
+      }
+    ],
+    "cells": [
+      {
+        "cell": "default@320",
+        "tier": "default",
+        "vp": "320",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 211
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 216
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 216}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "default@400",
+        "tier": "default",
+        "vp": "400",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 211
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 216
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 216}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "default@520",
+        "tier": "default",
+        "vp": "520",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 218
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 218}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "firstRun@320",
+        "tier": "firstRun",
+        "vp": "320",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 218
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 218}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "firstRun@400",
+        "tier": "firstRun",
+        "vp": "400",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 218
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 218}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "firstRun@520",
+        "tier": "firstRun",
+        "vp": "520",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 218
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 218}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(unauthorized)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 212
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": -1,
+          "blocks": -1,
+          "chars": -44
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（FR-ALLN-086 / N23）：`unauthorized` 的风险载体由 `#risk-rail` 风险行**下移**到状态栏授权 chip `#auth-state`（授权态全 UI 唯一载体）⇒ 本格读数由风险行形态改为 chip 形态（lines 8→7 / blocks 17→16 / chars 256→212），**测量口径与阈值逐字未动**，取值 = 本轮实测真值；可点数 6 与登记一致（载体下移，总可点数不变）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(unauthorized)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 212
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": -1,
+          "blocks": -1,
+          "chars": -44
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（FR-ALLN-086 / N23）：`unauthorized` 的风险载体由 `#risk-rail` 风险行**下移**到状态栏授权 chip `#auth-state`（授权态全 UI 唯一载体）⇒ 本格读数由风险行形态改为 chip 形态（lines 8→7 / blocks 17→16 / chars 256→212），**测量口径与阈值逐字未动**，取值 = 本轮实测真值；可点数 6 与登记一致（载体下移，总可点数不变）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(unauthorized)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 212
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": -1,
+          "blocks": -1,
+          "chars": -44
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（FR-ALLN-086 / N23）：`unauthorized` 的风险载体由 `#risk-rail` 风险行**下移**到状态栏授权 chip `#auth-state`（授权态全 UI 唯一载体）⇒ 本格读数由风险行形态改为 chip 形态（lines 8→7 / blocks 17→16 / chars 256→212），**测量口径与阈值逐字未动**，取值 = 本轮实测真值；可点数 6 与登记一致（载体下移，总可点数不变）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(probing)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 250
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 250}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(probing)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 250
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 250}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(probing)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 245
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 250
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 250}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(hardline)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 246
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 246}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(hardline)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 246
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 246}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(hardline)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 241
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 246
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 246}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(confirm)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 247
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 247}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(confirm)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 247
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 247}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(confirm)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 242
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 247
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 18, \"regions\": 4, \"chars\": 247}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(staleRef)@320",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "delta": {
+          "clickables": 0,
+          "lines": 0,
+          "blocks": 0,
+          "chars": 0
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171）：`data-narrow` 使 320px 面板进入窄屏样式（视图文字标签隐藏 ⇒ `#stream` 更高），`risk(staleRef)@320` 的风险步**不再**触发 `#scroll-bottom` ⇒ 本格由 7/7/18/237（R1 实测带 `#scroll-bottom` 漂移）回到 7/7/18/237（与 400/520 同值）—— 违规集合由 1 条降为 0 条（**收紧**）；阈值 / 豁免口径逐字未动，旧值逐字保留于 `before`。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(staleRef)@400",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 232
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 7, \"blocks\": 18, \"regions\": 4, \"chars\": 237}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk(staleRef)@520",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 17,
+          "regions": 4,
+          "chars": 232
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 7,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 237
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 7, \"blocks\": 18, \"regions\": 4, \"chars\": 237}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk.worst",
+        "tier": "risk",
+        "vp": "worst",
+        "before": {
+          "clickables": 8,
+          "lines": 8,
+          "blocks": 19,
+          "regions": 4,
+          "chars": 256
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 250
+        },
+        "delta": {
+          "clickables": -1,
+          "lines": 0,
+          "blocks": -1,
+          "chars": -6
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚：worst 取 5 子场景逐维最大值 ⇒ 7/8/18/250（clickables 最大值 7、blocks 最大值 18、chars 最大值 250/来自 probing）；320px 的 `#scroll-bottom` 漂移消失使上一轮的 8/19 回落 —— 方向 = 收紧。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "empty@320",
+        "tier": "empty",
+        "vp": "320",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 218
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 218}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "empty@400",
+        "tier": "empty",
+        "vp": "400",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 213
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 218
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 218}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "empty@520",
+        "tier": "empty",
+        "vp": "520",
+        "before": {
+          "clickables": 5,
+          "lines": 7,
+          "blocks": 15,
+          "regions": 4,
+          "chars": 215
+        },
+        "after": {
+          "clickables": 6,
+          "lines": 7,
+          "blocks": 16,
+          "regions": 4,
+          "chars": 220
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 6, \"lines\": 7, \"blocks\": 16, \"regions\": 4, \"chars\": 220}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "riskDetailOpen@320",
+        "tier": "riskDetailOpen",
+        "vp": "320",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 19,
+          "regions": 4,
+          "chars": 272
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 19, \"regions\": 4, \"chars\": 272}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "riskDetailOpen@400",
+        "tier": "riskDetailOpen",
+        "vp": "400",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 19,
+          "regions": 4,
+          "chars": 272
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 19, \"regions\": 4, \"chars\": 272}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "riskDetailOpen@520",
+        "tier": "riskDetailOpen",
+        "vp": "520",
+        "before": {
+          "clickables": 6,
+          "lines": 8,
+          "blocks": 18,
+          "regions": 4,
+          "chars": 267
+        },
+        "after": {
+          "clickables": 7,
+          "lines": 8,
+          "blocks": 19,
+          "regions": 4,
+          "chars": 272
+        },
+        "delta": {
+          "clickables": 1,
+          "lines": 0,
+          "blocks": 1,
+          "chars": 5
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "V5-3 等价重锚（TASK-V5-169/171/172）：授权态载体下移到状态栏 chip `#auth-state` 后本格实测为 {\"clickables\": 7, \"lines\": 8, \"blocks\": 19, \"regions\": 4, \"chars\": 272}；delta 只由「授权 chip（+1 block / +1 clickable）与工具栏摘要去授权态」引起，阈值与豁免口径逐字未动，本格取值 = 本轮实测真值（历史值逐字保留于 `before`）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk@320（名义格）",
+        "tier": "risk",
+        "vp": "320",
+        "before": {
+          "nominal": true
+        },
+        "after": {
+          "nominal": true
+        },
+        "delta": {
+          "clickables": null,
+          "lines": null,
+          "blocks": null,
+          "chars": null
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "**名义格**（不另立测量）：`risk` 档在「3 档 × 3 视口」矩阵里占 3 格，但这 3 格由 15 个风险子场景格（5 子场景 × 3 视口）承载；本格 `before`/`after` 为 {nominal:true} 而非读数（口径分列，不是漏测）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk@400（名义格）",
+        "tier": "risk",
+        "vp": "400",
+        "before": {
+          "nominal": true
+        },
+        "after": {
+          "nominal": true
+        },
+        "delta": {
+          "clickables": null,
+          "lines": null,
+          "blocks": null,
+          "chars": null
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "**名义格**（不另立测量）：`risk` 档在「3 档 × 3 视口」矩阵里占 3 格，但这 3 格由 15 个风险子场景格（5 子场景 × 3 视口）承载；本格 `before`/`after` 为 {nominal:true} 而非读数（口径分列，不是漏测）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      },
+      {
+        "cell": "risk@520（名义格）",
+        "tier": "risk",
+        "vp": "520",
+        "before": {
+          "nominal": true
+        },
+        "after": {
+          "nominal": true
+        },
+        "delta": {
+          "clickables": null,
+          "lines": null,
+          "blocks": null,
+          "chars": null
+        },
+        "measuredOn": "2026-09-22",
+        "source": "npm run test:density（阶段 B/B2/C 实测 + 阶段 F 机对 + v5Ledger 同源判据）",
+        "reason": "**名义格**（不另立测量）：`risk` 档在「3 档 × 3 视口」矩阵里占 3 格，但这 3 格由 15 个风险子场景格（5 子场景 × 3 视口）承载；本格 `before`/`after` 为 {nominal:true} 而非读数（口径分列，不是漏测）。",
+        "historyRetained": "docs/v4-density-baseline.json#tiers（旧值逐字保留于本格 `before`；阈值 7/15 · 9/20 · 17/35 / streamHeightRatioMin / logClientHeightFloor / registeredCells / perCardBudget 本轮零 diff）"
+      }
+    ]
+  },
   "v45Ledger": {
     "caliber": "每格留痕：{cell, tier, vp, before, after, delta, measuredOn, source, reason, historyRetained}",
     "registeredOn": "2026-09-21",
