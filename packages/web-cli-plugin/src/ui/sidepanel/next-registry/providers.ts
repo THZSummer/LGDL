@@ -13,6 +13,7 @@ import { RECOVERY_CHIP_ORDER, RECOVERY_CHIP_TEXT, type NextstepAct, type Recover
 import { ACT_TO_OP } from './dispatch.js';
 import { BLOCKED_RECOVERY_TRIGGER, type BlockedTerminal, type NextCtx, type NextProvider } from './definition.js';
 import { registerNextProvider } from './registry.js';
+import { registerDriverDecl, type DriverDecl } from './drivers.js';
 
 /** The 5 P0 recovery providers ↔ their 5 triggers (逐条, registration order = precedence). */
 export const RECOVERY_PROVIDER_TRIGGERS: Readonly<Record<string, RecoveryTrigger>> = Object.freeze({
@@ -170,4 +171,31 @@ export function registerBuiltinProviders(): void {
   if (REGISTERED) return;
   REGISTERED = true;
   for (const p of builtinProviders()) registerNextProvider(p);
+  // V5.5-1 TASK-V55-107 — 驱动者**声明行**与 provider 行是**两个源**（故意保留的可见
+  // 漂移面，由 `test/driver-quadruple.test.ts` 的双向包含 + 三类注入反证兜底）。
+  for (const decl of Object.values(DRIVER_DECLS_SRC)) registerDriverDecl(decl);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-1 **TASK-V55-107** (ADR-V55-001 §1 · FR-SELF-010/012/017/036 · AC-SELF-002/015) —
+ * 驱动者声明行（**手写第二源**，与注册表 provider 集合互为双向包含判据）。
+ *
+ * 刻意**不**从 `builtinProviders()` 派生：那样「驱动者集合 ≡ provider 集合」会退化为
+ * 恒真（同源对象不可能漂移），机核空转。这里每一行的 `evidence` 必须与该 provider 的
+ * `when(ctx)` 实际读取的字段一致（门禁从 `providers.ts` 源文本的 when-scope 抽取比对）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 10 行 = 既有 provider 集合（5 触发器恢复 + 2 op 驱动恢复 + 3 规则）。 */
+export const DRIVER_DECLS_SRC: Readonly<Record<string, DriverDecl>> = Object.freeze({
+  'ref.stale': { driverId: 'ref.stale', timings: ['stale', 'idle'], moments: ['pick-complete'], driverClass: 'deterministic', priority: 0, evidence: ['ref.staleCount', 'risk'] },
+  'declaration.invalid': { driverId: 'declaration.invalid', timings: ['idle', 'stale'], moments: ['bind-complete'], driverClass: 'deterministic', priority: 0, evidence: ['risk'] },
+  'binding.stale': { driverId: 'binding.stale', timings: ['idle'], moments: ['bind-complete'], driverClass: 'deterministic', priority: 0, evidence: ['risk'] },
+  'site.unauthorized': { driverId: 'site.unauthorized', timings: ['idle', 'pick'], moments: ['bind-complete', 'auth-receipt'], driverClass: 'deterministic', priority: 0, evidence: ['site.authorized'] },
+  'probe.unsettled': { driverId: 'probe.unsettled', timings: ['idle'], moments: ['probe-steady'], driverClass: 'deterministic', priority: 0, evidence: ['probe.steady', 'probe.phase'] },
+  'llm.unconfigured': { driverId: 'llm.unconfigured', timings: ['idle', 'pick'], moments: ['turn-end'], driverClass: 'deterministic', priority: 0, evidence: ['risk'] },
+  'perm.missing': { driverId: 'perm.missing', timings: ['idle', 'pick'], moments: ['auth-receipt'], driverClass: 'deterministic', priority: 0, evidence: ['risk'] },
+  onboarding: { driverId: 'onboarding', timings: ['firstRun', 'pick'], moments: ['pick-complete'], driverClass: 'deterministic', priority: 1, evidence: ['onboarding.firstRun', 'onboarding.pendingSteps'] },
+  // 「答完之后谁接手」的**唯一**声明处：`ref-action` 的 timing 含 `'answered'`（本叶题眼）。
+  'ref-action': { driverId: 'ref-action', timings: ['pick', 'stale', 'idle', 'answered'], moments: ['answered-ask', 'describe-submitted', 'pick-complete', 'turn-end'], driverClass: 'ai-driven', priority: 2, evidence: ['ref.validCount', 'session.openAsks', 'ref.latestRefNum'] },
+  'capability-discovery': { driverId: 'capability-discovery', timings: ['idle'], moments: ['bind-complete', 'probe-steady', 'auth-receipt', 'turn-end'], driverClass: 'deterministic', priority: 3, evidence: ['site.authorized', 'probe.phase', 'session.busy'] },
+});

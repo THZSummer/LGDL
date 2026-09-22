@@ -37,6 +37,11 @@ import { recommendCtx, recommendNextStep } from './recommend.js';
 import { bindPanelOps, dispatchOp, PARAMS_REJECTED } from './next-registry/pipeline.js';
 import { OP_PARAM_SEQUENCE } from './next-registry/ops.js';
 import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definition.js';
+// V5.5-1 TASK-V55-103 (ADR-V55-002 §1)：「时机源闭集」的唯一声明源已移到
+// `next-registry/drivers.ts`。本文件**只** re-export 类型（零第二声明）——`import type`
+// 会被擦除，因此本行对 `sidepanel.js` 体积贡献为 0；时机值的扩缩只发生在单源处。
+import type { RecommendTrigger } from './next-registry/drivers.js';
+export type { RecommendTrigger } from './next-registry/drivers.js';
 import { providerById } from '../../llm/providers.js';
 import { dispatchChipAction } from './next-registry/dispatch.js';
 import { createSystemChannelState, droppedSystemText, SYSTEM_COPY } from './system-events.js';
@@ -1788,7 +1793,7 @@ function flushChannelRows(): void {
  * round only read the onboarding view for the CHANNEL row. The entry is wired now
  * (see the dedicated block below), so「首装 ⇒ 下一步推荐卡」is reachable in-product.
  * ──────────────────────────────────────────────────────────────────────────── */
-type RecommendTrigger = 'pick' | 'stale' | 'idle' | 'firstRun';
+/** 时机源闭集（`RecommendTrigger`）已外移到 `next-registry/drivers.ts` 单源（TASK-V55-103）。 */
 /** Anti-flicker memory: the producer's interval is measured against the last card. */
 let lastNextstepProducedAt: number | undefined;
 /**

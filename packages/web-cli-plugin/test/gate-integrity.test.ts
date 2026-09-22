@@ -230,6 +230,13 @@ export const EXPECTED_AUDITED_FILES = [
   // V5-3 收口（TASK-V5-175）：V5-1 的注册表单源门禁（父 Feature 的 8 个新门禁之一，此前
   // 只在目录扫描里被自动纳入 —— 本下界让「改名 / 删除」也 FAIL）。
   'test/next-registry.test.ts',
+  // ── V5.5-1（leaf specs-tree-v55-1-driver-layer；TASK-V55-105 / 108 / 110）──────────
+  // W1+W2 的三枚新 node 门禁（时机源单源 / 四元组双向包含 / 终态词汇三段控制）。
+  // 只追加 ⇒ 改名 / 删除仍 FAIL；`CHROMIUM_GATES.length === 9` 逐字不动（本叶 W1+W2 零新增
+  // Chromium 门禁文件；W4 的 S0 Chromium 面走既有 `test:ui` 链，计数常量同样不改）。
+  'test/driver-timings.test.ts',
+  'test/driver-quadruple.test.ts',
+  'test/driver-terminals.test.ts',
 ] as const;
 
 /**
@@ -255,6 +262,19 @@ export const V51_NODE_GATE_FILES = [
   'test/next-obligation-table.test.ts',
   'test/blocked-terminals.test.ts',
   'test/design-contract.test.ts',
+] as const;
+
+/**
+ * V5.5-1（leaf `specs-tree-v55-1-driver-layer`）—— **驱动者层 + 法七扩展底座**的新增 node 门禁。
+ *
+ * 本叶在 W1+W2（TASK-V55-101~112）落地 **3** 个 node 门禁；W4（TASK-V55-120~124）再追加
+ * `s0-self-driven-chain` / `law7x-ext` 两枚（届时本下界 **只增** 至 5）。`CHROMIUM_GATES === 9`
+ * 逐字不动（本轮零新增 Chromium 门禁文件）。
+ */
+export const V551_NODE_GATE_FILES = [
+  'test/driver-timings.test.ts',
+  'test/driver-quadruple.test.ts',
+  'test/driver-terminals.test.ts',
 ] as const;
 
 /** V4.5-1 W1: the node (non-Chromium) gates — discovered by {@link NODE_GATE_MARKER}. */
@@ -727,6 +747,34 @@ test('元门禁（V5-3 收口）：父 Feature 的 8 个新门禁逐项在受审
   assert.equal(V5_NEW_GATE_FILES.length, 8, '父 Feature 的新门禁恰 8 个（逐项在册）');
   assert.equal(CHROMIUM_GATES.length, 9, 'Chromium 门禁计数常量不得改动（其中 3 个新门禁是 Chromium，5 个是 node）');
   console.log(`  ℹ V5 新门禁受审：8/8 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
+// ── 0a-3. V5.5-1: the driver-layer leaf's new node gates join the audited set ─
+test('元门禁（V5.5-1）：驱动者层叶的新增 node 门禁逐项在受审集合内（只增不减，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V551_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新增门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    if ((text.match(/expectFailPattern\s*:/g) ?? []).length < 3) problems.push(`${file}: 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  assert.deepEqual(problems, [], `V5.5-1 新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  // 本叶 W1+W2 落地 3 枚；W4 只增（届时 5 枚）⇒ 本下界是**只增不减**的下界。
+  assert.ok(V551_NODE_GATE_FILES.length >= 3, 'V5.5-1 新增 node 门禁下界不得低于 3（本叶 W4 再追加 2 枚）');
+  // 反证：移出一项 ⇒ 判据必红（不得恒真）。
+  const forged = [...V551_NODE_GATE_FILES, 'test/ghost-gate.test.ts'];
+  const forgedProblems: string[] = [];
+  for (const file of forged) {
+    if (!discovered.includes(file)) forgedProblems.push(`${file}: 未被目录扫描纳入`);
+  }
+  assert.ok(forgedProblems.length > 0, '移出/新增一个不在受审集合的门禁必须判红（判据非恒真）');
+  // 既有下界仍是子集（集合只增不减）。
+  for (const file of V5_NEW_GATE_FILES) assert.ok(discovered.includes(file), `${file} 不得因本次追加而脱离受审集合`);
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本叶 W1+W2 零新增 Chromium 门禁文件）');
+  console.log(`  ℹ V5.5-1 新门禁受审：${V551_NODE_GATE_FILES.length}/${V551_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────

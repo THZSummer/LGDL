@@ -39,6 +39,10 @@ import { OP_TO_ACT } from './next-registry/dispatch.js';
 import { registerBuiltinProviders } from './next-registry/providers.js';
 import { resolveOrder } from './next-registry/registry.js';
 
+// V5.5-1 TASK-V55-103 (ADR-V55-002 §1) — `RecommendTrigger` 的唯一类型定义在
+// `next-registry/drivers.ts`；本模块只保留 re-export（`export type` 零字节，不产生第二声明）。
+export type { RecommendTrigger } from './next-registry/drivers.js';
+
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. Rule table + limits (constants so a gate can recompute every one of them)
  * ──────────────────────────────────────────────────────────────────────────── */

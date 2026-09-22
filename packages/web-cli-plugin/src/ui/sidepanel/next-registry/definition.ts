@@ -79,7 +79,18 @@ export type NextSourceName = (typeof NEXT_SOURCE_NAMES)[number];
 /** The pure input a `when(ctx)` predicate may read (exactly the 7 sources). */
 export interface NextCtx {
   readonly ref: { readonly validCount: number; readonly staleCount: number; readonly latestRefNum?: number };
-  readonly session: { readonly openAsks: number; readonly busy: boolean };
+  readonly session: {
+    readonly openAsks: number;
+    readonly busy: boolean;
+    /**
+     * V5.5-1 **TASK-V55-106** (ADR-V55-001 §2.3 · FR-SELF-011/019) — the **加法字段组**.
+     * 既有 7 键零改名 / 零删除；本字段组的来源 = **持久偏好 + 护栏状态**，属**既有
+     * `session`** 服务面（登记于 `drivers.ts#CTX_FIELD_SERVICE`；未登记字段由注册校验
+     * loud 拦截，EC-SELF-003）。可选：保持既有 ctx 构造点（面板 / 门禁 / 场景脚本）
+     * 无需改动，填充留给主题② 的护栏落地。
+     */
+    readonly proactive?: { readonly enabled: boolean; readonly allowed: boolean };
+  };
   readonly site: { readonly authorized: boolean; readonly trust?: 'trusted' | 'untrusted' };
   readonly catalog: { readonly toolCount: number; readonly subcommandCount: number };
   readonly probe: { readonly phase?: string; readonly steady: boolean };
