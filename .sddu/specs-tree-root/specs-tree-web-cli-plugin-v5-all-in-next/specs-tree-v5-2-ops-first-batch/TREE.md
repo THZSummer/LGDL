@@ -7,7 +7,7 @@
 ```
 specs-tree-v5-2-ops-first-batch/
 ├── TREE.md          # 本文件 - 目录导航
-├── build.md          # 构建报告：specs-tree-v5-2-ops-first-batch（R1 = TASK-V5-123~137 · R2 = 138~152 · R3 = review R1 修复轮）
+├── build.md          # 构建报告：specs-tree-v5-2-ops-first-batch（R1 = TASK-V5-123~137 · 波 A~D 前段）
 ├── plan.md          # 技术计划：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收；次叶）
 ├── review.md          # 审查策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
 ├── review-report.md          # 审查报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
@@ -20,7 +20,7 @@ specs-tree-v5-2-ops-first-batch/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-v5-2-ops-first-batch（**R1** = TASK-V5-123~137 · 波 A~D 前段 / **R2** = 138~152 收口 / **R3** = review R1 修复轮：BLOCK-01~03 + I 项，体积重登记 542,150 B） | ✅ 存在 |
+| build.md | 构建报告：specs-tree-v5-2-ops-first-batch（R1 = TASK-V5-123~137 · 波 A~D 前段） — 1. `IMPL['op.llm-config']` 的 row 由零参箭头 `() => PANEL.llmConfig?.()` 改为**转发 ctx... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收；次叶） — 把「用户需要操作的地方」搬进 chat（9 op + 统一管线）、把权限面**精确**放开（只 `optional_permissions`，本批 0 项... | ✅ 存在 |
 | review.md | 审查策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 审查策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 审查报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） | ✅ 存在 |
@@ -33,7 +33,7 @@ specs-tree-v5-2-ops-first-batch/
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 审查完成 (6/7)；**review R1 修复轮（R3 build）已完成，phase 保持 reviewed 待 R2 复审** |
+| Phase | 审查完成 (6/7) |
 | Status | 🟢 tracked [reviewed] |
 
 ## 上级目录
