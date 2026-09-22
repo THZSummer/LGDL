@@ -38,8 +38,11 @@ export { OPS_BY_ID, bindPanelOps, reachableOpIds, type PanelOps } from './ops.js
 
 /** R5 ① — the typed failure the pipeline produces on a missing op (loud). */
 export type OpFailure = { readonly ok: false; readonly reason: string };
-/** The four-state outcome marker returned when params/consent were refused. */
-export type SettleState = 'completed' | 'cancelled' | 'rejected';
+/**
+ * The four-state outcome marker returned when params/consent were refused **or** the
+ * execute body itself reported `{ok:false}` (review R1 BLOCK-02: 失败态是独立收口).
+ */
+export type SettleState = 'completed' | 'cancelled' | 'rejected' | 'failed';
 /** A multi-table snapshot (op.revoke 三表整体回滚预留 — **禁止单表接口**). */
 export interface OpSnapshot {
   readonly tables: readonly { readonly name: string; readonly rows: readonly unknown[] }[];
@@ -96,12 +99,21 @@ async function defaultExecSw(op: NextOp, ctx: OpCtx): Promise<OpOutcome> {
  *
  *   · `completed` → a mutating or privileged op gets its declared receipt row
  *     (a low-risk local op already wrote its own, richer row);
+ *   · `failed` → **review R1 BLOCK-02**: a non-`{ok:true}` execute outcome is NEVER a
+ *     success. The failure row states the real reason (never「✓ 已完成」) and the
+ *     reachable next follows it (法七不破);
  *   · `cancelled` / `rejected` → a **reachable** row (拒绝不是死端): the reason is
  *     stated and the user keeps the rest of the surface — nothing is silently dropped.
  */
-async function defaultSettle(op: NextOp, state: SettleState): Promise<void> {
+async function defaultSettle(op: NextOp, state: SettleState, _ctx?: OpCtx, _snap?: OpSnapshot, out?: OpOutcome): Promise<void> {
   if (state === 'completed') {
     if (!emitsOwnRow(op) && op.receipt) panelNotice(opReceiptText(op.opId, { ok: true }));
+    return;
+  }
+  if (state === 'failed') {
+    // 失败 = 失败回执 + 可达 next（同一收口点，与抛错路径的 `errorWithRecovery` 同义）。
+    panelNotice(opReceiptText(op.opId, out ?? { ok: false }));
+    panelReachableNext(op, 'failed');
     return;
   }
   // V5-2 TASK-V5-143 (FR-ALLN-014 · 法七不破): a refusal固化为一行**事实**，并立刻
@@ -134,7 +146,7 @@ export interface PipelineDeps {
   readonly collectParams?: (op: NextOp, ctx: OpCtx) => Promise<unknown>;
   readonly collectConsent?: (op: NextOp, ctx: OpCtx) => Promise<'allow' | 'reject'>;
   readonly execSw?: (op: NextOp, ctx: OpCtx) => Promise<OpOutcome>;
-  readonly settle?: (op: NextOp, state: SettleState, ctx: OpCtx, snap?: OpSnapshot) => Promise<void>;
+  readonly settle?: (op: NextOp, state: SettleState, ctx: OpCtx, snap?: OpSnapshot, out?: OpOutcome) => Promise<void>;
   readonly snapshot?: (op: NextOp, ctx: OpCtx) => Promise<OpSnapshot>;
   readonly rollback?: (snap: OpSnapshot) => Promise<void>;
   readonly errorWithRecovery?: (op: NextOp, boundary: string, err: unknown) => Promise<OpOutcome>;
@@ -180,7 +192,16 @@ export async function runOp(opId: string, ctx: OpCtx = {}, deps: PipelineDeps = 
   const snap = isMutating(op_) ? await (deps.snapshot ?? defaultSnapshot)(op_, ctx) : undefined;
   try {
     const out = op_.layer === 'sw' ? await (deps.execSw ?? defaultExecSw)(op_, ectx) : await op_.execute(ectx);
-    await settle(op_, 'completed', ctx, snap);
+    if (out.ok) {
+      await settle(op_, 'completed', ctx, snap, out);
+      return out;
+    }
+    // V5-2 review R1 **BLOCK-02** (FR-ALLN-034 ③② · EC-ALLN-011 · NFR-ALLN-010): a
+    // non-`{ok:true}` execute outcome is a FAILURE — it writes a failure row (never the
+    // success receipt) and it restores the WHOLE snapshot, so a half-finished cross-table
+    // state (`op.revoke` mid-loop, a failed credential write) can never survive.
+    if (snap) await (deps.rollback ?? defaultRollback)(snap);
+    await settle(op_, 'failed', ctx, snap, out);
     return out;
   } catch (err) {
     // 142: the rollback is the WHOLE snapshot (三表整体回滚) — never one table at a time.

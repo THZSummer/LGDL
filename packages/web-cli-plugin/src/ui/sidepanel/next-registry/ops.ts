@@ -28,8 +28,10 @@
  *
  * ── `op.turn` is the ONLY `requestTurn` caller (N22 / N25) ──────────────────
  *
- * This file contains exactly one `requestTurn(` — in the `turn` op slot. Every other
- * op is a local, zero-turn action; `test/op-wiring.test.ts` recomputes that count from
+ * This file contains **no** `requestTurn(` call: `op.turn`'s row reaches the ONE turn
+ * entry through `bindPanelOps.turn` (the same entry the composer submit calls), so the
+ * count of `requestTurn(` call sites stays exactly 2 in `sidepanel.ts` — the entry
+ * declaration plus the composer submit — and `test/op-wiring.test.ts` recomputes it from
  * the source (and the reverse proof flips it).
  *
  * ── Why the rows are tuples (byte budget) ───────────────────────────────────
@@ -229,6 +231,9 @@ export const OP_PARAM_SEQUENCE: Readonly<Record<string, readonly OpParamSpec[]>>
  * the two entries can never disagree on the copy (同源构造：same opId / same caliber).
  */
 export function opReceiptText(opId: string, out: OpOutcome): string {
+  // review R1 BLOCK-01: the body's own receipt (the honest, specific copy) wins; the op
+  // table's declared text is the fallback for a body that only reports `ok`.
+  if (out.receipt?.text) return out.receipt.text;
   if (out.ok) return OPS_BY_ID[opId]?.receipt?.text ?? `✓ ${opId} 已完成`;
   // 失败文案必须可读且**不假成功**（如实说明未生效 / 可重试）—— 两个入口共用本构造。
   return `✖ ${opId} 失败（未生效：${out.reason ?? '未知原因'}）；可重试`;
@@ -240,8 +245,26 @@ type ImplRow = readonly [
   AskSpec | null,
   ConsentSpec | null,
   string | null,
-  ((ctx: OpCtx) => void) | null,
+  ((ctx: OpCtx) => OpRunResult) | null,
 ];
+
+/**
+ * What a row's run body may return: `void` (the body wrote its own row), an explicit
+ * {@link OpOutcome} (the pipeline settles on it), or a promise of either.
+ */
+export type OpRunResult = void | OpOutcome | Promise<void | OpOutcome>;
+
+/**
+ * V5-2 review R1 **BLOCK-01** — a missing panel seam is a **loud** failure.
+ *
+ * R2's rows called the hook optionally (`PANEL.x?.()`), so a surface that never bound the
+ * seam (the options page) ran a **body-less** op and the pipeline reported `{ok:true}`
+ * with a success receipt and zero side effects (假成功). An unbound seam must fail
+ * readably instead — the pipeline then writes a failure row and a reachable next.
+ */
+export function opHookMissing(opId: string): OpOutcome {
+  return { ok: false, reason: `panel-hook-missing:${opId}` };
+}
 
 /** The nine implementations, keyed by opId (per-row contract notes above). */
 /**
@@ -264,20 +287,21 @@ type ImplRow = readonly [
  * regression FR-ALLN-059 forbids.
  */
 const IMPL: Readonly<Record<string, ImplRow>> = Object.freeze({
-  'op.turn': ['low', null, null, null, (c) => PANEL.turn?.(String(c.value ?? ''))],
-  'op.pick': ['low', null, null, null, () => PANEL.pick?.()],
-  'op.describe': ['low', null, null, null, (c) => PANEL.describe?.(c.value)],
-  'op.rebind': ['low', null, null, null, () => PANEL.rebind?.()],
+  'op.turn': ['low', null, null, null, (c) => (PANEL.turn ? PANEL.turn(String(c.value ?? '')) : opHookMissing('op.turn'))],
+  'op.pick': ['low', null, null, null, () => (PANEL.pick ? PANEL.pick() : opHookMissing('op.pick'))],
+  'op.describe': ['low', null, null, null, (c) => (PANEL.describe ? PANEL.describe(c.value) : opHookMissing('op.describe'))],
+  'op.rebind': ['low', null, null, null, () => (PANEL.rebind ? PANEL.rebind() : opHookMissing('op.rebind'))],
   'op.help': [
     'low',
     null,
     null,
     null,
     () => {
+      if (!PANEL.help) return opHookMissing('op.help');
       const ctx = PANEL.ctx?.() ?? null;
       const ids = ctx ? reachableOpIds(ctx) : [];
       if (ids.length > 0) PANEL.notice?.(`可用操作（${ids.length}）：${ids.join('、')}`);
-      PANEL.help?.();
+      PANEL.help();
     },
   ],
   'op.authorize': ['low', null, { prompt: '授权当前站点（可随时撤销）' }, '✓ 授权已生效', null],
@@ -286,7 +310,9 @@ const IMPL: Readonly<Record<string, ImplRow>> = Object.freeze({
     { prompt: '选择 LLM 厂商', kind: 'choice' },
     { prompt: '写入本机凭据（掩码 · 零明文）' },
     '✓ 已配置 LLM（掩码 · 零明文）',
-    () => PANEL.llmConfig?.(),
+    // V5-2 review R1 BLOCK-01: the ctx value (the settings form payload) MUST reach the
+    // body — the zero-arg arrow dropped it, so the form value never landed in storage.
+    (c) => (PANEL.llmConfig ? PANEL.llmConfig(typeof c.value === 'string' ? c.value : undefined) : opHookMissing('op.llm-config')),
   ],
   'op.perm.request': [
     'mid',
@@ -305,7 +331,7 @@ const IMPL: Readonly<Record<string, ImplRow>> = Object.freeze({
     // FR-ALLN-044: the confirmation card must carry the irreversibility itself.
     { prompt: '撤销不可逆：站点授权 / 浏览器权限 / LLM 凭据一旦撤销不能自动恢复（浏览器权限的回收须你在浏览器确认）' },
     '✓ 已撤销（不可逆）· 审计入口：审计视图',
-    (c) => PANEL.revoke?.(c.value),
+    (c) => (PANEL.revoke ? PANEL.revoke(typeof c.value === 'string' ? c.value : undefined) : opHookMissing('op.revoke')),
   ],
 });
 
@@ -322,7 +348,16 @@ function buildOp(d: OpDescriptor, row: ImplRow): NextOp {
     ...(params ? { params } : {}),
     ...(consent ? { consent } : {}),
     ...(receipt ? { receipt: { text: receipt } } : {}),
-    execute: async (ctx: OpCtx) => (d.layer === 'sw' ? SW_LAYER_REFUSAL(d.id) : (run?.(ctx), OK)),
+    execute: async (ctx: OpCtx): Promise<OpOutcome> => {
+      // The privileged two are routed by the pipeline through the SW executor; the panel
+      // half of their handshake is the bound gesture entry.
+      if (d.layer === 'sw') return SW_LAYER_REFUSAL(d.id);
+      if (!run) return opHookMissing(d.id);
+      // V5-2 review R1 **BLOCK-01**: the body's `OpOutcome` is returned **as-is**. R2's
+      // `(run?.(ctx), OK)` discarded it, which is exactly the「假成功」root cause: a body
+      // that reported `{ok:false}` (or never ran) still settled as `completed`.
+      return (await run(ctx)) ?? OK;
+    },
   });
 }
 

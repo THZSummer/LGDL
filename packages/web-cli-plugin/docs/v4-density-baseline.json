@@ -241,8 +241,8 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 535821,
-    "ceilingBytes": 562612,
+    "registeredBaselineBytes": 542150,
+    "ceilingBytes": 569257,
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
@@ -251,7 +251,8 @@
     "absoluteCeilingBytes": 563200,
     "effectiveCeilingRule": "min(absoluteCeilingBytes 563,200, floor(480,026 × 1.05) = 504,027) = 504,027 〖F 还原度快修轮（2026-09-20，授权 chip 直达授权流 / 过时文案订正 / 工具栏摘要 digest / 决策槽 kicker）〗档位 ceilTo50KB(480,026) 仍是 512,000、绝对上限仍是 563,200（三值中的后两值未动）；历史值 min(563,200, 502,972) = 502,972（v4-4 收口轮）逐字保留于 test/size-baseline.ts#SIDEPANEL_RE_REGISTRATIONS['v4-4-closeout'].reason",
     "reviewfixR1Note": "〖V4.5-1 review R1 修复轮（2026-09-21）〗基线 **493,501 → 498,521 B**、ceiling **518,176 → 523,447 B**（= floor(498,521 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 512,000 / 绝对上限仍 563,200）。前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v45-1-reviewfix']`。",
-    "v51R1Note": "〖V5-1 R1（2026-09-22，TASK-V5-101~113）〗基线 **498,521 → 507,315 B**、ceiling **523,447 → 532,680 B**（= floor(507,315 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 512,000 / 绝对上限仍 563,200）。前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-1-r1']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。"
+    "v51R1Note": "〖V5-1 R1（2026-09-22，TASK-V5-101~113）〗基线 **498,521 → 507,315 B**、ceiling **523,447 → 532,680 B**（= floor(507,315 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 512,000 / 绝对上限仍 563,200）。前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-1-r1']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。",
+    "v52ReviewfixNote": "〖V5-2 review R1 修复轮（2026-09-22，BLOCK-01~03 + I 项）〗基线 **535,821 → 542,150 B**、ceiling **562,612 → 569,257 B**（= floor(542,150 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 563,200 / 绝对上限仍 619,520）。逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows`（Σ +6,294 + glue 35 == +6,329）；前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-2-reviewfix']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。"
   },
   "designCaliber": {
     "published": {

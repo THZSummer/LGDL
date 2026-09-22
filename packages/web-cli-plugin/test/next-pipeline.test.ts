@@ -25,13 +25,23 @@ import {
   OPS_BY_ID,
   PARAMS_REJECTED,
   bindPanelOps,
+  dispatchOp,
   drainOne,
   enqueuePending,
   isMutating,
   queueLength,
   resolvePending,
   runOp,
+  type PipelineDeps,
 } from '../src/ui/sidepanel/next-registry/pipeline.js';
+import { createOpBodies } from '../src/ui/settings/op-bodies.js';
+import { opReceiptText } from '../src/ui/sidepanel/next-registry/ops.js';
+import {
+  SNAPSHOT_TABLE_NAMES,
+  collectThreeTableSnapshot,
+  restoreThreeTableSnapshot,
+  type TableAdapter,
+} from '../src/ui/sidepanel/next-registry/snapshot.js';
 import type { NextOp, OpCtx } from '../src/ui/sidepanel/next-registry/definition.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
@@ -184,6 +194,186 @@ test('NP-5 快照/回滚：多表结构 + 失败整体回滚（errorWithRecovery
   });
   assert.equal(snap.ok, true);
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5-2 review R1 **BLOCK-01** (ADR-V5-005 §1/§3 · FR-ALLN-042/075/076) — the settings /
+ * options surfaces really persist: the op ctx **value** (the form payload) reaches the
+ * execute body, and the body's outcome is **not** discarded. R2's `(run?.(ctx), OK)` +
+ * zero-arg row produced a 假成功 (`{"ok":true}` + `✓ 已配置 LLM` with an empty store).
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** An in-memory credential store + the shared surface-agnostic body over it. */
+function credentialFixture() {
+  const saved: Array<Record<string, unknown>> = [];
+  let current = { providerId: 'deepseek', apiKey: '', model: '' } as Record<string, unknown>;
+  const bodies = createOpBodies({
+    saveCredentials: (cfg) => {
+      current = { ...(cfg as unknown as Record<string, unknown>) };
+      saved.push(current);
+    },
+    loadProviderKey: () => String(current.apiKey ?? ''),
+    loadCredentials: () => current as never,
+    removePermission: async () => ({ removed: true }),
+    requestOnGesture: async () => ({ granted: true }),
+    isGranted: async () => false,
+    reconcile: async () => {},
+    send: async () => ({ ok: true }) as never,
+  });
+  return { saved, bodies, current: () => current };
+}
+
+/** The payload the settings form submits (法八: it travels in the ctx, never in `dispatch`). */
+const formPayload = JSON.stringify({ providerId: 'deepseek', apiKey: 'sk-review-value', model: 'm-1', maxRounds: '40' });
+
+/** The settings / options surface deps `dispatchOp` builds (mirrored for the forgery halves). */
+const surfaceDeps = (ctx: { value?: string }): PipelineDeps => ({
+  collectParams: async () => ctx.value,
+  collectConsent: async () => 'allow',
+  settle: async () => {},
+});
+
+test('NP-11（review R1 BLOCK-01）：设置 / options 两面提交 op.llm-config ⇒ 值真实落储', async () => {
+  for (const surface of ['settings', 'options'] as const) {
+    const fx = credentialFixture();
+    bindPanelOps({ llmConfig: (raw) => fx.bodies.llmConfigForm(raw) });
+    let out;
+    try {
+      out = await dispatchOp('op.llm-config', { value: formPayload }, surface);
+    } finally {
+      bindPanelOps({});
+    }
+    assert.equal(out.ok, true, `${surface}: 提交必须成功`);
+    assert.equal(fx.saved.length, 1, `${surface}: keyStore 必须收到一次写入（假成功即 0 次）`);
+    assert.equal(fx.saved[0]?.apiKey, 'sk-review-value', `${surface}: 表单值必须真实落储`);
+    assert.equal(fx.saved[0]?.providerId, 'deepseek', `${surface}: 厂商必须落储`);
+    assert.equal(fx.saved[0]?.model, 'm-1', `${surface}: 模型必须落储`);
+    assert.equal(fx.saved[0]?.maxRounds, 40, `${surface}: maxRounds 必须落储（不得静默丢弃）`);
+  }
+});
+
+test('NP-11 两段证伪：零参箭头（R2 形态）/ 丢弃 OpOutcome ⇒ 同一判据分别必红（还原 ⇒ 绿）', async () => {
+  // ① 零参箭头执行体（R2 的 `() => PANEL.llmConfig?.()`）：ctx 值丢在半路 ⇒ 值落储判据必须能红。
+  const fx1 = credentialFixture();
+  bindPanelOps({ llmConfig: (raw) => fx1.bodies.llmConfigForm(raw) });
+  const forged = { ...OPS_BY_ID['op.llm-config'], execute: async () => ({ ok: true }) };
+  let o1;
+  try {
+    o1 = await runOp('op.llm-config', { value: formPayload }, { ops: { 'op.llm-config': forged }, ...surfaceDeps({ value: formPayload }) });
+  } finally {
+    bindPanelOps({});
+  }
+  assert.equal(o1.ok, true, '证伪①：零参形态的「成功」正是假成功');
+  assert.equal(fx1.saved.length, 0, '证伪①：零参箭头下 keyStore 收不到值（判据必须能红）');
+  // ② 失败执行体的 OpOutcome 被丢弃（R2 的 `(run?.(ctx), OK)`）：缺 key 的提交必须如实返回失败。
+  const fx2 = credentialFixture();
+  bindPanelOps({ llmConfig: (raw) => fx2.bodies.llmConfigForm(raw) });
+  let o2;
+  try {
+    o2 = await dispatchOp('op.llm-config', { value: JSON.stringify({ providerId: 'deepseek', apiKey: '' }) }, 'options');
+  } finally {
+    bindPanelOps({});
+  }
+  assert.equal(o2.ok, false, '证伪②：执行体的 {ok:false} 不得被升为成功');
+  assert.equal(o2.reason, 'llm-key-missing');
+  assert.equal(fx2.saved.length, 0, '证伪②：失败不得落储');
+  // 还原（真表 + 合法载荷）⇒ 两项判据都绿。
+  const fx3 = credentialFixture();
+  bindPanelOps({ llmConfig: (raw) => fx3.bodies.llmConfigForm(raw) });
+  let o3;
+  try {
+    o3 = await dispatchOp('op.llm-config', { value: formPayload }, 'settings');
+  } finally {
+    bindPanelOps({});
+  }
+  assert.equal(o3.ok, true);
+  assert.equal(fx3.saved.length, 1);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5-2 review R1 **BLOCK-02** (FR-ALLN-034 ③② · EC-ALLN-011 · NFR-ALLN-010) — the
+ * **failure settles as a failure**: a non-throwing `{ok:false}` body must roll the WHOLE
+ * three-table snapshot back (zero half-finished cross-table state) and must write a
+ * failure row — never `settle('completed')` with a `✓` receipt.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** An in-memory three-table store + its production adapters (the real snapshot helpers). */
+function threeTableFixture() {
+  const db: Record<string, string[]> = {
+    authorization: ['origin:https://a.test'],
+    permission: ['bookmarks:granted', 'clipboard:granted'],
+    credential: ['deepseek:sk-live'],
+  };
+  const adapters = SNAPSHOT_TABLE_NAMES.map((name) => ({
+    name,
+    read: () => [...db[name]],
+    write: (rows: readonly unknown[] | undefined) => {
+      db[name] = [...((rows ?? []) as string[])];
+    },
+  })) as unknown as readonly TableAdapter[];
+  return { db, adapters, before: JSON.parse(JSON.stringify(db)) as Record<string, string[]> };
+}
+
+/** Drive one **half-finishing** mutating op through the production pipeline. */
+async function driveHalfFailure(over: Partial<PipelineDeps> = {}) {
+  const fx = threeTableFixture();
+  const notices: string[] = [];
+  const settled: string[] = [];
+  bindPanelOps({ notice: (t) => void notices.push(t) });
+  const halfRevoke = synth({
+    opId: 'op.synthetic',
+    risk: 'high',
+    // 写两张表后**非抛错**失败（`op.revoke` 多能力循环中途失败的等价形态）。
+    execute: async () => {
+      fx.db.authorization = ['origin:https://a.test', 'origin:https://b.test'];
+      fx.db.permission = ['clipboard:granted'];
+      return { ok: false, reason: 'permission-still-held:bookmarks' };
+    },
+  });
+  let out;
+  try {
+    out = await runOp('op.synthetic', {}, {
+      ops: { 'op.synthetic': halfRevoke },
+      snapshot: () => collectThreeTableSnapshot(fx.adapters),
+      rollback: async (s) => {
+        await restoreThreeTableSnapshot(fx.adapters, s);
+      },
+      settle: async (_o, s) => void settled.push(s),
+      ...over,
+    });
+  } finally {
+    bindPanelOps({});
+  }
+  return { fx, out, notices, settled };
+}
+
+test('NP-5b（review R1 BLOCK-02）：{ok:false} ⇒ 失败结算 + 三表整体回滚（零半完成态）', async () => {
+  const { fx, out, settled } = await driveHalfFailure();
+  assert.equal(out.ok, false, 'BLOCK-02：执行体的 {ok:false} 必须原样返回（不得升为成功）');
+  assert.equal(out.reason, 'permission-still-held:bookmarks');
+  assert.deepEqual(settled, ['failed'], 'BLOCK-02：非 {ok:true} 必须走失败结算（不是 completed）');
+  assert.deepEqual(fx.db, fx.before, 'BLOCK-02：三表必须零半完成态（跨表整体回滚，禁单表）');
+});
+
+test('NP-5b（review R1 BLOCK-02）：失败行是失败回执（绝不写成功回执）', async () => {
+  const { notices } = await driveHalfFailure({ settle: undefined });
+  const failureRow = opReceiptText('op.synthetic', { ok: false, reason: 'permission-still-held:bookmarks' });
+  assert.ok(notices.includes(failureRow), `BLOCK-02：失败必须写失败回执，实测 ${JSON.stringify(notices)}`);
+  assert.equal(notices.filter((n) => n.includes('\u2713')).length, 0, `BLOCK-02：失败路径绝不得写成功回执，实测 ${JSON.stringify(notices)}`);
+});
+
+test('NP-5b 两段证伪：短路回滚 / 把失败的结算改回 completed ⇒ 同一判据分别必红（还原 ⇒ 绿）', async () => {
+  // ① 回滚被短路（单表都不还原）⇒「零半完成态」判据必须能失败。
+  const noRollback = await driveHalfFailure({ rollback: async () => {} });
+  assert.notDeepEqual(noRollback.fx.db, noRollback.fx.before, 'BLOCK-02 证伪①：回滚被短路时判据必须能红（否则判据恒真）');
+  // ② 结算被改回「恒 completed」（R2 的旧行为）⇒「失败结算」判据必须能失败。
+  const alwaysCompleted = await driveHalfFailure({ settle: async (_o, s) => void alwaysCompletedStates.push('completed') });
+  assert.ok(!alwaysCompleted.settled.includes('failed'), 'BLOCK-02 证伪②：恒 completed 时失败结算判据必须能红');
+  // 还原（默认 deps）⇒ 两项判据都绿。
+  const restored = await driveHalfFailure();
+  assert.deepEqual(restored.fx.db, restored.fx.before);
+  assert.deepEqual(restored.settled, ['failed']);
+});
+const alwaysCompletedStates: string[] = [];
 
 test('NP-5 isMutating：risk !== low ⇒ 改状态（快照）', () => {
   assert.equal(isMutating({ risk: 'mid' }), true);

@@ -116,8 +116,9 @@ export function askFixedText(view: CardView): string {
   // **fact** — written / masked / a length CATEGORY — never the value, never a prefix.
   // The category (`8+` / `8-`) is what narrows the side channel (ADR-V5-010 §2).
   if (view.payload.askKind === 'secret') {
-    const n = view.payload.maskedLength;
-    return ASK_COPY.secretWritten.replace('{n}', n !== undefined && n >= 8 ? '8+' : '8-');
+    // review R1 I-04: the payload already carries the **category** (`8+` / `8-`); no
+    // raw length exists at this layer, so nothing to narrow down here.
+    return ASK_COPY.secretWritten.replace('{n}', view.payload.maskedLength ?? '8-');
   }
   return `${ASK_COPY.answeredPrefix}${view.payload.answer ?? ''}`;
 }

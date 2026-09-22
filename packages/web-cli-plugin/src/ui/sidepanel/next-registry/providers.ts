@@ -18,11 +18,46 @@ import { registerNextProvider } from './registry.js';
 export const RECOVERY_PROVIDER_TRIGGERS: Readonly<Record<string, RecoveryTrigger>> = Object.freeze({
   'ref.stale': 'refInvalid',
   'declaration.invalid': 'declarationInvalid',
+  // The blocked terminal whose recovery provider id IS the terminal. This file is the ONE
+  // registered **bijection site**: a blocked-terminal literal may only appear here (as a
+  // provider id) besides its declaration (`test/blocked-terminals.test.ts` BT-1).
   'binding.stale': 'hardFloor',
   'site.unauthorized': 'site',
   'probe.unsettled': 'probe',
 });
 export const RECOVERY_PROVIDER_IDS = Object.freeze(Object.keys(RECOVERY_PROVIDER_TRIGGERS));
+
+/**
+ * V5-2 review R1 **BLOCK-03** (ADR-V5-009 §3 · FR-ALLN-013 · AC-ALLN-024) — the two
+ * **op-driven** recovery providers.
+ *
+ * `llm.unconfigured` / `perm.missing` are the two blocked terminals whose repair is a
+ * first-class op (`op.llm-config` / `op.perm.request`), so their provider's chips are
+ * **op-direct**: the chip's `act` IS the opId and `dispatchChipAction` resolves it through
+ * `OPS_BY_ID` (`src/ui/sidepanel/next-registry/dispatch.ts`) — never through a second act
+ * table, and never as a turn.
+ *
+ * ── The fact source (不新增真值源) ────────────────────────────────────────────
+ *
+ * `when(ctx)` reads the **existing `risk` source only**: the panel folds the *derived*
+ * block fact into it (`llmBlocked` = the key-store is empty, measured from the live LLM
+ * status; `permBlocked` = at least one `OPTIONAL_CAPABILITIES` entry is provably **not**
+ * granted, measured through `chrome.permissions.contains`). The recommendation therefore
+ * keeps exactly its 7 truth sources (`NEXT_SOURCE_NAMES`) and no new ctx field.
+ */
+export const LLM_BLOCKED_RISK = 'llmBlocked';
+export const PERM_BLOCKED_RISK = 'permBlocked';
+
+export const OPS_RECOVERY_ROWS: readonly {
+  readonly blocked: string;
+  readonly risk: string;
+  readonly op: string;
+  readonly text: string;
+}[] = Object.freeze([
+  { blocked: 'llm.unconfigured', risk: LLM_BLOCKED_RISK, op: 'op.llm-config', text: '配置 LLM 凭据（写入本机 · 掩码）' },
+  { blocked: 'perm.missing', risk: PERM_BLOCKED_RISK, op: 'op.perm.request', text: '申请浏览器权限（可选能力）' },
+]);
+export const OPS_RECOVERY_PROVIDER_IDS: readonly string[] = Object.freeze(OPS_RECOVERY_ROWS.map((r) => r.blocked));
 
 /** The rule-group ids (the 4 `NEXTSTEP_PRIORITY` rules). */
 export const RULE_PROVIDER_IDS = Object.freeze(['onboarding', 'ref-action', 'capability-discovery']);
@@ -52,11 +87,25 @@ function recoveryProvider(id: string, trigger: RecoveryTrigger): NextProvider {
   };
 }
 
-/** The 8 built-in providers (5 recovery + 3 rules). Built lazily (see module note). */
+/** The 8 built-in providers (5 recovery + 2 op-driven recovery + 3 rules). Lazy (see module note). */
 export function builtinProviders(): readonly NextProvider[] {
   const recovery = RECOVERY_PROVIDER_IDS.map((id) =>
     recoveryProvider(id, RECOVERY_PROVIDER_TRIGGERS[id] as RecoveryTrigger),
   );
+  // review R1 BLOCK-03: the op-driven two sit **after** the five trigger providers (so a
+  // site / probe / risk block still wins the `risk-recovery` slot deterministically) and
+  // **before** the rule providers (a blocked terminal outranks a suggestion).
+  const opRecovery: NextProvider[] = OPS_RECOVERY_ROWS.map((row) => ({
+    id: row.blocked,
+    deps: ['snapshot', 'permissions'],
+    priority: 0,
+    mode: 'waterfall',
+    fail: 'card-boundary',
+    rule: 'risk-recovery',
+    when: (ctx) => ctx.risk.includes(row.risk),
+    chips: [row.op],
+    textOf: () => [row.text],
+  }));
   const rules: NextProvider[] = [
     {
       id: 'onboarding',
@@ -98,7 +147,7 @@ export function builtinProviders(): readonly NextProvider[] {
       ],
     },
   ];
-  return [...recovery, ...rules];
+  return [...recovery, ...opRecovery, ...rules];
 }
 
 let REGISTERED = false;

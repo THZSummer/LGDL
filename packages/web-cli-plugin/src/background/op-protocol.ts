@@ -65,7 +65,17 @@ export interface OpExecRequest {
   readonly phase: OpExecPhase;
   /** The origin the op targets; omitted ⇒ the SW uses the bound tab's origin. */
   readonly origin?: string;
-  /** The consent card's id — the SW refuses a handshake without one (no consent ⇒ no op). */
+  /**
+   * The consent card's id — the SW refuses a handshake without one (no consent ⇒ no op).
+   *
+   * 〖review R1 I-08 如实降级措辞〗the check is **existence** (`非空字符串`), not a
+   * one-time nonce bound to a resolved card: within the extension's own origins the
+   * `op-exec` message is as forgeable as the pre-existing `authorize` message
+   * (`hostPermissionGranted`), i.e. this is **not** a new privilege boundary. The
+   * stronger binding (panel-issued nonce, verified once in the SW) is registered as an
+   * open item rather than claimed here — the ADR wording「无 consent ⇒ 不得执行」is
+   * therefore only machine-true at the *presence* caliber.
+   */
   readonly consentToken?: string;
   /** Present on the `commit` phase only. */
   readonly gestureResult?: OpGestureResult;

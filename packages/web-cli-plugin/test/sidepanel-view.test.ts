@@ -328,9 +328,15 @@ test('options source (TASK-018): save/test wrapped in try-catch with readable fa
   assert.match(src, /async function handleSave/);
   assert.match(src, /async function handleTest/);
   // TASK-033: validation + summary are shared with the side-panel settings view.
+  // 〖V5-2 review R1（BLOCK-01 / I-02）等价重锚〗the four consolidated actions' execute
+  // bodies moved to `src/ui/settings/op-bodies.ts` (ONE implementation, both surfaces),
+  // so the copy is asserted on the module that now owns it. `ops.ts` must keep the
+  // delegation (它自己零原生语句) — 判据力只升：新增「ops.ts 必须委托」断言。
   const ops = read('../../src/ui/settings/ops.ts');
-  assert.match(ops, /未保存：未填写/);
-  assert.match(ops, /Key ✅/);
+  const bodies = read('../../src/ui/settings/op-bodies.ts');
+  assert.match(bodies, /未保存：未填写/);
+  assert.match(bodies, /Key ✅/);
+  assert.match(ops, /createOpBodies\(/);
   assert.match(src, /renderSavedSummary/);
   // the plaintext key is cleared after a successful save
   assert.match(src, /\(\$\('apiKey'\) as HTMLInputElement\)\.value = '';/);

@@ -427,10 +427,17 @@ test('V5-1 X3：chip act 视角与 opId 视角一致（双采集等价，能力�
   assert.ok(cards.length >= 1, '前置：干净输入必须产出候选（否则本判据空转）');
   for (const card of cards) {
     for (const chip of card.chips) {
-      assert.ok((NEXTSTEP_ACTS as readonly string[]).includes(chip.act), `chip act ${chip.act} 必须在闭集内`);
-      const opId = ACT_TO_OP[chip.act];
-      assert.ok(opId, `chip act ${chip.act} 必须有 opId 映射（旧 act 无「无对应 op」的悬空项）`);
-      assert.ok(OBLIGATION_OP_IDS.includes(opId), `chip 的 opId ${opId} 必须在义务表内`);
+      // 〖V5-2 review R1（BLOCK-03）等价重锚〗two chip kinds share the ONE act→opId chain:
+      // the 6-act local/turn chips, and the **op-direct** chips whose act IS the opId
+      // (`op.llm-config` / `op.perm.request` repair a blocked terminal directly).
+      // 判据力只升：op-direct 分支要求 act ∈ 义务表（它自带 opId，不得是悬空字面量）。
+      const mapped = (ACT_TO_OP as Readonly<Record<string, string>>)[chip.act] ?? chip.act;
+      assert.ok(
+        (NEXTSTEP_ACTS as readonly string[]).includes(chip.act) || OBLIGATION_OP_IDS.includes(chip.act),
+        `chip act ${chip.act} 必须在 act 闭集内或是义务表内的 opId（op-direct）`,
+      );
+      assert.ok(mapped, `chip act ${chip.act} 必须有 opId 映射（旧 act 无「无对应 op」的悬空项）`);
+      assert.ok(OBLIGATION_OP_IDS.includes(mapped), `chip 的 opId ${mapped} 必须在义务表内`);
     }
   }
   // 规则表的 chip 序（含 recovery 三首项）在 op 词汇下逐条保持：site / probe 仍以 rebind 打头。

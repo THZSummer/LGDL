@@ -49,8 +49,15 @@ import {
   type SessionGroupView,
 } from '../settings/view.js';
 import { createSettingsOps, transportFromRuntime } from '../settings/ops.js';
-import { dispatchOp } from '../sidepanel/next-registry/pipeline.js';
-import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
+import { createOpBodies } from '../settings/op-bodies.js';
+import { bindPanelOps, dispatchOp } from '../sidepanel/next-registry/pipeline.js';
+import {
+  capabilityPermissionsApi,
+  hasCapabilityPermission,
+  removeCapabilityPermission,
+  requestCapabilityPermissionOnGesture,
+  type OptionalCapability,
+} from '../../platform/capability-permissions.js';
 import { handleClipboardOpMessage } from '../../platform/clipboard-page.js';
 import {
   bookmarksCapabilityStatus,
@@ -78,6 +85,11 @@ const $ = <T extends HTMLElement>(id: string): T => {
 
 const store = createKeyStore(createChromeAsyncKv('web-cli'));
 
+/** The ONE transport this page sends over (`chrome.runtime.sendMessage`). */
+const transport = transportFromRuntime(
+  (typeof chrome !== 'undefined' ? chrome.runtime : { sendMessage: async () => ({ ok: false, error: '非扩展环境' }) }) as never,
+);
+
 // TASK-019 任务 A: detect the extension context at load time. On `file://` (or
 // any non-extension page) `chrome.runtime.id` / `chrome.storage.local` are
 // unavailable → saving silently has nowhere to go. Guard up-front instead.
@@ -96,9 +108,7 @@ const settingsOps = createSettingsOps({
   // carrier (「同执行体、不同 consent 载体」). Absent op ⇒ the legacy in-module path.
   surface: 'options',
   dispatchOp: (opId, ctx) => dispatchOp(opId, ctx, 'options'),
-  transport: transportFromRuntime(
-    (typeof chrome !== 'undefined' ? chrome.runtime : { sendMessage: async () => ({ ok: false, error: '非扩展环境' }) }) as never,
-  ),
+  transport,
   store,
   buildStamp: shortBuildStamp(),
   manifestVersion: manifestVersionSafe,
@@ -116,6 +126,38 @@ const settingsOps = createSettingsOps({
 
 // decision ② / FR-048: session-group management (create / add origin / remove / delete).
 type MessageKind = 'ok' | 'warn' | 'err' | '';
+
+/**
+ * V5-2 review R1 **BLOCK-01** (ADR-V5-005 §1/§3 · FR-ALLN-075/076) — the **options
+ * surface binds the SAME op bodies** the panel does.
+ *
+ * Before this, `options.html` never called `bindPanelOps`, so `PANEL = {}`: every op
+ * whose body lives behind a panel seam ran body-less and the pipeline reported
+ * `{ok:true}` with a success receipt and **zero side effects** (a 假成功: the form value
+ * never reached the key store). The bodies are the shared ones (`settings/op-bodies.ts`);
+ * this page injects only its own atoms — and its own explicit control (the form's submit
+ * button) is the **consent carrier** (「同执行体、不同 consent 载体」).
+ */
+const opBodies = createOpBodies({
+  saveCredentials: (cfg) => store.save(cfg),
+  loadProviderKey: async (id) => (await store.loadProvider(providerById(id).id)).apiKey,
+  loadCredentials: () => store.load(),
+  removePermission: (cap) => removeCapabilityPermission(capabilityPermissionsApi(), cap),
+  requestOnGesture: (cap) => requestCapabilityPermissionOnGesture(cap),
+  isGranted: (cap) => hasCapabilityPermission(capabilityPermissionsApi(), cap),
+  reconcile: async (cap) => {
+    await settingsOps.notifyCapabilityPermissionChanged(cap);
+  },
+  send: (msg) => transport.send(msg),
+  // This page has no bound site ⇒ the `revokeSiteAuth` atom is absent and the `site-auth`
+  // target refuses loudly instead of pretending it revoked something (ADR-V5-005 §1).
+});
+
+bindPanelOps({
+  llmConfig: (raw) => opBodies.llmConfigForm(raw),
+  revoke: (target) => opBodies.revoke(target),
+  permRequest: (ids) => opBodies.permRequest(ids),
+});
 
 function errMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

@@ -206,9 +206,21 @@ export interface RecommendInput {
 export const NEXTSTEP_ACTS = Object.freeze(['next', 'repick', 'describe', 'authorize', 'rebind', 'help'] as const);
 export type NextstepAct = (typeof NEXTSTEP_ACTS)[number];
 
+/**
+ * V5-2 review R1 **BLOCK-03** — an **op-direct** act: the chip's `act` IS the opId.
+ *
+ * Seven of the nine first-batch ops are turn commands or one of the six local acts, so the
+ * act table (`ACT_TO_OP`) maps them. The remaining two (`op.llm-config` /
+ * `op.perm.request`) repair a **blocked terminal** directly: their chip carries the opId as
+ * its act and `dispatchChipAction` resolves it through `OPS_BY_ID` (the same single lookup,
+ * zero per-op branch) — never a second act table, and never a turn.
+ */
+export type OpDirectAct = `op.${string}`;
+export type ChipAct = NextstepAct | OpDirectAct;
+
 export interface NextstepChip {
   readonly text: string;
-  readonly act: NextstepAct;
+  readonly act: ChipAct;
 }
 
 /**
@@ -322,7 +334,10 @@ export function candidateRules(input: RecommendInput): readonly NextstepCandidat
     const texts = p.textOf ? p.textOf(ctx) : p.chips;
     const chips: NextstepChip[] = p.chips.map((opId, i) => ({
       text: texts[i] ?? opId,
-      act: (OP_TO_ACT[opId] ?? 'next') as NextstepAct,
+      // review R1 BLOCK-03: an op **outside** the 6-act table is op-direct — the act IS the
+      // opId (resolved by `dispatchChipAction` via `OPS_BY_ID`). Mapping it to `'next'`
+      // would dispatch `op.turn` instead (a wrong-op clip) — the exact lie this fixes.
+      act: (OP_TO_ACT[opId] ?? opId) as ChipAct,
     }));
     out.push(candidate(rule as NextstepRuleId, chips));
   }

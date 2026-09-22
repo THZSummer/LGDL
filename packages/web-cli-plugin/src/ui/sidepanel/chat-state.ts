@@ -36,7 +36,7 @@ import {
   openAskEntries,
   openSessionSegment,
 } from './stream-model.js';
-import type { AskCancelReason, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
+import type { AskCancelReason, MaskedLengthCategory, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
 import { ASK_COPY, cancelSystemLine, label, plaintextTitle } from './stream-plaintext.js';
 import { appendSystem, continuedSystemText, createSystemChannelState, SYSTEM_COPY } from './system-events.js';
 import type { SystemChannelState, SystemEventKind } from './system-events.js';
@@ -150,7 +150,7 @@ type SidepanelActionBody =
       /** V5-2 TASK-V5-138: the `form` card's option pool (source = OPTIONAL_CAPABILITIES). */
       formOptions?: readonly { readonly id: string; readonly label: string; readonly scope: string }[];
     }
-  | { type: 'ask-resolved'; answer?: string; canceled?: boolean; requestId?: string; reason?: AskCancelReason; maskedLength?: number }
+  | { type: 'ask-resolved'; answer?: string; canceled?: boolean; requestId?: string; reason?: AskCancelReason; maskedLength?: MaskedLengthCategory }
   | { type: 'audit-count'; count: number }
   /**
    * decision ② / FR-048: load a session's history. V4-2 appends the rows to the

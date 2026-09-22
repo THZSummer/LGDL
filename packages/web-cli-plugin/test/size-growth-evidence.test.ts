@@ -194,7 +194,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
   // 〖V4-4 R2〗基线 465,000 → 465,277（+277，chat-state 自动归并接线）⇒ 累计增量 169,775 → **170,052**。
-  assert.equal(b.deltaBytes, 240_596);
+  assert.equal(b.deltaBytes, 246_925);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -239,14 +239,20 @@ test('V3-VOL-1 ③ growth: every new/wiring row cites the requirement that force
   // 实测 1,060 B），**同时新增更严的相对口径 <2%**（实测 (265+1,060)/131,262 = 1.01%）——
   // 阈值不是纯放宽：相对判据是本轮新增的收紧面。〖v4-2 review 修复轮 I-02〗分母按最终基线订正
   // （130,217 → 129,869 → 131,262），分子不变（修复轮减重全部落在 rows 上，胶水口径回到 1,060）。
-  // 〖V5-2 R2 登记〗绝对口径 1,500 → **2,500 B**：输入模块数 83 → 86（+3）使 esbuild 共享
-  // 胶水自然增长到 1,778 B（v3-1 树 → 当前树）；同一处**保留并冻结**相对口径 <2%
-  // （1,778 / 239,688 = 0.74%）—— 这不是放宽，而是把「绝对口径随模块数」与「相对口径」
-  // 两条中**更紧**的一条作为主判据（相对口径本轮实测远低于 2%）。
+  // 〖V5-2 R2 登记 · review R1 I-05 订正措辞〗绝对口径 1,500 → **2,500 B** 是一次**放宽**
+  // （不是「更强判据」）：输入模块数 83 → 86（+3）使 esbuild 共享胶水在本轮实测 1,778 B，
+  // 维持 1,500 会假红。放宽的依据是**公式**而非随手抬阈值：上界 ≈ 600 B（常量胶水）
+  // + 400 B × 本叶新增模块数 = 1,800 B，口径取 2,500 B 作为跨轮余量。同一处的相对口径
+  // <2%（实测 0.74%）**同时**作为主判据 —— 两条并存，任一条失效都红（见下方两条断言）。
+  const unexplained = SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes;
+  const perModuleBound = 25 * SIDEPANEL_GROWTH_BREAKDOWN.duplicationCheckInputModuleCount;
   assert.ok(
-    SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes <
-      2_500,
-    '未解释字节必须 <2,500 B（远小于任何一层的实现）',
+    unexplained < perModuleBound,
+    `未解释字节必须仍小于「每输入模块 25 B」线性上界 ${perModuleBound} B（口径放宽的公式依据，实测 ${unexplained} B）`,
+  );
+  assert.ok(
+    unexplained < 2_500,
+    `未解释字节必须 <2,500 B（放宽后的绝对口径；实测 ${unexplained} B）`,
   );
   assert.ok(
     (SIDEPANEL_GROWTH_BREAKDOWN.attributionShiftBytes + SIDEPANEL_GROWTH_BREAKDOWN.unattributedHelperDeltaBytes) /
@@ -296,9 +302,10 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   const inputs = out.inputs;
   const paths = Object.keys(inputs);
   assert.equal(new Set(paths).size, paths.length, '输入模块路径必须互不相同（无重复模块）');
-  // 逐值相等的判据跑在**最新一轮**（v5-2-r2；仓库内几何）。v3 段累计表的 `afterBytes`
+  // 逐值相等的判据跑在**最新一轮**（v5-2-reviewfix；仓库内几何）。v3 段累计表的 `afterBytes`
   // 取自沙箱几何，其 Δ 自洽由上面的对账用例判定（来源不同、判据互不替代）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52R2Rows) {
+  // 〖V5-2 review R1 修复轮〗随轮次重指向 v5-2-r2 → v5-2-reviewfix（R2 的历史 rows 逐字保留）。
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -352,7 +359,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
   // v4-1 轮自身的 Σ 判据改由 `roundRowRegistrationIds.v41RoundRows` 的登记值驱动（不再借 closeoutDeltaBytes）。
   // 〖V5-2 R2 等价重锚〗`closeoutDeltaBytes` 的语义恒为「**最新一轮**登记增量」（v4-2 起
   // 明文如此）；最新一轮 = v5-2-r2（518,543 → 534,913）⇒ 与它的登记条目同源复算。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 518_543);
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 535_821);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -395,7 +402,8 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗最新一轮 = `v45W1W2Rows`（6 行，Σ +870 + glue 0）。
   // 〖V4.5-1 review R1 修复轮（2026-09-21，BLOCK-01~04 + I-01~06）〗最新一轮 = `v45ReviewfixRows`
   // （2 行：host-registry +2,145 / sidepanel +2,875；glue 0 ⇒ Σ + 0 == 498,521 − 493,501）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52R2Rows) {
+  // 〖V5-2 review R1 修复轮〗最新一轮 = `v52ReviewfixRows`（9 行，Σ +6,294 + glue 35）。
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -606,6 +614,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'v52R1Rows', rows: b.v52R1Rows, glue: b.v52R1UnattributedGlueBytes },
     // V5-2 R2（TASK-V5-138~152）：追加第 18 组（只增不减）。
     { name: 'v52R2Rows', rows: b.v52R2Rows, glue: b.v52R2UnattributedGlueBytes },
+    { name: 'v52ReviewfixRows', rows: b.v52ReviewfixRows, glue: b.v52ReviewfixUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -620,7 +629,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组、V4.5-1 R1 第 14 组、
   // V4.5-1 review R1 修复轮第 15 组（只增不减）。
-  assert.equal(groups.length, 18);
+  assert.equal(groups.length, 19);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );
@@ -689,7 +698,7 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   //    与最新登记同源（R3 的 Δ=0 是**历史**事实：其 `v45W4W5Rows` 空集 + direction unchanged
   //    仍由下面 ③ 逐条判定；此后任何一轮都必须重新登记 —— 本叶的 review 修复轮即如此）。
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52R2Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(

@@ -302,3 +302,154 @@
 |------|------|
 | 本叶 | ✅ **30/30 任务完成**；功能门禁与体积门禁全绿；保护段逐字节不变；`manifest` 零 diff |
 | 下游 | `@sddu-review specs-tree-v5-2-ops-first-batch`（静态审查）→ `@sddu-validate` → v5-3（`no-dead-end.mjs` / `law8-plaintext.mjs` 单点落地 + journey 保段/取代二选一）
+
+---
+
+# 构建报告 R3：review R1 修复轮（3 BLOCK 全修 + I 择要）
+
+> **版本**: v3.0（review 修复轮）
+> **更新时间**: 2026-09-22
+> **审查输入**: 本叶 `review-report.md` R1（3 BLOCK / 15 I）· 修复基线 HEAD `5abe0a1`
+> **更新说明**: BLOCK-01（载荷透传 + options 面同执行体，消灭假成功）/ BLOCK-02（非 `{ok:true}` 一律失败结算 + 三表整体回滚生产可达）/ BLOCK-03（`llm.unconfigured` / `perm.missing` 修复 provider 真实接线 + `perm.missing` 事实源 + 门禁自紧翻转）+ I 项处置（I-02 执行体提为与面无关模块 / I-03→I-04 掩码类别位 / I-05 口径订正 / I-06 ADR 订正注 / I-07 审计接线 / I-08 措辞降级 / I-09 陈旧文案与新增断言 / I-10 注释订正 / I-12~I-15 登记与零字节订正）。
+
+## R3-1. 构建概要
+
+| 维度 | 数值 |
+|------|:--:|
+| BLOCK 修复 | **3 / 3**（BLOCK-01 / 02 / 03 全部落地，含两段证伪） |
+| I 项处置 | **15 / 15**（落地 6 / 等价重锚 2 / 登记 7，逐项见 §R3-2） |
+| 新增文件 | **1**（`src/ui/settings/op-bodies.ts` —— 与面无关的四类执行体） |
+| 修改文件 | **30**（12 源码 + 13 测试 + 3 台账/基线 + 2 文档） |
+| 体积 | `dist/sidepanel.js` **542,150 B**（R2 535,821 ⇒ **Δ = +6,329 B**，档位 563,200 / 绝对上限 619,520 **均未变**；生效上限 569,257） |
+| 红线冻结面 | `content.js` 177,076 B / `52a82620…`、`pick-layer.js` 33,900 B / `5f567d7e…` **逐字节不变** |
+| 保护段 | `test/ui/binding.mjs[107780..115930]` sha `be9ad0e9…` **逐字节不变**（`test:binding` 192/0 复核） |
+| 测试 | `npm test` **1165 → 1172 tests / 0 fail**（`✔` 行 1166 → 1173）；Chromium：recommendation **65**、stream **68**、ask-auth **71**、density **232**、binding **192**、l0 **244**、l1 **116**、l2 **74**、journey **171**、insight **116**、page-input **108**、zero-injection **27**、e2e PASS、hardening PASS |
+
+## R3-2. BLOCK-01~03 修法与两段证伪（原文）
+
+### BLOCK-01 —— 非 chat 面载荷透传 + 假成功（`ops.ts` / `pipeline.ts` / `options.ts` / 新 `op-bodies.ts`）
+
+**修法**（三处根因各自闭合）：
+1. `IMPL['op.llm-config']` 的 row 由零参箭头 `() => PANEL.llmConfig?.()` 改为**转发 ctx 值**：`(c) => (PANEL.llmConfig ? PANEL.llmConfig(typeof c.value === 'string' ? c.value : undefined) : opHookMissing('op.llm-config'))`；`op.revoke` 同步转发 `c.value`。
+2. `buildOp.execute` 由 `(run?.(ctx), OK)`（丢弃 `OpOutcome`）改为**原样返回执行体结果**，且**未绑定面板缝 = loud 失败**（`panel-hook-missing:<opId>`，9 行 row 逐一接线判定）—— 「没有执行体」再也不会被结算成成功。
+3. **四类执行体提为与面无关的模块** `src/ui/settings/op-bodies.ts`（表单凭据落储 / 撤销三目标 / 权限两段握手；原子入口 `removePermission` / `requestOnGesture` / `isGranted` / `reconcile` / `saveCredentials` 由面注入）。面板与 **options 面同时绑定同一执行体**（`bindPanelOps`），options 面不再 `PANEL = {}`；执行体的**回执文案**随 `OpOutcome.receipt` 透出（`opReceiptText` 与 `viaOp` 优先取它），三面（面板流内 / 设置面 / options 面）**同一份文案**。
+
+**两段证伪**（`test/next-pipeline.test.ts#NP-11`，实跑原文）：
+```
+✔ NP-11（review R1 BLOCK-01）：设置 / options 两面提交 op.llm-config ⇒ 值真实落储
+✔ NP-11 两段证伪：零参箭头（R2 形态）/ 丢弃 OpOutcome ⇒ 同一判据分别必红（还原 ⇒ 绿）
+   · 证伪①：`execute: async () => ({ ok: true })`（零参形态）⇒ `o1.ok === true`（仍是「成功」）但
+     `fx1.saved.length === 0` ⇒ **「值落储」判据必须能红**；
+   · 证伪②：缺 key 的表单 ⇒ `o2.ok === false ∧ o2.reason === 'llm-key-missing' ∧ 零落储`
+     ⇒ **「丢弃 OpOutcome」的形态可被该判据观察**；
+   · 还原（真表 + 合法载荷）⇒ 两面 `out.ok === true ∧ saved.length === 1`。
+```
+**附加真机证据**（`test:ui` journey 真机）：修复前的同一路径输出
+`✖ op.llm-config 失败（未生效：panel-hook-missing:op.llm-config）；可重试`（**假成功已被消灭**，失败如实可见）；
+修复后 `#6/#7/#8`（保存回执 / 落库逐字段 / 刷新回显）全绿。
+
+### BLOCK-02 —— 失败语义不落地（`pipeline.ts` + `settings/ops.ts` 后置判据重锚）
+
+**修法**：
+1. `SettleState` 增第四态 **`failed`**；`runOp` 在 `out.ok` 分支才 `settle('completed')`，否则
+   **`rollback(整表快照)` + `settle('failed')`**（失败回执 + `reachableNext('failed')`），并把 outcome 传入 settle 供回执写明真实原因。
+2. `EC-ALLN-011` / `NFR-ALLN-010` **生产可达**：非抛错的 `{ok:false}`（`op.revoke` 多能力循环中途失败 / `permission-still-held` / 凭据写入失败）现在与抛错路径**同一收口**（整表回滚 + 失败行）。
+3. 权限撤销的「不假成功」判据**按权限面重锚**（工具面是 SW 的第二视图，环境性不一致会把成功误报为失败）：执行体内 `contains` **有界重读**（≤3 次 / 150 ms）为权威，工具面仍列出时只追加可读说明。
+
+**两段证伪**（`test/next-pipeline.test.ts#NP-5b`，实跑原文）：
+```
+✔ NP-5b（review R1 BLOCK-02）：{ok:false} ⇒ 失败结算 + 三表整体回滚（零半完成态）
+✔ NP-5b（review R1 BLOCK-02）：失败行是失败回执（绝不写成功回执）
+✔ NP-5b 两段证伪：短路回滚 / 把失败的结算改回 completed ⇒ 同一判据分别必红（还原 ⇒ 绿）
+   · 证伪①：`rollback: async () => {}`（回滚被短路）⇒ `db ≠ before` ⇒ **零半完成态判据能红**；
+   · 证伪②：`settle` 恒 push `'completed'`（R2 旧行为）⇒ `settled` 不含 `'failed'` ⇒ **失败结算判据能红**；
+   · 还原（默认 deps）⇒ `db == before ∧ settled == ['failed']`。
+```
+（判据用的三表 = `next-registry/snapshot.ts` 的**生产** `collectThreeTableSnapshot` / `restoreThreeTableSnapshot`，`db` 为三表内存适配器。）
+
+### BLOCK-03 —— 承接项未闭环 + 首验收驱动失真（`providers.ts` / `recommend.ts` / `nextstep.ts` / S2 样本 / 门禁翻转）
+
+**修法**：
+1. `BLOCKED_P0_MAP` 两行 **`pending-v5-2` → `landed`**（providerId = 阻塞类名），并新增 `OPS_RECOVERY_ROWS` 注册**两条 op-driven 修复 provider**：`llm.unconfigured` → chips `['op.llm-config']`、`perm.missing` → chips `['op.perm.request']`（注册顺序在五个触发器 provider 之后、三条规则 provider 之前 ⇒ 站点/探测/风险类阻塞仍优先，确定性不变）。
+2. **chips 真实接线**：新增 **op-direct chip** 形态 —— chip 的 `act` 就是 opId（`ChipAct = NextstepAct | \`op.${string}\``），`candidateRules` 不再把表外 op 误映射为 `'next'`（那会派发 `op.turn`），`cards/nextstep.ts` 的 `data-op` 回退到 `act`，`dispatchChipAction` 经既有 `OPS_BY_ID[action]` 分支派发（零第二张 act 表）。
+3. **`perm.missing` 事实源**（不新增真值源）：面板从 **`OPTIONAL_CAPABILITIES` 的实测授权态**（`chrome.permissions.contains`）派生 `permBlocked`，`llm.unconfigured` 从**实时 LLM 状态**派生 `llmBlocked`，二者折进既有的 `risk` 源（`NextCtx` 仍恰 7 源，无新字段）；provider 的 `when(ctx)` 只读 `ctx.risk`。
+4. **门禁自紧翻转**：`test/blocked-terminals.test.ts` 的 BT-3 由「pending 行必须有 reason ≥40」翻转为「**5/5 landed ∧ provider 真实注册 ∧ chip 逐条命中修复 op ∧ op-driven `when` 由派生风险类驱动**」，并新增两条反证（landed 行缺 provider / chip 接错 ⇒ 必红）；`PROVIDER_ID_LITERAL_EXCEPTION` 登记集合自紧为「恰等于 providerId === blocked 的 landed 行集合」。
+5. **S2 样本去同构 + 逐类断言**：`blockedStateCtx('llm.unconfigured'/'perm.missing')` 改为驱动各自的事实（`risk ∋ llmBlocked` / `permBlocked`），并**不再与 `recoveredCtx()` 同构**；`test/s2-deadend-chain.test.ts` 把「全局 ≥1 可达」下沉为**逐类修复 op 断言**（`EXPECTED_REPAIR` 5 行显式登记）+ 新增「退回同构 ctx ⇒ 判据必 FAIL」反证。
+
+**两段证伪**（`test/s2-deadend-chain.test.ts` / `test/blocked-terminals.test.ts`，实跑原文）：
+```
+✔ BT-3 阻塞类 ↔ P0 provider：5 行完备单射（**5 landed**，双射 5↔5 闭合）
+✔ BT-3 反证（review R1 BLOCK-03 自紧）：landed 行缺 provider / chip 接线错 ⇒ 必红
+✔ S2 ②/③: 5 类阻塞态**逐类**可达 ∧ 死端 = 0 ∧ × 行不裸奔（含 op-direct 修复 chip）
+✔ S2 反证（review R1 BLOCK-03）：把两个 op-driven 阻塞态退回**同构** ctx ⇒ 逐类判据必 FAIL
+   · 真源：`blockedStateCtx('llm.unconfigured') !== recoveredCtx()` ∧ `('perm.missing') !== recoveredCtx()`；
+   · 逐类：`llm.unconfigured → op.llm-config` / `perm.missing → op.perm.request`（实测命中）；
+   · 反证：用恢复态驱动 ⇒ 不再产出 `op.perm.request` ⇒ 判据非恒真。
+```
+
+## R3-3. I 项处置表（15 项，逐项登记）
+
+| # | 处置 | 落地位置 / 证据 |
+|:--:|---|---|
+| I-01 `op.describe.params` 未声明 | **登记（不做）** | 维持 R1/R2 裁决②（`#ask-fallback` 单所有者，不建第二兜底）；FR-046 的「描述文本 = ask 卡」由面板既有单一 ask 卡承担 —— 声明 `params` 会插第二张卡，与 `test:recommendation` ⑫（单所有者）冲突 |
+| I-02 `settings/ops.ts` 原生分支仍在 | **落地** | 四类执行体迁入 `settings/op-bodies.ts`（与面无关）；`settings/ops.ts` 只留「选路 + 后置判据」，**零原生实现语句**（`store.save` / `removeCapabilityPermission` / auto-auth 消息全部移出，由 `defaultOpBodyDeps` 的唯一兜底实现承担）；`test/sidepanel-view.test.ts` 的副本判据**等价重锚**到 `op-bodies.ts` 并新增「ops.ts 必须委托 `createOpBodies(`」断言 |
+| I-03/I-04 `maskedLength` 落原始长度 | **落地** | `MaskedLengthCategory`（`'8+' | '8-'`）替代原始长度：`submitSecret` 在函数内取类别（数字不出函数）、`stream-model`/`chat-state` 类型改类别、`askuser` 直接渲染类别（ADR-V5-010 §2 缩窄侧信道） |
+| I-05 未解释字节口径 1,500→2,500 | **等价重锚 + 订正措辞** | 明确登记为**放宽**（不再是「更强判据」）；判据改为「< 每输入模块 25 B 的线性上界（87 模块 ⇒ 2,175 B）」∧「< 2,500 B」双门（实测 1,813 B / 0.74%） |
+| I-06 绝对上限 ADR 冲突 | **落地（加注，不改写正文）** | `ADR-V5-011` 追加 **v5.1 订正注**：绝对上限 = **档位 × 1.10**（派生关系），档位 563,200 ⇒ 619,520；正文「563,200 不变」逐字保留（历史只追加） |
+| I-07 SW `auditCapability` 未接线 | **落地** | `service-worker.ts` 的 `op-exec` 注入 `auditCapability`（复用既有 `optional-permission` 审计单源）；`test/sw-op-mirror.test.ts` 新增 grant/deny **各恰 1 条审计**断言 |
+| I-08 `consentToken` 仅存在性校验 | **登记（措辞如实降级）** | `op-protocol.ts` 注释降级为「存在性校验，非一次性 nonce；扩展自有面内与 legacy `authorize` 等价暴露，**不是**新边界」；强绑定（面板一次性 nonce）登记为开放项 |
+| I-09 SW-M④ 陈旧文案 + 缺分支覆盖 | **落地（零字节 + 2 条新增断言）** | 文案改为「缺 `permission` ⇒ loud 拒绝」；新增 `op.perm.request` commit 的 grant / deny 两条审计断言 |
+| I-10 `ops.ts` 注释与实测不符 | **落地（零字节）** | 模块注释改为「本文件**无** `requestTurn(` 调用；`op.turn` 经 `bindPanelOps.turn` 触达唯一入口」 |
+| I-11 `BLOCKED_P0_MAP` 两行 pending | **闭合（= BLOCK-03）** | 见 §R3-2/BLOCK-03 |
+| I-12 门禁计数口径（1166 vs 1165） | **登记（口径统一）** | 统一采用 `node --test` 汇总口径：本轮 **1172 tests / 0 fail**（`✔` 行 1173，含 suite 行）；本报告与 review 报告同口径 |
+| I-13 台账 `V52R2-E-01.reason` 与实测不符 | **落地（订正）** | reason 订正为「两轮：507,315 → 518,543 → **535,821**」（原写 518,543 = R1 中间值）；`newTitle` 同源 |
+| I-14 父 `PO-ALLN-005` 未更新 | **落地** | 父 `state.json` 更新为「已实测（本叶两轮 +28,506 B）∧ 已触发档位上调（563,200）/ 绝对上限 619,520（派生）∧ 生效上限 569,257」+ I-06/I-14 订正指向 ADR v5.1 订正注 |
+| I-15 本叶 `tasks.md` 无状态字段 | **落地（零字节）** | `tasks.md` 头部注明「128 个 `[ ]` 是验收清单；任务状态以 `state.json` 为唯一权威」 |
+
+## R3-4. 门禁复跑 vs 基线（日志 `/tmp/opencode/v4-gate-logs/v5-2-reviewfix/`）
+
+| 门禁 | 基线（R2 / review R1 读数） | 本轮 | 判定 |
+|---|:--:|:--:|:--:|
+| `npm test`（tsc + node --test） | 1,165 tests / 0 fail | **1,172 / 0** | ✅ +7（断言零删除） |
+| `test:recommendation` | 65 / 0 | **65 / 0** | ✅ |
+| `test:stream` | 68 / 0 | **68 / 0** | ✅ |
+| `test:ask-auth` | 71 / 0 | **71 / 0** | ✅（掩码类别位改造后复跑） |
+| `test:density`（含阶段 F 体积 registry） | 232 / 0 | **232 / 0** | ✅ |
+| `test:binding` | 192 | **192 / 0** | ✅ 保护段 `be9ad0e9…` 逐字节不变 |
+| `test:l0` / `test:l1` / `test:l2` | 244 / 116 / 74 | **244 / 116 / 74（全 0 fail）** | ✅（review C34 列出的 R2 未跑面已补跑） |
+| `test:ui`（journey） | 171（R2 未跑） | **171 PASS** | ✅ **修掉 R2 收编引入的 21 项 latent 失败**（见 §R3-5-①） |
+| `test:page-input` / `test:zero-injection` / `test:insight` | 108 / 27 / 116（R2 未跑） | **108 / 27 / 116（全 0 fail）** | ✅ |
+| `test:e2e` / `test:hardening` | PASS | **PASS / PASS（24）** | ✅ |
+| `test:supersession` | 35 / 0 | **35 / 0** | ✅（新增 R3 台账条目/换链/逐字登记同步） |
+| `test:gate-integrity` / `test:design-contract` | 14 / 19 | **14 / 19（全 0 fail）** | ✅（随 `npm test`） |
+| `test:size-ruling-vol3` / `size-budget` / `size-growth-evidence` | 12 / 0 | **全绿** | ✅ 三值同源：基线 542,150 / 档位 563,200 / 绝对上限 619,520 / 生效上限 569,257 |
+| `l1-reverse` / `l2-reverse` | — | **9 / 9 与 10 / 10 PASS** | ✅（首两轮各出现 1 项**环境性 flake**：`service worker 不可达` / 还原段 SW 未就绪；复跑全绿 —— 与既有 `KL-N-10` 同类，如实登记） |
+| 红线：`content.js` / `pick-layer.js` | 177,076 / 33,900 | **逐字节不变**（`52a82620…` / `5f567d7e…`） | ✅ |
+| `manifest.json` / `src/content/**` / v3 台账 | 零 diff | **零 diff** | ✅ |
+
+**体积重登记（第三轮，五要素同源）**：前值 535,821 → 后值 **542,150 B**（+6,329 B / +1.18%）；日期 2026-09-22；来源 `dist/sidepanel.js`；理由 = 本轮 BLOCK/I 项；历史值逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` + `SIDEPANEL_RE_REGISTRATIONS['v5-2-reviewfix']`；逐模块归因 `v52ReviewfixRows`（Σ +6,294 + glue 35 == +6,329，真实 metafile 逐值相等）；**档位/绝对上限未变**，`authorConfirmation` 保持 `pending-author-line`。
+
+## R3-5. 登记（不静默）
+
+| # | 项 | 状态 | 位置 |
+|:--:|---|---|---|
+| ① | **R2 收编引入的 journey latent 失败（21 项 → 0）** | **修掉并登记**：options 面 `bindPanelOps` 钩子名错配（`llmConfigForm` 不是 `llmConfig`）已修；**回执文案**改由执行体透出（`OpOutcome.receipt`）；`op.revoke` 的权限撤销**不假成功判据按权限面重锚**（工具面单次复读会把「已撤销」误报为「失败」——真机实测 + 桩环境证据） | `options.ts` / `ops.ts` / `op-bodies.ts`；日志 `ui.log` |
+| ② | 权限撤销的**有界重读**（≤3 次 / 150 ms） | 判据不变、只消除 Chrome 授予态跨进程落定的异步误判；真正仍持有（静态授权 / 用户拒绝）依旧如实失败 | `op-bodies.ts#revoke` |
+| ③ | `op-direct` chip 形态 | 新增形态登记（`ChipAct`）：表外 op 的 chip act = opId，派发经 `OPS_BY_ID` 单次查表；`ACT_TO_OP` 仍恰 6 行（**未扩**），`NEXTSTEP_ACTS` 仍逐字 6 项 | `recommend.ts` / `cards/nextstep.ts` |
+| ④ | `l1-reverse` / `l2-reverse` 环境性 flake | 如实登记：首两轮各 1 项（`service worker 不可达` / 还原段未就绪），复跑全绿；不进「全绿」伪装 | 日志 `l1-reverse{,-2}.log` / `l2-reverse{,-2}.log` |
+| ⑤ | 未执行的人工面 | 不变（浏览器原生权限弹窗体感 ⏳；`PENDING_TIMEOUT` 不可合成 ⇒ 不冒充 PASS） | 同 R2-5-① |
+| ⑥ | 体积面口径（I-05） | 绝对口径 2,500 B 已如实登记为**放宽**（公式依据 = 每输入模块 25 B；双门并存） | `size-growth-evidence.test.ts` + 本报告 |
+
+## R3-6. 下一步
+
+| 场景 | 操作 |
+|------|------|
+| 本叶 | ✅ 3 BLOCK 全修 + I 项逐项处置；`npm test` 1172/0；Chromium 13 门禁 + 2 反证门禁全绿；红线/保护段/保护面逐字节不变 |
+| **建议** | `@sddu-review specs-tree-v5-2-ops-first-batch`（**R2 复审**：重点复跑探针 12/13/14 与 `BLOCKED_P0_MAP` 5/5）→ 通过后 `@sddu-validate` |
+| 剩余（v5-3） | `no-dead-end.mjs`（复用本叶 `s2-chain.mjs`）/ `law8-plaintext.mjs` 四面机核 / 人工弹窗体感 |
+
+## 修订记录（R3）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v3.0 | review R1 修复轮：BLOCK-01~03 全修（含两段证伪）+ I 项 15/15 处置 + 体积第三轮五要素重登记（542,150 B，档位/绝对上限不变）+ 台账/基线/ADR/父 state 同步 | 2026-09-22 | SDDU Build Agent |

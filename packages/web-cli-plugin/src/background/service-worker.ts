@@ -2168,6 +2168,19 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
         patternOf: (origin) => originPermissionPattern(origin),
         audit: (origin, decision, reason) =>
           s.audit.recordPlugin({ type: 'origin-authorize', ts: Date.now(), origin, decision, reason }),
+        // V5-2 review R1 I-07 (NFR-ALLN-011 · FR-ALLN-068 `audit`): the SW's capability
+        // 裁决 also lands an audit row — the same single sink / type the settings
+        // reconciliation uses (`optional-permission`), so a grant and a denial are each
+        // traceable. Before this the seam was declared but never passed (`deps.auditCapability`
+        // was always undefined ⇒ the SW half of the `op.perm.request` audit was silently lost).
+        auditCapability: (capability, decision, reason) =>
+          s.audit.recordPlugin({
+            type: 'optional-permission',
+            ts: Date.now(),
+            tool: OPTIONAL_CAPABILITY_TOOL[capability as OptionalCapability] ?? capability,
+            decision,
+            reason,
+          }),
       });
       return out.ok ? okResponse(out.data) : errorResponse(out.error ?? 'op-exec 执行失败');
     }

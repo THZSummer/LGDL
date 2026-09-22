@@ -35,18 +35,31 @@ import { fileURLToPath } from 'node:url';
 import { BLOCKED_TERMINALS, type NextCtx, type NextProvider } from '../src/ui/sidepanel/next-registry/definition.js';
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
 import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-table.js';
-import { RECOVERY_PROVIDER_IDS, RECOVERY_PROVIDER_TRIGGERS, builtinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
+import {
+  LLM_BLOCKED_RISK,
+  OPS_RECOVERY_PROVIDER_IDS,
+  PERM_BLOCKED_RISK,
+  RECOVERY_PROVIDER_IDS,
+  RECOVERY_PROVIDER_TRIGGERS,
+  builtinProviders,
+} from '../src/ui/sidepanel/next-registry/providers.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const DEFINITION_REL = 'src/ui/sidepanel/next-registry/definition.ts';
 const PROVIDERS_REL = 'src/ui/sidepanel/next-registry/providers.ts';
 
 /**
- * The **one** allowed out-of-declaration site: `providers.ts` names two P0 providers
- * after the blocked terminals they repair. The gate asserts the literal set found
- * there is exactly THIS set — a third literal elsewhere (or a new one here) fails.
+ * The **one** allowed out-of-declaration site: `providers.ts` names the P0 providers
+ * after the blocked terminals they repair. The gate asserts the literal set found there is
+ * exactly THIS set — a literal elsewhere (or a new one here) fails.
+ *
+ * 〖V5-2 review R1 BLOCK-03〗the set now covers all **four** provider ids that are the
+ * blocked terminal itself (`binding.stale` / `site.unauthorized` / `llm.unconfigured` /
+ * `perm.missing`); the fifth row's provider is named after its *trigger* (`ref.stale`), so
+ * it is not a blocked-terminal literal. 自紧：下方断言要求「本集合 == landed 行的 providerId
+ * 中确实等于阻塞类名的那些」——多写一个/少写一个都红。
  */
-export const PROVIDER_ID_LITERAL_EXCEPTION = ['binding.stale', BLOCKED_TERMINALS[0]] as const;
+export const PROVIDER_ID_LITERAL_EXCEPTION = ['binding.stale', 'site.unauthorized', 'llm.unconfigured', 'perm.missing'] as const;
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. The judges
@@ -174,29 +187,91 @@ export interface BlockedP0Row {
 }
 
 /**
- * ③ — the total map. Three classes have a **landed** P0 provider today; the two that
- * wait for the `v5-2` ops (`op.llm-config` / `op.perm.request`) are registered with
- * a reason instead of being quietly absent (ADR-V5-009 §3 registers both seams).
+ * The **repairing op** of each op-driven blocked terminal (V5-2 review R1 BLOCK-03).
+ * The provider whose id IS the blocked terminal offers exactly this op as its chip —
+ * op-direct (the act is the opId), so the click dispatches the op, never a turn.
+ */
+export const BLOCKED_REPAIR_OP: Readonly<Record<string, string>> = Object.freeze({
+  'llm.unconfigured': 'op.llm-config',
+  'perm.missing': 'op.perm.request',
+});
+
+/** The **derived** risk-class id each op-driven provider's `when(ctx)` reads (no new source). */
+export const BLOCKED_RISK_CLASS: Readonly<Record<string, string>> = Object.freeze({
+  'llm.unconfigured': LLM_BLOCKED_RISK,
+  'perm.missing': PERM_BLOCKED_RISK,
+});
+
+/**
+ * ③ — the total map. **V5-2 review R1 BLOCK-03 closes it: 5 landed / 0 pending.**
+ *
+ * The two rows that were registered as `pending-v5-2` in v5-1 (the leaf's §6-③ 承接项)
+ * now have their provider really wired: `llm.unconfigured` / `perm.missing` are registered
+ * built-ins whose `when(ctx)` reads the derived risk class and whose single chip is the
+ * repairing op (`op.llm-config` / `op.perm.request`). The双射 5↔5 (5 blocked terminals ↔
+ * 5 landed providers) is therefore complete — and the gate below checks the chips too, so
+ * a landed row whose provider is missing / chip-less / mis-chipped is red.
  */
 export const BLOCKED_P0_MAP: readonly BlockedP0Row[] = [
   { blocked: 'site.unauthorized', providerId: 'site.unauthorized', driver: 'ctx.site.authorized === false（与 firstRun 无关）', status: 'landed' },
   { blocked: 'binding.stale', providerId: 'binding.stale', driver: 'risk ∋ hardFloor', status: 'landed' },
   { blocked: 'ref.all-invalid', providerId: 'ref.stale', driver: 'ctx.ref.staleCount ≥ 1 ∨ risk ∋ refInvalid', status: 'landed' },
-  {
-    blocked: 'llm.unconfigured',
-    providerId: null,
-    driver: 'key-store 为空（clearLlm 等价）',
-    status: 'pending-v5-2',
-    reason: '修复 provider（触发 provider id = llm.unconfigured，chips 含 op.llm-config）随 v5-2 的 9 op 注册一并落地；v5-1 只交付阻塞态枚举单源与既有 P0 五provider 的机制基础。',
-  },
-  {
-    blocked: 'perm.missing',
-    providerId: null,
-    driver: '授权 origin + 未授予可选能力',
-    status: 'pending-v5-2',
-    reason: '修复 provider（触发 provider id = perm.missing，chips 含 op.perm.request）随 v5-2 的 optional_permissions 放开与 9 op 注册一并落地。',
-  },
+  { blocked: 'llm.unconfigured', providerId: 'llm.unconfigured', driver: 'risk ∋ llmBlocked（key-store 为空，从实时 LLM 状态派生）', status: 'landed' },
+  { blocked: 'perm.missing', providerId: 'perm.missing', driver: 'risk ∋ permBlocked（OPTIONAL_CAPABILITIES 的实测授权态缺项）', status: 'landed' },
 ];
+
+/**
+ * ③ — **review R1 BLOCK-03** self-tightening half: a landed row must have a **real
+ * provider** whose chip is the declared repairing op (or, for the trigger-driven rows, at
+ * least one registered op chip). Injecting a landed row without a provider / with a wrong
+ * chip ⇒ red (reverse proof in BT-3 below).
+ */
+export function landedProviderProblems(
+  rows: readonly BlockedP0Row[],
+  providers: readonly NextProvider[],
+  knownOps: readonly string[],
+): string[] {
+  const problems: string[] = [];
+  for (const row of rows) {
+    if (row.status !== 'landed' || !row.providerId) continue;
+    const provider = providers.find((p) => p.id === row.providerId);
+    if (!provider) {
+      problems.push(`已落地的修复 provider 必须真实注册：${row.blocked} → ${row.providerId} 不在 builtinProviders() 内`);
+      continue;
+    }
+    const want = BLOCKED_REPAIR_OP[row.blocked];
+    if (want !== undefined) {
+      if (!provider.chips.includes(want)) {
+        problems.push(`已落地修复 provider 的 chips 必须真实接线：${row.providerId} 缺 ${want}（实测 ${provider.chips.join(', ')}）`);
+      }
+    }
+    const dangling = provider.chips.filter((c) => !knownOps.includes(c));
+    if (dangling.length > 0) problems.push(`修复 provider 的 chips 不得悬空：${row.providerId} 的 ${dangling.join(', ')}`);
+  }
+  return problems;
+}
+
+/** ③ — the op-driven providers must read the **derived** risk class, not a new source. */
+export function opsRecoveryProblems(providers: readonly NextProvider[]): string[] {
+  const problems: string[] = [];
+  if (OPS_RECOVERY_PROVIDER_IDS.length !== 2) {
+    problems.push(`op-driven 修复 provider 必须恰 2 个（实测 ${OPS_RECOVERY_PROVIDER_IDS.length}）`);
+    return problems;
+  }
+  for (const id of OPS_RECOVERY_PROVIDER_IDS) {
+    const provider = providers.find((p) => p.id === id);
+    if (!provider) {
+      problems.push(`op-driven 修复 provider 必须注册：缺 ${id}`);
+      continue;
+    }
+    const risk = BLOCKED_RISK_CLASS[id];
+    if (provider.when(ctxOf({ risk: [risk] })) !== true) {
+      problems.push(`${id}: risk ∋ ${risk} ⇒ when() 必须为 true（否则该阻塞态不可达）`);
+    }
+    if (provider.when(ctxOf()) !== false) problems.push(`${id}: 干净 ctx 不得触发（判据不得恒真）`);
+  }
+  return problems;
+}
 
 /** ③ — completeness + injectivity (+ a reason for every pending row). */
 export function blockedMapProblems(rows: readonly BlockedP0Row[], terminals: readonly string[]): string[] {
@@ -267,6 +342,14 @@ test('BT-1 声明恰一次：5 个阻塞态字面量只出现在 definition.ts�
   assert.deepEqual(declaredOnceProblems(sites), []);
   assert.deepEqual((sites[PROVIDERS_REL] ?? []).sort(), [...PROVIDER_ID_LITERAL_EXCEPTION].sort(), '唯一双射点的字面量集合必须与登记一致');
   assert.deepEqual((sites[DEFINITION_REL] ?? []).sort(), [...BLOCKED_TERMINALS].sort(), '声明源必须含全部 5 项');
+  // 自紧（review R1 BLOCK-03）：登记集合必须恰等于「landed 行里 providerId === blocked」的那些
+  // 阻塞类 —— 多写一个（未落地的类名）或少写一个（已落地的类名）都红。
+  const selfNamed = BLOCKED_P0_MAP.filter((r) => r.status === 'landed' && r.providerId === r.blocked).map((r) => r.blocked);
+  assert.deepEqual(
+    [...PROVIDER_ID_LITERAL_EXCEPTION].sort(),
+    [...selfNamed].sort(),
+    '唯一双射点的字面量登记必须恰等于「providerId === blocked」的 landed 行集合',
+  );
 });
 
 test('BT-2 site.unauthorized：when(ctx) 与 firstRun 无关（静态 + 动态双证）', () => {
@@ -293,17 +376,47 @@ test('BT-2 site.unauthorized：when(ctx) 与 firstRun 无关（静态 + 动态�
   assert.ok(siteBranchProblems(forgedSource).length > 0, JUDGEMENTS[1].expectFailPattern);
 });
 
-test('BT-3 阻塞类 ↔ P0 provider：5 行完备单射（3 landed + 2 登记 pending-v5-2）', () => {
+test('BT-3 阻塞类 ↔ P0 provider：5 行完备单射（**5 landed**，双射 5↔5 闭合）', () => {
   assert.deepEqual(blockedMapProblems(BLOCKED_P0_MAP, [...BLOCKED_TERMINALS]), []);
-  // provider 侧自身的双射：5 P0 provider ↔ 5 恢复触发。
-  assert.equal(RECOVERY_PROVIDER_IDS.length, 5, 'P0 恢复 provider 必须恰 5 个');
+  // provider 侧自身的双射：5 恢复触发 provider（v5-1 集）。
+  assert.equal(RECOVERY_PROVIDER_IDS.length, 5, 'P0 恢复 provider（触发器集）必须恰 5 个');
   assert.equal(Object.keys(RECOVERY_PROVIDER_TRIGGERS).length, 5);
   const ids = [...RECOVERY_PROVIDER_IDS];
   assert.equal(new Set(ids).size, ids.length, 'P0 provider id 必须唯一');
   const triggers = Object.values(RECOVERY_PROVIDER_TRIGGERS);
   assert.equal(new Set(triggers).size, triggers.length, '触发器必须与 provider 一一对应（单射）');
+  // review R1 BLOCK-03：op-driven 两行落地 ⇒ 5/5 landed（0 pending），且 provider 真实注册、
+  // chips 真实接线到修复 op（判据从「登记 reason ≥40」翻转为「provider + chip 必须存在」）。
+  assert.equal(OPS_RECOVERY_PROVIDER_IDS.length, 2, 'op-driven 修复 provider 必须恰 2 个');
+  assert.equal(BLOCKED_P0_MAP.filter((r) => r.status === 'landed').length, BLOCKED_TERMINALS.length, '5 类阻塞态必须全部有已落地的修复 provider');
+  const providers = builtinProviders();
+  const knownOps = new Set<string>([...OBLIGATION_OP_IDS, ...Object.values(ACT_TO_OP)]);
+  assert.deepEqual(landedProviderProblems(BLOCKED_P0_MAP, providers, [...knownOps]), []);
+  assert.deepEqual(opsRecoveryProblems(providers), [], 'op-driven provider 的 when(ctx) 必须由派生风险类驱动');
   const landedIds = BLOCKED_P0_MAP.filter((r) => r.status === 'landed').map((r) => r.providerId);
-  for (const id of landedIds) assert.ok(ids.includes(id as string), `已落地映射的 provider ${String(id)} 必须在 P0 provider 集合内`);
+  for (const id of landedIds) {
+    assert.ok(ids.includes(id as string) || OPS_RECOVERY_PROVIDER_IDS.includes(id as string), `已落地映射的 provider ${String(id)} 必须真实存在`);
+  }
+});
+
+test('BT-3 反证（review R1 BLOCK-03 自紧）：landed 行缺 provider / chip 接线错 ⇒ 必红', () => {
+  const providers = builtinProviders();
+  const knownOps = new Set<string>([...OBLIGATION_OP_IDS, ...Object.values(ACT_TO_OP)]);
+  // ① 「已落地」但 provider 不存在（把 id 改成一个没有实现的名字）⇒ 红。
+  assert.notEqual(OPS_RECOVERY_PROVIDER_IDS.length, 0, '前置：op-driven provider 必须存在');
+  const ghost = BLOCKED_P0_MAP.map((r) => (r.blocked === 'llm.unconfigured' ? { ...r, providerId: 'llm.ghost' } : r));
+  assert.ok(
+    landedProviderProblems(ghost, providers, [...knownOps]).some((p) => p.includes('不在 builtinProviders() 内')),
+    JUDGEMENTS[2].expectFailPattern,
+  );
+  // ② provider 在册但 chip 接错（换成别的 op）⇒ 红。
+  const misChipped = providers.map((p) => (p.id === 'perm.missing' ? { ...p, chips: ['op.help'] } : p));
+  assert.ok(
+    landedProviderProblems(BLOCKED_P0_MAP, misChipped, [...knownOps]).some((p) => p.includes('缺 op.perm.request')),
+    JUDGEMENTS[2].expectFailPattern,
+  );
+  // ③ 还原 ⇒ PASS（判据不是恒真）。
+  assert.deepEqual(landedProviderProblems(BLOCKED_P0_MAP, providers, [...knownOps]), []);
 });
 
 test('BT-3 反证：注入第 6 类阻塞（无 provider 且无登记）⇒ 映射判据必红', () => {

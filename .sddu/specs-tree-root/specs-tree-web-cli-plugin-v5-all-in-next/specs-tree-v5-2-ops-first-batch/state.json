@@ -11,7 +11,7 @@
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T23:40:00.000Z",
+  "updatedAt": "2026-09-22T23:55:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**次叶**（P0，deliveryOrder=2，依赖 v5-1）。承载父 spec.md §5.5 OPS（FR-ALLN-040~049）/ §5.7 SW（FR-ALLN-065~069）/ §5.8 SETTINGS（FR-ALLN-075~078）/ §5.2 LAW7 的 014·016（拒绝非死端 + 断流首验收）/ §5.3 LAW8 的 020~022（掩码卡入口侧 + 值直达存储 + 流内只留事实）/ §5.11 X1·X2（FR-ALLN-110·111·116）/ GATE 本叶面（FR-ALLN-120~125）/ FR-ALLN-003·004·130·133 共 33 条 FR 的实施切片。交付：9 个 op 逐个注册（五要素齐备）；panel-local / SW 双层执行器（特权 op 恰 2 项）；op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约；optional_permissions 放开（安装期静态面零漂移 + 最小集论证）；askuser 扩形 secret / form + 值直达 key-store；settings 4 类收编（单一执行入口 + 单一调用点机核）；拒绝不是死端；S2 断流样板 headless 全链首验收（死端 = 0；浏览器弹窗体感入人工面）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -193,9 +193,14 @@
       "phase": "reviewed",
       "timestamp": "2026-09-22T23:40:00.000Z",
       "triggeredBy": "sddu-review R1（静态审查，HEAD 245e0a2；C1~C58 自主清单覆盖 34 条承载 FR × 四维度）：结论 = ❌ 不通过（**3 阻塞 / 15 改进**；维度通过率 29/58 = 50.0%，代码质量 3/6 · 规范符合性 23/41 · 架构一致性 1/6 · 测试质量 2/5）。独立复跑 8 项（npm test 1165/0〔build 报 1166 = ✔ 行数，口径差 1〕/ zero-injection 27/0 / page-input 108/0 / binding 首轮 #6l flake → 复跑 192/0〔KL-N-10〕/ ask-auth 71/0 / stream 68/0 / recommendation 65/0 + 红线 sha 与保护段 be9ad0e9… 复算命中）。三类对抗探针（不改仓库）：① dispatchOp('op.llm-config',{value:JSON},'settings'|'options') 实际 PANEL.llmConfig(undefined) ⇒ 表单值不落存储 + 假成功（BLOCK-01 / C9·C27·C51）；② execute/execSw 返回 {ok:false} 仍 settle('completed') + 写成功回执 + 回滚 0 次（BLOCK-02 / C3·C11·C41·C46·C17·C44）；③ S2 样本 blockedStateCtx('perm.missing') ≡ recoveredCtx() + v5-1 §6-③ 两行仍 pending-v5-2 未登记（BLOCK-03 / C18·C10）。产出 review.md（策略 C1~C58，review 阶段回填）+ review-report.md（R1）；未改 src/test/dist；红线逐字节不变。下游 = @sddu-build R3 修复轮 → review R2 → validate。"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-22T23:55:00.000Z",
+      "triggeredBy": "sddu-build（review R1 修复轮 R3：BLOCK-01~03 全修 + I 项处置 + 体积第三轮五要素重登记；phase 保持 reviewed，待 R2 复审）"
     }
   ],
-  "phaseNote": "phase=reviewed（status=tracked）—— **review R1 结论 = ❌ 不通过**（3 阻塞 / 15 改进）。本轮为静态审查：C1~C58 自主清单（覆盖 34 条承载 FR × 四维度）+ 8 项门禁独立复跑 + 3 类对抗探针（委托面 / 失败语义 / S2 驱动）；产出 review.md（策略，review 阶段回填）+ review-report.md（R1）。**未改 src/test/dist**；红线逐字节不变（content.js 52a82620… / pick-layer.js 5f567d7e…）。阻塞三项：① 非 chat 面 op 执行体不可达/载荷丢失（假成功）；② {ok:false} 被当成功且非抛错失败不回滚；③ v5-1 §6-③ 承接项 owner 悬空 + S2 perm.missing 驱动与恢复态同构。下游 = @sddu-build R3 修复轮 → review R2 → @sddu-validate。",
+  "phaseNote": "phase=reviewed（status=tracked）—— **review R1 结论 = ❌ 不通过**（3 阻塞 / 15 改进），**review R1 修复轮（R3 build）已完成修复**：BLOCK-01~03 全修（含两段证伪）+ I 项 15/15 处置；`npm test` 1172/0；Chromium 13 门禁 + 2 反证门禁全绿；红线 / 保护段 / `manifest` / `src/content/**` / v3 台账逐字节或零 diff 不变；体积第三轮五要素重登记 542,150 B（档位 563,200 / 绝对上限 619,520 均未变）。**phase 保持 reviewed**（修复轮不自行改判）—— 建议 `@sddu-review` 出 **R2 复审**（复跑声呐探针 12/13/14 与 `BLOCKED_P0_MAP` 5/5）后再进 validate。",
   "specCounts": {
     "fr": 34,
     "nfr": 9,
@@ -505,5 +510,59 @@
       "I-15 tasks.md 无任务状态字段（以 state.json 为准）"
     ],
     "next": "@sddu-build R3 修复轮（BLOCK-01~03）→ sddu-review R2 → @sddu-validate"
+  },
+  "reviewFixArtifact": {
+    "round": "review R1 修复轮（R3 build）",
+    "fixedAt": "2026-09-22",
+    "head": "5abe0a1",
+    "branch": "feature/web-cli-plugin",
+    "scope": "3 BLOCK 全修 + I 项 15/15 处置（落地 6 / 等价重锚 2 / 登记 7）",
+    "blocks": {
+      "BLOCK-01": "载荷透传（执行体透传 OpOutcome + ctx 值转发 + 缺缝 loud）+ options 面同执行体（新增 src/ui/settings/op-bodies.ts 与面板/options 共用），假成功消灭；两段证伪 test/next-pipeline.test.ts#NP-11",
+      "BLOCK-02": "非 {ok:true} 一律失败结算（SettleState 增 'failed' + 整表回滚 + reachableNext）+ EC-ALLN-011/NFR-ALLN-010 生产可达；两段证伪 #NP-5b",
+      "BLOCK-03": "llm.unconfigured / perm.missing 修复 provider 真实接线（BLOCKED_P0_MAP 5/5 landed）+ perm.missing 事实源（OPTIONAL_CAPABILITIES 实测授权态 ⇒ risk，不新增真值源）+ 门禁自紧翻转 + S2 逐类断言去同构"
+    },
+    "iItems": {
+      "landed": [
+        "I-02",
+        "I-03/I-04",
+        "I-05",
+        "I-06",
+        "I-07",
+        "I-09",
+        "I-10",
+        "I-13",
+        "I-14",
+        "I-15"
+      ],
+      "registered": [
+        "I-01",
+        "I-08",
+        "I-12",
+        "I-15(口径)",
+        "L1/L2-reverse 环境性 flake"
+      ]
+    },
+    "gates": {
+      "npmTest": "1172 tests / 0 fail（✔ 行 1173；基线 1165/0，断言零删除）",
+      "chromium": "recommendation 65 / stream 68 / ask-auth 71 / density 232 / binding 192 / l0 244 / l1 116 / l2 74 / journey 171 / insight 116 / page-input 108 / zero-injection 27 / e2e PASS / hardening 24 PASS",
+      "reverse": "l1-reverse 9/9 PASS · l2-reverse 10/10 PASS（首两轮各 1 项环境性 flake，复跑全绿；如实登记）",
+      "supersession": "35 / 0（新增 V52R3-MR 条目 + 逐字登记同步 + 40 条 newTitle 换链）",
+      "redline": "content.js 177,076 / 52a82620… · pick-layer.js 33,900 / 5f567d7e… 逐字节不变；保护段 binding.mjs[107780..115930] sha be9ad0e9… 不变"
+    },
+    "size": {
+      "newBaselineBytes": 542150,
+      "previousBaselineBytes": 535821,
+      "deltaBytes": 6329,
+      "percent": "+1.18%",
+      "tierBytes": 563200,
+      "absoluteCeilingBytes": 619520,
+      "effectiveCeilingBytes": 569257,
+      "reRegisteredRound": "v5-2-reviewfix",
+      "rows": "SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows（Σ +6,294 + glue 35 == +6,329）",
+      "authorConfirmation": "pending-author-line（占位，不伪称已确认）"
+    },
+    "logDir": "/tmp/opencode/v4-gate-logs/v5-2-reviewfix/",
+    "next": "建议 @sddu-review（R2 复审：复跑探针 12/13/14 + BLOCKED_P0_MAP 5/5）→ 通过后 @sddu-validate"
   }
 }

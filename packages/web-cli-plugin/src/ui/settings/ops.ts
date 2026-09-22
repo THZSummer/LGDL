@@ -54,10 +54,10 @@ import {
   OPTIONAL_CAPABILITY_TOOL,
   capabilityPermissionsApi,
   hasCapabilityPermission,
-  removeCapabilityPermission,
   type OptionalCapability,
   type PermissionsApiLike,
 } from '../../platform/capability-permissions.js';
+import { createOpBodies, defaultOpBodyDeps, type OpBodyOutcome } from './op-bodies.js';
 
 /** Minimal transport shape (a real `chrome.runtime.sendMessage` satisfies it). */
 export interface SettingsTransport {
@@ -93,7 +93,11 @@ export interface SettingsOpsDeps {
    * 「同执行体、不同 consent 载体」). Absent ⇒ the legacy in-module behaviour (so the
    * existing unit tests keep their seam).
    */
-  dispatchOp?: (opId: string, ctx: { value?: string }, surface: 'settings' | 'options') => Promise<{ ok: boolean; reason?: string }>;
+  dispatchOp?: (
+    opId: string,
+    ctx: { value?: string },
+    surface: 'settings' | 'options',
+  ) => Promise<{ ok: boolean; reason?: string; receipt?: { kind?: string; text: string } }>;
   /** Which surface this instance serves (the delegation's consent carrier). */
   surface?: 'settings' | 'options';
 }
@@ -106,6 +110,15 @@ export interface OpResult<T = unknown> {
   kind: OpMessageKind;
   text: string;
   data?: T;
+  /** The execute body's machine reason (carried through the delegation for post-checks). */
+  reason?: string;
+  /**
+   * V5-2 review R1 **BLOCK-01** — the execute body's own receipt, **carried through the
+   * delegation**. `text` is already the rendered copy; the structured receipt is what the
+   * post-checks (capability revoke's 不假成功 / the panel's capability receipt) read, so a
+   * surface can never fall back to a generic sentence while the body knew better.
+   */
+  receipt?: { kind?: string; text: string };
 }
 
 function errText(err: unknown): string {
@@ -200,6 +213,16 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
     }
   }
 
+  /** Re-read the auto-auth rows through the ONE existing message (the op delegation's data). */
+  async function freshAutoAuthRows(): Promise<AutoAuthRecordView[]> {
+    try {
+      const res = await send<{ origins?: AutoAuthRecordView[] }>(makeMessage('auto-auth', { action: 'get' }));
+      return res.ok && res.data ? autoAuthRows(res.data.origins) : [];
+    } catch {
+      return [];
+    }
+  }
+
   /** The LLM tool surface as the background reports it (the honest re-read for receipts). */
   async function capabilityToolSet(): Promise<readonly string[]> {
     try {
@@ -210,11 +233,44 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
     }
   }
 
+  /**
+   * V5-2 review R1 **BLOCK-01 / I-02** (ADR-V5-005 §1/§3 · FR-ALLN-042/044/075/076) —
+   * the **surface-agnostic execute bodies**. They live in `./op-bodies.ts` (the ONE
+   * place the four consolidated actions' semantics are written down); every atom is a
+   * seam. The production surfaces inject an op pipeline (`deps.dispatchOp`); the
+   * fallback below (no op surface — the unit-test seam) drives the **same body**, so no
+   * second implementation exists and this module owns **zero** native statement.
+   */
+  const bodies = createOpBodies(
+    defaultOpBodyDeps({
+      store: deps.store,
+      transport: { send: (msg) => deps.transport.send(msg) },
+      ...(deps.permissions ? { permissions: deps.permissions } : {}),
+    }),
+  );
+
+  /** Render one body outcome as the surface's `OpResult` (receipt first, op copy second). */
+  const fromBody = <T = unknown>(opId: string, out: OpBodyOutcome, data?: T): OpResult<T> => ({
+    ok: out.ok,
+    kind: (out.receipt?.kind ?? (out.ok ? 'ok' : 'err')) as OpMessageKind,
+    text: out.receipt?.text ?? opReceiptText(opId, out),
+    ...(out.reason !== undefined ? { reason: out.reason } : {}),
+    ...(data !== undefined ? { data } : {}),
+  });
+
   /** The surface's typed-op delegation (absent ⇒ the caller keeps the legacy path). */
   async function viaOp<T = unknown>(opId: string, value?: string): Promise<OpResult<T>> {
     const surface = deps.surface ?? 'settings';
     const out = await deps.dispatchOp!(opId, value === undefined ? {} : { value }, surface);
-    return { ok: out.ok, kind: out.ok ? 'ok' : 'err', text: opReceiptText(opId, out) };
+    // review R1 BLOCK-01 / I-02：the body's own receipt (the same string the panel stream
+    // renders) is the copy every surface shows — 一个执行体，一份回执文案。
+    return {
+      ok: out.ok,
+      kind: (out.receipt?.kind ?? (out.ok ? 'ok' : 'err')) as OpMessageKind,
+      text: out.receipt?.text ?? opReceiptText(opId, out),
+      ...(out.reason !== undefined ? { reason: out.reason } : {}),
+      ...(out.receipt ? { receipt: out.receipt } : {}),
+    };
   }
 
   return {
@@ -242,42 +298,16 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
 
     async saveLlm(input) {
       if (!deps.env.inExtension) return notExtension();
+      // V5-2 TASK-V5-145 / review R1 BLOCK-01: the execute body is the op's (one source,
+      // `op-bodies.ts`). The form input travels in the **ctx value** (never through
+      // `dispatch`, so 法八 holds: no stream payload, no digest entry, no attribute).
+      const data = { providerName: providerById(input.providerId).name, model: input.model };
       if (deps.dispatchOp) {
-        // V5-2 TASK-V5-145: the execute body is the op's (one source). The form input
-        // travels in the **ctx value** (never through `dispatch`, so 法八 holds: no
-        // stream payload, no digest entry, no attribute carries it).
         const out = await viaOp<{ providerName: string; model: string }>('op.llm-config', JSON.stringify(input));
-        return out.ok ? { ...out, data: { providerName: providerById(input.providerId).name, model: input.model } } : out;
+        return out.ok ? { ...out, data } : out;
       }
-      try {
-        const provider = providerById(input.providerId);
-        const existing = await deps.store.loadProvider(provider.id);
-        const key = input.apiKey.trim() || existing.apiKey;
-        if (!key) {
-          return {
-            ok: false,
-            kind: 'warn',
-            text: `⚠ 未保存：未填写 ${provider.name} 的 API Key，且该厂商尚无已保存的 Key。请填入 Key 后重试。`,
-          };
-        }
-        const model = input.model.trim() || provider.defaultModel;
-        const maxRounds = Number(input.maxRounds);
-        await deps.store.save({
-          providerId: provider.id,
-          apiKey: key,
-          model,
-          baseURL: input.baseURL,
-          ...(Number.isFinite(maxRounds) && maxRounds > 0 ? { maxRounds } : {}),
-        });
-        return {
-          ok: true,
-          kind: 'ok',
-          text: `✓ 已保存：${provider.name} · ${model} · Key ✅ 已写入（chrome.storage.local，不回显）`,
-          data: { providerName: provider.name, model },
-        };
-      } catch (err) {
-        return { ok: false, kind: 'err', text: `✖ 保存失败：${errText(err)}` };
-      }
+      // No op surface (unit-test seam) ⇒ the SAME execute body, called directly.
+      return fromBody<{ providerName: string; model: string }>('op.llm-config', await bodies.llmConfigForm(JSON.stringify(input)), data);
     },
 
     async testConnection(input) {
@@ -403,38 +433,36 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
 
     async revokeCapability(cap) {
       if (!deps.env.inExtension) return notExtension();
-      if (deps.dispatchOp) {
-        const out = await viaOp<CapabilitiesView>('op.revoke', `permission:${cap}`);
-        const data = await freshCapabilities();
-        // 不假成功（EC-V23-003）：工具面**重拉实测**仍含该工具 ⇒ 如实返回失败文案
-        // （「Chrome 权限仍保留；可重试」）—— op 的 success 只代表执行体自身判定通过。
-        const tools = await capabilityToolSet();
-        if (!out.ok || tools.includes(OPTIONAL_CAPABILITY_TOOL[cap])) {
-          const detail = tools.includes(OPTIONAL_CAPABILITY_TOOL[cap]) ? '工具面仍包含该工具（未移除）' : out.text;
-          return { ok: false, kind: 'err', text: capabilityRevokeFailureReceipt(cap, detail).text, ...(data ? { data } : {}) };
-        }
-        return data ? { ...out, data } : out;
+      // V5-2 review R1 I-02: the revoke body lives in `op-bodies.ts` (ONE implementation);
+      // this method only chooses the route (op pipeline in production, the same body for
+      // the unit-test seam) and does the **不假成功** post-read.
+      const out: OpBodyOutcome = deps.dispatchOp
+        ? await viaOp<CapabilitiesView>('op.revoke', `permission:${cap}`)
+        : await bodies.revoke(`permission:${cap}`);
+      const data = await freshCapabilities();
+      if (!out.ok) {
+        // 权限面**没有**真的撤销（`permission-still-held` / remove 失败 / 未在册）⇒ 如实失败。
+        return {
+          ok: false,
+          kind: 'err',
+          text: capabilityRevokeFailureReceipt(cap, out.reason ?? '未知原因').text,
+          reason: out.reason,
+          ...(data ? { data } : {}),
+        };
       }
-      // `chrome.permissions.remove` needs NO user gesture (unlike `request`), so
-      // it runs here directly. Removing the permission fires the background's
-      // `permissions.onRemoved` reconciliation; we then send the explicit
-      // `permission-changed` reconcile so the tool leaves `deriveTools()` and an
-      // `optional-permission/revoked` audit lands even if the event races.
-      const removed = await removeCapabilityPermission(permissionsApi(), cap);
-      if (!removed.removed) {
-        const failure = capabilityRevokeFailureReceipt(cap, removed.error);
-        return { ok: false, kind: 'err', text: failure.text };
-      }
-      const receipt = capabilityRevokeReceipt(cap);
-      try {
-        const res = await send<CapabilitiesView>(makeMessage('capabilities', { action: 'permission-changed', capability: cap }));
-        if (!res.ok || !res.data) {
-          return { ok: true, kind: 'warn', text: `${receipt.text}（工具面对账未返回：${res.error ?? '后台无响应'}，将重新读取）` };
-        }
-        return { ok: true, kind: receipt.kind, text: receipt.text, data: await measuredView(res.data) };
-      } catch (err) {
-        return { ok: true, kind: 'warn', text: `${receipt.text}（工具面对账异常：${errText(err)}，将重新读取）` };
-      }
+      // 不假成功（EC-V23-003）的**权威判据 = 权限面**：执行体内 `contains` 的有界重读已确认
+      // 该权限真的离开浏览器。工具面是 SW 的第二视图（依赖 SW 自身对授予态的读法 + 隐私开关），
+      // 与页面测得的授予态可能**环境性/暂时**不一致（真实浏览器 + 手势桩实测：页面 remove 生效、
+      // SW 复读尚未落定），因此它只作**附加说明**，不再推翻权限面的结论。
+      // 〖review R1 修复轮〗R2 曾用工具面单次复读把成功回执换成失败文案 —— journey `#54s` 的
+      // 真机运行证明该判据会把「已撤销」误报为「失败」（假失败），现按权限面重锚。
+      const toolHeld = (await capabilityToolSet()).includes(OPTIONAL_CAPABILITY_TOOL[cap]);
+      return {
+        ok: true,
+        kind: (out.receipt?.kind ?? 'ok') as OpMessageKind,
+        text: (out.receipt?.text ?? opReceiptText('op.revoke', out)) + (toolHeld ? '（工具面对账仍在进行，界面会自动刷新）' : ''),
+        ...(data ? { data } : {}),
+      };
     },
 
     async loadAutoAuth() {
@@ -464,23 +492,14 @@ export function createSettingsOps(deps: SettingsOpsDeps): SettingsOps {
 
     async clearAutoAuth(origin) {
       if (!deps.env.inExtension) return notExtension();
-      if (deps.dispatchOp) {
-        const out = await viaOp<AutoAuthRecordView[]>('op.revoke', `auto-auth:${origin}`);
-        if (!out.ok) return out;
-        try {
-          const res = await send<{ origins?: AutoAuthRecordView[] }>(makeMessage('auto-auth', { action: 'get' }));
-          return { ...out, data: res.ok && res.data ? autoAuthRows(res.data.origins) : [] } as OpResult<AutoAuthRecordView[]>;
-        } catch {
-          return { ...out, data: [] } as OpResult<AutoAuthRecordView[]>;
-        }
-      }
-      try {
-        const res = await send<{ origins?: AutoAuthRecordView[] }>(makeMessage('auto-auth', { action: 'clear', origin }));
-        if (!res.ok || !res.data) return { ok: false, kind: 'err', text: `✖ 关闭自动授权失败：${res.error ?? '后台无响应'}` };
-        return { ok: true, kind: '', text: `已关闭 ${origin} 的自动授权（读/写都关）。`, data: autoAuthRows(res.data.origins) };
-      } catch (err) {
-        return { ok: false, kind: 'err', text: `✖ 关闭自动授权失败：${errText(err)}` };
-      }
+      // V5-2 review R1 I-02: the `auto-auth clear` body moved to `op-bodies.ts` (ONE
+      // implementation); both routes reach the SAME body.
+      const out: OpBodyOutcome = deps.dispatchOp
+        ? await viaOp<AutoAuthRecordView[]>('op.revoke', `auto-auth:${origin}`)
+        : await bodies.revoke(`auto-auth:${origin}`);
+      if (!out.ok) return fromBody<AutoAuthRecordView[]>('op.revoke', out);
+      const rows = await freshAutoAuthRows();
+      return { ...fromBody<AutoAuthRecordView[]>('op.revoke', out, rows) };
     },
 
     async loadSessions() {

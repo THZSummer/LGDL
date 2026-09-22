@@ -199,12 +199,19 @@ export interface StreamPayload {
    * the masked / multi-select forms. All optional: absent ⇒ rendering is byte-identical
    * to before (rollback = simply not passing them).
    *
-   * `maskedLength` is a **length only**; the fixed region renders a *category* of it
-   * (ADR-V5-010 §2 缩窄侧信道), never the raw length.
+   * `maskedLength` is the **length CATEGORY** (`8+` / `8-`) — review R1 I-04: the raw
+   * length is not even persisted (ADR-V5-010 §2 缩窄侧信道); the number stays inside the
+   * submit handler that measured it.
    */
   readonly secretLabel?: string;
   readonly formOptions?: readonly { readonly id: string; readonly label: string; readonly scope: string }[];
-  readonly maskedLength?: number;
+  /**
+   * V5-2 review R1 **I-04** (ADR-V5-010 §2 缩窄侧信道) — the masked **length category**
+   * of a written secret: `8+` (8 characters or more) / `8-` (fewer). The raw length never
+   * leaves the submit handler, so neither the stream payload nor the persisted state
+   * carries the exact size.
+   */
+  readonly maskedLength?: MaskedLengthCategory;
   /** The frozen answer text (ask card固化区). */
   readonly answer?: string;
   /** v4-3: why an ask card reached `cancelled` (absent for answered/approved/rejected). */
@@ -631,6 +638,13 @@ export function lastTs(state: StreamState): number {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 /** A projected card — the renderer's only input. */
+/**
+ * V5-2 review R1 **I-04** (ADR-V5-010 §2 缩窄侧信道) — the masked **length category** of a
+ * written secret: `8+` (8 characters or more) / `8-` (fewer). The raw length never leaves
+ * the submit handler, so neither the stream payload nor the persisted state carries it.
+ */
+export type MaskedLengthCategory = '8+' | '8-';
+
 export interface CardView {
   readonly cardId: string;
   readonly kind: StreamEventKind;

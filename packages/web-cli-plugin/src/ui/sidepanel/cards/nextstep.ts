@@ -60,7 +60,10 @@ export function createNextstepCard(view: CardView, deps: CardDeps): HTMLLIElemen
     btn.setAttribute('data-act', act);
     // V5-1 TASK-V5-112 (FR-ALLN-057): the分发依据 is the **opId** (`data-op`),
     // derived from the ONE `ACT_TO_OP` authority; `data-act` stays a render alias.
-    const opId = ACT_TO_OP[act as keyof typeof ACT_TO_OP];
+    // review R1 BLOCK-03: an **op-direct** chip (an op outside the 6-act table) carries its
+    // opId *as* the act (`op.llm-config` / `op.perm.request`) — `dispatchChipAction`
+    // resolves that through `OPS_BY_ID`, so the two attributes stay identical.
+    const opId = ACT_TO_OP[act as keyof typeof ACT_TO_OP] ?? (act.startsWith('op.') ? act : undefined);
     if (opId) btn.setAttribute('data-op', opId);
     btn.setAttribute('data-chip-index', String(i));
     btn.textContent = chip;

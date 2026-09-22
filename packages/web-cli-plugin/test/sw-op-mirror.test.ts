@@ -115,12 +115,18 @@ test('SW-M ③ 反证：顶层表改一行 / 反写一份手工镜像 ⇒ 两侧
 
 // ── ④ 执行器：opId 先判、缺 consent 拒绝、op.perm.request 仍未落地（loud） ──
 
+/** The audit rows a driven executor wrote (the `op.perm.request` 裁决 half of NFR-ALLN-011). */
+const auditRows: Array<{ type: string; decision: string; tool?: string }> = [];
+
 const deps = {
   authorize: async (origin: string, granted: boolean) => ({ origin, granted }),
   snapshot: async () => [{ origin: 'https://a.test' }],
   activeOrigin: () => 'https://a.test',
   patternOf: (_o: string) => 'https://a.test/*',
   audit: () => {},
+  // review R1 I-07: the capability 裁决 seam — wired here so the SW half of the audit is judged.
+  auditCapability: (capability: string, decision: 'granted' | 'denied', reason: string) =>
+    void auditRows.push({ type: 'optional-permission', decision, tool: capability, reason } as never),
 };
 
 test('SW-M ④: probe 只读（快照 + 手势指令），commit 才写授权；缺 consent 一律拒绝', async () => {
@@ -129,8 +135,26 @@ test('SW-M ④: probe 只读（快照 + 手势指令），commit 才写授权；
   assert.deepEqual((probe.data as { needsGesture?: boolean }).needsGesture, true, 'probe 必须要求页面手势（SW 无手势）');
   const unregistered = await execSwOp({ kind: 'op-exec', opId: 'op.ghost', phase: 'probe', consentToken: 'c' }, deps);
   assert.equal(unregistered.ok, false, '未注册特权 op 必须拒绝（不得静默放行）');
-  const pending = await execSwOp({ kind: 'op-exec', opId: 'op.perm.request', phase: 'commit', consentToken: 'c', gestureResult: { granted: true } }, deps);
-  assert.equal(pending.ok, false, 'op.perm.request 执行体未落地 ⇒ loud 拒绝（v5-2 R2 补）');
+  // review R1 I-09: the copy was stale — the refusal here is the **missing `permission`**
+  // (the request shape judge), not「执行体未落地」(v5-2 R2 landed it).
+  const noPermission = await execSwOp({ kind: 'op-exec', opId: 'op.perm.request', phase: 'commit', consentToken: 'c', gestureResult: { granted: true } }, deps);
+  assert.equal(noPermission.ok, false, 'op.perm.request 的 commit 缺 permission ⇒ loud 拒绝（在册 id 是硬前置）');
+  // review R1 I-09 新增：R2 落地的 commit 分支（grant / deny 各写 1 条 `optional-permission` 审计）。
+  auditRows.length = 0;
+  const grantedCommit = await execSwOp(
+    { kind: 'op-exec', opId: 'op.perm.request', phase: 'commit', consentToken: 'c', permission: 'bookmarks', gestureResult: { granted: true } },
+    deps,
+  );
+  assert.equal(grantedCommit.ok, true);
+  assert.deepEqual(auditRows.map((r) => r.decision), ['granted'], 'grant ⇒ 恰 1 条审计');
+  auditRows.length = 0;
+  const deniedCommit = await execSwOp(
+    { kind: 'op-exec', opId: 'op.perm.request', phase: 'commit', consentToken: 'c', permission: 'bookmarks', gestureResult: { granted: false } },
+    deps,
+  );
+  assert.equal(deniedCommit.ok, true);
+  assert.deepEqual(auditRows.map((r) => r.decision), ['denied'], 'deny ⇒ 恰 1 条审计（双固化两侧都可观测）');
+  auditRows.length = 0;
   const commit = await execSwOp({ kind: 'op-exec', opId: 'op.authorize', phase: 'commit', consentToken: 'c', gestureResult: { granted: true } }, deps);
   assert.equal(commit.ok, true);
   assert.deepEqual((commit.data as { granted?: boolean }).granted, true);

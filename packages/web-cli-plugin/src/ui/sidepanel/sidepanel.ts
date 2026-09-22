@@ -76,6 +76,8 @@ import {
   type StateMessageView,
 } from './view-model.js';
 import { createSettingsOps, transportFromRuntime, type SettingsOps } from '../settings/ops.js';
+import { createOpBodies, type OpBodies } from '../settings/op-bodies.js';
+import { LLM_BLOCKED_RISK, PERM_BLOCKED_RISK } from './next-registry/providers.js';
 import { mountSettingsPanel, type SettingsPanelHandle } from '../settings/panel.js';
 import { createViewSwitch } from '../settings/view-switch.js';
 import { AUTO_AUTH_HARD_LINES, type AutoAuthSettings } from '../../security/auto-authorize.js';
@@ -1262,6 +1264,42 @@ const opParams: string[] = [];
 let llmSnapshot: Awaited<ReturnType<typeof keyStore.load>> | null = null;
 
 /**
+ * V5-2 review R1 **BLOCK-03** (ADR-V5-009 §3 · FR-ALLN-013 双射 5↔5) — the two
+ * **op-driven blocked terminals** the panel *observes*.
+ *
+ * `llm.unconfigured` / `perm.missing` are blocked states, so their fact is an
+ * **observed block event** (the repairing op failed / was refused), not a static
+ * preference. It is folded into the existing `risk` source (`maybeRecommend`), so the
+ * recommendation keeps exactly its 7 truth sources — no new source, no new ctx field —
+ * and the two P0 providers (`op.llm-config` / `op.perm.request`) really repair it.
+ */
+const observedBlocked = new Set<string>();
+
+/** `llm.unconfigured` — derived from the live LLM status (the key-store is empty). */
+function noteLlmBlockedFact(ok: boolean): void {
+  if (ok) observedBlocked.delete(LLM_BLOCKED_RISK);
+  else if (llmLoaded && !llmSummary?.configured) observedBlocked.add(LLM_BLOCKED_RISK);
+}
+
+/**
+ * `perm.missing` — derived from the **measured authorization state of
+ * `OPTIONAL_CAPABILITIES`** (`chrome.permissions.contains`, the same single truth the
+ * capability rows use): the blocked terminal exists only when a capability is provably
+ * not granted. `op.perm.request` failing is what *reveals* it; the grant state is what
+ * *decides* it (an op failure with every capability granted is not this terminal).
+ */
+async function noteMissingCapabilityFact(): Promise<void> {
+  const api = capabilityPermissionsApi();
+  for (const cap of OPTIONAL_CAPABILITIES) {
+    if (!(await hasCapabilityPermission(api, cap))) {
+      observedBlocked.add(PERM_BLOCKED_RISK);
+      return;
+    }
+  }
+  observedBlocked.delete(PERM_BLOCKED_RISK);
+}
+
+/**
  * V5-2 (TASK-V5-136/142) — the **ONE** credential write site (法八 key-sink caliber).
  *
  * Every credential write in the panel goes through here: the masked card's submit
@@ -1290,7 +1328,10 @@ async function submitSecret(requestId: string, value: string): Promise<void> {
   llmSnapshot = await keyStore.load();
   const provider = providerById(opParams[0] ?? '');
   await writeCredentials({ providerId: provider.id, apiKey: secret, model: opParams[1] || provider.defaultModel });
-  dispatch({ type: 'ask-resolved', requestId, answer: undefined, maskedLength: secret.length });
+  // V5-2 review R1 I-04 (ADR-V5-010 §2 缩窄侧信道): the固化区 carries the length
+  // **category** (`8+` / `8-`), never the raw length — the number stays inside this
+  // function, so the payload/state face cannot leak it either.
+  dispatch({ type: 'ask-resolved', requestId, answer: undefined, maskedLength: secret.length >= 8 ? '8+' : '8-' });
   settle?.(secret);
 }
 
@@ -1369,124 +1410,57 @@ async function restoreCredentials(): Promise<void> {
 }
 
 /**
- * V5-2 **TASK-V5-139** (ADR-V5-004 §3 · FR-ALLN-043 · AC-ALLN-007/010) — `op.perm.request`'s
- * **panel half**: the runtime「新增项必须在册」judge + the two-stage handshake per selected
- * capability, with BOTH outcomes固化 (a grant and a denial each write their own row).
+ * V5-2 **TASK-V5-139/141** · review R1 **BLOCK-01** (ADR-V5-004 §3 / ADR-V5-005 §1/§3 ·
+ * FR-ALLN-042/043/044) — the panel's **atoms** for the surface-agnostic op bodies.
  *
- * The gesture stays here (Chrome requires the request inside an extension-page gesture);
- * the SW is the 裁决 / 快照 / 审计 owner (`op-exec` probe → gesture → commit). Zero new
- * manifest items: every id is one of the existing `OPTIONAL_CAPABILITIES`.
+ * The panel owns only what is genuinely panel-local: the live bound origin (`site-auth`),
+ * the stream row writer, and the **gesture** entry (`requestCapabilityPermissionOnGesture`
+ * — the ONE call site; Chrome requires the request inside the extension page's gesture).
+ * The body itself (the two-stage handshake, the「新增项在册」judge, the double固化, the
+ * permission remove + `contains` re-read) is ONE function shared with the options page
+ * (`settings/op-bodies.ts`), which is what makes「同执行体、不同 consent 载体」machine-true.
  */
-async function permRequest(ids: readonly string[]): Promise<OpOutcome> {
-  const unknown = unregisteredCapabilityIds(ids);
-  if (unknown.length > 0) {
-    dispatch({ type: 'notice', text: `✖ 申请未提交：${unknown.join('、')} 不在册（新增项必须先在册）` });
-    return { ok: false, reason: `perm-not-registered:${unknown.join(',')}` };
-  }
-  const granted: string[] = [];
-  const denied: string[] = [];
-  for (const id of ids) {
-    const cap = id as OptionalCapability;
-    const consentToken = `op.perm.request:${cap}`;
-    const probe = await send<{ needsGesture?: boolean }>(
-      makeMessage('op-exec', { opId: 'op.perm.request', phase: 'probe', consentToken, permission: cap }),
-    );
-    if (!probe.ok) {
-      dispatch({ type: 'notice', text: `✖ 权限申请未提交：${probe.error ?? '后台无响应'}` });
-      return { ok: false, reason: probe.error ?? 'perm-probe-failed' };
-    }
-    // The ONE gesture entry (inside the click path) — never a request from the SW.
-    const res = await requestCapabilityPermissionOnGesture(cap);
-    const commit = await send(
-      makeMessage('op-exec', {
-        opId: 'op.perm.request',
-        phase: 'commit',
-        consentToken,
-        permission: cap,
-        gestureResult: { granted: res.granted, ...(res.error ? { reason: res.error } : {}) },
-      }),
-    );
-    if (!commit.ok) {
-      dispatch({ type: 'notice', text: `✖ 权限申请裁决失败：${commit.error ?? '后台无响应'}` });
-      return { ok: false, reason: commit.error ?? 'perm-commit-failed' };
-    }
-    if (res.granted) {
-      granted.push(cap);
-      // The existing reconcile so the tool surface follows the grant (same entry the
-      // settings view uses — one path, no second channel).
+function buildOpBodies(): OpBodies {
+  return createOpBodies({
+    saveCredentials: (cfg) => writeCredentials(cfg),
+    loadProviderKey: async (id) => (await keyStore.loadProvider(providerById(id).id)).apiKey,
+    loadCredentials: () => keyStore.load(),
+    removePermission: (cap) => removeCapabilityPermission(capabilityPermissionsApi(), cap),
+    requestOnGesture: (cap) => requestCapabilityPermissionOnGesture(cap),
+    isGranted: (cap) => hasCapabilityPermission(capabilityPermissionsApi(), cap),
+    reconcile: async (cap) => {
       await buildSettingsOps().notifyCapabilityPermissionChanged(cap);
-    } else {
-      denied.push(cap);
-    }
-  }
-  // 双固化（FR-ALLN-043）: the approve and the deny paths each write their own fact row.
-  if (granted.length > 0 && denied.length === 0) {
-    dispatch({ type: 'notice', text: `✓ 已处理浏览器权限申请（${granted.join('、')} 已授予）` });
-    return { ok: true };
-  }
-  if (granted.length === 0) {
-    dispatch({
-      type: 'notice',
-      text: `已拒绝：未授予 ${denied.join('、')} 权限；浏览器权限的回收须你在浏览器确认（插件不做静默回收），可稍后重试。`,
-    });
-    return { ok: false, reason: 'perm-denied' };
-  }
-  dispatch({
-    type: 'notice',
-    text: `✓ 已处理浏览器权限申请（已授予 ${granted.join('、')}；未授予 ${denied.join('、')}）`,
+    },
+    send: (msg) => send(msg),
+    revokeSiteAuth: (origin) => revokeSiteAuth(origin),
   });
-  return { ok: true };
 }
 
 /**
- * V5-2 **TASK-V5-141/142** (FR-ALLN-044 · AC-ALLN-007/011 · R-ALLN-904) — `op.revoke`'s
- * ONE execute body (the settings delegation and the chat chip both reach it).
- *
- * `raw` encodes `target[:arg]`: the card carries the bare target choice, the settings
- * delegation carries `permission:<cap>` / `auto-auth:<origin>` (ADR-V5-005 §1) — one
- * body, two callers, no second execution path.
+ * `op.perm.request`'s panel entry — a thin delegator to the shared body. The panel keeps
+ * the named function (the op's single panel-side entry point, asserted by
+ * `test/authorize-chip-wiring` ②c) while the semantics live in `settings/op-bodies.ts`.
  */
-async function revokeTarget(raw?: string): Promise<OpOutcome> {
-  const [target, arg] = String(raw ?? '').split(':');
-  if (target === 'site-auth' || target === 'auto-auth') {
-    const origin = arg || state.activeOrigin;
-    if (!origin) return { ok: false, reason: 'revoke-no-origin' };
-    if (target === 'auto-auth') {
-      await send(makeMessage('auto-auth', { action: 'clear', origin }));
-      await refreshState();
-      return { ok: true };
-    }
-    const res = await send<{ hostPermissionRemoved?: boolean }>(makeMessage('revoke', { origin }));
-    dispatch({ type: 'state', authorized: false });
-    // 如实说明（不虚报）：host permission 的移除由后台按 Chrome 规则执行。
-    if (res.data?.hostPermissionRemoved !== true) {
-      dispatch({ type: 'notice', text: `已撤销 ${origin} 的授权；站点访问权限仍由浏览器持有，须你在浏览器确认回收。` });
-    }
-    return { ok: true };
+async function permRequest(ids: readonly string[]): Promise<OpOutcome> {
+  const out = await buildOpBodies().permRequest(ids);
+  if (out.ok) observedBlocked.delete(PERM_BLOCKED_RISK);
+  else await noteMissingCapabilityFact();
+  // 双固化：拒绝路径的**具体事实**（未授予哪些 / 回收须你在浏览器确认）由本行承载。
+  if (!out.ok && out.receipt) dispatch({ type: 'notice', text: out.receipt.text });
+  return out;
+}
+
+/** `op.revoke` target `site-auth` — state-aware, so it stays panel-local (ADR-V5-005 §1). */
+async function revokeSiteAuth(arg?: string): Promise<OpOutcome> {
+  const origin = arg || state.activeOrigin;
+  if (!origin) return { ok: false, reason: 'revoke-no-origin' };
+  const res = await send<{ hostPermissionRemoved?: boolean }>(makeMessage('revoke', { origin }));
+  dispatch({ type: 'state', authorized: false });
+  // 如实说明（不虚报）：host permission 的移除由后台按 Chrome 规则执行。
+  if (res.data?.hostPermissionRemoved !== true) {
+    dispatch({ type: 'notice', text: `已撤销 ${origin} 的授权；站点访问权限仍由浏览器持有，须你在浏览器确认回收。` });
   }
-  if (target === 'permission') {
-    const caps = (arg ? [arg] : [...OPTIONAL_CAPABILITIES]) as readonly string[];
-    const bad = unregisteredCapabilityIds(caps);
-    if (bad.length > 0) return { ok: false, reason: `revoke-unregistered:${bad.join(',')}` };
-    for (const cap of caps) {
-      const api = capabilityPermissionsApi();
-      const removed = await removeCapabilityPermission(api, cap as OptionalCapability);
-      if (!removed.removed) return { ok: false, reason: `revoke-permission-failed:${cap}` };
-      // 不假成功：`permissions.remove` 对**静态**授权是 no-op（仍解析 true），因此必须
-      // 用 `contains` 复读实际授予态 —— 仍持有 ⇒ 如实返回失败（「权限仍保留」）。
-      if (await hasCapabilityPermission(api, cap as OptionalCapability)) {
-        return { ok: false, reason: `permission-still-held:${cap}` };
-      }
-      await buildSettingsOps().notifyCapabilityPermissionChanged(cap as OptionalCapability);
-    }
-    return { ok: true };
-  }
-  if (target === 'credential') {
-    const current = await keyStore.load();
-    await writeCredentials({ ...current, apiKey: '' });
-    return { ok: true };
-  }
-  return { ok: false, reason: `revoke-unknown-target:${target}` };
+  return { ok: true };
 }
 
 /**
@@ -1820,6 +1794,10 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
   const risks: string[] = [];
   if (staleRefs.length > 0) risks.push('refInvalid');
   if (state.invalidated) risks.push('declarationInvalid');
+  // V5-2 review R1 BLOCK-03 (FR-ALLN-013 · ADR-V5-009 §3): the two **observed** blocked
+  // terminals fold into the existing `risk` source — the ctx keeps its 7 truth sources,
+  // and the P0 providers (`op.llm-config` / `op.perm.request`) really offer the repair.
+  for (const id of observedBlocked) risks.push(id);
   const input: Parameters<typeof recommendNextStep>[0] = {
     ref: { validCount: counts.validCount, staleCount: counts.staleCount, ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : {}) },
     session: { openAsks: state.stream.openAsks.length, busy: state.pending },
@@ -3210,45 +3188,42 @@ function wire(): void {
     collectParams: (op, ctx) => collectOpParams(op, ctx),
     collectConsent: (op) => collectOpConsent(op),
     // V5-2 TASK-V5-139/141/142/143 — the four R2 seams (one per task, no side paths).
+    // review R1 BLOCK-01: the bodies are the **shared** ones (`settings/op-bodies.ts`);
+    // the panel only injects its atoms (gesture / key-store sink / live origin).
     permRequest: (ids) => permRequest(ids),
-    revoke: (target) => revokeTarget(target),
+    revoke: async (target) => {
+      const out = await buildOpBodies().revoke(target);
+      // The auto-auth list is a live panel fact ⇒ refresh it after the revoke landed.
+      if (out.ok && String(target ?? '').startsWith('auto-auth:')) await refreshState();
+      return out;
+    },
     reachableNext: () => {
       maybeRecommend('idle', { force: true });
     },
     snapshotTables: () => collectThreeTableSnapshot(threeTableAdapters()),
     restoreTables: (snap) => restoreThreeTableSnapshot(threeTableAdapters(), snap),
     llmConfig: async (raw) => {
-      const settingsOps = buildSettingsOps();
-      // V5-2 TASK-V5-145 (ADR-V5-005 §3): the settings form's payload arrives via the
-      // op ctx value (never through `dispatch`) — the form's own submit IS the consent.
+      // V5-2 TASK-V5-145 (ADR-V5-005 §3) / review R1 BLOCK-01: the settings form's payload
+      // arrives via the op ctx value (never through `dispatch`) and is executed by the
+      // **same** body the options page uses — the form's own submit IS the consent.
       if (raw && raw.trim().startsWith('{')) {
-        const input = JSON.parse(raw) as { providerId?: string; apiKey?: string; model?: string; baseURL?: string };
-        const p = providerById(input.providerId ?? '');
-        const key = (input.apiKey ?? '').trim();
-        const existing = (await keyStore.loadProvider(p.id)).apiKey;
-        if (!key && !existing) {
-          dispatch({ type: 'notice', text: `✖ 未保存：未填写 ${p.name} 的 API Key，且该厂商尚无已保存的 Key。` });
-          return { ok: false, reason: 'llm-key-missing' };
-        }
-        await writeCredentials({
-          providerId: p.id,
-          apiKey: key || existing,
-          model: (input.model ?? '').trim() || p.defaultModel,
-          baseURL: input.baseURL ?? '',
-        });
-        await refreshLlmStatus();
-        return { ok: true };
+        const out = await buildOpBodies().llmConfigForm(raw);
+        noteLlmBlockedFact(out.ok);
+        if (out.ok) await refreshLlmStatus();
+        return out;
       }
       const provider = providerById(opParams[0] ?? '');
-      const test = await settingsOps.testConnection({ providerId: provider.id, model: opParams[1] || provider.defaultModel });
+      const test = await buildSettingsOps().testConnection({ providerId: provider.id, model: opParams[1] || provider.defaultModel });
       // 执行前快照、失败回滚（FR-ALLN-042 / R-ALLN-904 上游）: the old credentials stay
       // byte-identical when the connection test fails.
       if (!test.ok) {
         await restoreCredentials();
         dispatch({ type: 'notice', text: `✖ 测试连接失败，已回滚旧配置：${test.text}` });
+        noteLlmBlockedFact(false);
         return { ok: false, reason: 'llm-test-failed' };
       }
       llmSnapshot = null;
+      noteLlmBlockedFact(true);
       return { ok: true };
     },
   });

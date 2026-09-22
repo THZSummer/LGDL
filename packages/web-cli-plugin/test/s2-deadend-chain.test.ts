@@ -83,20 +83,46 @@ test('S2 ①: 10 环节逐环节可判（共享样本导入无副作用 + 每环
   }
 });
 
-test('S2 ②/③: 5 类阻塞态逐类可达 next ∧ 死端 = 0 ∧ × 行不裸奔', async () => {
+test('S2 ②/③: 5 类阻塞态**逐类**可达 ∧ 死端 = 0 ∧ × 行不裸奔（含 op-direct 修复 chip）', async () => {
   const s2 = (await import(FIXTURE)) as {
+    S2_BLOCKED_STATES: readonly string[];
     s2JudgedStates: () => readonly { id: string; ctx: unknown }[];
     judgeStates: (d: unknown, s: unknown) => {
       readings: readonly { id: string; chips: readonly { act: string; opId: string | null }[]; deadEnd: boolean }[];
       deadEnds: number;
     };
     nextChipsOf: (r: unknown) => readonly { id: string; opId: string }[];
+    repairChipsOf: (r: unknown) => readonly { id: string; act: string; opId: string }[];
   };
   const { readings, deadEnds } = s2.judgeStates(deps, s2.s2JudgedStates());
   assert.equal(deadEnds, 0, JUDGEMENTS[1].expectFailPattern);
   assert.notEqual(readings.length, 0, '读数不得为空（否则判据空转）');
   for (const r of readings) {
     assert.ok(r.chips.length > 0, `${r.id}: 阻塞态必须给出候选（无候选 = 死端）`);
+  }
+  // 〖review R1 BLOCK-03：判据下沉到**逐类**〗每一类阻塞态都必须自带一枚**可执行**的修复 chip
+  // （act === opId 的 op-direct，或 act === next 的回合 chip）——不再只看「全局 ≥1」。
+  const repairs = s2.repairChipsOf(readings);
+  // 〖review R1 BLOCK-03：**逐类**断言〗every blocked class must offer ITS OWN repairing op
+  // (a turn command, a local act, or an op-direct chip — all three resolve to a registered
+  // opId, so the rendered `[data-op]` really dispatches). 全局 ≥1 不再算证据。
+  const EXPECTED_REPAIR: Record<string, string> = {
+    'site.unauthorized': 'op.authorize',
+    'binding.stale': 'op.pick',
+    'ref.all-invalid': 'op.pick',
+    'llm.unconfigured': 'op.llm-config',
+    'perm.missing': 'op.perm.request',
+  };
+  for (const blocked of s2.S2_BLOCKED_STATES) {
+    const own = repairs.filter((c) => c.id === blocked);
+    assert.ok(own.length > 0, `${blocked}: 该类阻塞态必须给出可执行的修复 chip（× 行不得裸奔）`);
+    for (const c of own) assert.ok(OP_IDS.includes(c.opId), `${blocked}: 修复 chip 的 opId 必须已注册`);
+    const expected = EXPECTED_REPAIR[blocked];
+    assert.ok(expected, `${blocked}: 逐类修复 op 必须显式登记（否则判据空转）`);
+    assert.ok(
+      own.some((c) => c.opId === expected),
+      `${blocked}: 修复 chip 必须含 ${expected}（实测 ${own.map((c) => c.opId).join(', ')}）`,
+    );
   }
   // × 行不裸奔：至少一条候选携带 `act === 'next'` ∧ 已注册 opId（渲染即 data-act/data-op）。
   const nextChips = s2.nextChipsOf(readings);
@@ -132,6 +158,28 @@ test('S2 ④: 拒绝 / 取消不是死端（settle 固化事实 ∧ 触发可达
   );
   assert.equal(out2.reason, 'cancelled');
   assert.ok(cancelled.includes('cancelled'), '取消必须固化该事实');
+});
+
+test('S2 反证（review R1 BLOCK-03）：把两个 op-driven 阻塞态退回**同构** ctx ⇒ 逐类判据必 FAIL', async () => {
+  const s2 = (await import(FIXTURE)) as {
+    blockedStateCtx: (b: string) => unknown;
+    recoveredCtx: () => unknown;
+    judgeState: (d: unknown, ctx: unknown) => { chips: readonly { act: string; opId: string | null }[]; deadEnd: boolean };
+  };
+  // 真源：两类 ctx 必须与恢复态**不同**（否则「可达 next」读数不构成证据）。
+  assert.notDeepEqual(s2.blockedStateCtx('llm.unconfigured'), s2.recoveredCtx(), 'llm.unconfigured 不得与恢复态同构');
+  assert.notDeepEqual(s2.blockedStateCtx('perm.missing'), s2.recoveredCtx(), 'perm.missing 不得与恢复态同构');
+  const declared: Record<string, string> = { 'llm.unconfigured': 'op.llm-config', 'perm.missing': 'op.perm.request' };
+  for (const [blocked, op] of Object.entries(declared)) {
+    const verdict = s2.judgeState(deps, s2.blockedStateCtx(blocked));
+    assert.ok(verdict.chips.some((c) => c.opId === op), `${blocked}: 必须由 ${op} 修复`);
+  }
+  // 反证：把 perm.missing 的 ctx 换成恢复态（旧同构形态）⇒ 修复 op 判据必须 FAIL。
+  const recovered = s2.judgeState(deps, s2.recoveredCtx());
+  assert.ok(
+    !recovered.chips.some((c) => c.opId === 'op.perm.request'),
+    `perm.missing 用恢复态驱动时不得再产出 op.perm.request（否则判据恒真）：${JSON.stringify(recovered.chips)}`,
+  );
 });
 
 test('S2 反证: 删掉恢复面 ⇒ 同一判据必须 FAIL（逐字节还原 ⇒ PASS）', async () => {

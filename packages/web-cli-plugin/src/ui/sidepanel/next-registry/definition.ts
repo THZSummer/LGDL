@@ -100,6 +100,15 @@ export interface OpCtx {
 export interface OpOutcome {
   readonly ok: boolean;
   readonly reason?: string;
+  /**
+   * V5-2 review R1 **BLOCK-01** (ADR-V5-005 §1/§3) — the execute body's **own receipt
+   * copy**. The body knows what it did (which provider / which capability / which
+   * target), so the settings surfaces render THIS instead of a generic per-op sentence:
+   * one body, one copy, both surfaces (settings panel + `options.html`) and the stream
+   * settle all read the same string. Absent (a body that only reports `ok`) falls back to
+   * the op table's declared receipt text.
+   */
+  readonly receipt?: { readonly kind?: string; readonly text: string };
 }
 /** FR-ALLN-055 — one op, mounted on the one pipeline. */
 export interface NextOp {
