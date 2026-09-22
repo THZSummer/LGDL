@@ -22,7 +22,9 @@ specs-tree-web-cli-plugin-v55-self-driven/
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v55-self-driven
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」）
-├── state.json          # 状态文件 (🟢 tracked [planned])
+├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── tasks.json          # 任务清单 (机器可读)
+├── tasks.md          # 任务分解：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性任务总览）
 ├── specs-tree-v55-1-driver-layer/          # 本叶 = v5.5 的**首叶 / 底座叶**，交付「可以让『用户已表达意图』之后**有人接手**」
 ├── specs-tree-v55-2-deterministic-onboarding/          # 本叶 = v5.5 的**次叶**，交付作者主题① 的完整形态：**「没有配置 LLM 时：由系统代
 └── specs-tree-v55-3-ai-driven-orchestration/          # 本叶 = v5.5 的**末叶 / 收口叶**，交付作者主题② 的完整形态：**「已配置 LLM 时
@@ -46,14 +48,16 @@ specs-tree-web-cli-plugin-v55-self-driven/
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v55-self-driven — web-cli-plugin v5.5「self / ai-driven：让助手像助手」问题挖掘报告 —— 把作者主题（**没有配置 LLM 时由系统代码... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性技术方案） — v5（F-32）已把「下一步**是什么**」做成管线强制保证（`BLOCKED_TERMINALS` 恰 5 + 死端守护门禁 + S2 十环节全链）；但... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」） — web-cli-plugin v5.5「self / ai-driven：让助手像助手」需求规范 —— 把作者主题（**没有配置 LLM 时由系统代码流程... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [planned] |
+| state.json | 状态文件 | 🟢 tracked [tasked] |
+| tasks.json | 任务清单（机器可读） | ✅ 存在 |
+| tasks.md | 任务分解：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性任务总览） — `npm test` 1181 · `law8` 25 · `dead-end` 39 · `auth-chip` 37 · `l0` 248 · `de... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 设计 (3/7) |
-| Status | 🟢 tracked [planned] |
+| Phase | 任务分解 (4/7) |
+| Status | 🟢 tracked [tasked] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

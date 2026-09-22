@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-2-deterministic-onboarding",
   "version": "v5.5.0",
   "name": "V5.5-2 主题① 确定性系统流——runChat 前置配置判据（主动式）+ llm.unconfigured 触发语义升级（被观测 → 被识别，双源并存）+ 多步确定性引导流（步骤单源 / 零 LLM 调用）+ 配置完成 → 自动续接悬置任务（S2 范式复用；悬置任务单源 + 失效重校验）+ 首装 / 已装未配两场景 + 取消非死端 + 不跳走（流内闭环）+ 掩码卡复用（法八不退化）",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -59,12 +59,16 @@
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-010-concurrency-arbitration.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-011-volume-budget-and-tier-crossing.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-012-supersession-ledger-and-leafs.md"
-    ]
+    ],
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/TREE.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/TREE.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.json"
   ],
   "coversIssues": [
     "Q-SELF-003",
@@ -116,13 +120,19 @@
     "本叶体积五要素（本叶增量）+ 预算前移评估",
     "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。次叶 / P0 / 依赖 v55-1。权威条文见父 ../spec.md（§5.5 ONBOARD / §5.9 X-SELF-3 / §5.12 S0 分支 B / §5.10 / §5.11）。下游 = specs-tree-v55-3-ai-driven-orchestration（依赖本叶的配置判据 = 主题①② 唯一分流依据）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-2-deterministic-onboarding/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。次叶 / P0 / 依赖 v55-1。权威条文见父 ../spec.md（§5.5 ONBOARD / §5.9 X-SELF-3 / §5.12 S0 分支 B / §5.10 / §5.11）。下游 = specs-tree-v55-3-ai-driven-orchestration（依赖本叶的配置判据 = 主题①② 唯一分流依据）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-2-deterministic-onboarding/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（16 任务 / 5 波）。本阶段只做 tasks，零代码改动。",
   "phaseHistory": [
     {
       "phase": "planned",
       "agent": "sddu-plan",
       "at": "2026-09-22",
       "artifact": "specs-tree-v55-2-deterministic-onboarding/plan.md v1.0"
+    },
+    {
+      "phase": "tasked",
+      "agent": "sddu-tasks",
+      "at": "2026-09-22",
+      "artifact": "tasks.md + tasks.json v1.0（16 任务 / 5 波）"
     }
   ]
 }

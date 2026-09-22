@@ -1,0 +1,67 @@
+{
+  "meta": {
+    "feature": "V5.5-2 主题① 确定性系统流（父：specs-tree-web-cli-plugin-v55-self-driven）",
+    "featureKey": "specs-tree-v55-2-deterministic-onboarding",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-22",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（ADR-V55-006/007 + §3 文件影响 + §4 5 波 + §5 门禁清单 + §6 体积）+ 父 plan.md v1.0",
+    "sourceSpec": "父 spec.md v1.0（§5.5 ONBOARD 13 FR / §12 X-SELF-3 / §14.1 前置叶）+ 本叶 spec.md v1.0（23 条 FR 切片 / 10 AC 锚点）",
+    "taskCount": 16,
+    "waveCount": 5,
+    "complexity": { "S": 1, "M": 13, "L": 2 },
+    "typeBreakdown": { "implementation": 10, "gate": 5, "spike": 0, "doc": 1, "human": 0 },
+    "numbering": { "namespace": "TASK-V55-2xx", "globalBlock": "TASK-V55-201~216", "conflictCheck": "与 v55-1 / v55-3 零交叠；与历史 Feature 零冲突" },
+    "commitIntervals": {
+      "A": { "wave": "W1", "content": "配置判据 3 字段 + runChat 前置判据", "atomic": true },
+      "B": { "wave": "W2", "content": "消息变体 type-only + 双源并存", "atomic": true },
+      "C": { "wave": "W3", "content": "引导流 4 步单源 + 零视图切换 + 法八", "atomic": true },
+      "D": { "wave": "W4", "content": "悬置任务单源 + 自动续接", "atomic": true },
+      "E": { "wave": "W5", "content": "两场景 + S0 分支 B 必判项 + 体积 + 收尾", "atomic": true }
+    },
+    "volumeBudgetBytes": 4900,
+    "volumeUpperBoundBytes": 6300,
+    "volumeRegisterTask": "TASK-V55-216",
+    "volumeCaliber": "suspension.ts 1,300 + onboarding-flow.ts 1,100 + llm/status.ts 120 + sidepanel.ts 2,300 = 4,900 B（父 plan.md §7.2）"
+  },
+  "leafGateSection": {
+    "dependsOnLeaf": "specs-tree-v55-1-driver-layer",
+    "dependencyInterface": ["驱动者声明单源", "'answered' 时机源", "驱动者终态词汇", "悬置任务登记入口 registerSuspension"],
+    "note": "叶间硬串行：本叶以 v55-1 全绿为前置（BLK-V55-9）"
+  },
+  "tasks": [
+    { "id": "TASK-V55-201", "wave": 1, "complexity": "M", "type": "implementation", "title": "isLlmConfigured 配置探测判据（3 字段）", "deps": ["v55-1 全绿"], "fr": ["FR-SELF-052"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-006"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/llm/status.ts" }], "acceptance": ["3 字段单源 + 真值表 + 归一化不变量", "零 LLM / 零网络", "判据不确定 ⇒ FAIL（反证）"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-202", "wave": 1, "complexity": "S", "type": "gate", "title": "onboarding-deterministic.test.ts 判据机核", "deps": ["TASK-V55-201"], "fr": ["FR-SELF-052"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-006"], "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/onboarding-deterministic.test.ts" }], "acceptance": ["3 字段扫描绿", "假阴/假阳两类注入各 FAIL 还原 PASS"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-203", "wave": 1, "complexity": "M", "type": "implementation", "title": "runChat 前置配置判据", "deps": ["TASK-V55-201"], "fr": ["FR-SELF-040", "FR-SELF-041"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-006"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" }], "acceptance": ["源码序：判据早于 providerChat 且 early return 在 chatBusy=true 之前", "删判据 ⇒ FAIL；位置错 ⇒ 第二次回合误判忙 ⇒ FAIL", "未配置 ⇒ variant:'llm-unconfigured' 零 token"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-204", "wave": 2, "complexity": "M", "type": "implementation", "title": "messaging.ts union type-only + chat-result payload variant", "deps": ["TASK-V55-203"], "fr": ["FR-SELF-095"], "ac": ["AC-SELF-006"], "adr": ["ADR-V55-006", "ADR-V55-010"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/messaging.ts" }], "acceptance": ["KIND_SET 40 项逐字", "union 扩成员运行时零字节", "variant 进 KIND_SET ⇒ FAIL（反证）"], "gate": "op-protocol" },
+    { "id": "TASK-V55-205", "wave": 2, "complexity": "M", "type": "implementation", "title": "双源并存（llm.unconfigured）", "deps": ["TASK-V55-203", "TASK-V55-204"], "fr": ["FR-SELF-041"], "ac": ["AC-SELF-007", "AC-SELF-012"], "adr": ["ADR-V55-006"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts" }], "acceptance": ["双源同一终态词汇 + 幂等", "恢复链元素集与按终态键控逐条不变", "删被动路径 ⇒ FAIL（反证）"], "gate": "next-registry" },
+    { "id": "TASK-V55-206", "wave": 2, "complexity": "M", "type": "gate", "title": "blocked-terminals(9 不变) + next-registry(16 增)", "deps": ["TASK-V55-205"], "fr": ["FR-SELF-051", "FR-SELF-102", "FR-SELF-110"], "ac": ["AC-SELF-013"], "adr": ["ADR-V55-006"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/blocked-terminals.test.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/next-registry.test.ts" }], "acceptance": ["blocked-terminals 9 逐字", "next-registry ≥16", "onboarding provider 语义零改写", "注入反证 ≥1"], "gate": "next-registry" },
+    { "id": "TASK-V55-207", "wave": 3, "complexity": "M", "type": "implementation", "title": "onboarding-flow.ts 引导流 4 步单源", "deps": ["TASK-V55-206"], "fr": ["FR-SELF-042"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-007"], "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/onboarding-flow.ts" }], "acceptance": ["ONBOARD_STEPS 恰 4 单源 + 顺序确定", "逐步可判；删任一步 ⇒ FAIL", "复用 OP_PARAM_SEQUENCE['op.llm-config']"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-208", "wave": 3, "complexity": "M", "type": "implementation", "title": "op.llm-config op-direct chip + 零视图切换", "deps": ["TASK-V55-207"], "fr": ["FR-SELF-044", "FR-SELF-048"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/onboarding-flow.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }], "acceptance": ["零视图切换 / 零 #open-settings", "打开设置页 ⇒ FAIL（反证）", "配置执行入口唯一；凭据 sink 恰一处"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-209", "wave": 3, "complexity": "M", "type": "gate", "title": "law8(≥25) + stream(≥73) 增", "deps": ["TASK-V55-208"], "fr": ["FR-SELF-049"], "ac": ["AC-SELF-012"], "adr": ["ADR-V55-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/law8-plaintext.mjs" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/stream.mjs" }], "acceptance": ["两门禁计数 ≥ 基线只增", "法八四面零明文不退化", "值落流内 ⇒ FAIL（反证）"], "gate": "test:law8" },
+    { "id": "TASK-V55-210", "wave": 4, "complexity": "M", "type": "implementation", "title": "suspension.ts 悬置任务单源", "deps": ["TASK-V55-208"], "fr": ["FR-SELF-045", "FR-SELF-046"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-007"], "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/suspension.ts" }], "acceptance": ["单一登记点扫描绿", "MAX_SUSPENSIONS=1 常量单源", "三要素齐备 + 有效期重校验"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-211", "wave": 4, "complexity": "L", "type": "implementation", "title": "配置完成自动续接 + 失败回滚", "deps": ["TASK-V55-210"], "fr": ["FR-SELF-045", "FR-SELF-050"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/suspension.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }], "acceptance": ["事件序「回执 → 续接」机核", "删续接 ⇒ FAIL", "失败路径「回滚 + next + 悬置保留」"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-212", "wave": 4, "complexity": "M", "type": "gate", "title": "悬置单源扫描 + 失效重校验 + 空悬置非死端", "deps": ["TASK-V55-211"], "fr": ["FR-SELF-045", "FR-SELF-046"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/onboarding-deterministic.test.ts" }], "acceptance": ["第二处登记 ⇒ FAIL", "失效重校验不制造假成功", "空悬置有可达 next"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-213", "wave": 5, "complexity": "M", "type": "implementation", "title": "首装 / 已装未配两场景", "deps": ["TASK-V55-212"], "fr": ["FR-SELF-043"], "ac": ["AC-SELF-013"], "adr": ["ADR-V55-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/onboarding-flow.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/onboarding-deterministic.test.ts" }], "acceptance": ["两场景各自产出引导 next", "firstRun=false 注入仍产出", "R-ONBOARDING 判据不减", "分流互斥完备"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-214", "wave": 5, "complexity": "L", "type": "gate", "title": "S0 分支 B 必判项（自动续接）", "deps": ["TASK-V55-213", "TASK-V55-119", "TASK-V55-120"], "fr": ["FR-SELF-131"], "ac": ["AC-SELF-001"], "adr": ["ADR-V55-005"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts" }], "acceptance": ["「配置完成 ⇒ 自动续接」为必判项", "删自动续接 ⇒ FAIL（反证）", "分支 A/B 两侧独立计数禁互相掩盖", "共用 s0-chain.mjs 单源"], "gate": "s0-self-driven-chain" },
+    { "id": "TASK-V55-215", "wave": 5, "complexity": "M", "type": "gate", "title": "取消非死端 + 同因不重复", "deps": ["TASK-V55-214"], "fr": ["FR-SELF-046"], "ac": ["AC-SELF-007"], "adr": ["ADR-V55-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/onboarding-deterministic.test.ts" }], "acceptance": ["取消后不再产同因引导", "取消路径固化 + 可达 next", "取消后立即重复弹 ⇒ FAIL（反证）"], "gate": "onboarding-deterministic" },
+    { "id": "TASK-V55-216", "wave": 5, "complexity": "L", "type": "doc", "title": "体积五要素 + X-SELF-3 台账 + 本叶收尾", "deps": ["TASK-V55-213", "TASK-V55-214", "TASK-V55-215"], "fr": ["FR-SELF-003", "FR-SELF-102", "FR-SELF-110", "FR-SELF-113", "FR-SELF-116", "FR-SELF-120", "FR-SELF-121", "FR-SELF-122", "FR-SELF-123", "FR-SELF-124"], "ac": ["AC-SELF-020", "AC-SELF-026"], "adr": ["ADR-V55-011", "ADR-V55-012"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-budget.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-growth-evidence.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/package.json" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" }], "acceptance": ["五要素齐备 + 时间线只追加", "X-SELF-3 条目 + knownGap 一致", "V55_NEW_GATE_FILES 含 onboarding-deterministic", "全门禁串行全绿 + 计数只增 + 逐字节红线 + 保护段双绿", "若跨档位 ⇒ 显式升档登记"], "gate": "test:v3" }
+  ],
+  "spikeGates": [],
+  "independentParallelGroups": [
+    { "group": "Q1", "members": ["TASK-V55-201", "TASK-V55-204"], "note": "llm/status.ts 与 messaging.ts 不相交" },
+    { "group": "Q2", "members": ["TASK-V55-207", "TASK-V55-210"], "note": "onboarding-flow.ts 与 suspension.ts 不相交" }
+  ],
+  "changeBudget": { "byteDelta": 4900, "upperBoundBytes": 6300, "projectedCumulativeBytes": 561509, "tierCrossed": false, "distanceToTierBytes": 1691, "registerTask": "TASK-V55-216", "note": "距档位仅 1,691 B ⚠️；review 修复轮若提前跨档位 ⇒ 谁先越谁显式登记（ADR-V55-011 §4）" },
+  "gateConservation": {
+    "npmTestBaseline": 1181,
+    "newGates": ["onboarding-deterministic"],
+    "upgradedGates": ["blocked-terminals", "next-registry", "test:ask-auth", "test:stream", "test:law8", "test:dead-end", "s0-self-driven-chain", "s0-self-driven", "test:supersession", "test:gate-integrity", "size-*"],
+    "onlyIncrease": true
+  },
+  "checkpoint": { "id": "CP-V55-2", "after": "TASK-V55-216", "criteria": "isLlmConfigured 3 字段；runChat 前置源码序；双源幂等；引导 4 步单源零 LLM 零视图切换；悬置单源 MAX=1 + 自动续接顺序机核；两场景 firstRun=false 仍产出；S0 分支 B 必判项实跑；计数只增；体积 4,900 登记" },
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "V5.5-2 叶 tasks：16 任务 / 5 波 / S×1 M×13 L×2 / 1 新门禁（onboarding-deterministic）+ S0 分支 B 必判项。预算 4,900 B（上界 6,300），累计 561,509 距档位 1,691 B。叶间硬串行：以 v55-1 全绿为前置。本轮只做 tasks：零 src/test/dist/docs/design/ROADMAP 改动。"
+}

@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-1-driver-layer",
   "version": "v5.5.0",
   "name": "V5.5-1 驱动者层 + 法七扩展底座——驱动者注册表化（四元组机核 + driverClass）+ 时机源扩张（'answered'）+ ref-action 抑制重锚 + 驱动者终态词汇（已答 ask 三型 / 已交描述）+ applyRefAction 驱动化 + commandSends 消费面登记 + submitDescribe 补齐 + 后台 ask 迟到作答非死端 + 死端守护门禁扩张（双向反证）+ S0 全链机器化",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -56,12 +56,16 @@
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-010-concurrency-arbitration.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-011-volume-budget-and-tier-crossing.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-012-supersession-ledger-and-leafs.md"
-    ]
+    ],
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/TREE.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/TREE.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/tasks.json"
   ],
   "coversIssues": [
     "Q-SELF-001",
@@ -127,13 +131,19 @@
     "本叶体积五要素（本叶增量）——禁止在预算未评估前排全量落地",
     "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-1-driver-layer/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-1-driver-layer/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（25 任务 / 4 波）。本阶段只做 tasks，零代码改动。",
   "phaseHistory": [
     {
       "phase": "planned",
       "agent": "sddu-plan",
       "at": "2026-09-22",
       "artifact": "specs-tree-v55-1-driver-layer/plan.md v1.0"
+    },
+    {
+      "phase": "tasked",
+      "agent": "sddu-tasks",
+      "at": "2026-09-22",
+      "artifact": "tasks.md + tasks.json v1.0（25 任务 / 4 波）"
     }
   ]
 }

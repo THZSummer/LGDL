@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-self-driven",
   "version": "v5.5.0",
   "name": "web-cli-plugin v5.5「self / ai-driven：让助手像助手」—— 把「下一步由谁按」从用户侧转移到系统 / AI 侧：① 没有配置 LLM 时由系统代码流程（确定性、非 AI）驱动用户去配置 LLM；② 已配置 LLM 时让 AI 启动整个 chat/next（AI 驱动编排）；法七扩展（已答 ask / 已交描述入终态词汇）；驱动者层（drive ownership）统一设计",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -15,7 +15,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/",
       "name": "V5.5-1 驱动者层 + 法七扩展底座（首叶 / 底座叶）",
       "leaf": true,
-      "phase": "specified",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 1,
@@ -27,7 +27,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/",
       "name": "V5.5-2 主题① 确定性系统流（次叶）",
       "leaf": true,
-      "phase": "specified",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 2,
@@ -41,7 +41,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/",
       "name": "V5.5-3 主题② AI 驱动编排 + 治理收口（末叶 / 收口叶）",
       "leaf": true,
-      "phase": "specified",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 3,
@@ -100,6 +100,13 @@
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/plan.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/plan.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/plan.md"
+    ],
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/tasks.json",
+    "leafTasks": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/tasks.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.md"
     ]
   },
   "files": [
@@ -338,7 +345,7 @@
     "门禁计数全部引自 v5 收口总账 §4（本轮未跑门禁 / 构建 / Chromium，零产品运行时验证）",
     "R4 之后 volume 数字为本轮实测（sidepanel 549,609 B / pick-layer 34,358 B），与 v5 closeout 的 547,558 / 33,900 差异 = 0a60740（R4）轮产物，已分别标注来源（COR-3）"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。产出 spec.md v1.0（父）+ **3 个叶**（specs-tree-v55-1-driver-layer / specs-tree-v55-2-deterministic-onboarding / specs-tree-v55-3-ai-driven-orchestration，各含 spec.md + state.json + TREE.md）+ state.json（phase=specified）+ TREE.md（由 sddu-tree 定向更新）。\n\n**结构裁决**：父 = 轻量规范容器（depth=1，不承接 tasks/build/review/validate，不产出 tasks.json）；3 叶依存序串行（v55-1 底座 → v55-2 主题① → v55-3 主题② + 收口）。**已复核「不可分割性」**：判为可分割（三叶各自可独立验收；安全评审与体积收口可分层），**不退化单叶**。\n\n**编号与计数**：FR 95（GOV 5 / DRIVE 10 / LAW7X 9 / TIMING 7 / ONBOARD 13 / AIDRIVE 11 / OPSAFE 7 / GUARD 8 / SUPERSEDE 8 / GATE 7 / VOL 5 / S0 5）· NFR 14 · EC 22 · NG 22 · AC 26 · US 10 · G 8 · DC 7 · 新增红线 N-SELF-021~026。\n\n**O-SELF-001~007 全部裁决**（status 一律 ruled，采纳 discovery 推荐项）：① 保持 v55 + v0.11.0 并明示命名语义 ② runChat 前置判据 + 配置完成自动续接 + op.llm-config 唯一执行体 ③ 驱动者注册表化 + 新增时机源 + diff = 0 机核 ④ op 三档清分 auto 5 / confirm 2 / gesture 2 + 特权恒 gesture + 新 op 归档机核 ⑤ 优先注册表内扩张（X-SELF-1 默认 diff = 0）⑥ 护栏三件套全入 spec + 载体零新增 ⑦ 不做外部竞品调研。\n\n**S0 首验收**（真机 22:49 序列，地位 = v5 之 S2）：① 绑定 → ② 探测 → ③ 拾取引用（出生有效）→ ④ ask 登记 → ⑤ 作答「原地翻译为中文」已结算 → ⑥ **答案产生驱动** → ⑦ **双分支**（A 已配置 ⇒ AI 自动成回合续流 / B 未配置 ⇒ 系统流驱动配置 + **配置完成自动续接悬置任务**）→ ⑧ 终局；断言「答案不被丢弃 ∧ 静默窗口 = 0 ∧ 死端 = 0」。\n\n**现状事实核对**：§2.4 A~E 全量只读复核（本轮实测 HEAD = 1022f8d；worktree clean；dist 三值命中；KIND_SET 40；requestTurn 恰 2；RecommendTrigger 恰 4；9 op 与特权恰 2 逐项命中）+ **3 条复核订正**（COR-1 / COR-2 / COR-3，见 specCorrections）。\n\n**纪律遵守（本轮）**：只读源码 / 产物 / 文档 / 尺寸 / sha；只写本 Feature 目录（父 + 3 叶的 spec.md / state.json / TREE.md 及其父链导航）；未改 src / test / dist / design / docs / ROADMAP / 其他 SDDU 目录；未跑 npm test / Chromium / 构建（零产品运行时验证）。注：/tool sddu_update_state 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（同 v4.5 / v5 先例）。\n\n**无 BLOCKER**；下游 = @sddu-plan（按叶各自规划：v55-1 → v55-2 → v55-3）。\n\nplan 阶段完成（2026-09-22，sddu-plan）。产出父 plan.md v1.0 + 3 叶 plan.md + **ADR-V55-001~012 全 12 条正文**。\n\n**核心设计定案**：① 驱动者 = 注册表 provider + `drivers.ts` 声明表（不扩 v5 契约接口）+ 双向包含机核；时机源闭集 4→**5**（`+'answered'`，旧 4 逐字）；`ref-action` 抑制走**时机侧**读法①（`when` 零改字节）；主流程 diff = 0（`requestTurn(` 仍恰 2 / `maybeRecommend(` 定义 1 调用点 7 / `nextAfterSettle(` 定义 1 / 集 B per-op 分支 0）。② 主题①：配置判据 = `hasKey ∧ providerId ∈ PROVIDERS ∧ model 非空`（后二者由 key-store 读归一化结构性保证）；`runChat` 前置判据落 **SW bundle**（零 sidepanel 字节）；引导流 4 步单源；悬置任务单源（MAX=1）+ 配置完成自动续接。③ 主题②：自动成回合经**既有 `op.turn` 槽**（零新增 `requestTurn` 调用点）；三档清分**派生式**（`tierOf` 由 `layer`/`consent` 计算 ⇒ 自动 5/2/2、漂移不可能，且**否决第 10 个 op**）；护栏六常量单源；并发仲裁 = 有界队列 1 + 明确告知 + **草稿回填**（用户输入零丢失）。④ 法七扩展 = 新 `DRIVER_TERMINALS` 4 项与 `STREAM_TERMINALS` 6 项**正交** + **三段控制**（正常 / 移除驱动者必红 / 端态不存在 N/A）禁恒真。⑤ S0 = 样本单源（`test/ui/fixtures/s0-chain.mjs`）+ node/Chromium 双面 + A/B 双分支**分层接线**（v55-1 机制侧 / v55-2 必判项 / v55-3 端到端）。\n\n**体积**：Σ 预算 **17,800 B**（上界 22,900）⇒ ×1.15 = **20,470**（上界 **26,335**）**≤ 余量 27,480** ⇒ **可行，不停机**；累计投影 549,609 → 556,609 → 561,509 → **567,409**：v55-1/v55-2 **未越档位**，**v55-3 收口预计越档位 +4,209 B** ⇒ 按 V3-VOL-3 走**显式升档**（614,400 / 675,840），`authorConfirmation` 保持 `pending-author-line`（**不得伪称已确认**）。\n\n**波次**：3 叶串行 **14 波 / ~60 任务**。**本轮只做 plan**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动，零门禁 / 构建 / Chromium，未调用任何受管 Provider。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。产出 spec.md v1.0（父）+ **3 个叶**（specs-tree-v55-1-driver-layer / specs-tree-v55-2-deterministic-onboarding / specs-tree-v55-3-ai-driven-orchestration，各含 spec.md + state.json + TREE.md）+ state.json（phase=specified）+ TREE.md（由 sddu-tree 定向更新）。\n\n**结构裁决**：父 = 轻量规范容器（depth=1，不承接 tasks/build/review/validate，不产出 tasks.json）；3 叶依存序串行（v55-1 底座 → v55-2 主题① → v55-3 主题② + 收口）。**已复核「不可分割性」**：判为可分割（三叶各自可独立验收；安全评审与体积收口可分层），**不退化单叶**。\n\n**编号与计数**：FR 95（GOV 5 / DRIVE 10 / LAW7X 9 / TIMING 7 / ONBOARD 13 / AIDRIVE 11 / OPSAFE 7 / GUARD 8 / SUPERSEDE 8 / GATE 7 / VOL 5 / S0 5）· NFR 14 · EC 22 · NG 22 · AC 26 · US 10 · G 8 · DC 7 · 新增红线 N-SELF-021~026。\n\n**O-SELF-001~007 全部裁决**（status 一律 ruled，采纳 discovery 推荐项）：① 保持 v55 + v0.11.0 并明示命名语义 ② runChat 前置判据 + 配置完成自动续接 + op.llm-config 唯一执行体 ③ 驱动者注册表化 + 新增时机源 + diff = 0 机核 ④ op 三档清分 auto 5 / confirm 2 / gesture 2 + 特权恒 gesture + 新 op 归档机核 ⑤ 优先注册表内扩张（X-SELF-1 默认 diff = 0）⑥ 护栏三件套全入 spec + 载体零新增 ⑦ 不做外部竞品调研。\n\n**S0 首验收**（真机 22:49 序列，地位 = v5 之 S2）：① 绑定 → ② 探测 → ③ 拾取引用（出生有效）→ ④ ask 登记 → ⑤ 作答「原地翻译为中文」已结算 → ⑥ **答案产生驱动** → ⑦ **双分支**（A 已配置 ⇒ AI 自动成回合续流 / B 未配置 ⇒ 系统流驱动配置 + **配置完成自动续接悬置任务**）→ ⑧ 终局；断言「答案不被丢弃 ∧ 静默窗口 = 0 ∧ 死端 = 0」。\n\n**现状事实核对**：§2.4 A~E 全量只读复核（本轮实测 HEAD = 1022f8d；worktree clean；dist 三值命中；KIND_SET 40；requestTurn 恰 2；RecommendTrigger 恰 4；9 op 与特权恰 2 逐项命中）+ **3 条复核订正**（COR-1 / COR-2 / COR-3，见 specCorrections）。\n\n**纪律遵守（本轮）**：只读源码 / 产物 / 文档 / 尺寸 / sha；只写本 Feature 目录（父 + 3 叶的 spec.md / state.json / TREE.md 及其父链导航）；未改 src / test / dist / design / docs / ROADMAP / 其他 SDDU 目录；未跑 npm test / Chromium / 构建（零产品运行时验证）。注：/tool sddu_update_state 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（同 v4.5 / v5 先例）。\n\n**无 BLOCKER**；下游 = @sddu-plan（按叶各自规划：v55-1 → v55-2 → v55-3）。\n\nplan 阶段完成（2026-09-22，sddu-plan）。产出父 plan.md v1.0 + 3 叶 plan.md + **ADR-V55-001~012 全 12 条正文**。\n\n**核心设计定案**：① 驱动者 = 注册表 provider + `drivers.ts` 声明表（不扩 v5 契约接口）+ 双向包含机核；时机源闭集 4→**5**（`+'answered'`，旧 4 逐字）；`ref-action` 抑制走**时机侧**读法①（`when` 零改字节）；主流程 diff = 0（`requestTurn(` 仍恰 2 / `maybeRecommend(` 定义 1 调用点 7 / `nextAfterSettle(` 定义 1 / 集 B per-op 分支 0）。② 主题①：配置判据 = `hasKey ∧ providerId ∈ PROVIDERS ∧ model 非空`（后二者由 key-store 读归一化结构性保证）；`runChat` 前置判据落 **SW bundle**（零 sidepanel 字节）；引导流 4 步单源；悬置任务单源（MAX=1）+ 配置完成自动续接。③ 主题②：自动成回合经**既有 `op.turn` 槽**（零新增 `requestTurn` 调用点）；三档清分**派生式**（`tierOf` 由 `layer`/`consent` 计算 ⇒ 自动 5/2/2、漂移不可能，且**否决第 10 个 op**）；护栏六常量单源；并发仲裁 = 有界队列 1 + 明确告知 + **草稿回填**（用户输入零丢失）。④ 法七扩展 = 新 `DRIVER_TERMINALS` 4 项与 `STREAM_TERMINALS` 6 项**正交** + **三段控制**（正常 / 移除驱动者必红 / 端态不存在 N/A）禁恒真。⑤ S0 = 样本单源（`test/ui/fixtures/s0-chain.mjs`）+ node/Chromium 双面 + A/B 双分支**分层接线**（v55-1 机制侧 / v55-2 必判项 / v55-3 端到端）。\n\n**体积**：Σ 预算 **17,800 B**（上界 22,900）⇒ ×1.15 = **20,470**（上界 **26,335**）**≤ 余量 27,480** ⇒ **可行，不停机**；累计投影 549,609 → 556,609 → 561,509 → **567,409**：v55-1/v55-2 **未越档位**，**v55-3 收口预计越档位 +4,209 B** ⇒ 按 V3-VOL-3 走**显式升档**（614,400 / 675,840），`authorConfirmation` 保持 `pending-author-line`（**不得伪称已确认**）。\n\n**波次**：3 叶串行 **14 波 / ~60 任务**。**本轮只做 plan**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动，零门禁 / 构建 / Chromium，未调用任何受管 Provider。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出父 tasks.md + tasks.json（总览型：3 叶 × 14 波 × 61 任务；0 条可执行任务正文）+ 3 叶 tasks.md + tasks.json（25 / 16 / 20）；跨切红线 → 任务映射、体积预算逐叶分摊（Σ 17,800 B ≤ 27,480）、共享面「恰一次」、S0 三层接线、5 个 spikeGate、新增 10 门禁 / 升级 22 门禁、26 门禁守恒、停机规则 10 条、build/review/validate 二维时序。本阶段只做 tasks，零 src/test/dist/docs/design/ROADMAP 改动。",
   "phaseHistory": [
     {
       "phase": "discovered",
@@ -357,6 +364,12 @@
       "agent": "sddu-plan",
       "at": "2026-09-22",
       "artifact": "plan.md v1.0（父）+ 3 叶 plan.md + ADR-V55-001~012（12 条正文）"
+    },
+    {
+      "phase": "tasked",
+      "agent": "sddu-tasks",
+      "at": "2026-09-22",
+      "artifact": "tasks.md + tasks.json v1.0（父总览 + 3 叶 61 任务 / 14 波）"
     }
   ],
   "planBaseline": {

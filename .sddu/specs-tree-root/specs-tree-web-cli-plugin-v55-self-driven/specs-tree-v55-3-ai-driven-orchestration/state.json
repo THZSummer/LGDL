@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-3-ai-driven-orchestration",
   "version": "v5.5.0",
   "name": "V5.5-3 主题② AI 驱动编排——AI / 系统经既有 op.turn 槽启动回合（requestTurn 仍恰 2 处，diff = 0）+ op 三档清分（auto 5 / confirm 2 / gesture 2；特权恒 gesture；新 op 必须归档机核）+ 护栏三件套（打扰控制 / token 预算 / 防环）+ 并发仲裁（chatBusy 丢弃语义 → 可判仲裁）+ AI 主动留痕三要素 + 否决 / 关断 + 零新增载体（12 kind / 零宿主 / KIND_SET 40）+ 三叶共享面收口",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -59,12 +59,16 @@
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-010-concurrency-arbitration.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-011-volume-budget-and-tier-crossing.md",
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-012-supersession-ledger-and-leafs.md"
-    ]
+    ],
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/TREE.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/TREE.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.json"
   ],
   "coversIssues": [
     "Q-SELF-004",
@@ -129,13 +133,19 @@
     "体积档位 563,200 / 绝对上限 619,520 / authorConfirmation.status = pending-author-line —— 未闭合义务，不得伪称已确认",
     "S0 人工面汇总：v5 人工面 9 项零改写（并列不覆盖），本 Feature 面逐项 ⏳ / PASS"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。末叶 / 收口叶 / P0 / 依赖 v55-1 + v55-2。权威条文见父 ../spec.md（§5.6 AIDRIVE / §5.7 OPSAFE / §5.8 GUARD / §5.9 X-SELF-1·7 / §5.10 GATE / §5.11 VOL）。无下游叶：本叶收尾 = 父 Feature 的最终验收锚（父 AC-SELF-026）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-3-ai-driven-orchestration/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。末叶 / 收口叶 / P0 / 依赖 v55-1 + v55-2。权威条文见父 ../spec.md（§5.6 AIDRIVE / §5.7 OPSAFE / §5.8 GUARD / §5.9 X-SELF-1·7 / §5.10 GATE / §5.11 VOL）。无下游叶：本叶收尾 = 父 Feature 的最终验收锚（父 AC-SELF-026）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-3-ai-driven-orchestration/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（20 任务 / 5 波）。本阶段只做 tasks，零代码改动。",
   "phaseHistory": [
     {
       "phase": "planned",
       "agent": "sddu-plan",
       "at": "2026-09-22",
       "artifact": "specs-tree-v55-3-ai-driven-orchestration/plan.md v1.0"
+    },
+    {
+      "phase": "tasked",
+      "agent": "sddu-tasks",
+      "at": "2026-09-22",
+      "artifact": "tasks.md + tasks.json v1.0（20 任务 / 5 波）"
     }
   ]
 }
