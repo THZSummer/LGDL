@@ -11,7 +11,7 @@
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T16:30:00.000Z",
+  "updatedAt": "2026-09-22T15:05:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**末叶 / 收口叶**（P0，deliveryOrder=3，依赖 v5-1 + v5-2）。承载父 spec.md §5.9 CHROME（FR-ALLN-085~092）/ §5.2 LAW7 的 012·015（error 出生带恢复 + 死端守护门禁）/ §5.3 LAW8 的 023·024（四面零明文 + 存储侧边界）/ §5.11 X5（FR-ALLN-114·116）/ §5.12 GATE（FR-ALLN-120~125 的界面面）/ §5.13 VOL（FR-ALLN-130~134 收口）/ FR-ALLN-003·004 共 26 条 FR 的实施切片。交付：#auth-state 状态栏常显两态 chip（授权态全 UI 唯一载体 + 零双写五条 + 黄点击产 op.authorize next / 绿点击管理详情）；可拖动宽度 280–640（ARIA separator 四属性 + 键盘 ←/→±10·Home/End·双击复位 400 + clamp + rAF 合并）；data-narrow（≤360）+ 三档 radio 删除；密度登记格口径与宽度解耦（320 锚点 / 阈值逐字不动）；error 出生即带恢复区（append-only 不破）；死端守护门禁（5 类阻塞逐类 + N=0 + 死端=0 + 双向反证）；法八四面零明文机核（流内 payload / digest / 审计 / DOM value + 全属性 + key 直写 key-store）；X5 显式取代 + 父级共享面收口。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -189,23 +189,90 @@
       "phase": "reviewed",
       "timestamp": "2026-09-22T14:30:00.000Z",
       "triggeredBy": "sddu-review R1（静态审查，对象 HEAD f8e50e8 / 叶基线 leafBase 9b262ae）：产出 review.md（C1~C39 自主清单，27 FR × 四维度）+ review-report.md；独立复跑 13 项门禁全绿（npm test 1181/0 · law8 25/0 · dead-end 29/0 · auth-chip 30/0 · density 242/0 · l0 248/0 · zero-injection 28/0 · stream 73/0 · ask-auth 71/0 · l2 74/0 · journey 171 PASS · binding 192 PASS（首轮 CDP flake 隔离复跑）· insight 116 PASS）；红线/保护段逐字节独立复算命中（content 177,076/52a82620… · pick-layer 33,900/5f567d7e… · journey 43054..58287/cc79f413…/240 行 · binding 107780..115930/be9ad0e9…）；体积 546,370 B 与登记一致。**结论 = ❌ 不通过（1 阻塞）**：BLOCK-01 = FR-ALLN-086⑤ / AC-ALLN-012 / ADR-V5-006 §2⑤「L2 树视图站点行指向 chip（不复制状态）」未落地（树站点行仍渲染『已授权/未授权』徽标且被 test:insight #I-20a 钉死；静态 note 被 tree-drawer.ts root.replaceChildren() 清除）；改进 I-01（四词 supported 扫描口径未回写 spec/ADR）· I-02（工具栏 statusDot 颜色通道）· I-03（S2 全链主验收覆盖面窄）· I-04（v5-2 移交 N-04~N-09 零登记）· I-05（blockedRecovery 顺序耦合）；观察 O-1~O-3。下游 = 定向修复轮后 @sddu-validate"
+    },
+    {
+      "phase": "reviewed",
+      "timestamp": "2026-09-22T15:05:00.000Z",
+      "triggeredBy": "sddu-review R2 复审（对象 HEAD 19c3beb / 对照基线 b0a679e / 叶基线 9b262ae）：review-report.md 升 v2.0。BLOCK-01（FR-ALLN-086⑤ / AC-ALLN-012 / ADR-V5-006 §2⑤）判定 **✅ 彻底闭环**：三载体（project-tree.ts#AUTH_STATE_POINTER_BADGE / tree-view.ts#TREE_AUTH_POINTER_NOTE / tree-drawer.ts data-auth-pointer + ensureShell 运行期重建）零授权态值 + 指针；独立两段证伪（回退徽标值 ⇒ insight EXIT=1，siteAuthStateValues=[\"已授权\"] / authPointerCount=0；逐字节还原 ⇒ EXIT=0 / 118 PASS / 产物 547,558 B）。I-01~I-05 抽检/复核全 ✅（口径回写 ADR-V5-006 §2 · dot 解耦 + policyTone · S2 十环节 39/0 · N-04~N-09 零悬空 · 对象键穷尽 TS1360 独立复现）。修复轮 diff 26 文件全量扫描 **无新风险**。门禁抽跑 8 项（npm test 1181/0 · insight 118 · auth-chip 37 · dead-end 39 · size-ruling-vol3 12 · journey 171 · 追加 l0 248/0 · density 242/0）+ typecheck 0 + 构建可复现；红线逐字节不变。**结论 = ✅ 通过（0 阻塞 / 0 改进 / 5 观察）→ 可进 @sddu-validate**。"
     }
   ],
-  "phaseNote": "phase=reviewed（status=tracked）。R1 产出 TASK-V5-153~166 与 R2 的 TASK-V5-167~176，25 门禁全绿（体积 546,370 B）。review R1（对象 f8e50e8 / 基线 9b262ae）结论 ❌ 不通过（BLOCK-01 = FR-ALLN-086⑤ 未落地 + I-01~05 + O-1~3）。**review R1 修复轮（基线 b0a679e）已完成**：BLOCK-01 走「修」——L2 站点行授权态改**指针**（auth-pointer + data-auth-pointer=\"#auth-state\" + 运行期指针说明节点；行零状态值）+ insight#I-20a 等价重锚（116→118）+ 两段证伪（回退 ⇒ 红 / 还原 ⇒ 绿）；I-01 四词口径回写 ADR-V5-006 §2；I-02 摘要 dot 与会话连接态对齐（+policyTone）；I-03 S2 十环节逐环节读数（29→39）；I-04 v5-2 N-04~N-09 逐项处置登记；I-05 blockedRecovery 对象键对齐 + 编译期穷尽（TS1360 证伪）。体积 546,370 → **547,558 B**（+1,188；Σ 模块 +1,188 + glue 0；档位 563,200 / 绝对上限 619,520 不变；生效上限 → 574,935）五要素六文件同源。全门禁串行复跑绿：npm test 1181/0 · law8 25 · dead-end 39 · auth-chip 37 · density 242 · l0 248 · insight 118 · binding 192 · journey 171 · e2e PASS；红线与保护段逐字节不变。下游 = 建议 R2 复审（@sddu-review specs-tree-v5-3-chrome-face）。",
+  "phaseNote": "phase=reviewed（status=tracked）。R1 产出 TASK-V5-153~166 与 R2 的 TASK-V5-167~176，25 门禁全绿（体积 546,370 B）。review R1（对象 f8e50e8 / 基线 9b262ae）结论 ❌ 不通过（BLOCK-01 = FR-ALLN-086⑤ 未落地 + I-01~05 + O-1~3）。**review R1 修复轮（基线 b0a679e）已完成**：BLOCK-01 走「修」——L2 站点行授权态改**指针**（auth-pointer + data-auth-pointer=\"#auth-state\" + 运行期指针说明节点；行零状态值）+ insight#I-20a 等价重锚（116→118）+ 两段证伪（回退 ⇒ 红 / 还原 ⇒ 绿）；I-01 四词口径回写 ADR-V5-006 §2；I-02 摘要 dot 与会话连接态对齐（+policyTone）；I-03 S2 十环节逐环节读数（29→39）；I-04 v5-2 N-04~N-09 逐项处置登记；I-05 blockedRecovery 对象键对齐 + 编译期穷尽（TS1360 证伪）。体积 546,370 → **547,558 B**（+1,188；Σ 模块 +1,188 + glue 0；档位 563,200 / 绝对上限 619,520 不变；生效上限 → 574,935）五要素六文件同源。全门禁串行复跑绿：npm test 1181/0 · law8 25 · dead-end 39 · auth-chip 37 · density 242 · l0 248 · insight 118 · binding 192 · journey 171 · e2e PASS；红线与保护段逐字节不变。下游 = 建议 R2 复审（@sddu-review specs-tree-v5-3-chrome-face）。 〖review R2 复审（对象 19c3beb / 对照 b0a679e）〗**结论 ✅ 通过**：BLOCK-01 彻底闭环（三载体指针 + 运行期重建；独立两段证伪）；I-01~I-05 全 ✅；修复轮 diff 26 文件无新风险；门禁抽跑 8 项全绿 + typecheck 0 + 构建可复现 547,558 B；红线逐字节不变。残余 5 项观察（O-1~O-3 遗留 + O-R2-1/O-R2-2 新，非阻塞）⇒ 下游 = @sddu-validate。",
   "reviewOutcome": {
-    "round": "R1",
-    "object": "HEAD f8e50e8",
+    "round": "R2",
+    "object": "HEAD 19c3beb（review R1 修复轮）",
     "leafBase": "9b262ae",
-    "verdict": "not-passed",
-    "blocking": 1,
-    "improvements": 5,
-    "observations": 3,
-    "items": 39,
-    "gatesRerun": 13,
+    "fixBaseline": "b0a679e（R1 报告对象）",
+    "verdict": "passed",
+    "blocking": 0,
+    "improvements": 0,
+    "observations": 5,
+    "items": 10,
+    "gatesRerun": 8,
+    "block01": {
+      "clause": "FR-ALLN-086⑤ / AC-ALLN-012 / ADR-V5-006 §2⑤",
+      "status": "closed",
+      "evidence": "三载体零授权态值 + 指针（project-tree.ts#AUTH_STATE_POINTER_BADGE / tree-view.ts#TREE_AUTH_POINTER_NOTE / tree-drawer.ts data-auth-pointer + ensureShell 运行期重建）；insight 118/0（#I-20a1/#I-20a3）；独立两段证伪：回退徽标值 ⇒ EXIT=1（siteAuthStateValues=[\"已授权\"] / authPointerCount=0），逐字节还原 ⇒ EXIT=0 且产物 547,558 B；投影单测 + tree-view 哈希 pin 等价重锚并登记 modifiedRanges[]"
+    },
+    "improvementChecks": {
+      "I-01": "closed（口径回写 ADR-V5-006 §2 + 叶 spec §4；auth-chip 语义位 [data-auth] 唯一 + 工具栏 0 + 注入反证；37/0）",
+      "I-02": "closed（statusDot 仅会话连接态 / 新增 policyTone 走 trust；同 origin green→yellow 翻转 dot 仍 ok；追加 l0 248/0 + density 242/0）",
+      "I-03": "closed（S2 十环节逐环节驱动 + 读数 + 断言，39/0；N=0 口径自判仍绿；refresh() 可 await）",
+      "I-04": "closed（N-04~N-09 六项零悬空；build.md §9.5 / tasks.md §6.1 / state.v52HandoverFindings / 台账 reviewFixFindingsV53）",
+      "I-05": "closed（BLOCKED_RECOVERY_TRIGGER 对象键 + satisfies Record<BlockedTerminal,…>；独立证伪：删键 ⇒ TS1360，还原 ⇒ tsc 0）"
+    },
+    "fixDiffScan": {
+      "range": "b0a679e..19c3beb",
+      "files": 26,
+      "insertions": 1077,
+      "deletions": 129,
+      "newRisks": 0,
+      "notes": "BadgeKind 只追加；无断言删除（均为等价重锚，旧文本逐字留档于台账/注释）；refresh() 返回 promise 但产品内零调用者（void→Promise 暴露面不变）；体积五要素六文件同源 +1,188 / glue 0（档位 563,200 · 硬墙 619,520 · 容差 5% 三不动）；三新门禁仍在 gate-integrity 受审集合；红线面零 diff"
+    },
+    "residualObservations": [
+      "O-1 counts 滞后（遗留）",
+      "O-2 RISK_COPY.unauthorized 零渲染/缺注释护栏（遗留）",
+      "O-3 reanchorV5.previousExpectation.reason 历史叙述笔误（遗留）",
+      "O-R2-1 #I-20a3 noteVisible 未判 hidden/计算可见性（新，低）",
+      "O-R2-2 index.html#tree-drawer 静态占位与 TREE_AUTH_POINTER_NOTE 同句双源（新，低）"
+    ],
+    "gates": {
+      "npm test": "1181/0",
+      "test:insight": "118 PASS",
+      "test:auth-chip": "37/0",
+      "test:dead-end": "39/0",
+      "test:size-ruling-vol3": "12/0",
+      "test:ui(journey)": "171 PASS",
+      "test:l0": "248/0",
+      "test:density": "242/0",
+      "typecheck": "0",
+      "build": "547,558 B 可复现"
+    },
+    "redline": {
+      "content.js": "177,076 B / 52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6",
+      "pick-layer.js": "33,900 B / 5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59",
+      "design/manifest/KIND_SET/v3-ledger/ROADMAP/判定链": "9b262ae..19c3beb 零 diff"
+    },
     "reports": {
       "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/review.md",
       "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/review-report.md"
-    }
+    },
+    "history": [
+      {
+        "round": "R1",
+        "object": "HEAD f8e50e8",
+        "leafBase": "9b262ae",
+        "verdict": "not-passed",
+        "blocking": 1,
+        "improvements": 5,
+        "observations": 3,
+        "items": 39,
+        "gatesRerun": 13,
+        "reports": {
+          "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/review.md",
+          "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-3-chrome-face/review-report.md"
+        }
+      }
+    ]
   },
   "specCounts": {
     "fr": 27,
