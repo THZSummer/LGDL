@@ -373,10 +373,40 @@
 
 ---
 
+## 10. 叶收口轮（validate R1 的 **N-1~N-4** 处置 · 纯登记，产品面零字节）
+
+> **轮次定位**：末叶 / 收口叶的**最后登记轮**。validate R1（`validate-report.md` v1.0，结论 ✅ 通过 / 0 阻塞 / 0 失败 / 6 观察）留下的 **N-1~N-4** 逐项处置；**产品面零字节**（`src/**` / `dist/**` 未改），**不重跑 Chromium / e2e / build**（计数沿用 validate R1 实测）。
+
+### 10.1 处置表（N-1~N-4）
+
+| # | 位置 | 观察 | 处置 | 复核 |
+|:--:|------|------|------|------|
+| **N-1** | 产品侧（`sidepanel.ts` / `index.html`） | **产品侧无 280–640 拖动手柄**（Chrome 控制侧栏宽度）—— FR-ALLN-089 的「拖动」在产品侧无对应物；产品侧承接 = `ResizeObserver` 观测实际宽度 → `data-narrow` + 密度口径解耦（已由 `plan §2.4` / 本轮 §8.5 诚实登记） | **维持登记（口径注，非缺陷）**：不伪称 089 已实现；G 设计契约侧由 G 127 断言覆盖；如需产品侧手柄须回父 spec 立项 | validate §5 N-1 同源 |
+| **N-2** | `test:binding`（`KL-N-10`） | 第 1/2 轮 CDP socket 环境性 flake（headless Chromium 争用 ⇒ `readyState=3`），第 3 轮隔离复跑 **192 PASS** | **登记保留 + 纪律沿用**：串行 / 首轮异常隔离复跑 ≥2 / 日志全量 / 仍红如实记录不阻塞（**不伪造串行全绿**）；本叶值仍记 **192** | 隔离复跑通过 |
+| **N-3** | `#settings-view`（`settings/panel.ts` / `settings/view.ts` / `view-model.ts#pickReason`） | 存在「未授权 / 已授权」**解释性文案**（能力权限说明 / 站点分区提示 / 拾取禁用原因），属**独立按需面**、对 `leafBase 9b262ae` **零 diff（预存在）**，不在 `ADR-V5-006 §2` 四区扫描范围内，亦非授权态常显载体 | **无需改（登记为观察，非缺陷）**：如后续要收紧为「全 UI 四词禁」须先回父 ADR 登记扫描范围；现行口径 = 授权态**语义位** `[data-auth]` 唯一 + 两态逐字短语 | validate §5 N-3 同源 |
+| **N-4** | `docs/v4-supersession-ledger.json#counts.source.log` | 本轮登记的 `source.log` 指向 `/tmp/opencode/v4-gate-logs/v5-3-validate/registry/`（机器本地临时路径）；换机 / 清理后 `test:supersession` 对该四项**显式 skip**（不静默通过） | **登记保留（观察）**：保持「恒在层 + 同源层」两层判定；长期快照可迁入仓库（后续波次） | validate §5 N-4 同源 |
+
+### 10.2 纪律核验
+
+| 项 | 结果 |
+|----|------|
+| `src/**` / `dist/**` 改动 | **0**（本轮为纯登记；产品面零字节） |
+| Chromium / e2e / build 复跑 | **未跑**（计数沿用 validate R1 实测；纯登记轮无字节变更） |
+| 红线（`content.js` / `pick-layer.js`） | `52a82620…` / `5f567d7e…` 逐字节不变（validate R1 实测，本轮未触碰） |
+| 保护段（journey / binding） | `cc79f413…` / `be9ad0e9…` 逐字节不变（同上） |
+| 已完成 spec / plan 条文 | **零删改**（本轮只登记观察项，不回写需求） |
+
+### 10.3 收口结论
+
+**N-1~N-4 全部处置：0 需修，4 项如实登记**（N-1 / N-3 / N-4 = 观察口径，N-2 = 环境性 flake 纪律）。本叶 **7/7 工作流全闭环**：`phase` 保持 **validated**（收口不降级），`status=completed`。连同 v5-1 / v5-2 两叶收口，**父 Feature `specs-tree-web-cli-plugin-v5-all-in-next` 三叶全部 validated + 收口完成**，具备父收口条件。下游 = **父收口轮**（ROADMAP v0.10.0 登记 + 父 `closeout.md` 总账）。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.3 | **叶收口轮**（validate R1 的 N-1~N-4 处置 · 纯登记）：N-1 产品侧无拖动手柄 = 口径注（已诚实登记，不伪称 089 已实现）· N-2 `test:binding` KL-N-10 环境性 flake 登记保留（值仍记 192）· N-3 `#settings-view` 解释性文案 = 独立按需面预存在（零 diff，无需改）· N-4 `counts.source.log` 临时路径 = 观察保留；新增 §10 处置表 / 纪律核验 / 收口结论。**产品面零字节**（`src/**` / `dist/**` 未改）；Chromium / e2e / build 不重跑 | 2026-09-22 | SDDU Build Agent |
 | v1.2 | **review R1 修复轮**（BLOCK-01 + I-01~05，对象 HEAD `f8e50e8`）：**BLOCK-01 走「修」**——L2 站点行授权态改**指针**（`auth-pointer` + `data-auth-pointer="#auth-state"` + 运行期指针说明节点；站点行零状态值）+ `insight#I-20a` 反向重锚（116 → 118）+ **两段证伪**（回退徽标值 ⇒ 红 / 逐字节还原 ⇒ 绿）；I-01 四词扫描**口径回写 ADR-V5-006 §2** + 语义位判据与注入反证；I-02 摘要 dot 与授权态**解耦**（+`policyTone`）；I-03 S2 **十环节逐环节读数**（29 → 39）；I-04 v5-2 N-04~N-09 **逐项处置登记**；I-05 `blockedRecovery` **对象键对齐 + 编译期穷尽**（TS1360 证伪）；体积 **546,370 → 547,558 B**（+1,188）五要素六文件同源 · 全门禁串行复跑绿（`npm test` 1181/0） | 2026-09-22 | SDDU Build Agent |
 | v1.1 | **R2 = `TASK-V5-167~176`**（末叶 / 收口叶）：`data-narrow`（`ResizeObserver`，360/361 + R-V5-106 反证）· 零宽度控件 + 诚实登记 · **13 条载体重锚**（l0 248/0 · density 242/0 · zero-injection 28/0 · binding 192 PASS）· 密度口径解耦 + `v5Ledger` 31 格逐格留痕 · `tiers` 重锚 + X5 取代台账 · journey **保段**（三不变）+ binding `#20e` **字节中立**重锚 · 体积三叶合计 **542,064 → 546,370 B**（+4,306）· **法八面③ `maskedLength` 审计列落地**（+566 B）· `gate-integrity` 8 新门禁受审收口 · **25 门禁全绿**（`npm test` 1181/0） | 2026-09-22 | SDDU Build Agent |
 | v1.0 | 初始创建（R1 = `TASK-V5-153~166`：SG-4 seam-available 5/5 · 法八四面机核（含四类注入反证 + digest 掩码 + key 直写恰 1 点）· `error` 出生恢复区 · 死端守护门禁（5 类 + 死端 0 + 双注入 + S2 主验收）· 零宿主复核 · 授权 chip 两态与零双写 + 黄 / 绿点击；体积 545,273 B ≤ 545,314 / Δ +3,209 ≤ 3,250；4 门禁 10 条载体重锚 + 4 条体积登记面按波次归 R2） | 2026-09-22 | SDDU Build Agent |
