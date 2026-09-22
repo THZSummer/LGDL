@@ -1,0 +1,171 @@
+{
+  "feature": "specs-tree-web-cli-plugin-v55-self-driven",
+  "featureKey": "specs-tree-web-cli-plugin-v55-self-driven",
+  "version": "v5.5.0",
+  "name": "web-cli-plugin v5.5「self / ai-driven：让助手像助手」—— 把「下一步由谁按」从用户侧转移到系统 / AI 侧：① 没有配置 LLM 时由系统代码流程（确定性、非 AI）驱动用户去配置 LLM；② 已配置 LLM 时让 AI 启动整个 chat/next（AI 驱动编排）；法七扩展（已答 ask / 已交描述入终态词汇）；驱动者层（drive ownership）统一设计",
+  "phase": "discovered",
+  "status": "tracked",
+  "workflow": "0.discovery",
+  "agent": "sddu-discovery",
+  "depth": 1,
+  "parent": null,
+  "childrens": [],
+  "leaf": false,
+  "createdAt": "2026-09-22",
+  "updatedAt": "2026-09-22",
+  "description": "作者主题（2026-09-22 原话提炼，逐字保留）：主题①「没有配置 LLM 时：由系统代码流程驱动用户去配置 LLM」（确定性系统流，不是 AI）；主题②「已配置 LLM 时：让 AI 来启动整个 chat/next」（AI 驱动编排）；母理念「主动帮用户、引导用户解决用户的问题、完成用户的需求，而不是被动接受任务，被动发挥的价值太小了」——即主动性 / 驱动权从用户侧转移到系统 / AI 侧。",
+  "scope": {
+    "core": [
+      "核心 1 驱动者层（drive ownership）：『用户已表达意图』的每个时刻之后，存在一个被承认的驱动者接手续接（驱动权归属可判）",
+      "核心 2 主题① 确定性系统流：LLM 缺席时由代码（非 LLM）驱动用户完成配置；配置完成 → 续接悬置任务（S2 自动续流范式复用为候选）；确定性可机核、零 LLM 调用",
+      "核心 3 主题② AI 驱动编排：AI / 系统有权启动回合与推进 next；安全边界（特权 op 恰 2 必须用户手势 · 打扰控制 · token 成本 · 防环）须 spec 显式裁决",
+      "核心 4 法七扩展：已答 ask（ref 回合 / 面板 op ask / 后台 ask）与「改用描述」成为被承认的终态，且必有下一个驱动者（机核化）"
+    ],
+    "incidental": [
+      "附带 1 驱动时机源（'answered' 等）：推荐器求值时机不得只有用户手势触发",
+      "附带 2 submitDescribe 旁路死端：改用描述作答后不得无驱动"
+    ],
+    "nonGoals": [
+      "content.js / pick-layer.js 语义改动（字节冻结红线：177,076 B / 34,358 B，零容差）",
+      "A2A（F-29）保持原样不动",
+      "12 kind 卡类型学新增（v5 已固化零新增卡类型）",
+      "安装期静态权限 / manifest 静态面",
+      "判定链（policy.ts / auto-authorize.ts）与 zeroDiffFiles 冻结面",
+      "存储侧加密 / 凭据生命周期（v5 已 out-of-scope）",
+      "v5 产物（父 / 三叶）改写",
+      "会话 / 分组 / tabs / 诊断收编 op（v5 deferred PO-ALLN-001）"
+    ]
+  },
+  "artifacts": {
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/TREE.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/../TREE.md",
+    ".sddu/specs-tree-root/TREE.md",
+    ".sddu/TREE.md"
+  ],
+  "coversIssues": [],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/closeout.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/discovery.md"
+    ],
+    "downstream": "specs-tree-web-cli-plugin-v55-self-driven（本 Feature 自身 spec）"
+  },
+  "roadmap": {
+    "featureId": "F-33",
+    "featureIdOccupancy": "measured-zero (ROADMAP grep -c F-33 = 0; repo-wide 2 hits are prose only)",
+    "versionSlot": "v0.11.0",
+    "versionSlotOccupancy": "measured-zero (ROADMAP grep -c v0.11.0 = 0 => brand-new version slot)",
+    "registration": "deferred-to-closeout (this phase: ROADMAP zero diff)",
+    "f29Section": "untouched (F-29 A2A candidate unchanged)"
+  },
+  "domainBaseline": {
+    "branch": "feature/web-cli-plugin",
+    "head": "0a60740",
+    "main": "2ddc922 (untouched)",
+    "worktree": "clean",
+    "dist": {
+      "sidepanelBytes": 549609,
+      "sidepanelCeiling": 577089,
+      "sidepanelHeadroom": 27480,
+      "sidepanelCeilingFormula": "floor(549609 * 1.05) = 577089",
+      "tierBytes": 563200,
+      "absoluteCapBytes": 619520,
+      "contentBytes": 177076,
+      "contentSha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6",
+      "pickLayerBytes": 34358,
+      "pickLayerSha256": "77796babd9c93893542195424d160e0877d8acca4142f8faf2232e217fbd575e",
+      "authorConfirmationStatus": "pending-author-line"
+    },
+    "kindSetCount": 40,
+    "gateCountsSource": "v5 closeout §3 (not re-run this phase)",
+    "gateCountsTotals": {
+      "npmTest": 1181,
+      "law8": 25,
+      "deadEnd": 39,
+      "authChip": 37,
+      "insight": 118,
+      "density": 242,
+      "l0": 248,
+      "journey": 171,
+      "binding": 192,
+      "stream": 73,
+      "askAuth": 71,
+      "zeroInjection": 28,
+      "supersession": 36,
+      "gateIntegrity": 15,
+      "sizeRulingVol3": 12,
+      "designContract": 19,
+      "recommendation": 65,
+      "pageInput": 108,
+      "hardening": 24
+    },
+    "protectedRanges": {
+      "journey": "43054..58287 / sha cc79f413… / 240 lines",
+      "binding": "107780..115930 / sha be9ad0e9… (decision = keep)"
+    }
+  },
+  "openPoints": [
+    "O-SELF-001 命名与版本位的语义配对（v55=维护语义 vs v0.11.0=新主题语义；推荐①保持 v55 + v0.11.0 并明示语义）",
+    "O-SELF-002 主题①触发时机与终点（推荐① runChat 前置判据 + 配置完成自动续接 + 既有 op.llm-config 为唯一配置执行体）",
+    "O-SELF-003 驱动者统一形态（推荐① 注册表化 + 新增时机源 + 主流程 diff = 0 机核）",
+    "O-SELF-004 AI 可主动发起的 op 安全边界清单（推荐① 三档清分 auto/confirm/gesture + 机核清单）",
+    "O-SELF-005 requestTurn 恰 2 处 / RecommendTrigger 4 项门禁取代方式（推荐① 优先注册表内扩张，只在证不可行时显式放宽）",
+    "O-SELF-006 主动性护栏三件套（打扰 / token 成本 / 防环）+ 可见载体是否复用既有 taxonomy（推荐① 三控制均入 spec + 载体零新增）",
+    "O-SELF-007 是否需要外部竞品调研（推荐① 不需要）"
+  ],
+  "pendingObligations": [
+    "R-SELF-001 安全边界（特权 op 恰 2 必须用户手势；AI 不可自动执行；zeroDiffFiles 零触碰）—— 零容差红线，须 spec 落为 NG/AC",
+    "N-SELF-001~020 红线继承逐条落为 NG/AC（不得改写数值或放宽口径）",
+    "X-SELF-1~7 显式取代候选须在 spec / 台账逐条显式登记（等价重锚，非放宽）",
+    "体积预算评估（sidepanel.js 净增上下界）—— 禁止在预算未评估前排全量落地（v5 教训：plan Σ 低估 2.8×）",
+    "ROADMAP F-33 / v0.11.0 登记（留给收口）",
+    "authorConfirmation.status = pending-author-line（档位 563,200 / 绝对上限 619,520）—— 未闭合义务，不得伪称已确认"
+  ],
+  "recommendedChildren": [
+    {
+      "featureKey": "specs-tree-v55-1-driver-layer",
+      "name": "V5.5-1 驱动者层 + 法七扩展（首叶 / 底座）",
+      "deliveryOrder": 1,
+      "dependsOn": [],
+      "note": "驱动者形态定论 + 'answered' 等时机源 + 已答 ask 入终态词汇 + applyRefAction 答案不再丢弃 + submitDescribe 旁路死端 + 死端守护门禁扩展（双向反证）；S2 / 会话 B 断流样板机器化（首验收）。P0。"
+    },
+    {
+      "featureKey": "specs-tree-v55-2-deterministic-onboarding",
+      "name": "V5.5-2 主题① 确定性系统流（次叶）",
+      "deliveryOrder": 2,
+      "dependsOn": ["specs-tree-v55-1-driver-layer"],
+      "note": "LLM 缺席的确定性引导（多步 wizard 形态，非 AI）+ runChat 配置门禁（主动式）+ 配置完成 → 续接悬置任务（S2 范式复用为候选）+ 首装 / 已装未配两场景。"
+    },
+    {
+      "featureKey": "specs-tree-v55-3-ai-driven-orchestration",
+      "name": "V5.5-3 主题② AI 驱动编排（末叶）",
+      "deliveryOrder": 3,
+      "dependsOn": ["specs-tree-v55-1-driver-layer", "specs-tree-v55-2-deterministic-onboarding"],
+      "note": "AI/系统启动回合的机制 + 安全边界清单（可自主 / 须确认的 op 清分）+ 打扰 / token / 防环三控制 + 并发仲裁（chatBusy 语义）+ 门禁等价重锚。"
+    }
+  ],
+  "splitNote": "3 叶建议（共同风险 = 驱动者层是共享底座，故先定底座、再做两主题）。若 spec 判定主题①②不可分割（共享底座且体积必须一次重登记），可退化为单叶 + 内部分组（O-SELF-002 连带开放点）。父 Feature = 轻量规范容器（phase=tasked / agent=sddu-tasks，不承接 build/review/validate），同 v3-ui / v4-chat / v4.5 / v5 先例。",
+  "riskPreRegistration": {
+    "top5": [
+      "R-SELF-002 门禁取代面（requestTurn 恰 2 处 + RecommendTrigger 4 项双锁）",
+      "R-SELF-001 安全边界（特权 op + zeroDiffFiles + SW 永不 .request(）",
+      "R-SELF-003 + R-SELF-004 半驱动者堆积 / 防环",
+      "R-SELF-007 法七扩展判据真空（禁恒真断言）",
+      "R-SELF-005 + R-SELF-006 红线与体积（content.js 零容差 + KIND_SET 40 逐字 + 余量 27,480 B）"
+    ],
+    "all": ["R-SELF-001", "R-SELF-002", "R-SELF-003", "R-SELF-004", "R-SELF-005", "R-SELF-006", "R-SELF-007", "R-SELF-008", "R-SELF-009", "R-SELF-010", "R-SELF-011", "R-SELF-012"]
+  },
+  "assumptions": ["A-SELF-001", "A-SELF-002", "A-SELF-003", "A-SELF-004", "A-SELF-005", "A-SELF-006", "A-SELF-007", "A-SELF-008", "A-SELF-009", "A-SELF-010"],
+  "evidenceGaps": [
+    "真机截图 / 录屏未入库（会话 A/B 为作者提供的文字记录：20:15 / 22:49）",
+    "外部竞品调研未执行（不编造结论）",
+    "门禁计数全部引自 v5 收口总账 §3（本轮未跑门禁 / 构建 / Chromium，零产品运行时验证）",
+    "R4 之后 volume 数字为本轮实测（sidepanel 549,609 B / pick-layer 34,358 B），与 v5 closeout 的 547,558 / 33,900 差异 = 0a60740（R4）轮产物，已分别标注来源"
+  ],
+  "notes": "discovery 阶段完成（2026-09-22，sddu-discovery）。产出 discovery.md v1.0 + state.json（phase=discovered）+ TREE.md（由 sddu-tree 定向更新）。\n\n**第 0 步幂等探测（必做，已完成）**：git log --oneline -5 → HEAD = 0a60740（与预期一致）；git status → nothing to commit, working tree clean；ls .sddu/specs-tree-root/ | grep -i -E 'self|v55|v6|f-33' → 无任何命中；无 F-33 半成品。继续立项，未重复创建。\n\n**本轮实测（只读）**：分支 feature/web-cli-plugin @ 0a60740，工作树 clean，main = 2ddc922 未动；dist/sidepanel.js 549,609 B（baseline 同源，ceiling 577,089 = floor(549,609×1.05)，余量 27,480 B / +5.00%）；dist/content.js 177,076 B / sha 52a82620…；dist/pick-layer.js 34,358 B / sha 77796bab…（R4 显式解冻重登记后 PICK_LAYER_CEILING = PICK_LAYER_BASELINE_BYTES = 34,358，零容差）；KIND_SET = 40 项逐字；requestTurn( 调用点恰 2（op-wiring.test.ts:117-124）；RecommendTrigger 恰 4 项无 'answered'；runChat 无配置门禁；submitDescribe 只 dispatch 从不 send。ROADMAP F-33 = 0 命中、v0.11.0 = 0 命中（全新版本位）、文档版本 1.29.0。\n\n**关键结论**：① 登记编号 F-33（零占用，无需顺延）；② 版本位 v0.11.0（全新，未占用）；③ 目录命名 specs-tree-web-cli-plugin-v55-self-driven（承 v45 = v4.5 系列惯例；与 v0.11.0 新主题语义的错位已登记为 O-SELF-001）；④ 范围 = 核心 4 + 附带 2；非目标 8 项；⑤ 红线继承 N-SELF-001~020 + 显式取代候选 X-SELF-1~7；⑥ 问题 Q-SELF-001~015（核心 6 / 次要 4 / 潜在 5）；⑦ 假设 A-SELF-001~010；⑧ 风险 R-SELF-001~012 + Top5 + 门禁迁移量估计；⑨ 开放问题 O-SELF-001~007（全部附推荐）；⑩ 叶子拆分草案 3 叶（串行）。\n\n**纪律遵守（本轮）**：只读源码 / 产物 / 文档 / 尺寸 / sha；只写本 Feature 目录（discovery.md + state.json + TREE.md 及其父链导航）；未改 src / test / dist / design / docs / ROADMAP / 其他 SDDU 目录；未跑 npm test / Chromium / 构建（零产品运行时验证）。注：/tool sddu_update_state 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（同 v4.5 / v5 先例）。\n\n**无 BLOCKER**；下游 = @sddu-spec（specs-tree-web-cli-plugin-v55-self-driven）。"
+}
