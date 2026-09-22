@@ -27,6 +27,27 @@
  * `ref-store.ts`, so a one-sided copy change fails the gate instead of silently
  * drifting.
  *
+ * ── Defect fix R4 (2026-09-22): the **selector** is NEVER truncated ──────────
+ *
+ * The selector is the one fact that is **queried**, not merely displayed, so cutting
+ * it is a *correctness* defect, not a cosmetic one. Defect: `selectorFor()` used to
+ * end in `joined.slice(0, SELECTOR_MAX) + '…'` — a **syntactically illegal** CSS
+ * selector (real-device selector: 121 chars). `resolveRef()` folded the resulting
+ * `querySelectorAll` throw into `{status:'missing'}` and D1 reported `dom-gone`: the
+ * reference was born dead while the target was still on the page.
+ *
+ * Caliber now (two bounds, two purposes — they must not be confused again):
+ *
+ *   - {@link SELECTOR_STORE_MAX} = **512** is the **storage/query** bound. The
+ *     selector that is stored and later queried is **never cut mid-token**; when the
+ *     full chain exceeds the bound the shorter *compact* strategy is used instead
+ *     (drop `tag.class` fragments — the chain keeps its `:nth-of-type` steps and its
+ *     `#id` / `[data-*]` anchor). Anything still longer is returned as-is: a long but
+ *     **legal** selector always beats a short illegal one.
+ *   - {@link SELECTOR_MAX} = **120** is the **display** bound, applied only by
+ *     {@link selectorForDisplay} at the presentation layer (evidence panel / card
+ *     summary). Display is allowed to cut; storage is not.
+ *
  * ── Zero judgement ──────────────────────────────────────────────────────────
  *
  * Nothing here decides whether a reference is usable (that is v3-2's single judge)
@@ -44,8 +65,17 @@ export const SEMANTIC_PATH_MAX = 120;
 export const MAX_PATH_DEPTH = 6;
 /** The identity mark written at capture; v3-2's D1 dimension reads it back. */
 export const REF_MARK_ATTR = 'data-wcli-ref';
-/** Whitespace-stripped selector length cap (same caliber as `semanticPath`). */
+/**
+ * **Display** selector bound (evidence panel / card summary only — see
+ * {@link selectorForDisplay}). Never used to build the stored / queried value.
+ */
 export const SELECTOR_MAX = 120;
+/**
+ * **Storage / query** selector bound (defect fix R4). The stored selector is never
+ * cut mid-token; over this bound the compact chain (class fragments dropped, the
+ * `#id` / `[data-*]` anchor and every `:nth-of-type` step kept) is used instead.
+ */
+export const SELECTOR_STORE_MAX = 512;
 /** Stable `data-*` keys, tried in this order before the structural fallback. */
 export const STABLE_KEYS: readonly string[] = Object.freeze([
   'data-testid',
@@ -201,11 +231,11 @@ function attrFragment(node: CaptureNode): string {
 }
 
 /** `#id` → `[data-*="…"]` → `tag.class` → `tag` — never a structural step alone. */
-function selectorStep(node: CaptureNode): string {
+function selectorStep(node: CaptureNode, compact = false): string {
   if (node.id && node.id.trim()) return `#${cssEscapeIdent(node.id.trim())}`;
   const stable = attrFragment(node);
   if (stable) return `${tag(node)}${stable}`;
-  return `${tag(node)}${classFragment(node)}`;
+  return compact ? tag(node) : `${tag(node)}${classFragment(node)}`;
 }
 
 /** The `nth-of-type` suffix — only when the sibling set is ambiguous. */
@@ -216,17 +246,20 @@ function nthStep(node: CaptureNode): string {
 }
 
 /**
- * Short, stable selector for the element: the *first* step that uniquely identifies
- * it wins (`#id` → `data-*` key → `tag.class`), otherwise the parent chain is walked
- * and every step gets its `:nth-of-type` disambiguator. Capped at
- * {@link SELECTOR_MAX}.
+ * The ancestor chain (` > `-joined), **never truncated**: the *first* step that
+ * uniquely identifies a node wins (`#id` → `data-*` key → `tag.class`), otherwise the
+ * parent chain is walked to {@link MAX_PATH_DEPTH} and every step carries its
+ * `:nth-of-type` disambiguator. `compact` drops the `tag.class` fragments — the
+ * fallback used when the class-laden chain exceeds {@link SELECTOR_STORE_MAX}
+ * (dropping a class only ever *coarsens* a step; the `:nth-of-type` steps and the
+ * `#id` / `[data-*]` anchor that make the chain land on one element are kept).
  */
-export function selectorFor(node: CaptureNode, maxDepth = MAX_PATH_DEPTH): string {
+function selectorChain(node: CaptureNode, maxDepth: number, compact = false): string {
   const steps: string[] = [];
   let current: CaptureNode | null | undefined = node;
   let depth = 0;
   while (current && depth < maxDepth) {
-    const step = selectorStep(current);
+    const step = selectorStep(current, compact);
     const uniqueById = Boolean(current.id && current.id.trim());
     const uniqueByStable = !uniqueById && Boolean(attrFragment(current));
     const needsNth = !uniqueById && !uniqueByStable;
@@ -235,8 +268,32 @@ export function selectorFor(node: CaptureNode, maxDepth = MAX_PATH_DEPTH): strin
     current = current.parentElement;
     depth += 1;
   }
-  const joined = steps.join(' > ');
-  return joined.length > SELECTOR_MAX ? `${joined.slice(0, SELECTOR_MAX)}…` : joined;
+  return steps.join(' > ');
+}
+
+/**
+ * Short, stable selector for the element — the value that is **stored** in the
+ * reference and later **queried** by `resolveRef` / `observeIdentity`.
+ *
+ * Defect fix R4: this function never appends `…` and never cuts a token. Over
+ * {@link SELECTOR_STORE_MAX} the compact chain is preferred; when even that is not
+ * shorter, the full (legal) chain is returned. The only truncation in the product is
+ * {@link selectorForDisplay}, which is a *presentation* concern.
+ */
+export function selectorFor(node: CaptureNode, maxDepth = MAX_PATH_DEPTH): string {
+  const full = selectorChain(node, maxDepth);
+  if (full.length <= SELECTOR_STORE_MAX) return full;
+  const compact = selectorChain(node, maxDepth, true);
+  return compact.length < full.length ? compact : full;
+}
+
+/**
+ * The **display-only** form of a stored selector: whitespace-preserving cut at
+ * {@link SELECTOR_MAX} with a trailing `…`. Nothing that is queried ever goes through
+ * here — the evidence panel / card summary are its only callers.
+ */
+export function selectorForDisplay(selector: string, max = SELECTOR_MAX): string {
+  return selector.length > max ? `${selector.slice(0, max)}…` : selector;
 }
 
 /** One readable step of the semantic path: `tag#id` / `tag[data-key]` / `tag`. */
@@ -318,7 +375,13 @@ export function markRef(el: Element, refId: string): void {
 
 /** The structural view of a page-side resolution report (no verdict, no judgement). */
 export interface ResolutionReport {
-  status: 'resolved' | 'missing' | 'ambiguous' | 'unreachable';
+  /**
+   * Defect fix R4: `invalid-selector` is its **own** observation — a selector the CSS
+   * parser rejected is not the same fact as "the selector matched nothing". Folding the
+   * throw into `missing` (the R4 defect) made a capture defect read as「目标元素已不存在」
+   * and the reference was born dead with the target still on the page.
+   */
+  status: 'resolved' | 'missing' | 'ambiguous' | 'unreachable' | 'invalid-selector';
   refMark?: string;
   nodeCount?: number;
 }
@@ -337,7 +400,9 @@ export function resolveRef(selector: string, root?: ParentNode): ResolutionRepor
   try {
     nodes = Array.from(scope.querySelectorAll(selector));
   } catch {
-    return { status: 'missing' };
+    // A syntax error is a **capture** defect (illegal / truncated selector), never
+    // 「the element is gone」— the two must stay distinguishable end to end.
+    return { status: 'invalid-selector' };
   }
   if (nodes.length === 0) return { status: 'missing' };
   if (nodes.length > 1) return { status: 'ambiguous', nodeCount: nodes.length };

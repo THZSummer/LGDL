@@ -241,8 +241,8 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 547558,
-    "ceilingBytes": 574935,
+    "registeredBaselineBytes": 549609,
+    "ceilingBytes": 577089,
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
@@ -253,7 +253,8 @@
     "reviewfixR1Note": "〖V4.5-1 review R1 修复轮（2026-09-21）〗基线 **493,501 → 498,521 B**、ceiling **518,176 → 523,447 B**（= floor(498,521 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 512,000 / 绝对上限仍 563,200）。前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v45-1-reviewfix']`。",
     "v51R1Note": "〖V5-1 R1（2026-09-22，TASK-V5-101~113）〗基线 **498,521 → 507,315 B**、ceiling **523,447 → 532,680 B**（= floor(507,315 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 512,000 / 绝对上限仍 563,200）。前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-1-r1']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。",
     "v52ReviewfixNote": "〖V5-2 review R1 修复轮（2026-09-22，BLOCK-01~03 + I 项）〗基线 **535,821 → 542,150 B**、ceiling **562,612 → 569,257 B**（= floor(542,150 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 563,200 / 绝对上限仍 619,520）。逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows`（Σ +6,294 + glue 35 == +6,329）；前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-2-reviewfix']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。",
-    "v52CloseoutNote": "〖V5-2 收口轮（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）〗基线 **542,150 → 542,064 B**、ceiling **569,257 → 569,167 B**（= floor(542,064 × 1.05)，由公式**下调**；容差 5% 未动、cap 仍 record-only、档位仍 563,200 / 绝对上限仍 619,520）。**首个净减轮**（`direction: lowered`）：唯一 `src` 改动 = `sidepanel.ts#permRequest` 删去重复 notice 写者（管线 settle 为 `op.perm.request` 失败行的唯一写者，N-01），逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`（Σ -86 + glue 0 == -86）；前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-2-closeout']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。"
+    "v52CloseoutNote": "〖V5-2 收口轮（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）〗基线 **542,150 → 542,064 B**、ceiling **569,257 → 569,167 B**（= floor(542,064 × 1.05)，由公式**下调**；容差 5% 未动、cap 仍 record-only、档位仍 563,200 / 绝对上限仍 619,520）。**首个净减轮**（`direction: lowered`）：唯一 `src` 改动 = `sidepanel.ts#permRequest` 删去重复 notice 写者（管线 settle 为 `op.perm.request` 失败行的唯一写者，N-01），逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`（Σ -86 + glue 0 == -86）；前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['v5-2-closeout']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动。",
+    "r4SelectorFixNote": "〖R4 缺陷修复轮（2026-09-22，作者裁决「根修 + 止血，含解冻 pick-layer.js」）〗基线 **547,558 → 549,609 B**（+2,051 B，+0.37%）、ceiling **574,935 → 577,089 B**（= floor(549,609 × 1.05)，由公式抬高；容差 5% 未动、cap 仍 record-only、档位仍 563,200 / 绝对上限仍 619,520）。逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.r4SelectorFixRows`（Σ +2,051 + glue 0 == +2,051）；前值逐字保留于 `test/size-baseline.ts#SIDEPANEL_BASELINE_BYTES_TIMELINE` 与 `SIDEPANEL_RE_REGISTRATIONS['r4-selector-fix']`；31 格实测值与阈值 7/15 · 9/20 · 17/35 零改动；`dist/content.js` 177,076 B / sha `52a82620…` 逐字节不变；`dist/pick-layer.js` 33,900 → **34,358 B**（同轮显式解冻重登记，见 `PICK_LAYER_RE_REGISTRATIONS['r4-selector-fix']`）。"
   },
   "designCaliber": {
     "published": {

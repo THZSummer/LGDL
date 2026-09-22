@@ -112,6 +112,8 @@ const CARD_FACE_IDS = ['l1-more', 'l1-consequences'];
 /** The verbatim readable reasons (plan §2.3(4)) — the renderer must match. */
 const REASON = {
   'dom-gone': '引用 1 的目标元素已不存在（选择器解析失败或元素被替换）',
+  // R4（2026-09-22）：捕获缺陷面 —— 与 dom-gone **不同词**（诊断分离）。
+  'invalid-selector': '引用 1 的选择器语法非法（捕获缺陷，已自动修复/请重新拾取）',
   'origin-changed': '引用 1 属于 https://v3-l1.test，当前站点已是 https://other.test —— 跨站引用不可用',
   navigated: '引用 1 捕获后页面已导航（含单页路由切换），目标可能已重建',
   'declaration-changed': '引用 1 捕获后站点声明已变化（hash decl-1 → decl-2），目标语义可能已改变',
@@ -447,6 +449,9 @@ async function main() {
 
     const dims = [
       ['dom-gone', { resolution: { status: 'missing' } }],
+      // R4（2026-09-22）：非法选择器（捕获缺陷）必须作为**独立**维度走同一渲染面 ——
+      // 回退「同吞为 missing」⇒ 维度/文案退回 dom-gone ⇒ 本行必红。
+      ['invalid-selector', { resolution: { status: 'invalid-selector' } }],
       ['origin-changed', { resolution: RESOLVED, env: { currentOrigin: 'https://other.test' } }],
       ['navigated', { resolution: RESOLVED, env: { navSeq: 2 } }],
       ['declaration-changed', { resolution: RESOLVED, env: { declarationHash: 'decl-2' } }],

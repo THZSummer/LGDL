@@ -482,6 +482,13 @@ async function main() {
     console.log('\n▶ ⑪ BLOCK-01 产品路径：真实 ref-captured ⇒ ref 卡 + nextstep 卡（不经 seam）');
     // 生产者有 `NEXTSTEP_MIN_INTERVAL_MS = 10s` 的真实反抖间隔（ADR-V4-037）；前面的 seam
     // 步骤刚铸过卡，这里按**产品规则**等待窗口过去，而不是绕过它。
+    //
+    // 〖R4（2026-09-22）夹具口径变更〗捕获观测由 `missing` 改为 `resolved`：R4 的**捕获回环
+    // 校验**（止血）会在捕获观测为 `missing` / `invalid-selector` 时先做只读文本候选探测 ——
+    // 唯一匹配则用 SW 现算的完整选择器替换后重判，仍失败则**拒铸**（不产生出生即死的引用）。
+    // 本段要判的是「**已然失效**的引用卡 + 风险恢复卡」（⑪/⑫），因此夹具改走更强的真实路径：
+    // 捕获态 `resolved` ⇒ 面板写身份标记 ⇒ SW 回读时该选择器在页面上匹配不到（本夹具的选择器
+    // 本就是断链形态）⇒ 判 D1 ⇒ 失效卡 + `risk-recovery` 卡。**断言集一条未改**。
     await sleep(10500);
     const productDrive = await evaluate(
       sw.cdp,
@@ -495,7 +502,7 @@ async function main() {
              origin: 'https://v4-4.test',
              documentId: 'doc-1', navSeq: 1, declarationHash: '', capturedAt: Date.now(),
            },
-           resolution: { status: 'missing' },
+           resolution: { status: 'resolved', nodeCount: 1 },
          })
          .then(() => 'sent')
          .catch((e) => 'ERR:' + String(e))`,

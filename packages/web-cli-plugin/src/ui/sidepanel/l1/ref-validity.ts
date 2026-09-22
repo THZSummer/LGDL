@@ -23,6 +23,11 @@
  *   D1 `dom-gone`              selector resolution failed, **or** the resolved
  *                              node is not the captured node (identity = the
  *                              `data-wcli-ref` mark written at capture)
+ *   D1b `invalid-selector`     the CSS parser **rejected** the stored selector
+ *                              (defect fix R4: a truncated / illegal selector).
+ *                              Same deny direction as D1, different fact and
+ *                              different readable reason —「选择器语法非法（捕获缺陷）」
+ *                              must never be shown as「目标元素已不存在」.
  *   D2 `origin-changed`        current bound origin ≠ `ref.origin` (EC-V3-014)
  *   D3 `navigated`             `documentId` / `navSeq` changed (incl. SPA routes:
  *                              the document was replaced)
@@ -67,6 +72,7 @@ export type RefVerdict = 'valid' | 'invalid' | 'unknown';
 /** The five invalidation dimensions (parent FR-V3-036). */
 export type RefDimension =
   | 'dom-gone'
+  | 'invalid-selector'
   | 'origin-changed'
   | 'navigated'
   | 'declaration-changed'
@@ -121,7 +127,12 @@ export interface RefFacts {
 
 /** Page-side resolution report — a raw observation, never a judgement. */
 export interface RefResolution {
-  status: 'resolved' | 'missing' | 'ambiguous' | 'unreachable';
+  /**
+   * R4（2026-09-22）：`invalid-selector` 与 `missing` **分开**。旧口径把 CSS 解析器抛错
+   * 与「0 命中」同吞为 `missing` ⇒ 捕获缺陷（被截断的选择器）被读成「目标元素已不存在」，
+   * 引用出生即死。两者都是 fail-closed（都判 `invalid`），但事实与文案不同。
+   */
+  status: 'resolved' | 'missing' | 'ambiguous' | 'unreachable' | 'invalid-selector';
   /** `data-wcli-ref` mark found on the resolved node (D1's identity check). */
   refMark?: string;
   /** How many nodes the selector matched (`!== 1` ⇒ ambiguous ⇒ unknown). */
@@ -184,9 +195,16 @@ export interface RefVerdictView {
  * Readable-reason templates — pinned verbatim (plan §2.3(4)). `{n}` = the
  * reference's ordinal. The unit test and the runtime gate compare the rendered
  * strings character for character, so a copy change is a visible, deliberate edit.
+ *
+ * R4（2026-09-22）追加 `invalid-selector` 一条：维度词表**只增**（既有五条逐字未动），
+ * 新增的是「捕获缺陷」这个此前被折叠进 `dom-gone` 的事实。
  */
 export const REASON_TEMPLATES: Readonly<Record<RefDimension | 'unknown', string>> = Object.freeze({
   'dom-gone': '引用 {n} 的目标元素已不存在（选择器解析失败或元素被替换）',
+  // R4（2026-09-22）：捕获缺陷的**独立**文案。选择器语法非法 = 我们给出的选择器是坏的
+  // （被截断 / 非法），这与「元素不在了」是两件事 —— 前者可自动修复（捕获回环校验）或
+  // 重新拾取即可复原，后者只能重拾。
+  'invalid-selector': '引用 {n} 的选择器语法非法（捕获缺陷，已自动修复/请重新拾取）',
   'origin-changed': '引用 {n} 属于 {origin}，当前站点已是 {now} —— 跨站引用不可用',
   navigated: '引用 {n} 捕获后页面已导航（含单页路由切换），目标可能已重建',
   // N-07（2026-09-16 收口轮）：D4 有两个子判据（hash / version）。此前模板只填 hash，
@@ -217,6 +235,9 @@ export const DECLARATION_STATUS_TEXT: Readonly<Record<DeclarationStatus, string>
  * R3 — the readable rescue fragments appended to a `dom-gone` reason. Pinned verbatim
  * (the unit test and the runtime gate compare the rendered strings character for
  * character). `{n}` = the number of matching elements.
+ *
+ * R4（2026-09-22）：可挂载面扩到 **D1 的两个面**（`dom-gone` 与 `invalid-selector`）——
+ * 一条被截断的旧选择器同样「目标疑似仍在」，救援观察对两者都成立，恢复力只增不减。
  */
 export const RESCUE_REASON = Object.freeze({
   unique: '（目标疑似仍在：文本唯一匹配 —— 可一键重锚）',
@@ -307,7 +328,8 @@ export function reasonFor(ref: RefFacts, dimension: RefDimension, env: RefEnv): 
   }
   // R3（2026-09-17）：selector 断链、但文本摘要仍在页面上有候选 ⇒ 失效原因带只读救援
   // 元数据（0 候选维持原文案 —— 「真没了」）。判定结论不受影响（仍是 invalid/dom-gone）。
-  const rescue = dimension === 'dom-gone' ? refRescueFor(ref, env) : undefined;
+  // R4：挂载面 = D1 的两个面（`dom-gone` / `invalid-selector`）。
+  const rescue = dimension === 'dom-gone' || dimension === 'invalid-selector' ? refRescueFor(ref, env) : undefined;
   if (rescue && rescue.candidates > 0) {
     const suffix =
       (rescue.unique ? RESCUE_REASON.unique : fill(RESCUE_REASON.multiple, { n: String(rescue.candidates) })) +
@@ -347,6 +369,7 @@ function invalid(ref: RefFacts, dimension: RefDimension, env: RefEnv): RefVerdic
  *   5. D3 navigated                → `invalid`
  *   6. D4 declaration changed      → `invalid` / `unknown`
  *   7. D1 dom-gone / resolution    → `invalid` / `unknown`
+ *   7b. D1b invalid-selector       → `invalid`（捕获缺陷；与「元素不存在」分开报）
  *   8. otherwise                   → `valid`
  */
 export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView {
@@ -388,6 +411,15 @@ export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView 
   const res = env.resolution;
   if (!res || res.status === 'unreachable') return unknown(ref, 'page-unreachable');
   if (res.status === 'ambiguous') return unknown(ref, 'ambiguous', { n: String(res.nodeCount ?? 2) });
+  if (res.status === 'invalid-selector') {
+    // R4: the CSS parser rejected the stored selector — a **capture defect**, reported on
+    // its own dimension so the user reads「选择器语法非法（捕获缺陷）」instead of the false
+    // 「目标元素已不存在」. Fail-closed direction is untouched (still `invalid`), and the
+    // read-only rescue observation may still be attached (the target is likely still there).
+    const view = invalid(ref, 'invalid-selector', env);
+    const rescue = refRescueFor(ref, env);
+    return rescue ? { ...view, rescue } : view;
+  }
   if (res.status === 'missing') {
     // R3: the rescue is **payload metadata on the dom-gone verdict** — the conclusion
     // itself is untouched (`invalid`), and no other dimension can carry one.

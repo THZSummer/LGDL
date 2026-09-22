@@ -34,6 +34,23 @@ export const TEXT_DIGEST_MAX = 80;
 /** `semanticPath` truncation length (V32-O-2, pinned). */
 export const SEMANTIC_PATH_MAX = 120;
 
+/**
+ * R4（2026-09-22）— **display-only** selector bound, mirroring
+ * `content/ref-capture.ts#SELECTOR_MAX` (the two bundles cannot import each other, and
+ * `ref-capture.test.ts` pins the equality of the two numbers).
+ *
+ * The stored selector is **never** truncated (it is what gets queried); this bound is
+ * applied only where a selector is *shown* — the evidence row and the card label.
+ * Whitespace is preserved here on purpose (a selector is a code-ish string; the
+ * whitespace-stripping {@link truncate} caliber is for prose digests).
+ */
+export const SELECTOR_DISPLAY_MAX = 120;
+
+/** The display form of a stored selector: cut at {@link SELECTOR_DISPLAY_MAX} only. */
+export function displaySelector(selector: string, max = SELECTOR_DISPLAY_MAX): string {
+  return selector.length > max ? `${selector.slice(0, max)}…` : selector;
+}
+
 /** Whitespace-stripped truncation with a real ellipsis when it was cut. */
 export function truncate(text: string, max: number): string {
   const flat = (text ?? '').replace(/\s+/g, '');
@@ -74,7 +91,11 @@ export function refOrdinal(refId: string): number {
   return Number.isFinite(n) && n >= 1 ? n : 0;
 }
 
-/** One evidence row (`标签：值`); the value is already truncated at ingestion. */
+/**
+ * One evidence row (`标签：值`). R4: the **selector** value is cut here (display),
+ * never at ingestion — the stored fact keeps the full legal selector (see
+ * {@link displaySelector}).
+ */
 function evidenceRow(tag: string, value: string): string {
   return `${tag}：${value}`;
 }
@@ -90,7 +111,7 @@ function evidenceRow(tag: string, value: string): string {
 export function refEvidenceRows(record: RefRecord): readonly (readonly [string, string])[] {
   const f = record.facts;
   const rows: Array<readonly [string, string]> = [
-    ['稳定选择器', f.selector || '（无）'],
+    ['稳定选择器', displaySelector(f.selector) || '（无）'],
     ['语义路径', f.semanticPath || '（无）'],
     ['文本摘要', f.textDigest || '（无）'],
     ['捕获时间', f.capturedAt ? new Date(f.capturedAt).toISOString() : '（未知）'],
@@ -118,7 +139,7 @@ export function projectRefCard(record: RefRecord): RefCardProjection {
   return Object.freeze({
     refNum: refOrdinal(f.refId),
     refState: valid ? 'valid' : 'stale',
-    refLabel: `${ordinalGlyph(f.refId)} ${f.selector || f.semanticPath || '（引用）'}`,
+    refLabel: `${ordinalGlyph(f.refId)} ${displaySelector(f.selector) || f.semanticPath || '（引用）'}`,
     ...(valid ? {} : { refWhy: record.readableReason ?? '引用不可用（按失效处理）' }),
     evidence: Object.freeze(refEvidenceRows(record).map(([tag, value]) => evidenceRow(tag, value))),
   });

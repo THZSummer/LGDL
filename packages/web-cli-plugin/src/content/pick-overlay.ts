@@ -21,7 +21,7 @@
  * @module content/pick-overlay
  */
 
-import { fromElement, ordinalGlyph, selectorFor, semanticPathFor, textDigestFor } from './ref-capture.js';
+import { fromElement, ordinalGlyph, selectorFor, selectorForDisplay, semanticPathFor, textDigestFor } from './ref-capture.js';
 
 /** Highest practical stacking level (below the browser's own top layer). */
 export const OVERLAY_Z_INDEX = 2147483000;
@@ -280,8 +280,14 @@ export function createOverlay(doc: Document = document): OverlayHandle {
       // The SAME caliber the side panel's evidence layer renders (semantic path ›
       // short selector › text digest), so the page and the panel describe one
       // target with one implementation (`ref-capture.ts`).
+      //
+      // R4（2026-09-22）：标签是**展示面** ⇒ 走 `selectorForDisplay`（120 口径）。存储 /
+      // 查询用的选择器**永不截断**，两者必须分离 —— 旧实现把截断值当存储值，正是
+      // 「引用出生即死」的根因。
       const node = fromElement(el);
-      const parts = [semanticPathFor(node), selectorFor(node), textDigestFor(node)].filter((p) => p.length > 0);
+      const parts = [semanticPathFor(node), selectorForDisplay(selectorFor(node)), textDigestFor(node)].filter(
+        (p) => p.length > 0,
+      );
       return parts.join(' › ');
     },
     pendingTimers() {

@@ -177,6 +177,39 @@ test('v3-2 store: dispatch 是唯一放行点（失效态零发送，含非空�
   assert.equal(store.dispatch('ref_missing', env).allowed, false, '不存在的引用必须被阻断');
 });
 
+// ── R4（2026-09-22）：捕获缺陷与「元素不存在」必须**分开报** ──────────────────
+/**
+ * 缺陷：`resolveRef` 把 CSS 解析器抛错与「0 命中」同吞为 `missing` ⇒ 一条被截断的
+ * （非法）选择器被判成 D1 `dom-gone`，文案写「目标元素已不存在」—— 而目标仍在页面上，
+ * 引用出生即死。修法：**诊断分离**（`invalid-selector` 独立观测 + 独立维度 + 独立文案）。
+ * 结论方向不变（仍 `invalid`，仍 fail-closed）。
+ */
+test('R4 judge: invalid-selector 是独立维度与独立文案（与 dom-gone 不同词），且仍 fail-closed', () => {
+  const env = good({ resolution: { status: 'invalid-selector' } });
+  const view = evaluateRefValidity(FACTS, env);
+  assert.equal(view.verdict, 'invalid', '非法选择器必须判失效（fail-closed 不放松）');
+  assert.equal(view.dimension, 'invalid-selector', '维度必须是 invalid-selector（不得再报 dom-gone）');
+  assert.equal(
+    view.readableReason,
+    '引用 1 的选择器语法非法（捕获缺陷，已自动修复/请重新拾取）',
+    '文案必须逐字命中新模板（不得复用 dom-gone 的「目标元素已不存在」）',
+  );
+  assert.notEqual(view.readableReason, reasonFor(FACTS, 'dom-gone', env), '两种事实不得共用一句文案');
+  assert.equal(isRefUsable(FACTS, env), false, '单一放行口只接受 valid（结论未放松）');
+  // 反证：把观测退回 `missing` ⇒ 维度/文案必须变回 dom-gone（判据不是恒真）。
+  const legacy = evaluateRefValidity(FACTS, good({ resolution: { status: 'missing' } }));
+  assert.equal(legacy.dimension, 'dom-gone');
+  assert.notEqual(legacy.readableReason, view.readableReason, '退回同吞口径时文案会退回 dom-gone ⇒ 本判据可红');
+  // R3 救援元数据同样可挂在捕获缺陷面上（目标疑似仍在）。
+  const withRescue = evaluateRefValidity(FACTS, {
+    ...env,
+    rescue: { refId: 'ref_1', candidates: 1, unique: true, urlChanged: false },
+  });
+  assert.equal(withRescue.dimension, 'invalid-selector');
+  assert.deepEqual(withRescue.rescue, { refId: 'ref_1', candidates: 1, unique: true, urlChanged: false });
+  assert.ok((withRescue.readableReason ?? '').endsWith('可一键重锚）'), '捕获缺陷面同样给出恢复出路');
+});
+
 // ── local tree / receipt / view model ───────────────────────────────────────
 test('v3-2 store: N-08 退役记录冻结退役当时的可读原因（后续 judge 不改写审计轨迹）', () => {
   const store = createRefStore();

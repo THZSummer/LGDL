@@ -876,8 +876,25 @@ async function main() {
     // （与层自己上线时报的同一条消息；`acceptCapture` 会把 env 交回生产来源，所以夹具
     // 不 override env，而是让面板**自己的** env 与捕获事实天然同源），捕获走 SW→面板的
     // 真实 `ref-captured`，救援走真实 `ref-rescue` 往返（SW 侧同源归一化文本搜索）。
+    //
+    // 〖R4（2026-09-22）夹具口径变更〗捕获态从 `missing` 改为 `resolved`：R4 的**捕获回环
+    // 校验**（止血）会在捕获观测为 `missing` / `invalid-selector` 时先做只读文本候选探测，
+    // 唯一匹配即用 SW 现算的完整选择器**替换后重判** ⇒ 出生即死的卡在捕获时就被拦下。
+    // 本段要判的是**已然失效的引用**（`maybeRescue` 的投影唯一性），因此夹具改走更强的
+    // 真实路径：捕获态 `resolved` ⇒ 面板写标记 ⇒ SW 在**写标记之后**读到 `missing`
+    // （夹具选择器在页面上匹配不到任何节点）⇒ 判 `dom-gone` ⇒ 首次投影 + 救援落地第二次
+    // 投影。**判据集一条未改**（仍要求同序号卡恰 1 张）。
     console.log('\n▶ F-01 收口：救援观察落地后同序号引用卡恰 1 张');
     const f01DocId = 'doc-f01';
+    // R4 去 flaky 前置（本夹具口径变更引入的新依赖）：夹具判的是「**已然失效**的引用」——捕获态
+    // 由 `missing` 改成 `resolved` 后，失效是**由身份标记回程读出来的**（面板写标记 ⇒ SW 回读
+    // `missing`）。若活动 / 绑定 tab 不是夹具站点或页面侧不在场，回读拿不到新观测 ⇒ 引用会停在
+    // `unknown/replaced`，本夹具的救援前提恒不成立（实测偶发一次 116/2；此后 5 次复跑均 118/0）。
+    // 因此这里显式建立前提（活动 tab + 注入），而不是依赖上一段用例的残留状态。
+    await evaluate(swCdp, `chrome.tabs.update(${siteTab}, { active: true }).then(() => true)`);
+    await sleep(300);
+    await evaluate(pCdp, `chrome.runtime.sendMessage({ kind: 'pick-layer-inject' }).then((r) => Boolean(r && r.ok))`);
+    await sleep(500);
     await evaluate(pCdp, `window.__v3.testing.reset(); true`);
     // ① 两个真实上线消息（gone ⇒ ready）各触发一次 render ⇒ `syncRefEnv()` 把面板 env 同步
     //    成本夹具的 documentId / navSeq（生产来源，不是 override）。
@@ -895,7 +912,7 @@ async function main() {
       swCdp,
       `chrome.runtime.sendMessage({ kind: 'ref-captured',
          facts: { selector: 'div.__broken:nth-of-type(9) > span.__gone:nth-of-type(7)', semanticPath: 'body › div › span', textDigest: '宿主按钮', origin: ${JSON.stringify(site.origin)}, documentId: ${JSON.stringify(f01DocId)}, navSeq: 1, declarationHash: '', declaration: { status: 'absent' }, capturedAt: Date.now() },
-         resolution: { status: 'missing' } }).catch(() => {})`,
+         resolution: { status: 'resolved', nodeCount: 1 } }).catch(() => {})`,
     );
     // 有界等待：捕获投影落地 ⇒ 只读救援观察回包（`l1-report` 出现 rescue）⇒ 再让 `.then`
     // 里的第二次投影跑完。判据读的是**救援事实本身**，不是「等够时间」。
@@ -949,6 +966,210 @@ async function main() {
       JSON.stringify(f01Dom),
     );
     // 还原到「生产 env 可再同步」的干净态（下游用例的既有前置：envOverride=false）。
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+
+    // ── R4（2026-09-22）：选择器截断根修（>120 字出生即命中）+ 捕获回环校验止血 ────
+    // 缺陷：`content/ref-capture.ts#selectorFor` 把 >120 字的选择器截断成
+    // `slice(0,120)+'…'` —— **非法 CSS**；`resolveRef` 又把解析器抛错与「0 命中」同吞为
+    // `missing` ⇒ 判定链 D1 报「目标元素已不存在」⇒ **引用出生即死**（真机选择器 121 字、
+    // 目标仍在页面上）。修法：① 存储 / 查询用选择器**永不截断**（>512 才回退 compact 链，
+    // 截断只保留在展示层）；② 诊断分离（`invalid-selector` 独立于 `missing`）；③ 捕获回环
+    // 校验**止血**（观测为 missing / invalid-selector 时先做只读文本候选探测：唯一匹配 ⇒
+    // 用 SW 现算的**完整**选择器替换后再判定；仍失败 ⇒ **拒铸** + 可读系统事件 + 引导 next）。
+    console.log('\n▶ R4 选择器截断根修（>120 字出生即命中）+ 捕获回环校验止血');
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+    // 前置（负控）：本段必须跑在**已注入**的页面侧上（回环 / 探针 / 重锚都走真实层）。
+    await evaluate(swCdp, `chrome.tabs.update(${siteTab}, { active: true }).then(() => true)`);
+    await sleep(400);
+    await evaluate(pCdp, `chrome.runtime.sendMessage({ kind: 'pick-layer-inject' }).then((r) => Boolean(r && r.ok))`);
+    await sleep(700);
+    const r4Mounted = await op(siteTab, 'snapshot');
+    check('R4 前置（负控）：页面侧已注入（夹具未空转）', r4Mounted?.shadowHosts === 1, JSON.stringify(r4Mounted));
+
+    // ① 真实 DOM 回环（**生产口径**）：在夹具页面造一条「类真实站点」深链（无 id 的目标、
+    //    哈希类名、混合标签、>120 字），用页面侧算选择器，再在同一文档 querySelector 回环。
+    const r4RoundTrip = JSON.parse(
+      await iso(
+        siteTab,
+        `(() => {
+           const hash = (n) => 'css-' + 'a1b2c3d4e5f6'.repeat(2) + '-' + n;
+           const mk = (tag, cls, kids) => { const el = document.createElement(tag); if (cls) el.className = cls; for (const k of (kids || [])) el.appendChild(k); return el; };
+           const leaf = mk('em', hash(4)); leaf.textContent = 'R4 深链目标';
+           const leaf2 = mk('em', hash(4)); leaf2.textContent = 'R4 干扰';
+           const label = mk('span', hash(3), [leaf, leaf2]);
+           const label2 = mk('span', hash(3)); label2.textContent = 'R4 干扰';
+           const card = mk('div', hash(2), [label, label2]);
+           const card2 = mk('div', hash(2)); card2.textContent = 'R4 干扰';
+           const hero = mk('section', hash(1), [card, card2]);
+           const hero2 = mk('section', hash(1)); hero2.textContent = 'R4 干扰';
+           const host = document.createElement('div'); host.id = 'r4-deep-host';
+           host.appendChild(hero); host.appendChild(hero2);
+           document.body.appendChild(host);
+           const sel = window.__wcliPickLayer.op('selector', leaf);
+           let hit = null; let threw = false; let count = -1;
+           try { count = document.querySelectorAll(sel).length; hit = document.querySelector(sel) === leaf; } catch (e) { threw = true; }
+           return JSON.stringify({ sel, len: sel.length, hit, threw, count, ellipsis: sel.indexOf('…') >= 0 });
+         })()`,
+      ),
+    );
+    check(
+      'R4 ①：真实 DOM 上 >120 字选择器**不截断**（无省略号 ∧ 长度 >120 ∧ 不抛错）',
+      r4RoundTrip.threw === false && r4RoundTrip.ellipsis === false && r4RoundTrip.len > 120,
+      JSON.stringify(r4RoundTrip),
+    );
+    check(
+      'R4 ①：回环断言 —— `querySelector(selectorFor(el))` 命中捕获元素**本身**（唯一命中）',
+      r4RoundTrip.hit === true && r4RoundTrip.count === 1,
+      JSON.stringify(r4RoundTrip),
+    );
+
+    // ── 止血路径的负控前置：只读文本候选探测**真的**经 SW→页面往返 ───────────────
+    // 由**面板**（生产发送方）发 `ref-rescue`，与产品路径同一条；两条探针分别给出
+    // 「0 候选（真没了）」与「唯一候选（目标疑似仍在）」—— 否则下面的两段判据会空转。
+    const r4ProbeNo = JSON.parse(
+      await evaluate(
+        pCdp,
+        `chrome.runtime.sendMessage({ kind: 'ref-rescue', refId: 'r4-pre', selector: 'div.__r4broken', textDigest: '根本不存在的文本-R4', origin: ${JSON.stringify(site.origin)} }).then((r) => JSON.stringify(r.data))`,
+      ),
+    );
+    const r4ProbeOne = JSON.parse(
+      await evaluate(
+        pCdp,
+        `chrome.runtime.sendMessage({ kind: 'ref-rescue', refId: 'r4-pre', selector: 'div.__r4broken', textDigest: '宿主按钮', origin: ${JSON.stringify(site.origin)}, anchor: true }).then((r) => JSON.stringify(r.data))`,
+      ),
+    );
+    check(
+      'R4 前置（负控）：无匹配文本 ⇒ 探针 candidates=0（不是空转）；唯一文本 ⇒ candidates=1 ∧ unique',
+      r4ProbeNo?.rescue?.candidates === 0 && r4ProbeOne?.rescue?.candidates === 1 && r4ProbeOne?.rescue?.unique === true,
+      JSON.stringify({ no: r4ProbeNo?.rescue, one: r4ProbeOne?.rescue }),
+    );
+    check(
+      'R4 前置（负控）：唯一候选给出**SW 现算的完整选择器**（#host-btn，非截断值）',
+      r4ProbeOne?.facts?.selector === '#host-btn' && !String(r4ProbeOne?.facts?.selector ?? '').includes('…'),
+      JSON.stringify(r4ProbeOne?.facts ?? null),
+    );
+
+    // 两段止血共用：真实上线消息（gone ⇒ ready）把面板 env 同步到本夹具的文档身份。
+    const r4DocId = 'doc-r4';
+    const r4SyncEnv = async () => {
+      await evaluate(
+        swCdp,
+        `chrome.runtime.sendMessage({ kind: 'pick-layer-state', phase: 'gone', reason: 'r4 fixture bounce' }).catch(() => {})`,
+      );
+      await sleep(150);
+      await evaluate(
+        swCdp,
+        `chrome.runtime.sendMessage({ kind: 'pick-layer-state', phase: 'ready', documentId: ${JSON.stringify(r4DocId)}, navSeq: 1 }).catch(() => {})`,
+      );
+      await sleep(250);
+    };
+    const r4Capture = async (status) => {
+      await evaluate(
+        swCdp,
+        `chrome.runtime.sendMessage({ kind: 'ref-captured',
+           facts: { selector: 'div.__r4broken:nth-of-type(9) > span.__r4gone:nth-of-type(7)', semanticPath: 'body › div › span', textDigest: '宿主按钮', origin: ${JSON.stringify(site.origin)}, documentId: ${JSON.stringify(r4DocId)}, navSeq: 1, declarationHash: '', declaration: { status: 'absent' }, capturedAt: Date.now() },
+           resolution: { status: ${JSON.stringify(status)} } }).catch(() => {})`,
+      );
+    };
+    const r4Stream = async () =>
+      JSON.parse(
+        await evaluate(
+          pCdp,
+          `(() => {
+             const cards = [...document.querySelectorAll('#stream [data-msg-type="ref"]')];
+             const rows = [...document.querySelectorAll('#stream [data-msg-type="system"]')].map((r) => (r.textContent || '').trim());
+             return JSON.stringify({
+               cardCount: cards.length,
+               states: cards.map((c) => c.getAttribute('data-ref-state')),
+               text: cards.map((c) => (c.textContent || '')).join(' | '),
+               rows,
+               nextsteps: document.querySelectorAll('#stream [data-msg-type="nextstep"]').length,
+               recommend: window.__v3.testing.lastRecommend(),
+             });
+           })()`,
+        ),
+      );
+
+    // ② 止血 · 命中：选择器解析失败（`missing`）但文本**唯一匹配** ⇒ 用 SW 现算的完整
+    //    选择器替换后再判定 ⇒ 引用**有效**（不再出生即死）。
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+    await r4SyncEnv();
+    await r4Capture('missing');
+    let r4Repaired = null;
+    for (let i = 0; i < 30; i += 1) {
+      r4Repaired = await r4Stream();
+      if (r4Repaired.cardCount > 0) break;
+      await sleep(200);
+    }
+    await sleep(600);
+    r4Repaired = await r4Stream();
+    check(
+      'R4 ②止血（missing + 文本唯一）：**不铸造出生即死的引用** —— 引用被自动重锚 ⇒ 卡为 valid 且选择器换成完整值',
+      r4Repaired.cardCount === 1 &&
+        r4Repaired.states[0] === 'valid' &&
+        r4Repaired.text.includes('#host-btn') &&
+        !r4Repaired.text.includes('__r4broken'),
+      JSON.stringify(r4Repaired),
+    );
+    check(
+      'R4 ②止血：修复路径**不**产生失效行（旧行为 = 出生即死的 stale 卡 + 「已失效」行）',
+      r4Repaired.rows.every((t) => !t.includes('已失效')),
+      JSON.stringify(r4Repaired.rows),
+    );
+
+    // ③ 止血 · 仍失败：文本**无匹配** ⇒ 拒绝铸造（零引用卡）+ 可读系统事件 + 引导 next。
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+    await r4SyncEnv();
+    await evaluate(
+      swCdp,
+      `chrome.runtime.sendMessage({ kind: 'ref-captured',
+         facts: { selector: 'div.__r4broken:nth-of-type(9) > span.__r4gone:nth-of-type(7)', semanticPath: 'body › div › span', textDigest: '根本不存在的文本-R4', origin: ${JSON.stringify(site.origin)}, documentId: ${JSON.stringify(r4DocId)}, navSeq: 1, declarationHash: '', declaration: { status: 'absent' }, capturedAt: Date.now() },
+         resolution: { status: 'missing' } }).catch(() => {})`,
+    );
+    let r4Refused = null;
+    for (let i = 0; i < 30; i += 1) {
+      r4Refused = await r4Stream();
+      if (r4Refused.rows.some((t) => t.includes('已放弃该引用'))) break;
+      await sleep(200);
+    }
+    await sleep(500);
+    r4Refused = await r4Stream();
+    check(
+      'R4 ③止血（missing + 无匹配）：**拒铸** —— 零引用卡（出生即死的引用不再存在）',
+      r4Refused.cardCount === 0,
+      JSON.stringify(r4Refused),
+    );
+    // 「引导 next（法七不破）」的机核口径：拒绝**不是静默丢弃** —— ① 只能通过唯一系统通道写一行
+    // 可读事实（文案逐字，含「请重新拾取或改用描述」这条出路）；② 面板的**推荐生产者**（引导
+    // next 的唯一来源）真的被这次拒绝咨询过（`lastRecommend()` 在 `reset()` 后为 null ⇒ 出现
+    // `trigger: 'pick'` 即证明该路径被执行）。⚠️ 此处**不**强制下一张卡存在：夹具站点无站点
+    // 声明 ⇒ `capability-discovery` 规则的环境前提不满足（`probe.phase === 'ready'`），把卡存在
+    // 写成判据会让判据变成环境依赖（非空转反证改为「回退止血 ⇒ 铸造了出生即死的卡 + 无此行」）。
+    check(
+      'R4 ③止血：拒绝也有出路 —— 可读系统事件逐字（唯一通道）+ 推荐生产者被真实咨询（非静默丢弃）',
+      // 渲染行带「系统事件 + 时刻」前缀 ⇒ 判据取**逐字包含**（且恰一行），与事件文案同源。
+      r4Refused.rows.filter((t) => t.includes('捕获的选择器无法解析，已放弃该引用，请重新拾取或改用描述')).length === 1 &&
+        r4Refused.recommend?.trigger === 'pick',
+      JSON.stringify({ rows: r4Refused.rows, recommend: r4Refused.recommend }),
+    );
+
+    // ④ 捕获观测 `invalid-selector`（诊断分离后的第二条事实）走**同一**止血路径。
+    await evaluate(pCdp, `window.__v3.testing.reset(); true`);
+    await r4SyncEnv();
+    await r4Capture('invalid-selector');
+    let r4Invalid = null;
+    for (let i = 0; i < 30; i += 1) {
+      r4Invalid = await r4Stream();
+      if (r4Invalid.cardCount > 0) break;
+      await sleep(200);
+    }
+    await sleep(600);
+    r4Invalid = await r4Stream();
+    check(
+      'R4 ④：invalid-selector 观测同样被捕获回环校验拦下（修复 ⇒ valid；不再报「目标元素已不存在」）',
+      r4Invalid.cardCount === 1 && r4Invalid.states[0] === 'valid' && r4Invalid.text.includes('#host-btn'),
+      JSON.stringify(r4Invalid),
+    );
     await evaluate(pCdp, `window.__v3.testing.reset(); true`);
 
     // ── I-01②：失去授权后，层必须在**下一次交互**自检并卸载 ──────────────────────

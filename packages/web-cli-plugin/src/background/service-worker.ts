@@ -1030,7 +1030,12 @@ async function pickLayerTarget(
  * R1（2026-09-17）— read the page's **current** identity observation for `selector`
  * (read-only DOM read in the tab's isolated world, the same world the injected bundle
  * runs in). The shape is the one `l1/ref-validity.ts#RefResolution` consumes:
- * `missing` (0 nodes) / `ambiguous` (>1) / `resolved` + the `data-wcli-ref` mark.
+ * `invalid-selector` (the CSS parser rejected the selector) / `missing` (0 nodes) /
+ * `ambiguous` (>1) / `resolved` + the `data-wcli-ref` mark.
+ *
+ * R4（2026-09-22）: the throw is no longer folded into `missing`. A selector the parser
+ * rejects is a **capture defect**（非法 / 被截断的选择器），and reporting it as
+ * 「目标元素已不存在」is exactly the mis-diagnosis that made the reference born dead.
  *
  * Why it exists: the identity mark is written by the panel **after** the capture report
  * (the panel mints the id), so the capture-time report structurally cannot carry it —
@@ -1041,7 +1046,9 @@ async function pickLayerTarget(
 async function observeIdentity(
   tabId: number,
   selector: string,
-): Promise<{ status: 'resolved' | 'missing' | 'ambiguous'; refMark?: string; nodeCount?: number } | undefined> {
+): Promise<
+  { status: 'resolved' | 'missing' | 'ambiguous' | 'invalid-selector'; refMark?: string; nodeCount?: number } | undefined
+> {
   const results = await chrome.scripting
     .executeScript({
       target: { tabId },
@@ -1050,7 +1057,7 @@ async function observeIdentity(
         try {
           nodes = Array.from(document.querySelectorAll(sel));
         } catch {
-          return { status: 'missing' as const };
+          return { status: 'invalid-selector' as const };
         }
         if (nodes.length === 0) return { status: 'missing' as const };
         if (nodes.length !== 1) return { status: 'ambiguous' as const, nodeCount: nodes.length };

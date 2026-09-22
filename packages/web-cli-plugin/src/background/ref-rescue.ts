@@ -36,6 +36,11 @@
  * `ref-capture.ts#selectorFor` / `semanticPathFor` **逐字符相等**，并对 `textDigest`
  * 做同源对拍 —— 任何一侧漂移都会 FAIL，而不是静默不一致。
  *
+ * **R4（2026-09-22）同源面扩展**：`selectorFor` 的**不截断**口径（`SELECTOR_STORE_MAX`
+ * 512 + 超限回退 compact 链）同样是 `ref-capture.ts` 那套算法的等价副本，`ref-rescue.test.ts`
+ * 的逐字符对拍覆盖 >120 字与 >512 字的真实链 —— 救援侧给出的「完整选择器」必须与捕获侧
+ * **同字**，否则面板拿它替换后再判定，会得到一个只在一侧合法的选择器。
+ *
  * @module background/ref-rescue
  */
 
@@ -106,7 +111,9 @@ export function rescueProbe(digest: string, root?: ParentNode, href?: string): R
   const TEXT_DIGEST_MAX = 80;
   const SEMANTIC_PATH_MAX = 120;
   const MAX_PATH_DEPTH = 6;
-  const SELECTOR_MAX = 120;
+  // Defect fix R4: the mirror must keep the *page-side* caliber — a selector is never
+  // truncated (the display bound 120 does not apply to a stored / queried value).
+  const SELECTOR_STORE_MAX = 512;
   const STABLE_KEYS = [
     'data-testid',
     'data-test-id',
@@ -149,11 +156,11 @@ export function rescueProbe(digest: string, root?: ParentNode, href?: string): R
     }
     return '';
   };
-  const selectorStep = (node: Node): string => {
+  const selectorStep = (node: Node, compact = false): string => {
     if (node.id && node.id.trim()) return `#${cssEscapeIdent(node.id.trim())}`;
     const stable = attrFragment(node);
     if (stable) return `${tag(node)}${stable}`;
-    return `${tag(node)}${classFragment(node)}`;
+    return compact ? tag(node) : `${tag(node)}${classFragment(node)}`;
   };
   const nthStep = (node: Node): string => {
     const total = node.siblingCount ?? 0;
@@ -202,12 +209,13 @@ export function rescueProbe(digest: string, root?: ParentNode, href?: string): R
       siblingCount: info.siblingCount,
     };
   };
-  const selectorFor = (start: Node): string => {
+  /** Never truncated: `selectorFor` below is the storage/query caliber (`ref-capture.ts` 同口径). */
+  const selectorChain = (start: Node, compact: boolean): string => {
     const steps: string[] = [];
     let current: Node | null | undefined = start;
     let depth = 0;
     while (current && depth < MAX_PATH_DEPTH) {
-      const step = selectorStep(current);
+      const step = selectorStep(current, compact);
       const uniqueById = Boolean(current.id && current.id.trim());
       const uniqueByStable = !uniqueById && Boolean(attrFragment(current));
       const needsNth = !uniqueById && !uniqueByStable;
@@ -216,8 +224,13 @@ export function rescueProbe(digest: string, root?: ParentNode, href?: string): R
       current = current.parentElement;
       depth += 1;
     }
-    const joined = steps.join(' > ');
-    return joined.length > SELECTOR_MAX ? `${joined.slice(0, SELECTOR_MAX)}…` : joined;
+    return steps.join(' > ');
+  };
+  const selectorFor = (start: Node): string => {
+    const full = selectorChain(start, false);
+    if (full.length <= SELECTOR_STORE_MAX) return full;
+    const compact = selectorChain(start, true);
+    return compact.length < full.length ? compact : full;
   };
   const semanticStep = (node: Node): string => {
     if (node.id && node.id.trim()) return `${tag(node)}#${node.id.trim()}`;

@@ -87,8 +87,13 @@ export interface PickInputHandle {
    * pick (`withDeclaration()` + `onCapture`), which mints a new reference and writes the
    * identity mark. The old reference is untouched (append-only). `false` = refused
    * (ambiguous / moved path / page unreachable) — fail-closed, with a readable notice.
+   *
+   * R4（2026-09-22）: the same pipeline is reused **at capture time** as the round-trip
+   * repair of a selector that did not resolve (see `sidepanel.ts#acceptCapture`). That
+   * caller owns the readable outcome, so `opts.silent` suppresses this method's own
+   * 「无法一键重锚」notice — one fact, one row (the R4 system event is the writer).
    */
-  reanchor(input: RescueInput): Promise<boolean>;
+  reanchor(input: RescueInput, opts?: { silent?: boolean }): Promise<boolean>;
   /** Route one inbound message; `true` when it was ours. */
   accept(raw: unknown): boolean;
   teardown(): void;
@@ -367,11 +372,11 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     async rescue(input) {
       return (await probeRescue(input, false))?.observation;
     },
-    async reanchor(input) {
+    async reanchor(input, opts) {
       // The mark write below is the identity D1 compares against, so the layer must be
       // live. A failed injection ⇒ refuse readably instead of minting a dead reference.
       if (!(await inject())) {
-        deps.notify(`✖ 重锚失败：页面侧不可用（${state.unavailable ?? '注入失败'}）`);
+        if (opts?.silent !== true) deps.notify(`✖ 重锚失败：页面侧不可用（${state.unavailable ?? '注入失败'}）`);
         return false;
       }
       // Re-probe at click time (fresh facts): the first probe only drove the UI, so
@@ -379,11 +384,14 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       const probe = await probeRescue(input, true);
       const obs = probe?.observation;
       if (!obs || !obs.unique || obs.urlChanged || !probe?.facts) {
-        deps.notify(
-          obs
-            ? `✖ 无法一键重锚（${obs.candidates > 1 ? `文本多处匹配 ${obs.candidates} 处` : '页面路径已变化'}）：请手动重新拾取或改用描述。`
-            : '✖ 无法一键重锚：页面侧不可达（按失效处理）。',
-        );
+        // R4: the capture-time caller reports the outcome itself (one row per fact).
+        if (opts?.silent !== true) {
+          deps.notify(
+            obs
+              ? `✖ 无法一键重锚（${obs.candidates > 1 ? `文本多处匹配 ${obs.candidates} 处` : '页面路径已变化'}）：请手动重新拾取或改用描述。`
+              : '✖ 无法一键重锚：页面侧不可达（按失效处理）。',
+          );
+        }
         return false;
       }
       // The SAME ingestion pipeline as a manual pick: the panel's own origin / document

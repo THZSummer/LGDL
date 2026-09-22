@@ -20,6 +20,7 @@ import {
   MIN_SELECTION_CHARS,
   REF_MARK_ATTR,
   SELECTOR_MAX,
+  SELECTOR_STORE_MAX,
   SEMANTIC_PATH_MAX,
   STABLE_KEYS,
   TEXT_DIGEST_MAX,
@@ -29,11 +30,18 @@ import {
   markRef,
   resolveRef,
   selectorFor,
+  selectorForDisplay,
   semanticPathFor,
   textDigestFor,
   truncate,
 } from '../src/content/ref-capture.js';
-import { SEMANTIC_PATH_MAX as STORE_PATH_MAX, TEXT_DIGEST_MAX as STORE_DIGEST_MAX, truncate as storeTruncate } from '../src/ui/sidepanel/l1/ref-store.js';
+import {
+  SELECTOR_DISPLAY_MAX,
+  SEMANTIC_PATH_MAX as STORE_PATH_MAX,
+  TEXT_DIGEST_MAX as STORE_DIGEST_MAX,
+  displaySelector,
+  truncate as storeTruncate,
+} from '../src/ui/sidepanel/l1/ref-store.js';
 
 interface FakeNode extends CaptureNode {
   children?: FakeNode[];
@@ -98,15 +106,25 @@ function tree(): FakeNode {
 test('TASK-402 · 截断口径与 v3-2 ref-store 共享（常量与渲染字符串逐字相等）', () => {
   assert.equal(TEXT_DIGEST_MAX, 80);
   assert.equal(SEMANTIC_PATH_MAX, 120);
+  // R4（2026-09-22）：SELECTOR_MAX 仍是 **120**，但语义收窄为**展示层**上限
+  // （`selectorForDisplay` 唯一使用者）；存储 / 查询选择器的上限是 SELECTOR_STORE_MAX。
   assert.equal(SELECTOR_MAX, 120);
+  assert.equal(SELECTOR_STORE_MAX, 512);
+  assert.ok(SELECTOR_STORE_MAX > SEMANTIC_PATH_MAX, '存储上限必须显著大于展示上限（否则根修等于没修）');
   assert.equal(TEXT_DIGEST_MAX, STORE_DIGEST_MAX, 'textDigest 截断长度必须与 l1/ref-store 同源');
   assert.equal(SEMANTIC_PATH_MAX, STORE_PATH_MAX, 'semanticPath 截断长度必须与 l1/ref-store 同源');
+  assert.equal(SELECTOR_MAX, SELECTOR_DISPLAY_MAX, '展示层上限必须与 l1/ref-store 的 displaySelector 同源');
   const long = 'x'.repeat(400);
   assert.equal(truncate(long, TEXT_DIGEST_MAX), storeTruncate(long, TEXT_DIGEST_MAX));
   assert.equal(truncate(long, SEMANTIC_PATH_MAX), storeTruncate(long, SEMANTIC_PATH_MAX));
   const spaced = '  a \n b\tc  ';
   assert.equal(truncate(spaced, 80), storeTruncate(spaced, 80));
   assert.equal(flatten(spaced), 'abc');
+  // 展示截断与 `selectorForDisplay` 同口径（选择器是类代码字符串：**不压空白**）。
+  assert.equal(selectorForDisplay(long), displaySelector(long));
+  assert.ok(selectorForDisplay(long).endsWith('…'));
+  assert.equal(selectorForDisplay('#a > b'), displaySelector('#a > b'));
+  assert.equal(selectorForDisplay('#a > b'), '#a > b', '未超限时展示值 = 存储值（逐字）');
 });
 
 test('TASK-402 · 边界值：80 / 120 / 选择最小长度', () => {
@@ -128,7 +146,8 @@ test('TASK-402 · 稳定性：同一节点两次生成结果相等', () => {
   assert.equal(selectorFor(target), selectorFor(target));
   assert.equal(semanticPathFor(target), semanticPathFor(target));
   assert.ok(semanticPathFor(target).length <= SEMANTIC_PATH_MAX);
-  assert.ok(selectorFor(target).length <= SELECTOR_MAX);
+  // R4：存储选择器受**存储**上限约束（展示上限只在 `selectorForDisplay`）。
+  assert.ok(selectorFor(target).length <= SELECTOR_STORE_MAX);
 });
 
 test('TASK-402 · 稳定优先：id → data-* 稳定键 → 结构性路径（≤6 级）', () => {
@@ -218,12 +237,163 @@ test('TASK-402 · resolveRef 只报告观测到的身份标记（缺标记 ⇒ �
   assert.equal(resolveRef('#a', { querySelectorAll: () => [] } as unknown as ParentNode).status, 'missing');
   assert.equal(resolveRef('#a', { querySelectorAll: () => [1, 2] } as unknown as ParentNode).status, 'ambiguous');
   assert.equal(resolveRef('', marked).status, 'unreachable');
+  // R4（2026-09-22）：CSS 解析器抛错**不再**被同吞为 `missing` —— 它是「选择器语法非法」
+  // 这一独立观测（捕获缺陷），与「0 命中」是两件事。
   assert.equal(
     resolveRef('#a', {
       querySelectorAll: () => {
         throw new Error('bad selector');
       },
     } as unknown as ParentNode).status,
-    'missing',
+    'invalid-selector',
   );
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * R4（2026-09-22）—— 选择器截断根修：**出生即失效**的回归面。
+ *
+ * 缺陷：`selectorFor` 把 >120 字的选择器截成 `slice(0,120)+'…'`（非法 CSS），
+ * `resolveRef` 又把解析器抛错读成 `missing` ⇒ 判定链 D1 报「目标元素已不存在」——
+ * 真机选择器 121 字、目标仍在页面上，引用却出生即死。
+ *
+ * 本段用**类真实站点**夹具（深链 + 哈希类名 + 混合标签 + 目标无 id）做**回环断言**：
+ * `selectorFor(el)` 生成的选择器必须能 `querySelector` 命中捕获元素**本身**。夹具自带一个
+ * 受限语法的匹配器（本包无 DOM、不得引入 jsdom），它对**未知语法抛错** —— 因此把
+ * 截断算法放回来（两段证伪的第一段）就会在 `…` 上抛错 ⇒ 必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 受限选择器语法的**严格**匹配器：只接受 `selectorFor` 的产出语法，其余一律抛错。 */
+interface MatcherNode extends FakeNode {
+  children?: MatcherNode[];
+  parentElement: MatcherNode | null;
+}
+
+const STEP_RE =
+  /^(?:#([A-Za-z0-9_\-\\]+)|([A-Za-z][A-Za-z0-9_\-]*)(?:\.([A-Za-z0-9_\-\\]+))?(?:\[([A-Za-z0-9_\-]+)="((?:[^"\\]|\\.)*)"\])?)(?::nth-of-type\((\d+)\))?$/;
+
+function matchStep(node: MatcherNode, raw: string): boolean {
+  const m = STEP_RE.exec(raw);
+  // 未识别的语法（含被截断的 `…`）⇒ 抛错，而不是「不匹配」：截断必须是**可见的错误**。
+  if (!m) throw new Error(`非法的选择器步（夹具匹配器拒绝）：${raw}`);
+  const [, id, tag, cls, attr, value, nth] = m;
+  if (id !== undefined && (node.id ?? '') !== id) return false;
+  if (tag !== undefined && (node.tagName ?? '').toUpperCase() !== tag.toUpperCase()) return false;
+  if (cls !== undefined && !(node.getAttribute('class') ?? '').split(/\s+/).includes(cls)) return false;
+  if (attr !== undefined && (node.getAttribute(attr) ?? '') !== (value ?? '')) return false;
+  if (nth !== undefined) {
+    const siblings = ((node.parentElement?.children ?? [node]) as MatcherNode[]).filter((c) => c.tagName === node.tagName);
+    if (siblings.indexOf(node) + 1 !== Number(nth)) return false;
+  }
+  return true;
+}
+
+/** `selector` 是否在树上命中 `target`（` > ` = 直接父级；末步必须落在 target 上）。 */
+function matchesSelector(target: MatcherNode, selector: string): boolean {
+  const steps = selector.split(' > ');
+  let current: MatcherNode | null = target;
+  for (let i = steps.length - 1; i >= 0; i -= 1) {
+    if (!current || !matchStep(current, steps[i] as string)) return false;
+    current = current.parentElement;
+  }
+  return true;
+}
+
+function allNodes(root: MatcherNode): MatcherNode[] {
+  const out: MatcherNode[] = [root];
+  for (const c of root.children ?? []) out.push(...allNodes(c));
+  return out;
+}
+
+/** The fixture's `querySelector` equivalent (returns the FIRST match, like the DOM). */
+function querySelector(root: MatcherNode, selector: string): MatcherNode | null {
+  return allNodes(root).find((n) => matchesSelector(n, selector)) ?? null;
+}
+
+/**
+ * 回环夹具：`#app` 之下 4 级、每级两个同类兄弟（⇒ 每级都带 `:nth-of-type`），
+ * 类名是哈希风格、标签混合、**目标本身无 id** —— 实测生成 177 字（> 展示上限 120）。
+ */
+function deepSiteTree(): { root: MatcherNode; target: MatcherNode } {
+  const leaf = node({
+    tagName: 'EM',
+    className: 'value-hash-l2m3n4o5',
+    textContent: '目标文本-甲',
+  }) as MatcherNode;
+  const leafSibling = node({ tagName: 'EM', className: 'value-hash-l2m3n4o5', textContent: '同层干扰' }) as MatcherNode;
+  const label = node({ tagName: 'SPAN', className: 'label-hash-h8i9j0k1', children: [leaf, leafSibling] }) as MatcherNode;
+  const labelSibling = node({ tagName: 'SPAN', className: 'label-hash-h8i9j0k1', textContent: '干扰' }) as MatcherNode;
+  const card = node({ tagName: 'DIV', className: 'card-hash-d4e5f6g7', children: [label, labelSibling] }) as MatcherNode;
+  const cardSibling = node({ tagName: 'DIV', className: 'card-hash-d4e5f6g7', textContent: '干扰' }) as MatcherNode;
+  const hero = node({ tagName: 'SECTION', className: 'hero-hash-a1b2c3', children: [card, cardSibling] }) as MatcherNode;
+  const heroSibling = node({ tagName: 'SECTION', className: 'hero-hash-a1b2c3', textContent: '干扰' }) as MatcherNode;
+  const root = indexTree(
+    node({ tagName: 'DIV', id: 'app', children: [hero, heroSibling] }) as MatcherNode,
+  ) as MatcherNode;
+  return { root, target: leaf };
+}
+
+test('R4 ①：>120 字的选择器**不截断**（无省略号）且回环命中捕获元素本身', () => {
+  const { root, target } = deepSiteTree();
+  const selector = selectorFor(target);
+  // 前置（负控）：夹具真的落在缺陷区间 —— 生成值 > 展示上限 120（旧算法正是在此截断）。
+  assert.ok(selector.length > SELECTOR_MAX, `夹具必须 >${SELECTOR_MAX} 字（实测 ${selector.length}）`);
+  assert.ok(selector.length <= SELECTOR_STORE_MAX);
+  // ① 无省略号：存储值是**合法**选择器（旧算法在这里塞进 `…`）。
+  assert.ok(!selector.includes('…'), `存储选择器不得含省略号：${selector}`);
+  // ② 回环：生成的选择器必须命中**捕获元素本身**（同一棵树上的唯一命中）。
+  const hit = querySelector(root, selector);
+  assert.equal(hit, target, `回环失败：${selector}`);
+  assert.equal(allNodes(root).filter((n) => matchesSelector(n, selector)).length, 1, '回环必须唯一命中');
+  // ③ 稳定性：两次生成逐字相等（FR-V3-071 的前提不因本修改变）。
+  assert.equal(selectorFor(target), selector);
+  // ④ 展示层仍是 120 口径（截断被**搬**到展示层，而不是取消）——
+  //    上一版把截断后的值当存储值，正是「出生即死」的根因。
+  const shown = selectorForDisplay(selector);
+  assert.equal(shown.length, SELECTOR_MAX + 1);
+  assert.ok(shown.endsWith('…'));
+  assert.notEqual(shown, selector);
+});
+
+test('R4 ①反证：把截断算法放回来 ⇒ 回环判据必须红（非法 CSS / 命中不到捕获元素）', () => {
+  const { root, target } = deepSiteTree();
+  const full = selectorFor(target);
+  // 旧算法（已退役）：`joined.slice(0, 120) + '…'`。
+  const legacy = full.length > SELECTOR_MAX ? `${full.slice(0, SELECTOR_MAX)}…` : full;
+  assert.ok(legacy.endsWith('…'));
+  // (a) 非法选择器：受限匹配器在 `…` 上抛错（真机 = `querySelectorAll` 抛 SyntaxError）。
+  assert.throws(() => querySelector(root, legacy), /非法的选择器步/, '截断后的选择器必须是**非法**的（真机抛错）');
+  // (b) 即使忽略非法的尾步，截断前缀也**命中不到**捕获元素本身（出生即失效的形态）：
+  //     前缀要么同样非法（切在 `:nth-of` token 中间），要么只覆盖祖先链的一部分。
+  const stripped = legacy.slice(0, -1);
+  let prefixHit: MatcherNode | null = null;
+  try {
+    prefixHit = querySelector(root, stripped);
+  } catch {
+    prefixHit = null;
+  }
+  assert.notEqual(prefixHit, target, '截断前缀不得命中捕获元素（出生即失效的形态）');
+});
+
+test('R4 ①：超过存储上限（>512 字）时回退 compact 链 —— 仍然合法 ∧ 仍然回环命中', () => {
+  // 每级 ~200 字的类名：全链 > 512 ⇒ 触发 compact 回退（丢类片段、保 `:nth-of-type`）。
+  const longClass = (n: number): string => `hash-${'x'.repeat(190)}-${n}`;
+  const leafA = node({ tagName: 'B', className: longClass(1), textContent: '甲' }) as MatcherNode;
+  const leafB = node({ tagName: 'B', className: longClass(1), textContent: '乙' }) as MatcherNode;
+  const mid = node({ tagName: 'I', className: longClass(2), children: [leafA, leafB] }) as MatcherNode;
+  const midB = node({ tagName: 'I', className: longClass(2), textContent: '干扰' }) as MatcherNode;
+  const top = node({ tagName: 'P', className: longClass(3), children: [mid, midB] }) as MatcherNode;
+  const topB = node({ tagName: 'P', className: longClass(3), textContent: '干扰' }) as MatcherNode;
+  const root = indexTree(
+    node({ tagName: 'DIV', id: 'root-anchor', children: [top, topB] }) as MatcherNode,
+  ) as MatcherNode;
+  const target = leafB;
+  const full = selectorFor(target);
+  assert.ok(full.length <= SELECTOR_STORE_MAX, `compact 回退必须落在存储上限内（实测 ${full.length}）`);
+  assert.ok(!full.includes('…'));
+  // compact 链 = 锚点 + 纯 `tag:nth-of-type(k)`（类片段被丢掉的只是**粗化**，不是截断）。
+  assert.equal(full, '#root-anchor > p:nth-of-type(1) > i:nth-of-type(1) > b:nth-of-type(2)');
+  assert.equal(querySelector(root, full), target, `compact 回退必须回环命中：${full}`);
+  // 反证：若回退成「截断到上限」而不是 compact，选择器尾部会带 `…` ⇒ 匹配器抛错（真机 SyntaxError）。
+  const wrong = `${full}${'y'.repeat(SELECTOR_STORE_MAX)}…`;
+  assert.throws(() => querySelector(root, wrong), /非法的选择器步/);
 });

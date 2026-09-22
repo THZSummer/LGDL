@@ -143,6 +143,38 @@ test('R3 救援②同源：探测函数给出的 selector / semanticPath / textD
   }
 });
 
+/**
+ * R4（2026-09-22）—— 同源面的**深链**扩展。
+ *
+ * 缺陷：两侧都把 >120 字的选择器截断成 `slice(0,120)+'…'`，救援给出的「完整选择器」其实
+ * 也是坏的 ⇒ 面板拿它替换后再判定仍是死引用。本用例把逐字符对拍推到**深链**上：救援侧
+ * （SW 注入的等价副本）与捕获侧（页面口径）必须给出**同一个、>120 字、不含省略号**的选择器。
+ */
+test('R4 救援②同源：>120 字深链的选择器与捕获口径逐字符相等（不截断 ∧ 不含省略号）', () => {
+  const hash = (n: number): string => `_hash${n}${'a'.repeat(18)}`;
+  const target = mkEl('em', { class: hash(4) }, '深链唯一文本-R4');
+  const tSib = mkEl('em', { class: hash(4) }, '同层干扰');
+  const span = mkEl('span', { class: hash(3) }, '', [target, tSib]);
+  const spanSib = mkEl('span', { class: hash(3) }, '干扰');
+  const div = mkEl('div', { class: hash(2) }, '', [span, spanSib]);
+  const divSib = mkEl('div', { class: hash(2) }, '干扰');
+  const section = mkEl('section', { class: hash(1) }, '', [div, divSib]);
+  const sectionSib = mkEl('section', { class: hash(1) }, '干扰');
+  const root = mkRoot([mkEl('div', { id: 'deep-anchor' }, '', [section, sectionSib])]);
+
+  const digest = digestOf(target);
+  const report = rescueProbe(digest, root);
+  assert.equal(report.candidates, 1, '深链目标的文本在夹具里唯一');
+  const real = target as unknown as Element;
+  const captured = selectorFor(fromElement(real));
+  // 前置（负控）：夹具真的落在缺陷区间（> 展示上限 120）。
+  assert.ok(captured.length > 120, `夹具必须 >120 字（实测 ${captured.length}）`);
+  assert.ok(!captured.includes('…'), `两侧都不得截断：${captured}`);
+  assert.equal(report.facts?.selector, captured, '救援侧的深链选择器必须与捕获侧逐字符相等');
+  assert.equal(report.facts?.semanticPath, semanticPathFor(fromElement(real)));
+  assert.equal(report.facts?.textDigest, textDigestFor(real));
+});
+
 // ── ③ 判定链：payload 元数据，不扩结论枚举 ───────────────────────────────────
 
 const FACTS: RefFacts = {

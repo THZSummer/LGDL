@@ -87,7 +87,7 @@ import type { TestConnectionResult } from '../../llm/test-connection.js';
 import { makeMessage, type PluginMessage, type PluginResponse } from '../../background/messaging.js';
 import { cancelReasonText } from './stream-plaintext.js';
 import { refReanchoredText, refStaleText } from './system-events.js';
-import { refOrdinal as parseRefOrdinal } from './l1/ref-store.js';
+import { displaySelector, refOrdinal as parseRefOrdinal } from './l1/ref-store.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
 import {
   OPTIONAL_CAPABILITIES,
@@ -2329,14 +2329,69 @@ function reanchorRef(refId: string): void {
 }
 
 /**
+ * R4（2026-09-22）— **capture-time round-trip verification**（止血）。
+ *
+ * 现场：`content/ref-capture.ts#selectorFor` 曾把 >120 字的选择器截断成
+ * `slice(0,120)+'…'` —— 非法 CSS；`resolveRef` 又把解析器抛错与 0 命中同吞为 `missing`
+ * ⇒ 判定链读到 D1「目标元素已不存在」⇒ **引用出生即死**（真机选择器 121 字，目标仍在
+ * 页面上）。根修把选择器改为永不截断（`SELECTOR_STORE_MAX` + compact 回退），本函数是
+ * **同一轮的止血**：捕获观测回来是 `missing` / `invalid-selector` 时，先做一次**只读**
+ * 文本候选探测（与摘要同源归一化）——
+ *
+ *   ① **唯一匹配** ⇒ 用 SW 现算的**完整**选择器替换后再走**同一条**摄取管线（`reanchor`
+ *      的语义前移到捕获时）：得到的是**可用**引用，而不是一张出生即死的卡；
+ *   ② **仍失败** ⇒ **不铸造**这条引用（不产生出生即死的卡），改为写一行可读系统事件 +
+ *      走既有的「下一步」恢复入口（法七不破：拒绝也有出路，不是死端）。拒绝方向
+ *      fail-closed **不变**：无法确认就不铸造。
+ */
+const REF_CAPTURE_UNRESOLVED_TEXT = '捕获的选择器无法解析，已放弃该引用，请重新拾取或改用描述';
+
+function acceptCapture(facts: Record<string, unknown>, resolution: { status: string; refMark?: string; nodeCount?: number }): void {
+  v3TestState.envOverride = false; // a real capture ⇒ production facts own the env again
+  const status = String(resolution?.status ?? '');
+  if (status === 'missing' || status === 'invalid-selector') {
+    void repairCapture(facts);
+    return;
+  }
+  ingestCapture(facts, resolution);
+}
+
+/**
+ * R4 — the read-only repair probe (see {@link acceptCapture}). `pickInput.reanchor` is
+ * reused deliberately: the repaired reference must be minted through the **same**
+ * ingestion pipeline as a manual pick (id source, mark write, re-judge), never by a
+ * second path. `silent` keeps one fact to exactly one readable row (the caller writes it).
+ */
+async function repairCapture(facts: Record<string, unknown>): Promise<void> {
+  const repaired = await (pickInput
+    ?.reanchor(
+      {
+        refId: '',
+        selector: String(facts.selector ?? ''),
+        textDigest: String(facts.textDigest ?? ''),
+        origin: String(facts.origin ?? ''),
+      },
+      { silent: true },
+    )
+    .catch(() => false) ?? Promise.resolve(false));
+  if (repaired) return;
+  // No unique text witness ⇒ nothing to anchor to: refuse to mint (never a born-dead
+  // reference) and give the user an exit (the ONE system channel + the recommendation
+  // producer's `pick` timing, forced because a refusal is a recovery row — not idle
+  // repetition, so the anti-flicker interval must not swallow it) instead of a silent drop.
+  dispatch({ type: 'system', kind: 'ref', text: REF_CAPTURE_UNRESOLVED_TEXT });
+  maybeRecommend('pick', { force: true });
+  render();
+}
+
+/**
  * V3-4 (FR-V3-061 / FR-V3-065 / FR-V3-071) — one captured reference becomes
  * 「1 个引用 chip + 1 道选择题」and nothing else. The page never supplies a verdict and
  * never mints an id: `injectRef` is v3-2's single id source, the observation travels
  * with it (N-04: the panel never asserts `resolved` on its own), and the id is written
  * back onto the page element as the identity mark D1 compares against.
  */
-function acceptCapture(facts: Record<string, unknown>, resolution: { status: string; refMark?: string; nodeCount?: number }): void {
-  v3TestState.envOverride = false; // a real capture ⇒ production facts own the env again
+function ingestCapture(facts: Record<string, unknown>, resolution: { status: string; refMark?: string; nodeCount?: number }): void {
   // R1 (2026-09-17): a reference round REPLACES `state.ask`, so a pending *background*
   // question would never be answered by the panel — its bridge would only expire on the
   // 60 s timeout, leaving the turn「处理中」(composer: 上一条指令仍在处理中). Settle it as
@@ -2356,7 +2411,7 @@ function acceptCapture(facts: Record<string, unknown>, resolution: { status: str
   if (!refId) return;
   pendingRefId = refId;
   const paths = [
-    facts.selector ? `选择器 ${String(facts.selector)}` : '',
+    facts.selector ? `选择器 ${displaySelector(String(facts.selector))}` : '',
     facts.semanticPath ? `语义路径 ${String(facts.semanticPath)}` : '',
   ].filter(Boolean);
   const ask = (verdict: string): void => {

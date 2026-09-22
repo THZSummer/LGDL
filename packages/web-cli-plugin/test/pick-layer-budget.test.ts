@@ -74,7 +74,7 @@ test('V3-4 size: dist/pick-layer.js 独立无容差上限（+1 B 反证）且不
   for (const key of ['measuredOn', 'source', 'buildCommand', 'measuredBy', 'direction'] as const) {
     assert.ok(String(PICK_LAYER_BASELINE_META[key]).length > 0, `PICK_LAYER_BASELINE_META.${key} 必填`);
   }
-  assert.equal(PICK_LAYER_BASELINE_META.previousBaselineBytes, 32_391, '前值必须是首轮实测的 32,391 B');
+  assert.equal(PICK_LAYER_BASELINE_META.previousBaselineBytes, 33_900, '前值必须是 V3-VOL-2 重登记值 33,900 B（32,391 作为更早的历史值仍在 HISTORY）');
   assert.equal(PICK_LAYER_BASELINE_META.direction, 'raised');
   assert.equal(PICK_LAYER_BASELINE_META.source, 'packages/web-cli-plugin/dist/pick-layer.js');
   assert.ok(
@@ -87,17 +87,18 @@ test('V3-4 size: dist/pick-layer.js 独立无容差上限（+1 B 反证）且不
 
   // ── ⑥ V3-VOL-2 显式重登记的**披露五要素**（review BLOCK-2/R1 立下的纪律）────────
   // 与本用例既有断言同一形态：登记值必须 == 实测产物，增长必须**显式**而不是靠压缩。
-  assert.equal(PICK_LAYER_BASELINE_META.measuredOn, '2026-09-17', '五要素之一：日期');
+  assert.equal(PICK_LAYER_BASELINE_META.measuredOn, '2026-09-22', '五要素之一：日期（R4 缺陷修复轮的显式解冻重登记）');
   assert.equal(PICK_LAYER_BASELINE_META.buildCommand, 'npm run build --workspace @lgdl/web-cli-plugin', '五要素之一：来源（构建命令）');
   // 历史值**逐字保留**（只追加，不得改写）——前值必须仍在 HISTORY 里，且必须仍在 META 的散文里。
   assert.ok(
     PICK_LAYER_BASELINE_BYTES_HISTORY.includes(32_391),
     '历史值 32,391 B 必须逐字保留在 PICK_LAYER_BASELINE_BYTES_HISTORY（重登记不得抹掉前值）',
   );
-  assert.match(PICK_LAYER_BASELINE_META.reRegisteredFrom, /32,391 B/, 'reRegisteredFrom 必须写明前值');
-  assert.match(PICK_LAYER_BASELINE_META.reason, /32,391 → 33,900 B（\+1,509 B \/ \+4\.66%）/, 'reason 必须写明前后值与增幅');
+  assert.match(PICK_LAYER_BASELINE_META.reRegisteredFrom, /33,900 B/, 'reRegisteredFrom 必须写明前值（33,900 B）');
+  assert.match(PICK_LAYER_BASELINE_META.reRegisteredFrom, /32,391 B/, '更早的历史值同样必须逐字保留');
+  assert.match(PICK_LAYER_BASELINE_META.reason, /33,900 → 34,358 B（\+458 B \/ \+1\.35%）/, 'reason 必须写明本轮前后值与增幅');
   // 登记册（前后值 / 日期 / 来源 / 理由 / 断言零删减 / 历史保留）链条首尾相接，末项 == 当前登记值。
-  assert.ok(PICK_LAYER_RE_REGISTRATIONS.length >= 2, '重登记登记册必须覆盖首轮与 V3-VOL-2 两次登记');
+  assert.ok(PICK_LAYER_RE_REGISTRATIONS.length >= 3, '重登记登记册必须覆盖首轮 / V3-VOL-2 / R4 三次登记');
   for (const [i, r] of PICK_LAYER_RE_REGISTRATIONS.entries()) {
     for (const key of ['id', 'feature', 'date', 'source', 'buildCommand', 'measuredBy', 'reason'] as const) {
       assert.ok(String(r[key]).length > 0, `PICK_LAYER_RE_REGISTRATIONS[${i}].${key} 必填`);
@@ -123,12 +124,13 @@ test('V3-4 size: dist/pick-layer.js 独立无容差上限（+1 B 反证）且不
   }
   const last = PICK_LAYER_RE_REGISTRATIONS[PICK_LAYER_RE_REGISTRATIONS.length - 1];
   assert.equal(last.baselineAfterBytes, PICK_LAYER_BASELINE_BYTES, '登记册末项必须 == 当前登记基线');
-  // +1 B 反证落在**新值**上：33,901 必须 FAIL（无容差口径在新基线上重跑，不是只在新基线上「更大所以更松」）。
+  // +1 B 反证落在**新值**上：34,359 必须 FAIL（无容差口径在新基线上重跑，不是只在新基线上「更大所以更松」）。
   assert.equal(evaluatePickLayerCeiling(PICK_LAYER_BASELINE_BYTES + 1).ok, false, '新值 +1 B（33,901）必须 FAIL');
-  assert.equal(evaluatePickLayerCeiling(PICK_LAYER_BASELINE_BYTES + 1).measuredBytes, 33_901);
-  assert.equal(evaluatePickLayerCeiling(33_901).excessBytes, 1);
+  assert.equal(evaluatePickLayerCeiling(PICK_LAYER_BASELINE_BYTES + 1).measuredBytes, 34_359);
+  assert.equal(evaluatePickLayerCeiling(34_359).excessBytes, 1);
   // 旧值上必须**不再**被判超限（否则等于把新基线的余量白扣掉）：32,391 通过。
-  assert.equal(evaluatePickLayerCeiling(32_391).ok, true, '前值 32,391 B 不影响判定（历史值只作记录）');
+  assert.equal(evaluatePickLayerCeiling(32_391).ok, true, '更早的历史值 32,391 B 不影响判定（历史值只作记录）');
+  assert.equal(evaluatePickLayerCeiling(33_900).ok, true, '上一轮值 33,900 B 同样只作记录（不被新基线淘汰）');
 });
 
 test('V3-4 size: content.js 仍 ≤177,076 B（无容差）且冻结三文件 hash 不变', (t) => {
