@@ -82,17 +82,28 @@ test('V3-VOL-1 ② registry: every re-registration discloses before/after + date
     assert.match(r.date, /^\d{4}-\d{2}-\d{2}$/, `${r.id}: 日期必填（YYYY-MM-DD）`);
     assert.ok(r.reason.length >= 20, `${r.id}: 理由必填且非套话`);
     // 前后值必须与数值方向一致（不得静默上调/下调）。
-    const dir = r.baselineAfterBytes > r.baselineBeforeBytes ? 'up' : 'down';
-    assert.equal(
-      dir,
-      'up',
-      `${r.id}: 本 Feature 的每一轮都是显式增重（若出现下调必须改断言并显式说明）`,
-    );
-    assert.equal(
-      r.baselineAfterBytes > r.baselineBeforeBytes,
-      true,
-      `${r.id}: 提升轮必须 baselineAfter > baselineBefore`,
-    );
+    // 〖V5-2 收口轮〗首个**显式净减轮**（`direction: 'lowered'`，validate R1 N-01：删一条重复写）
+    // 允许存在 —— 但净减**必须**显式声明 `direction === 'lowered'`（静默下调仍红）；方向与 Δ 的
+    // 双向一致另由 `size-ruling-vol3.test.ts` 的 `reRegistrationDirectionProblems()` 机核。
+    const dir =
+      r.baselineAfterBytes > r.baselineBeforeBytes
+        ? 'up'
+        : r.baselineAfterBytes < r.baselineBeforeBytes
+          ? 'down'
+          : 'flat';
+    if (dir === 'down') {
+      assert.equal(r.direction, 'lowered', `${r.id}: 净减轮必须显式声明 direction='lowered'（不得静默下调）`);
+      assert.ok(r.baselineAfterBytes < r.baselineBeforeBytes, `${r.id}: 净减轮必须 baselineAfter < baselineBefore`);
+    } else if (dir === 'flat') {
+      assert.equal(r.direction, 'unchanged', `${r.id}: 零字节轮必须显式声明 direction='unchanged'`);
+    } else {
+      assert.equal(r.direction, 'raised', `${r.id}: 提升轮必须显式声明 direction='raised'`);
+      assert.equal(
+        r.baselineAfterBytes > r.baselineBeforeBytes,
+        true,
+        `${r.id}: 提升轮必须 baselineAfter > baselineBefore`,
+      );
+    }
   }
 });
 
@@ -194,7 +205,8 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // BLOCK-2（review R1）：原注释写 `5,053`（中间测量，实测归因表为 5,085）与 `66,938`
   // （与实测 67,552 不符）—— 注释与实测必须同源。
   // 〖V4-4 R2〗基线 465,000 → 465,277（+277，chat-state 自动归并接线）⇒ 累计增量 169,775 → **170,052**。
-  assert.equal(b.deltaBytes, 246_925);
+  // 〖V5-2 收口轮〗基线 542,150 → **542,064**（−86：`permRequest` 删去重复 notice 写者）⇒ 累计 246,925 → **246,839**。
+  assert.equal(b.deltaBytes, 246_839);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -305,7 +317,7 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   // 逐值相等的判据跑在**最新一轮**（v5-2-reviewfix；仓库内几何）。v3 段累计表的 `afterBytes`
   // 取自沙箱几何，其 Δ 自洽由上面的对账用例判定（来源不同、判据互不替代）。
   // 〖V5-2 review R1 修复轮〗随轮次重指向 v5-2-r2 → v5-2-reviewfix（R2 的历史 rows 逐字保留）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -358,8 +370,9 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
   // V4-2 泛化：`closeoutDeltaBytes` 语义固定为「**最新一轮**登记增量」（v4-2 起 = 425,442 − 385,319）；
   // v4-1 轮自身的 Σ 判据改由 `roundRowRegistrationIds.v41RoundRows` 的登记值驱动（不再借 closeoutDeltaBytes）。
   // 〖V5-2 R2 等价重锚〗`closeoutDeltaBytes` 的语义恒为「**最新一轮**登记增量」（v4-2 起
-  // 明文如此）；最新一轮 = v5-2-r2（518,543 → 534,913）⇒ 与它的登记条目同源复算。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 535_821);
+  // 明文如此）；〖V5-2 收口轮〗最新一轮 = `v5-2-closeout`（542,150 → **542,064**，首个净减轮）
+  // ⇒ 与它的登记条目同源复算（`SIDEPANEL_BASELINE_BYTES − 542,150 = −86`）。
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 542_150);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -402,8 +415,10 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖V4.5-1 R1（2026-09-21，W1+W2 = TASK-V45-101~106）〗最新一轮 = `v45W1W2Rows`（6 行，Σ +870 + glue 0）。
   // 〖V4.5-1 review R1 修复轮（2026-09-21，BLOCK-01~04 + I-01~06）〗最新一轮 = `v45ReviewfixRows`
   // （2 行：host-registry +2,145 / sidepanel +2,875；glue 0 ⇒ Σ + 0 == 498,521 − 493,501）。
-  // 〖V5-2 review R1 修复轮〗最新一轮 = `v52ReviewfixRows`（9 行，Σ +6,294 + glue 35）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows) {
+  // 〖V5-2 review R1 修复轮〗历史 = `v52ReviewfixRows`（9 行，Σ +6,294 + glue 35）。
+  // 〖V5-2 收口轮（2026-09-22，validate R1 N-01）〗最新一轮 = `v52CloseoutRows`（1 行：
+  // `sidepanel.ts` 93,773 → 93,687 = −86 B；glue 0 ⇒ Σ + 0 == 542,064 − 542,150）。
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -615,6 +630,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     // V5-2 R2（TASK-V5-138~152）：追加第 18 组（只增不减）。
     { name: 'v52R2Rows', rows: b.v52R2Rows, glue: b.v52R2UnattributedGlueBytes },
     { name: 'v52ReviewfixRows', rows: b.v52ReviewfixRows, glue: b.v52ReviewfixUnattributedGlueBytes },
+    // V5-2 收口轮（2026-09-22，validate R1 N-01 + N-04~N-09 / KL-N-10 登记）：追加第 20 组（只增不减）。
+    { name: 'v52CloseoutRows', rows: b.v52CloseoutRows, glue: b.v52CloseoutUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -629,7 +646,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组、V4.5-1 R1 第 14 组、
   // V4.5-1 review R1 修复轮第 15 组（只增不减）。
-  assert.equal(groups.length, 19);
+  assert.equal(groups.length, 20);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );
@@ -698,13 +715,13 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   //    与最新登记同源（R3 的 Δ=0 是**历史**事实：其 `v45W4W5Rows` 空集 + direction unchanged
   //    仍由下面 ③ 逐条判定；此后任何一轮都必须重新登记 —— 本叶的 review 修复轮即如此）。
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
       out.inputs[key as string].bytesInOutput,
       row.afterBytes,
-      `${row.module}: 终轮 metafile ${out.inputs[key as string].bytesInOutput} ≠ W3 轮登记 ${row.afterBytes}（零字节轮的归因等式被打破）`,
+      `${row.module}: 最新一轮 metafile ${out.inputs[key as string].bytesInOutput} ≠ 登记 ${row.afterBytes}（归因等式被打破）`,
     );
     judged += 1;
   }

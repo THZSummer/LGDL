@@ -11,7 +11,7 @@
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T01:55:00.000Z",
+  "updatedAt": "2026-09-22T10:40:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**次叶**（P0，deliveryOrder=2，依赖 v5-1）。承载父 spec.md §5.5 OPS（FR-ALLN-040~049）/ §5.7 SW（FR-ALLN-065~069）/ §5.8 SETTINGS（FR-ALLN-075~078）/ §5.2 LAW7 的 014·016（拒绝非死端 + 断流首验收）/ §5.3 LAW8 的 020~022（掩码卡入口侧 + 值直达存储 + 流内只留事实）/ §5.11 X1·X2（FR-ALLN-110·111·116）/ GATE 本叶面（FR-ALLN-120~125）/ FR-ALLN-003·004·130·133 共 33 条 FR 的实施切片。交付：9 个 op 逐个注册（五要素齐备）；panel-local / SW 双层执行器（特权 op 恰 2 项）；op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约；optional_permissions 放开（安装期静态面零漂移 + 最小集论证）；askuser 扩形 secret / form + 值直达 key-store；settings 4 类收编（单一执行入口 + 单一调用点机核）；拒绝不是死端；S2 断流样板 headless 全链首验收（死端 = 0；浏览器弹窗体感入人工面）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -208,9 +208,14 @@
       "phase": "validated",
       "timestamp": "2026-09-22T01:55:00.000Z",
       "triggeredBy": "sddu-validate（R1 独立动态验证，对象 HEAD 9a9849b + 本轮 N-02/N-03 订正）：产出 validate.md（策略，V1~V9）+ validate-report.md（R1 报告）。**结论 ✅ 通过 / 0 阻塞**。门禁串行复跑（npm 1172/0 · recommendation 65/0 · stream 68/0 · ask-auth 71/0 · binding 首轮 KL-N-10 flake→复跑 192/0 · l0 244/0 · density 232/0 · journey 171 · zero-injection 27/0 · size 三文件 45/0）+ 8 个自研探针（9 op 产品路径 / S2 全链 / SW 伪造 / 法八四面 / 失败语义 / 红线+体积 / AC 抽验 / N-01）。对抗全类判红并还原（伪造 7/7 拒 · KIND_SET 注入 · 体积越限 · 短路回滚 · 恒 completed · 删恢复面 · 3 条布线伪造）；红线/保护段/冻结面逐字节命中；体积三值同源 542,150/569,257/563,200/619,520 + pending-author-line；构建 exit 0 且冻结面可复现。N-02/N-03 F 级订正（零字节影响）；N-01 实测 −86 B 产物后果 ⇒ 转 N 登记（附修复清单）；新增 N-06~N-09 低危口径；人工面 ⏳（弹窗体感/读屏）。下游 = 无（本叶工作流终点）。"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-22T10:40:00.000Z",
+      "triggeredBy": "sddu-build 收口轮（N-01 落地 + 五要素体积重登记 + N-04~N-09 / KL-N-10 登记；phase 保持 validated / status=completed）"
     }
   ],
-  "phaseNote": "phase=validated（status=completed）—— **R1 独立动态验证 ✅ 通过 / 0 阻塞**。验证对象 HEAD `9a9849b`（工作树含本轮 N-02/N-03 订正）；策略 = validate.md（V1~V9 对抗优先矩阵），报告 = validate-report.md（R1）。门禁复跑：`npm test` 1172/1172/0、recommendation 65/0、stream 68/0、ask-auth 71/0、binding 192/0（首轮 5 项 KL-N-10 环境性 flake，隔离复跑 PASS）、l0 244/0、density 232/0、journey 171、zero-injection 27/0、size 三门禁 45/0；`npm run build` exit 0 且冻结面可复现。对抗：SW 伪造 7/7 拒 + probe 只读 + commit 唯一提交点；`KIND_SET` 40 项逐字 + 注入判红；体积越 1 B 判红；三表整体回滚 `db==before`；短路回滚/恒 completed/删恢复面/3 条布线伪造逐条可红。红线与冻结面：`content.js` 177,076/`52a82620…`、`pick-layer.js` 33,900/`5f567d7e…`、保护段 `be9ad0e9…`、manifest/`src/content/**`/v3 台账零 diff。体积：**542,150 ≤ 569,257**（档位 563,200 / 绝对上限 619,520 / pending-author-line）。review 建议订正：**N-02/N-03 = F 级闭环（零字节影响）**；**N-01 = N 级登记**（实测去重为 −86 B 产物变更，须走五要素体积重登记，validate 不静默移动冻结锚）；N-04/N-05 维持登记；新增 N-06~N-09 低危口径。人工面 ⏳：浏览器原生权限弹窗体感 / 读屏实感（不冒充 PASS）。**下游 = 无（7/7 工作流终点）**。",
+  "phaseNote": "phase=validated（status=completed）—— **R1 独立动态验证 ✅ 通过 / 0 阻塞**。验证对象 HEAD `9a9849b`（工作树含本轮 N-02/N-03 订正）；策略 = validate.md（V1~V9 对抗优先矩阵），报告 = validate-report.md（R1）。门禁复跑：`npm test` 1172/1172/0、recommendation 65/0、stream 68/0、ask-auth 71/0、binding 192/0（首轮 5 项 KL-N-10 环境性 flake，隔离复跑 PASS）、l0 244/0、density 232/0、journey 171、zero-injection 27/0、size 三门禁 45/0；`npm run build` exit 0 且冻结面可复现。对抗：SW 伪造 7/7 拒 + probe 只读 + commit 唯一提交点；`KIND_SET` 40 项逐字 + 注入判红；体积越 1 B 判红；三表整体回滚 `db==before`；短路回滚/恒 completed/删恢复面/3 条布线伪造逐条可红。红线与冻结面：`content.js` 177,076/`52a82620…`、`pick-layer.js` 33,900/`5f567d7e…`、保护段 `be9ad0e9…`、manifest/`src/content/**`/v3 台账零 diff。体积：**542,150 ≤ 569,257**（档位 563,200 / 绝对上限 619,520 / pending-author-line）。review 建议订正：**N-02/N-03 = F 级闭环（零字节影响）**；**N-01 = N 级登记**（实测去重为 −86 B 产物变更，须走五要素体积重登记，validate 不静默移动冻结锚）；N-04/N-05 维持登记；新增 N-06~N-09 低危口径。人工面 ⏳：浏览器原生权限弹窗体感 / 读屏实感（不冒充 PASS）。**下游 = 无（7/7 工作流终点）**。 〖v5-2 叶收口轮（2026-09-22，sddu-build；validate R1 的 N-01 落地 + N-04~N-09 / KL-N-10 登记）〗N-01 **落地**：`sidepanel.ts#permRequest` 删去重复 notice 写者（管线 settle 为 `op.perm.request` 失败行的唯一写者），实测 `dist/sidepanel.js` **542,150 → 542,064 B（−86 B，首个 net-lowered 轮）** ⇒ 按 validate-report.md §6 六文件清单走**五要素体积重登记**（档位 563,200 / 绝对上限 619,520 不变；生效上限 → **569,167**）；复跑 `npm test` **1172/0**、size 三门禁 **45/0**、`test:density` **232/0（542,064 / 569,167）**、`test:binding` **192 PASS**（保护段 `be9ad0e9…` 逐字节不变；首两轮 KL-N-10 环境性 flake）。N-04~N-09 / KL-N-10 登记（+0 字节）。phase 保持 validated / status=completed。",
   "specCounts": {
     "fr": 34,
     "nfr": 9,
@@ -699,5 +704,70 @@
       "ref.all-invalid": true
     },
     "next": "无（本叶 7/7 工作流终点；下游 = v5-3 依赖本叶 op.authorize/revoke/rebind 落地）"
-  }
+  },
+  "closeoutRounds": [
+    {
+      "round": "V5-2 叶收口轮（sddu-build；validate R1 的 N-01 落地 + N-04~N-09 / KL-N-10 登记）",
+      "date": "2026-09-22",
+      "head": "8bdad1e（收口轮起点 = validate 产物提交「docs(sddu): v5-2 validate 产物（含 N-01~03 处置：N-02/N-03 订正 · N-01 实测转登记）」）",
+      "source": "本叶 validate.md / validate-report.md R1（✅ 通过 / 0 阻塞 / 9 Vx 全绿；F-01·F-02 闭环（零字节）；N-01 转登记（实测 −86 B 产物变更）；N-04~N-09 + KL-N-10 低危）",
+      "phaseDiscipline": "phase 保持 validated（收口不降级）；status=completed（父 childrens 记 validated + 收口完成）",
+      "n01": {
+        "item": "N-01（op.perm.request 拒绝路径同一失败事实行写 2 行）",
+        "fix": "`sidepanel.ts#permRequest` 删去 `if (!out.ok && out.receipt) dispatch({ type: 'notice', text: out.receipt.text });` —— 管线结算（`pipeline.ts#defaultSettle('failed')` → `opReceiptText(op, out)`）成为**唯一写者**；文案不变（settle 取的就是同一个 `out.receipt.text`）。",
+        "falsification": "① 静态回归守卫（`test/authorize-chip-wiring.test.ts` 的 TASK-V5-148 ①~④ 现有用例内新增 ②d，**不新增 `test(` 注册** ⇒ node 计数不变）：`permRequest` 函数体不得含 `dispatch({ type: 'notice'` + 反证（把 self-dispatch 加回去 ⇒ 同一判据必红）；② 原 validate 探针 `probe-n01.mjs` 复现形态 = `notices=[拒绝文案, 拒绝文案, NEXT:…]`（2 行）→ 修后 settle 唯一写者写 1 行。",
+        "reRegistration": {
+          "direction": "lowered（本 Feature 首个净减轮；`roundKind: registry-fidelity-round`）",
+          "beforeBytes": 542150,
+          "afterBytes": 542064,
+          "deltaBytes": -86,
+          "tierBytes": 563200,
+          "absoluteCeilingBytes": 619520,
+          "effectiveCeilingBytes": 569167,
+          "perModule": "`sidepanel.ts` 93,773 → 93,687 = −86 B（真实 `dist/build-meta.json`；Σ −86 + glue 0 == −86）",
+          "files": [
+            "test/size-baseline.ts",
+            "test/size-budget.test.ts",
+            "test/size-ruling-vol3.test.ts",
+            "test/size-growth-evidence.test.ts",
+            "docs/v4-density-baseline.json",
+            "docs/v4-supersession-ledger.json"
+          ],
+          "ledgerEntry": "`SIDEPANEL_RE_REGISTRATIONS['v5-2-closeout']` + v4 台账 `modifiedRanges#V52C-MR-v5-2-closeout` + `v3Vol3Closeout.⑤三值闭合.newBaselineBytes` 同源前移 + 41 条 entries 的 live `newTitle` 重指向 + v5-2 叶段逐字登记补录（`registeredLines` 150 → 166）"
+        }
+      },
+      "dispositions": [
+        "N-04（口径，**维持登记**；owner = options 面 / v5-3 视需要）：`options.ts#bindPanelOps` 未注入 `snapshotTables`/`restoreTables` ⇒ options 面 `dispatchOp` 失败路径回滚为 **no-op**（`panelSnapshot` 返回空快照）；因四类执行体写入均单 sink 原子，**无半完成态**，故为口径项非缺陷。",
+        "N-05（平台限制，**维持登记**；owner = 平台限制口径）：`op-bodies.ts#revoke('permission')` 多能力撤销中途失败 + `snapshot.ts` permission 写 ⇒ permission 表**只能 reconcile**（Chrome 仅手势可授）；本轮 validate 实测「仍持有」路径**如实失败**（`permission-still-held:*`），无假成功。",
+        "N-06（低危，**登记 + 建议并入后续安全小项**；owner = v5-3 / 安全小项）：`op-executors.ts#execSwOp` 的 `op.perm.request` commit 分支**只校验 `permission` 字段存在性**（`permission:'ghost-cap'` ⇒ `ok:true`），而在册判据实际在页侧 `op-bodies.permRequest` —— `op-protocol.ts` docstring 强于实现。修复路径：docstring 降级为「字段存在性（在册判据在页侧）」或把 `unregisteredCapabilityIds` 下沉至 SW。",
+        "N-07（低危，**登记 + 建议并入后续安全小项**；owner = v5-3 / 安全小项）：`service-worker.ts#onMessage` 对**任何** kind 无发送方校验 ⇒ `op-exec` 与既有 `authorize` 消息**同等可伪造**（与 review I-08 的如实降级一致，非新增边界）；强绑定方案 =「面板签发 nonce + SW 一次校验」（I-08 open item）。",
+        "N-08（范围外 pre-existing，**登记**；owner = v5-3 / 后续波次）：`src/ui/settings/panel.ts:786#requestCapability` 仍有自己的手势入口 `requestCapabilityPermissionOnGesture(cap)`（对 v5-1 基线 `8526ef8` **零 diff**）；FR-ALLN-075 只收编 4 类、FR-ALLN-077「其余设置操作不动」，语义上与 `op.perm.request` 重叠 ⇒ 建议统一登记给 v5-3。",
+        "N-09（口径如实，**登记**）：`test/ui/fixtures/s2-chain.mjs` 恢复态 ⑩「拾取 next 产出」拍产出的是 `act='next'`（→`op.turn`）chip，而非字面 `op.pick` chip；判据口径 =「**可行动的** next（`act=next` ∨ op-direct）且 opId 已注册」，与本叶 AC-ALLN-001「死端=0」一致，不改判。",
+        "KL-N-10（环境性 flake，**复跑闭环登记**）：`test:binding` 首两轮 `#6l` 滚到底（residual=undefined）/ `ERR:CDP socket not open`（残留 headless Chromium 争用）⇒ 清理残留浏览器进程后**复跑 192/0 PASS**；保护段 `binding.mjs[107780..115930]` sha `be9ad0e9…` **逐字节不变**、`binding.mjs` 对 leafBase 零 diff（未修改受判文件）。",
+        "配套产出：`build.md` 追加「收口轮」章 + 修订记录；本叶 state.json `closeoutRounds` + `phaseNote` + 父 `childrens[1].note`；`TREE.md` 导航更新。**唯一产品改动 = `src/ui/sidepanel/sidepanel.ts` 一处删行（N-01，−86 B）**。"
+      ],
+      "gates": {
+        "caliber": "收口轮**串行**复跑：`npm test` → size 三门禁（size-budget / size-growth-evidence / size-ruling-vol3）→ `test:density`（Chromium）→ `test:binding`（Chromium，KL-N-10 复跑）；日志目录 `/tmp/opencode/v4-gate-logs/v5-2-closeout/`",
+        "rerun": {
+          "npmTest": "1172 / 0（EXIT=0）",
+          "sizeBudget+growth+rulingVol3": "45 / 0（EXIT=0）",
+          "density": "232 / 0（产物 542,064 B ≤ 上限 569,167 B）",
+          "binding": "192 / PASS（首两轮 KL-N-10 flake → 复跑 PASS）",
+          "build": "exit 0；content.js 177,076 / pick-layer.js 33,900 逐字节可复现"
+        },
+        "logDir": "/tmp/opencode/v4-gate-logs/v5-2-closeout/"
+      },
+      "redlines": "`dist/content.js` **177,076 B** / sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6`、`dist/pick-layer.js` **33,900 B** / sha `5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59` **逐字节不变**；保护段 `test/ui/binding.mjs[107780..115930]` sha `be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936` **命中**；`manifest.json` / `src/content/**` / `docs/v3-supersession-ledger.json` 对对 leafBase `8526ef8` **零 diff**；`KIND_SET` 40 项 / `'op-` 字面 0；容差 5% / 档位 563,200 / 绝对上限 619,520 未动；生效上限 569,167（更紧）。",
+      "artifacts": [
+        "src/ui/sidepanel/sidepanel.ts（N-01：删去 permRequest 的重复 notice 写者，−86 B）",
+        "test/authorize-chip-wiring.test.ts（②d 静态回归守卫 + 反证；不新增 test( 注册）",
+        "test/size-baseline.ts / test/size-budget.test.ts / test/size-ruling-vol3.test.ts / test/size-growth-evidence.test.ts（五要素重登记）",
+        "docs/v4-density-baseline.json（volume + v52CloseoutNote）",
+        "docs/v4-supersession-ledger.json（modifiedRanges + v3Vol3 三值前移 + entries live newTitle 重指向 + v5-2 叶段逐字补录）",
+        "build.md「收口轮」+ 本叶 state.json closeoutRounds/phaseNote + 父 state.json childrens[1].note + TREE.md"
+      ],
+      "phaseAfter": "validated（保持；收口完成，本叶 7 阶段 + 收口全闭环）",
+      "next": "无（本叶终点）。下游 = specs-tree-v5-3-chrome-face（依赖本叶 op.authorize/revoke/rebind 落地 + 复用 test/ui/fixtures/s2-chain.mjs 落地 test/ui/no-dead-end.mjs / law8-plaintext.mjs）。"
+    }
+  ]
 }

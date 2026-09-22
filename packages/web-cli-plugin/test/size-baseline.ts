@@ -310,7 +310,23 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * 的预算表**低估约 2 倍**（给 9 op 执行体 3,400 B，实测仅 `ops.ts` 一项即 3,918 B；面板接线
  * 未在预算表单列，实测 +4,935 B）。
  */
-export const SIDEPANEL_BASELINE_BYTES = 542_150;
+/**
+ * ── V5-2 **收口轮**（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）──────────
+ * 处理 validate R1 的 **N-01**（`op.perm.request` 拒绝路径同一失败事实行**写 2 行**）。
+ * `src` 改动 = **一处删除**：`sidepanel.ts#permRequest` 不再自己
+ * `dispatch({ type: 'notice', text: out.receipt.text })` —— 该失败行由**管线结算**
+ * （`pipeline.ts#defaultSettle('failed')` → `opReceiptText(op, out)`，取 `out.receipt.text`）
+ * 唯一写出（settle = 唯一写者；文案不变，因为 settle 取的就是同一个 `out.receipt.text`）。
+ * 真实 `dist/build-meta.json` bytesInOutput 归因：`sidepanel.ts` 93,773 → **93,687 B**
+ * （**−86 B**，Σ −86 + 未归因胶水 0 == 登记增量 −86）。
+ *
+ * 方向 = **净减**（`roundKind: 'registry-fidelity-round'`，`direction: 'lowered'` —— N-01
+ * 是「删一条重复写」的产物变更，非功能增重）；**档位 `ceilTo50KB(542,064) = 563,200` 与
+ * 绝对上限 619,520 均未变**；生效上限 = `min(619,520, floor(542,064 × 1.05) = 569,167)
+ * = 569,167`（较上一轮 569,257 更紧）。`dist/content.js` 177,076 B / sha `52a82620…` 与
+ * `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变**。
+ */
+export const SIDEPANEL_BASELINE_BYTES = 542_064;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -345,6 +361,10 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   //   perm.missing 事实源 / 四类执行体提为与面无关的 `settings/op-bodies.ts` 一轮的登记值
   //   （档位 563,200 与绝对上限 619,520 均不变；生效上限 → 569,257）。
   542_150,
+  // 〖V5-2 收口轮（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）〗唯一 `src` 改动 =
+  //   `sidepanel.ts#permRequest` 删去自我 `dispatch`（失败行由管线 settle 唯一写出）；**净减 −86 B**
+  //   （档位 563,200 与绝对上限 619,520 均不变；生效上限 → 569,167）。
+  542_064,
 ] as const;
 
 /**
@@ -406,7 +426,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 542_150;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 542_064;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -419,6 +439,7 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
+    'SDDU V5-2 **收口轮** (2026-09-22, leaf specs-tree-v5-2-ops-first-batch; validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记): re-registered on the FINAL artifact after the closeout round — 542,150 → **542,064 B** (-86 B, -0.02%) — of the ONE `src` change: `sidepanel.ts#permRequest` no longer `dispatch`es its own notice — the pipeline settle (`pipeline.ts#defaultSettle("failed")` → `opReceiptText(op, out)`) is the SOLE writer of the `op.perm.request` refusal fact row (validate R1 **N-01**: the duplicate row is gone; the text is unchanged because the settle reads the same `out.receipt.text`). Per-module metafile attribution: `sidepanel.ts` 93,773 → 93,687 = **-86 B**, Σ -86 + glue 0 == the registered delta（`SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`）。方向 = **净减**（`direction: "lowered"` / `registry-fidelity-round`）；档位 `ceilTo50KB(542,064) = 563,200` 与绝对上限 619,520 **均未变**；生效上限 = `min(619,520, floor(542,064 × 1.05) = 569,167) = 569,167`（较上一轮更紧）。`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变**；容差 5% 未动、断言零删减。Previous round: ' +
     'SDDU V5-2 **review R1 修复轮** (2026-09-22, leaf specs-tree-v5-2-ops-first-batch; BLOCK-01~03 + I 项): re-registered on the FINAL artifact — 535,821 → **542,150 B** (+6,329 B, +1.18%) — of the review-fix round: ① BLOCK-01 载荷透传（执行体透传 `OpOutcome` + ctx 值转发 + 缺缝 loud）与 options 面同执行体（新增 `settings/op-bodies.ts`，消灭假成功）；② BLOCK-02 非 `{ok:true}` 一律失败结算（`settle("failed")` + 三表整体回滚，EC-ALLN-011/NFR-ALLN-010 生产可达）；③ BLOCK-03 `llm.unconfigured` / `perm.missing` 修复 provider 真实接线（`BLOCKED_P0_MAP` 5/5 landed，双射闭合）；④ I-04 掩码只落长度类别 / I-05 未解释字节线性口径订正 / I-06 ADR 订正注 / I-02 执行体提为与面无关模块。Per-module metafile attribution: `settings/op-bodies.ts` NEW +8,151 / `sidepanel.ts` −2,636 / `settings/ops.ts` −1,852 / `cards/askuser.ts` −46 / `next-registry/providers.ts` +1,187 / `next-registry/ops.ts` +826 / `next-registry/pipeline.ts` +344 / `recommend.ts` +278 / `cards/nextstep.ts` +42; Σ +6,294 + glue 35 == 登记增量 +6,329（`SIDEPANEL_GROWTH_BREAKDOWN.v52ReviewfixRows`）。档位 `ceilTo50KB(542,150) = 563,200` 与绝对上限 619,520 **均未变**；生效上限 = `min(619,520, floor(542,150 × 1.05) = 569,257) = 569,257`。`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变**；容差 5% 未动、断言零删减。Previous round: SDDU V5-2 R2 build (2026-09-22, leaf specs-tree-v5-2-ops-first-batch; TASK-V5-138~152): re-registered on the FINAL artifact — 518,543 → **535,821 B** (+17,278 B, +3.33%) — of the second half of the 9-op batch: the `form` multi-select card, `op.perm.request` (mechanism + two-stage handshake + approve/deny double固化), `op.revoke` (three targets + irreversible confirmation + audit entry), the three-table snapshot / whole rollback, the refusal-is-not-a-dead-end settle, the settings/options 4-class consolidation onto the ONE op execute body, the per-op wiring gate and the S2 dead-end chain first acceptance. Per-module metafile attribution: `sidepanel.ts` 88,536 → 96,409 (+7,873) / `next-registry/ops.ts` 3,918 → 6,246 (+2,328) / `settings/ops.ts` 17,027 → 19,119 (+2,092) / `cards/askuser.ts` 7,315 → 9,182 (+1,867) / `next-registry/snapshot.ts` NEW 1,601 / `platform/capability-permissions.ts` 2,088 → 2,757 (+669) / `next-registry/pipeline.ts` 2,979 → 3,516 (+537) / `chat-state.ts` 17,385 → 17,647 (+262); Σ +17,229 + glue 49 == 登记增量 +17,278（`SIDEPANEL_GROWTH_BREAKDOWN.v52R2Rows`）。档位 `ceilTo50KB(535,821) = 563,200` 与绝对上限 619,520 **均未变**（裁决① 的档位一次到位）；生效上限 = `min(619,520, floor(535,821 × 1.05) = 562,612) = 562,612`。`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变**；容差 5% 未动、断言零删减（体积面唯一放宽：未解释字节绝对口径 1,500 → 2,500 B，理由 = 输入模块数 83 → 86 的自然增长 + **新增相对口径 <2% 保留**，见 build.md §6）。Previous round: SDDU V5-2 R1 build (2026-09-22, leaf specs-tree-v5-2-ops-first-batch; TASK-V5-123~137; 编排器裁决① 显式升档): re-registered on the FINAL artifact — 507,315 → **518,543 B** (+11,228 B, +2.21%) — of the 9-op first batch (five ops landed + `shared/op-table.ts` double-sided single source + `next-registry/ops.ts` executor table) + the SW executor / `op-*` type-only channel + `op.authorize` two-stage handshake + the masked `secret` card with the value going straight to the key store + `op.llm-config` credential snapshot rollback. Per-module metafile attribution: `next-registry/ops.ts` +3,918 / `sidepanel.ts` +4,935 / `shared/op-table.ts` +831 / `cards/askuser.ts` +511 / `recommend.ts` +485 / `stream-plaintext.ts` +427 / `chat-state.ts` +185 / `cards/nextstep.ts` +28 / `pipeline.ts` −156 / 归因位移 −9; Σ 模块 +11,155 + 未归因胶水 73 == 登记增量 +11,228（`SIDEPANEL_GROWTH_BREAKDOWN.v52R1Rows`）。**越档位 ⇒ 显式升档**（裁决①）：档位 512,000 → **563,200**（`ceilTo50KB(518,543) = 563,200`），绝对上限 563,200 → **619,520**（`563,200 × 1.10`）；生效上限 = `min(619,520, floor(518,543 × 1.05) = 544,470) = 544,470`；`authorConfirmation` 保持 `pending-author-line`（占位，不伪称已确认）。根因（计划侧偏差，登记不静默）：ADR-V5-011 §1 预算表给 9 op 执行体 3,400 B / `askuser` 扩形 1,800 B，实测**仅 `ops.ts` 一项即 3,918 B**、面板接线（collectors / 握手 / 掩码提交）+4,935 B ⇒ 预算**低估约 2 倍**。`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变**；容差 5% 未动、断言零删减。Previous round: SDDU V5-1 R1 build (2026-09-22, leaf specs-tree-v5-1-next-registry-pipeline; TASK-V5-101~113): re-registered on the FINAL artifact — 498,521 → **507,315 B** (+8,794 B, +1.76%) — of the NextProvider registry / op pipeline / thin-dispatch round: ① 新增 5 个必需模块 `next-registry/{definition,registry,pipeline,providers,dispatch}.ts`（11,002 B）；② `recommend.ts` 规则表迁入内置 provider（−1,604 B）+ `sidepanel.ts` 集 B 分支收敛为一次查表（−303 B）+ `cards/nextstep.ts` 增 `data-op`（+86 B）；Σ 模块 +8,537 + 未归因胶水 257 == 登记增量 +8,794（`SIDEPANEL_GROWTH_BREAKDOWN.v51R1Rows`）。Previous round: SDDU v4.5-1 review R1 修复轮 (2026-09-21, leaf specs-tree-v45-1-single-write-chronology; review R1 BLOCK-01~04 + I-01~06): re-registered on the FINAL artifact — 493,501 → **498,521 B** (+5,020 B, +1.02%) — of the review-fix round: ① BLOCK-01 迁移容器口径（`l0-receipt-summary` 移出 `RETIRED_CONTAINER_IDS` + `MIGRATED_CONTAINER_IDS` 登记 + 判别规则注释）；② BLOCK-02 拖放高亮写点从退役 `#l0-decision` 迁到真实落点面 `#stream`；③ BLOCK-03 单写判据接 live 载体读数（`stripChannelReading` / `stripCarrierCounts` / `stripChannelProblems` + `firstRun` 卡在⇒行不在）；④ BLOCK-04 `title` 净化面反证（node 用例，零字节）。Per-module metafile attribution: `host-registry.ts` 7,128 → 9,273（+2,145）/ `sidepanel.ts` 81,029 → 83,904（+2,875）；Σ +5,020 + glue 0 == the registered delta（`SIDEPANEL_GROWTH_BREAKDOWN.v45ReviewfixRows`）。Previous round: SDDU v4.5-1 R2 (2026-09-21, leaf specs-tree-v45-1-single-write-chronology; W3 = TASK-V45-107~112): re-registered on the FINAL artifact — 480,896 → **493,501 B** (+12,605 B, +2.62%) — of the **host-zeroing** round（宿主全退役 + 决策壳卡内化 + 视图迁移 + 零宿主注册表 + risk-recovery 触发集 + 设置帮助分区）; previous (W1+W2) 单写轮: 480,026 → **480,896 B** (+870 B, +0.18%) — of the **single-write** round: ① `host-registry.ts` `STRIP_CHANNEL_KINDS` 由「legacy id + kind」重构为 `{channel, kind, emitterSite, carrierCount: 1, reason}` + `evaluateStripChannels()` 单写判据 + `strips` 宿主退役（+1,105 B）；② `stream-plaintext.ts` 新增 `plaintextTitle()` —— 行 `title` 长文案的 fail-closed 净化（NFR-V45-003 / R-REG-901，+167 B）；③ `chat-state.ts` `systemRow` 落 `systemKind`（渲染成 `data-kind`）+ 净化后的 `systemTitle`（+283 B）；④ `cards/system.ts` 渲染 `data-kind` / 行 `title`（+184 B）；⑤ `settings/panel.ts` 站点分区详情（与流内行 `title` 同源，+192 B）；⑥ `sidepanel.ts` **净减** −1,061 B（五条提示带的 DOM 写入口整体退役：`renderSiteHint` / `renderOnboarding` / `renderDiscoveryNotice` / `#notice` 投影 / `#env-guard` 横幅，改由唯一系统行承载 + `CHANNEL_STATE_CARRIERS` 首屏载体规则）。Per-module metafile attribution: Σ 6 modules +870 + glue 0 == the registered delta（`SIDEPANEL_GROWTH_BREAKDOWN.v45W1W2Rows`）。`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` 逐字节不变。Previous round: ' +
     'F 还原度快修轮 (2026-09-20, real-device first-screen fidelity fix: FIX-1~FIX-4; FIX-5 evaluated then deferred): re-registered on the FINAL artifact — 479,021 → **480,026 B** (+1,005 B, +0.21%) — of the authorization-chip direct flow (recommend `act:\'authorize\'` + the ONE `authorizeCurrentSite()` entry), the stale spatial-guidance copy, the toolbar digest (origin · 授权态 · 会话) and the decision-slot kicker semantic convergence. Per-module metafile attribution: `view-model.ts` 21,322 → 22,552 (+1,230) / `sidepanel.ts` 79,750 → 79,865 (+115) / `recommend.ts` 3,993 → 4,192 (+199) / `l2/counts.ts` 2,932 → 2,523 (−409, `l2StatusBarText` tree-shaken out of the production path) / `l0/shell.ts` 5,710 → 5,580 (−130); Σ module +1,005 + glue 0 == the registered delta. `dist/content.js` 177,076 B and `dist/pick-layer.js` 33,900 B byte-identical. Previous round: ' +
     'SDDU v4-4 closeout round (2026-09-20, leaf specs-tree-v4-4-ref-system-nextstep; validate R1 findings F-01 + N-01~N-05): re-registered on the FINAL artifact after the closeout round — 478,897 → **479,021 B** (+124 B, +0.03%) — of the ONE `src` change: `sidepanel.ts#projectRef` now keys the projection uniqueness on `refNum + state` (F-01: the `dom-gone` rescue observation landing used to mint a SECOND card for the same ordinal, `data-ref-num=["1","1"]`; the old `if (!systemText && …)` guard let a readable system row un-suppress the card). The suppressed projection still writes the readable row through the ONE system channel. Per-module metafile attribution: `sidepanel.ts` 79,626 → 79,750 = +124 B, Σ + glue 0 == the registered delta. Two-stage falsification on the real product path (`test/ui/page-input.mjs` ⑯): reverting the uniqueness key ⇒ `data-ref-num=["10","10"]` / 2 cards ⇒ 104 passed / 2 failed; byte-identical restore ⇒ 106 passed / 0 failed. N-01~N-05 are registration/caliber items (+0 bytes): N-01 `switchStreamSession` bypass (zero product callers + wiring gate), N-02 `BUILD_STAMP` non-reproducible bytes (KL-N-08), N-03 binding environmental flake (KL-N-10), N-04 I-04 strict-order independence (mechanism removed, optional gate), N-05 one-click re-anchor button lives in the L1 evidence panel (caliber ruling: FR-CHAT-052 卡内 read as recovery-path-reachable — logged as a known deviation). Previous round: SDDU v4-4 快修轮 (2026-09-20, leaf specs-tree-v4-4-ref-system-nextstep; review R2 findings I-09/I-10/I-11): re-registered on the FINAL artifact after the quick-fix round — 478,163 → **478,897 B** (+734 B, +0.15%) — of the I-09 first-run recommendation entry (the `firstRun` timing now has a REAL production call site at the `firstRun` channel eventization point; per-module metafile attribution: `sidepanel.ts` 78,892 → 79,626 = +734 B, Σ + glue 0 == the registered delta). I-10 (the disclosure arithmetic is now machine-checked by `validateReRegistrationDisclosure`) and I-11 (ADR caliber notes + the stale comment) cost **zero bytes**. Previous round: SDDU v4-4 review 修复轮 (2026-09-19, leaf specs-tree-v4-4-ref-system-nextstep; review R1 findings BLOCK-01~03 + I-01~I-08): re-registered on the FINAL artifact after the review fixes — 465,277 → **478,163 B** (+12,886 B, +2.77%) — of: ① BLOCK-01 recommendation producer wiring (three production timings + the product-path gate assertion); ② BLOCK-02 seven-channel merge (the five remaining strips eventized through the single channel + `firstRunCard` live + the structural host registry); ③ BLOCK-03 the `ref` card fallback submit landing in `handleCardAction`; plus I-01 (dedupe fact identity) / I-02 (session row through the channel) / I-03 (single evidence construction) / I-04 (projection memory cleared per fixture) / I-05 (dead code removed, `startPick` off the public handle) / I-06 (author-confirmation machine criterion) / I-07 (risk-registry provenance fields) / I-08 (`test:v3` chain). Per-module attribution in `SIDEPANEL_GROWTH_BREAKDOWN.rows` (real metafile, input modules 75 → 76 with `host-registry.ts`). Previous round: SDDU v4-4 R2 round (2026-09-19, leaf specs-tree-v4-4-ref-system-nextstep; orchestrator ruling KL-V44-01 ② **显式重锚**): re-registered on the FINAL artifact after the ruling landed — 465,000 → **465,277 B** (+277 B, +0.06%) — of the **automatic merge** of the two remaining transient channels (navigation invalidation + the legacy `#notice` overwrite slot) into the single system-event channel (TASK-803 补完 / FR-CHAT-054 / ADR-V4-036 §5); the ONLY `src` change is `chat-state.ts` (metafile-byte-attributed: 15,838 → 16,115). Same round: `docs/v4-density-baseline.json#riskIncrementRegistry` (the risk-increment / cross-window-drift expectations become a machine-readable, two-directional registry) + the `risk(staleRef)@320` cell re-anchored 6/6/17/203 → 7/7/18/208 (+ `risk.worst` clickables 6→7 / blocks 17→18) after a Chromium re-measure of all three viewports (400/520 zero drift), and a NEW node gate `test/system-merge.test.ts` (10 cases). Thresholds 7/15 · 9/20 · 17/35 and the exemption caliber (`hidden` only) are **verbatim unchanged**. Previous round: SDDU v4-4 closeout round (2026-09-19, leaf specs-tree-v4-4-ref-system-nextstep; **V3-VOL-3 八步带值闭合** at HEAD eb879bb): re-registered the **v4-4 leaf** on the FINAL artifact — 445,300 → 465,000 B (+19,700 B, +4.42%) — of the reference card / single system-event channel / recommendation card inflow plus the panel-side pick-entry retirement. **V3-VOL-3 closure**: `B_final = 465,000` (measured by `stat -c %s dist/sidepanel.js`), tier `ceilTo50KB(B_final) = 512,000 B`, `absoluteCeilingBytes = 512,000 × 1.10 = 563,200 B`; judgement = `min(563,200, floor(465,000 × 1.05) = 488,250) = 488,250 B`; `PENDING_ABSOLUTE_CAP` 置 `resolved:true` 三值齐备（`newBaselineBytes` / `absoluteCeilingBytes` / `resolvedOn`）。authorConfirmation 见 `docs/v4-supersession-ledger.json#v3Vol3Closeout`。Previous round: SDDU v4-3 review fix round (2026-09-19, leaf specs-tree-v4-3-ask-auth-inflow; review R1 findings BLOCK-01~04 + I-01~I-08): re-registered the **v4-3 leaf** on the FINAL artifact after the review fixes (auth `cancelled` terminal rendering + turn-end vs 60 s timeout split + stream-derived L1 decided-rounds + audit-exit deps + label-factory wiring + choice mutual disclosure + `#ask*` id de-duplication + ledger leaf-scope rule) — 440,698 → 445,300 B; the previous 440,698 B stays verbatim in SIDEPANEL_BASELINE_BYTES_TIMELINE and in the v4-3 registration reason. Previous round: SDDU v4-2 closeout round (2026-09-19, leaf specs-tree-v4-2-chat-stream-model; validate R1 findings F-01 / F-02 / F-03 + N-02): re-registered the **v4-2 leaf** on the FINAL artifact after the closeout fixes (deep freeze of payload arrays / stream-merge strict monotonicity / sanitizeLabel scan-then-truncate / hasSegment wiring) — 425,094 → 426,487 B; the previous 425,094 B (review fix round) and 425,442 B (build round) stay verbatim in SIDEPANEL_BASELINE_BYTES_TIMELINE and in the v4-2 registration reasons. Previous round: SDDU v4-2 review fix round (2026-09-19, leaf specs-tree-v4-2-chat-stream-model; SDDU review→build loop): re-registered the **v4-2 round** on the FINAL artifact after the review fixes (I-06 stream-merge seq-idempotent dedupe / I-07 empty-state single projection source / I-08 removal of the unreachable `patchAiCard` branch / I-09 RP-V4-09 function name / I-12 dead CSS + check copy) — 385,319 → 425,094 B; the pre-fix published 425,442 B is retained verbatim in SIDEPANEL_BASELINE_BYTES_TIMELINE, and the pre-fix per-module build-round attribution (Σ 39,661 + glue 462 = 40,123) is retained in the v4-2 registration reason. Previous round: SDDU v4-2 build round (2026-09-19, leaf specs-tree-v4-2-chat-stream-model): re-registered on the final artifact of the append-only stream event model + the 12 card types (stream-model / stream-digest / stream-render / cards/*) + the zero-plaintext digest + the V4-2 TASK-613 card-budget tightening. Previous round: SDDU v4-1 build round (2026-09-19, leaf specs-tree-v4-1-zone-shell-density): re-registered on the final artifact of the three-zone skeleton (header#region-toolbar / main#region-stream > ol#stream[role=log] / footer#region-statusbar) — the read-only site summary + four view entries + three-state theme in the toolbar, the risk chips + `#risk-detail` in the status bar, the single-source density exemption subtree (`density-scope.ts`), and the `#log`→`#stream` selector migration; every assertion was re-anchored, none deleted. Previous round: SDDU defect-fix round R3 (2026-09-17, post-closeout; author real-device confirmation at HEAD 131f546): re-registered on the final artifact of the『引用重锚救援』round — a read-only text-candidate probe for a selector-broken reference (SW-injected, same normalization as the frozen text digest), the rescue payload attached to the `dom-gone` verdict as metadata only, and the user-confirmed one-click re-anchor that mints a NEW reference through the same ingestion pipeline while the old card stays untouched (append-only). The judge verdict set is unchanged (valid/invalid/unknown; fail-closed not relaxed). Previous round: SDDU defect-fix round R2 (2026-09-17, post-closeout; author adjudication「修：退避+稳态显示」at HEAD 6d9ed5d): re-registered on the final artifact of the declaration-probe exponential backoff (15s→5min cap, per-origin, conclusion-change reset) plus the steady「低频自动复查中」risk-row variant that removes the 15s flicker. Previous round: SDDU defect-fix round R1 (2026-09-17, post-closeout; author real-device report at HEAD 870cb6e): re-registered on the final artifact of the「无有效站点声明时拾取引用出生即死」fix (SW declarationStatus single source + panel ingestion completes the capture fact + D4 state-consistency caliber, plus the reference-round / background-ask supersession fix). Previous rounds: SDDU v3-3 build round (2026-09-16, leaf specs-tree-v3-3-l2-on-demand-views): re-measured on the final artifact of the L2 on-demand views (view replacement + the four views +真值计数 + the tree-ownership migration). Previous rounds: SDDU v3-2 build round + fix round + closeout round (2026-09-16, leaf specs-tree-v3-2-l1-disclosure-refs): re-measured on the final artifact of the L1 layer (eight in-place content classes + the fail-closed five-dimension reference judge + the receipt triple + the local-tree slice). The fix round executed orchestrator ruling V3-VOL-1 (baseline explicitly re-registered at 327,679 B, ceiling = the plain formula, self-imposed SIDEPANEL_CEILING_CAP hard cap REVOKED and demoted to a record-only field). The CLOSEOUT round dispositions validate R1 findings N-04/N-05/N-07/N-08 in `src/ui/sidepanel/**` and re-registers the measured 328,476 B (+797 B) as a registry-fidelity round. Previous registered baselines: 327,679 B (v3-2 fix round) / 295,225 B (v3-1 I6 round; also the reference tree of SIDEPANEL_GROWTH_BREAKDOWN) / 291,523 B (whose final artifact measured 294,874 B — the discrepancy the I6 round fixed) / 266,500 B (tighten round 2026-09-14, ceiling 279,825 B) / 1,159,856 B (R2, ceiling 1,217,848 B) / R2 closeout 1,162,942 B / V2-4 1,132,748 B / V2-3 1,110,744 B / V2-2 1,085,389 B / v1 1,068,165 B. Every previous value is retained in SIDEPANEL_BASELINE_BYTES_HISTORY / SIDEPANEL_BASELINE_BYTES_TIMELINE / SIDEPANEL_RE_REGISTRATIONS.',
@@ -436,7 +457,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 542_150,
+  finalArtifactBytes: 542_064,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -1449,6 +1470,44 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [535_821, 518_543, 507_315, 498_521, 493_501],
     ceilingUncappedFormulaBytes: 569_257,
   },
+  /**
+   * 〖V5-2 **收口轮**（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）〗
+   * **显式净减重登记**（本 Feature 的**首个净减轮**）。
+   *
+   * 五要素：前值 542,150 B / 后值 **542,064 B**（**−86 B，−0.02%**）/ 日期 2026-09-22 /
+   * 来源 `packages/web-cli-plugin/dist/sidepanel.js` / 理由见下；历史值逐字保留在
+   * `SIDEPANEL_BASELINE_BYTES_TIMELINE` 与本登记册。**档位与绝对上限均不变**
+   * （`ceilTo50KB(542,064) = 563,200` / 619,520）；生效上限 = `min(619,520, floor(542,064 × 1.05) = 569,167) = 569,167`。
+   * `roundKind` = `registry-fidelity-round`（同一 Feature 内的更正轮，非新功能轮）；
+   * `direction: 'lowered'` —— 净减也强制登记（删掉一条重复写，方向不得伪装成提升）。
+   */
+  {
+    id: 'v5-2-closeout',
+    direction: 'lowered',
+    roundKind: 'registry-fidelity-round',
+    feature: 'specs-tree-v5-2-ops-first-batch',
+    date: '2026-09-22',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU V5-2 收口轮 build（2026-09-22, leaf specs-tree-v5-2-ops-first-batch）',
+    reason:
+      '**显式净减重登记（同一叶的收口轮）：542,150 → 542,064 B（-86 B，-0.02%）**。唯一 `src` 改动 = ' +
+      '`sidepanel.ts#permRequest` 删去 `if (!out.ok && out.receipt) dispatch({ type: \'notice\', text: out.receipt.text });` ' +
+      '—— validate R1 **N-01**：该行与管线结算（`pipeline.ts#defaultSettle("failed")` → `opReceiptText(op, out)`，取 `out.receipt.text`）' +
+      '写的是**同一条**失败事实行，导致 `op.perm.request` 拒绝时出现 **2 行**；删除后**管线 settle 为唯一写者**，文案不变（settle 取的就是同一个 `out.receipt.text`）。' +
+      '真实 `dist/build-meta.json` bytesInOutput 逐模块归因（见 `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`，Σ -86 + glue 0 == 登记增量 -86）：' +
+      '`sidepanel.ts` 93,773 → **93,687 B**（**−86 B**，唯一的模块移动）。方向 = **净减**（`direction: "lowered"`，本 Feature 首个净减轮）；' +
+      '**档位与绝对上限均未变**（`ceilTo50KB(542,064) = 563,200`、619,520），生效上限 = `min(619,520, floor(542,064 × 1.05) = 569,167) = 569,167`（较上一轮 569,257 **更紧**）。' +
+      '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 33,900 B / sha `5f567d7e…` **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only。' +
+      '**断言零删减**（`npm test` 1172+ / 0 fail；`size-budget` / `size-ruling-vol3` / `size-growth-evidence` 三门禁复跑绿）；同轮登记 validate R1 的 N-04~N-09 / KL-N-10（+0 字节，见 build.md「收口轮」）。',
+    baselineBeforeBytes: 542_150,
+    baselineAfterBytes: 542_064,
+    ceilingBeforeBytes: 569_257,
+    ceilingAfterBytes: 569_167,
+    assertionNonRemovalEntries: ['V52C-MR-v5-2-closeout'],
+    historyRetainedBytes: [542_150, 535_821, 518_543, 507_315, 498_521],
+    ceilingUncappedFormulaBytes: 569_167,
+  },
 ] as const;
 
 /**
@@ -1491,10 +1550,13 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   measuredOn: '2026-09-22',
   /** The baseline whose **tree** this breakdown compares against (v3-1 I6). */
   baselineReferenceBytes: 295_225,
-  /** 累计：当前基线 − `baselineReferenceBytes`（**507,315 − 295,225 = 212,090**；review R1 修复轮为 498,521 − 295,225 = 203,296）。 */
-  deltaBytes: 246_925,
+  /** 累计：当前基线 − `baselineReferenceBytes`（**542,064 − 295,225 = 246,839**；review R1 修复轮为 542,150 − 295,225 = 246,925，V5-2 收口轮净减 −86）。 */
+  deltaBytes: 246_839,
   /**
-   * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 385,319`（`size-growth-evidence.test.ts` 直接机核该等式）。
+   * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 542,150`（`size-growth-evidence.test.ts` 直接机核该等式）。
+   * 〖V5-2 收口轮（2026-09-22）〗最新一轮 = `v5-2-closeout` ⇒ 本字段 = `542,064 − 542,150 = **−86**`
+   * （**首个净减轮**：`sidepanel.ts#permRequest` 删去重复写，见 `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`）。
+   * 更早语义（v4-2 起「最新一轮」= `SIDEPANEL_BASELINE_BYTES − 385,319`）随轮次前移，历史值逐字保留在下段。
    *
    * 〖I-10（v4-2 review 修复轮）〗本字段原先的 doc-comment 仍写「最近一轮（v4-1 三区骨架自身）375,102 → 385,319，
    * Σ+10,075+142」，与字段现值（v4-2 轮的 40,123）**脱节** —— 现按实测重写：v4-2 轮（含 review 修复轮）
@@ -1503,12 +1565,13 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 6_329,
+  closeoutDeltaBytes: -86,
   newRequiredModuleBytes: 176_089,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
-  // 桶和 152,982 + 60,904 − 1,735 − 61 == 212,090 == `deltaBytes`。
-  wiringBytes: 68_971,
+  // 〖V5-2 R1/R2/reviewfix 修复轮 + 收口轮〗接线桶按各轮 sidepanel.ts 归因前移；
+  // 桶和 = newRequiredModuleBytes 176,089 + wiringBytes 68,885 + 0 + 1,865 == 246,839 == `deltaBytes`。
+  wiringBytes: 68_885,
   attributionShiftBytes: 0,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
@@ -1779,6 +1842,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     // 〖V5-2 R2（TASK-V5-138~152）〗最新一轮 = 本组。
     v52R2Rows: 'v5-2-r2',
     v52ReviewfixRows: 'v5-2-reviewfix',
+    // 〖V5-2 收口轮（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）〗最新一轮 = 本组（首个净减轮）。
+    v52CloseoutRows: 'v5-2-closeout',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -1983,6 +2048,18 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   /** 〖V5-2 review R1 修复轮〗未归因胶水 = 35 B（esbuild 分账噪声，<0.01% 输出）。 */
   v52ReviewfixUnattributedGlueBytes: 35,
   /**
+   * 〖V5-2 **收口轮**（2026-09-22，validate R1 的 N-01 + N-04~N-09 / KL-N-10 登记）〗
+   * **最新一轮**的逐模块增量（review 修复轮树 542,150 → 收口轮树 **542,064**，真实 metafile 同几何）：
+   * 唯一事实 = `sidepanel.ts` 93,773 → **93,687 B**（**−86 B**：`permRequest` 不再自己
+   * `dispatch` 一条失败 notice —— 管线 settle 是 `op.perm.request` 失败行的唯一写者，N-01）；
+   * Σ 模块 **−86** + 未归因胶水 **0** == 登记增量 **−86**。**首个净减轮**（`direction: 'lowered'`）。
+   */
+  v52CloseoutRows: [
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 93_773, afterBytes: 93_687, deltaBytes: -86 },
+  ] as const,
+  /** 〖V5-2 收口轮〗未归因胶水 = 0 B（单模块，Δ 逐字节相等）。 */
+  v52CloseoutUnattributedGlueBytes: 0,
+  /**
    * 〖V4-4 审查修复轮（2026-09-19，review R1 BLOCK-01~03 + I-01~I-08）〗未归因胶水 = 圆整残差 40 B
    * （本轮登记增量 12,886 − Σ逐模块 12,846；esbuild 分账噪声，<0.01% 输出）。
    * 〖I-10（v4-4 快修轮）〗原文写「12,723 − 12,683」—— 两个数字都与登记字段/实测不符（登记字段
@@ -1991,7 +2068,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    */
   v44ReviewfixUnattributedGlueBytes: 40,
   rows: [
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 93773, deltaBytes: 48928, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033' },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 93687, deltaBytes: 48842, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033；〖V5-2 收口轮〗删去 `permRequest` 的重复 notice 写者 −86 B' },
     { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17647, deltaBytes: 13344, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \'state\'`/`case \'notice\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },
     { module: 'src/ui/sidepanel/l1/panels.ts', beforeBytes: null, afterBytes: 9414, deltaBytes: 9414, kind: 'new-required-module', requiredBy: 'FR-V3-031/032/037/038/039（八类就地展开、后果两段、阻断呈现、两条恢复、回执三件套）+ FR-V3-070（手势表由单一清单渲染）+ R3（条件式「一键重锚」按钮 + `canReanchor()` 纯判据 + 报告）' },
     { module: 'src/ui/sidepanel/host-registry.ts', beforeBytes: null, afterBytes: 9273, deltaBytes: 9273, kind: 'new-required-module', requiredBy: 'V4-4 review 修复轮 BLOCK-02（结构宿主注册表 + 唯一判据 evaluateHostRegistry：登记集合 == 实存宿主集合 / transitional 恒 false / [data-transitional-host] 计数 0 / 已退役容器 DOM 零残留）· ADR-V4-005 §6 / ADR-V4-040 §3 · FR-CHAT-054' },
@@ -2730,9 +2807,12 @@ export interface DisclosureViolation {
  * (v3-x and earlier) expose no canonical tuple ⇒ nothing to check (this is a coverage
  * statement, not a relaxation: **within** the clause nothing is allowed to disagree).
  * `*` is stripped first so the emphasised form (`**478,163 B**`) is still machine-readable.
+ * 〖V5-2 收口轮〗因本轮是**首个显式净减轮**（`direction: 'lowered'`，Δ = −86 B），元组的
+ * **符号**必须进入捕获组：`Δ` / `P` 现在都是**带符号数**（`[+\-]?…`），正向轮次逐字不变
+ * （`+6,329` / `+1.18%` 仍解析为 `6,329` / `1.18`），净减轮解析为 `-86` / `-0.02`。
  */
 export const RE_REGISTRATION_DISCLOSURE_PATTERN =
-  /([\d,]+)\s*→\s*([\d,]+)\s*B\s*[（(]\s*[+\-]([\d,]+)\s*B\s*[，,]\s*[+\-]?(\d+(?:\.\d+)?)\s*%\s*[）)]/g;
+  /([\d,]+)\s*→\s*([\d,]+)\s*B\s*[（(]\s*([+\-]?[\d,]+)\s*B\s*[，,]\s*([+\-]?\d+(?:\.\d+)?)\s*%\s*[）)]/g;
 
 const parseDisclosureNumber = (text: string): number => Number(text.replace(/,/g, ''));
 
@@ -2790,8 +2870,16 @@ export function validateReRegistrationDisclosure(
     if (r.buildCommand.trim().length === 0) push('buildCommand', 'buildCommand 必填');
     if (r.measuredBy.trim().length === 0) push('measuredBy', 'measuredBy 必填');
     if (r.reason.trim().length < 20) push('reason', '理由必填且非套话（≥20 字符）');
-    if (!(r.baselineAfterBytes > r.baselineBeforeBytes)) {
-      push('baseline', '必须显式增重：baselineAfterBytes > baselineBeforeBytes');
+    const delta = r.baselineAfterBytes - r.baselineBeforeBytes;
+    if (delta > 0) {
+      if (r.direction === 'lowered') push('baseline', '基线增重但 direction="lowered"（声明与算术矛盾）');
+    } else if (delta < 0) {
+      // 〖V5-2 收口轮〗**显式净减轮**（validate R1 N-01：删掉 op.perm.request 的重复失败行写者）。
+      // 允许净减，但**必须**显式声明 `direction: 'lowered'`：静默下调仍违规；方向与 Δ 的双向
+      // 机核由 `reRegistrationDirectionProblems()` 承担（`lowered` ⇒ Δ<0）。
+      if (r.direction !== 'lowered') push('baseline', '净减轮必须显式声明 direction="lowered"（不得静默下调）');
+    } else {
+      if (r.direction !== 'unchanged') push('baseline', '零字节轮必须显式声明 direction="unchanged"');
     }
     for (const problem of disclosureArithmeticProblems(r.reason, {
       beforeBytes: r.baselineBeforeBytes,

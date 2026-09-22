@@ -453,3 +453,105 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v3.0 | review R1 修复轮：BLOCK-01~03 全修（含两段证伪）+ I 项 15/15 处置 + 体积第三轮五要素重登记（542,150 B，档位/绝对上限不变）+ 台账/基线/ADR/父 state 同步 | 2026-09-22 | SDDU Build Agent |
+
+---
+
+# 构建报告 **收口轮**：validate R1 的 N-01 落地 + N-04~N-09 / KL-N-10 登记
+
+> **版本**: v4.0（收口轮）
+> **更新时间**: 2026-09-22
+> **输入**: 本叶 `validate-report.md` R1（✅ 通过 / 0 阻塞 / 9 Vx 全绿；F-01·F-02 闭环（零字节）；**N-01 转登记**（实测 −86 B 产物变更）/ N-04~N-09 + KL-N-10 低危）
+> **收口基线 HEAD**: `8bdad1e`（validate 产物提交）
+> **更新说明**: **N-01 落地**（`op.perm.request` 拒绝路径失败行去重 —— 管线 settle 成为唯一写者）+ **五要素体积重登记六文件**（`542,150 → 542,064 B`，**−86 B**，本 Feature 首个 **net-lowered** 轮；档位 563,200 / 绝对上限 619,520 不变，生效上限 → **569,167**）+ N-04~N-09 / KL-N-10 登记。
+
+## C-1. 收口概要
+
+| 维度 | 数值 |
+|------|:--:|
+| 处置项 | validate R1 的 **N-01（落地）** + **N-04~N-09 / KL-N-10（登记）** |
+| 产品改动 | **1 处删行**：`src/ui/sidepanel/sidepanel.ts#permRequest`（−86 B） |
+| 新增守卫 | `test/authorize-chip-wiring.test.ts` 现有用例内 **②d 静态回归断言 + 反证**（**不新增 `test(` 注册** ⇒ node 计数不变） |
+| 体积 | `dist/sidepanel.js` **542,150 → 542,064 B**（**Δ = −86 B**，首个净减轮） |
+| 体积三值 | 档位 `ceilTo50KB(542,064) = 563,200` / 绝对上限 `563,200 × 1.10 = 619,520` / 生效上限 `min(619,520, floor(542,064 × 1.05) = 569,167) = **569,167**` |
+| 红线冻结面 | `content.js` 177,076 B / `52a82620…`、`pick-layer.js` 33,900 B / `5f567d7e…` **逐字节不变** |
+| 保护段 | `test/ui/binding.mjs[107780..115930]` sha `be9ad0e9…` **命中** ∧ `binding.mjs` 对 leafBase **零 diff** |
+| 门禁（串行） | `npm test` **1172 / 0** · size 三门禁 **45 / 0** · `test:density` **232 / 0**（542,064 ≤ 569,167） · `test:binding` **192 / PASS** |
+
+## C-2. N-01 修法 + 证伪（原文）
+
+**问题**（validate R1 §6 N-01）：`op.perm.request` **拒绝路径**同一失败事实行**写 2 行** —— 面板 hook `sidepanel.ts#permRequest` 与管线结算 `pipeline.ts#defaultSettle('failed')` 各写一次（探针实测 `notices=[拒绝文案, 拒绝文案, NEXT:…]`）。
+
+**修法**（管线 settle 为**唯一写者**）：
+
+```diff
+ async function permRequest(ids: readonly string[]): Promise<OpOutcome> {
+   const out = await buildOpBodies().permRequest(ids);
+   if (out.ok) observedBlocked.delete(PERM_BLOCKED_RISK);
+   else await noteMissingCapabilityFact();
+-  // 双固化：拒绝路径的**具体事实**（未授予哪些 / 回收须你在浏览器确认）由本行承载。
+-  if (!out.ok && out.receipt) dispatch({ type: 'notice', text: out.receipt.text });
++  // 双固化：拒绝路径的**具体事实**由**管线结算**承载（settle 为唯一写者），hook 只维护 observedBlocked。
+   return out;
+ }
+```
+
+文案**不变**：`defaultSettle('failed')` 走 `opReceiptText(op, out)`，而 `opReceiptText` 优先取 `out.receipt?.text`（与删去的那行同一个 `out.receipt.text`）⇒ 事实语义、可读文案逐字保持，只是**写者从 2 个收敛为 1 个**。
+
+**证伪**（非恒真）：
+
+- **静态回归守卫**（`test/authorize-chip-wiring.test.ts`，`V5-2 TASK-V5-148 ①~④` 用例内新增 **②d**）：断言 `permRequest` 函数体**不含** `dispatch({ type: 'notice'`；并**反证**「把 self-dispatch 加回去 ⇒ 同一判据必红」（实测可红）。
+- **原 validate 探针**（`/tmp/opencode/v5-2-validate/probe-n01.mjs`）：复现形态 **2 行** → 修后由 settle **唯一写出 1 行** + `NEXT:…`（settle 随后 `panelReachableNext('failed')`）。
+
+## C-3. 五要素体积重登记（六文件）
+
+**五要素**：① 前值 **542,150 B**；② 后值（**实测产物**）**542,064 B**（**−86 B，−0.02%**）；③ 日期 2026-09-22 / 来源 `packages/web-cli-plugin/dist/sidepanel.js`（`npm run build --workspace @lgdl/web-cli-plugin`）；④ 理由 = N-01（删去重复失败行写者）；⑤ 历史值逐字保留于 `SIDEPANEL_BASELINE_BYTES_TIMELINE` + `SIDEPANEL_RE_REGISTRATIONS['v5-2-closeout']`。
+
+**逐模块归因**（真实 `dist/build-meta.json` bytesInOutput）：`sidepanel.ts` **93,773 → 93,687 = −86 B**（唯一模块移动；Σ −86 + glue 0 == 登记增量 −86，见 `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`）。
+
+**方向 = `lowered`**（`roundKind: 'registry-fidelity-round'`）：本 Feature **首个净减轮** —— `reRegistrationDirectionProblems()` 双向机核（`lowered` ⇒ Δ<0）；`validateReRegistrationDisclosure()` 的「必须增重」判据改为**方向化**（净减轮必须**显式声明** `direction: 'lowered'`，静默下调仍红）。
+
+**六文件清单**（validate §6 指定）：
+
+| # | 文件 | 改动 |
+|:--:|------|------|
+| ① | `test/size-baseline.ts` | `SIDEPANEL_BASELINE_BYTES` / `FINAL_ARTIFACT_BYTES` 542,150→**542,064** · `SIDEPANEL_CEILING` 569,257→**569,167** · `_TIMELINE` 追加 · `RE_REGISTRATIONS['v5-2-closeout']`（`lowered`）· `GROWTH_BREAKDOWN` 累计 `deltaBytes` 246,925→**246,839** / `wiringBytes` 68,971→**68,885** / `rows` sidepanel 行 / 新增 `v52CloseoutRows`+glue · 披露正则支持**带符号**元组 · 披露判定方向化 |
+| ② | `test/size-budget.test.ts` | 3 处 ceiling + 1 处 baseline + `SIDEPANEL_CEILING_UNCAPPED` 分母（542,150→542,064 / 569,257→569,167） |
+| ③ | `test/size-ruling-vol3.test.ts` | `FINAL_ARTIFACT_BYTES` / 生效上限 / 基线 pin + min() 边界 |
+| ④ | `test/size-growth-evidence.test.ts` | 累计 Δ 246,925→246,839 · **最新一轮 rows 重指向 `v52CloseoutRows`** · `closeoutDeltaBytes` 语义随轮次前移 · round-row group 19→**20** · 披露方向断言方向化 |
+| ⑤ | `docs/v4-density-baseline.json` | `volume.registeredBaselineBytes` 542,150→**542,064** / `ceilingBytes` 569,257→**569,167** + `v52CloseoutNote` |
+| ⑥ | `docs/v4-supersession-ledger.json` | 新增 `modifiedRanges#V52C-MR-v5-2-closeout` · `v3Vol3Closeout.⑤三值闭合.newBaselineBytes` 同源前移 + `v52CloseoutReRegistration` 注 · **41 条 `entries` 的 live `newTitle` 重指向**（数值 pin 前移；`oldTitle` 历史逐字保留）· v5-2 叶段逐字登记**补录**（`registeredUncoveredLines` / `summary.registeredLines` 150 → **166**） |
+
+## C-4. 门禁串行复跑（日志 `/tmp/opencode/v4-gate-logs/v5-2-closeout/`）
+
+| 门禁 | 基线 | 本轮 | 判定 |
+|------|:--:|:--:|:--:|
+| `npm test`（tsc + node --test） | 1,172 / 0 | **1,172 / 0**（EXIT=0） | ✅ 计数不变（断言只增：②d；无 `test(` 新增） |
+| `size-budget` + `size-growth-evidence` + `size-ruling-vol3` | 45 / 0 | **45 / 0**（EXIT=0） | ✅ 三值同源：542,064 / 569,167 / 563,200 / 619,520 |
+| `test:density`（Chromium） | 232 / 0 | **232 / 0** | ✅ `产物 542,064 B ≤ 上限 569,167 B` |
+| `test:binding`（Chromium） | 192 | **192 / PASS** | ✅ 保护段 `be9ad0e9…` 逐字节不变（首两轮 **KL-N-10** 环境性 flake → 复跑 PASS） |
+| `npm run build` | exit 0 | **exit 0** | ✅ `content.js` 177,076 / `pick-layer.js` 33,900 逐字节可复现 |
+| 红线 / 保护段 / 冻结面 | — | **逐字节 / 零 diff** | ✅ |
+
+## C-5. 登记（不静默，+0 字节）
+
+| # | 项 | 状态 | owner |
+|:--:|------|------|------|
+| **N-04** | `options.ts#bindPanelOps` 无 `snapshotTables`/`restoreTables` ⇒ options 面失败回滚 no-op（单 sink 原子写，无半完成态） | **维持登记**（口径项非缺陷） | options 面 / v5-3 视需要 |
+| **N-05** | `op-bodies.ts#revoke('permission')` 多能力撤销中途失败 ⇒ permission 表只能 reconcile（Chrome 仅手势可授） | **维持登记**（本轮「仍持有」如实失败） | 平台限制口径 |
+| **N-06** | `op-executors.ts#execSwOp` 的 `op.perm.request` commit **只校验 `permission` 字段存在性**（`ghost-cap` ⇒ `ok:true`）；在册判据在页侧 ⇒ `op-protocol.ts` docstring 强于实现 | **登记 + 建议并入后续安全小项** | v5-3 / 安全小项 |
+| **N-07** | `service-worker.ts#onMessage` 对**任何** kind 无发送方校验 ⇒ `op-exec` 与 legacy `authorize` 同等可伪造（I-08 口径，非新增边界） | **登记 + 建议并入后续安全小项** | v5-3 / 安全小项 |
+| **N-08** | `src/ui/settings/panel.ts:786#requestCapability` 第二手势入口（pre-existing，对 `8526ef8` 零 diff；范围外） | **登记**（建议 v5-3 统一） | v5-3 / 后续波次 |
+| **N-09** | S2 样本恢复态 ⑩ 拍产出 `act='next'`（→`op.turn`）chip 而非字面 `op.pick`（口径如实） | **登记**（判据口径 =「可行动的 next ∧ opId 已注册」） | 口径 |
+| **KL-N-10** | `test:binding` 环境性 flake（残留 headless Chromium 争用 → `#6l` / `CDP socket not open`） | **复跑闭环登记**（清理残留进程后 **192/0 PASS**） | 环境 |
+
+## C-6. 收口结论
+
+- **N-01 闭环**：修法 = 一处删行；证伪 = 静态守卫（可红）+ validate 探针（2 行 → 1 行）；体积后果按五要素**六文件**重登记，档位 / 绝对上限不变、生效上限**更紧**（569,257 → 569,167）。
+- **门禁全绿且可复现**：`npm test 1172/0` · size 三门禁 `45/0` · `density 232/0` · `binding 192/PASS`（KL-N-10 复跑）；红线 / 保护段 / 冻结面逐字节或零 diff。
+- **登记齐备**：N-04~N-09 + KL-N-10（+0 字节）；**唯一产品改动 = `sidepanel.ts` 一处删行**。
+
+## 修订记录（收口轮）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v4.0 | **收口轮**：N-01 落地（`permRequest` 去重，管线 settle 唯一写者；静态守卫 + 反证）+ 五要素体积重登记六文件（542,150 → 542,064 B，−86 B，首个 net-lowered 轮；档位/绝对上限不变，生效上限 → 569,167）+ N-04~N-09 / KL-N-10 登记；门禁串行复跑全绿 | 2026-09-22 | SDDU Build Agent |

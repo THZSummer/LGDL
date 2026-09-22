@@ -128,6 +128,26 @@ test('V5-2 TASK-V5-148 ①~④：特权 op 等价重锚（SW 零 .request( ∧ �
     '②b 能力权限请求恰 1 处（permRequest 内）',
   );
   assert.match(SIDEPANEL, /async function permRequest\(/, '②c 能力权限请求必须在 op.perm.request 的执行体内');
+  // ②d 〖V5-2 收口轮 / validate R1 **N-01**〗`op.perm.request` 拒绝路径的失败行**恰一个写者**：
+  //    管线结算（`pipeline.ts#defaultSettle('failed')` → `opReceiptText(op, out)`）是唯一写者；
+  //    面板 hook `permRequest` **不得**再自己 `dispatch` 一条 notice（那曾让同一失败回执写 2 行）。
+  const permFn = (() => {
+    const at = SIDEPANEL.indexOf('async function permRequest(');
+    if (at < 0) return null;
+    const end = SIDEPANEL.indexOf('\n}', at);
+    return end < 0 ? SIDEPANEL.slice(at) : SIDEPANEL.slice(at, end);
+  })();
+  assert.ok(permFn, '②d 必须能定位 `permRequest` 函数体（判据不得空转）');
+  assert.equal(
+    /dispatch\s*\(\s*\{\s*type:\s*'notice'/.test(permFn as string),
+    false,
+    '②d N-01：管线 settle 是失败行的唯一写者 —— `permRequest` 不得再 self-dispatch notice（否则同一事实写 2 行）',
+  );
+  assert.equal(
+    /dispatch\s*\(\s*\{\s*type:\s*'notice'/.test(`${permFn}\n  dispatch({ type: 'notice', text: 'x' });`),
+    true,
+    '②d 反证：把 self-dispatch 加回去 ⇒ 同一判据必红（判据非恒真）',
+  );
   // ③ op-exec 族 **type-only**：三个 kind 只作 union 成员，**运行期 `KIND_SET` 零新增**
   //    （`KIND_SET` 会被 `content.js` 打包 ⇒ 增一个即红线破）。
   const messaging = readFileSync(join(PKG, 'src/background/messaging.ts'), 'utf8');

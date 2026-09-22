@@ -38,7 +38,8 @@ specs-tree-v5-2-ops-first-batch/
 |------|-----|
 | Feature ID | N/A |
 | Phase | 验证完成 (7/7) |
-| Status | ✅ 已完成 |
+| Status | ✅ 已完成（validated + **收口完成** 2026-09-22） |
+| 收口轮 | N-01 落地（`op.perm.request` 拒绝路径去重，管线 settle 唯一写者；`sidepanel.js` 542,150 → **542,064 B**，−86 B，首个 net-lowered 轮；生效上限 → 569,167）+ N-04~N-09 / KL-N-10 登记；门禁 `npm test` 1172/0 · size 45/0 · density 232/0 · binding 192 PASS |
 
 ## 上级目录
 - [返回上级](../TREE.md)

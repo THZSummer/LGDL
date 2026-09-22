@@ -1445,8 +1445,10 @@ async function permRequest(ids: readonly string[]): Promise<OpOutcome> {
   const out = await buildOpBodies().permRequest(ids);
   if (out.ok) observedBlocked.delete(PERM_BLOCKED_RISK);
   else await noteMissingCapabilityFact();
-  // 双固化：拒绝路径的**具体事实**（未授予哪些 / 回收须你在浏览器确认）由本行承载。
-  if (!out.ok && out.receipt) dispatch({ type: 'notice', text: out.receipt.text });
+  // 双固化：拒绝路径的**具体事实**（未授予哪些 / 回收须你在浏览器确认）由**管线结算**
+  // （`pipeline.ts#defaultSettle('failed')` → `opReceiptText(op, out)`，取 `out.receipt.text`）
+  // 承载 —— 本 hook 只负责 `observedBlocked` 事实源，**不再**自己 `dispatch` 一行
+  // （validate R1 **N-01**：两条写者会让同一失败回执出现 2 行；settle 为唯一写者）。
   return out;
 }
 
