@@ -7,22 +7,24 @@
 ```
 specs-tree-v55-3-ai-driven-orchestration/
 ├── TREE.md          # 本文件 - 目录导航
+├── plan.md          # 技术计划：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
 ├── spec.md          # Feature Specification：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
-└── state.json          # 状态文件 (🟢 tracked [specified])
+└── state.json          # 状态文件 (🟢 tracked [planned])
 ```
 
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
+| plan.md | 技术计划：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 技术计划：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 本叶 = v5.5 的**末叶 / 收口叶**，交付作者主题② 的完整形态：**「已配置 LLM 时：让 AI 来启动整个 chat/next」**。关键... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [specified] |
+| state.json | 状态文件 | 🟢 tracked [planned] |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 规范 (2/7) |
-| Status | 🟢 tracked [specified] |
+| Phase | 设计 (3/7) |
+| Status | 🟢 tracked [planned] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

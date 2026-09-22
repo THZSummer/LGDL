@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-1-driver-layer",
   "version": "v5.5.0",
   "name": "V5.5-1 驱动者层 + 法七扩展底座——驱动者注册表化（四元组机核 + driverClass）+ 时机源扩张（'answered'）+ ref-action 抑制重锚 + 驱动者终态词汇（已答 ask 三型 / 已交描述）+ applyRefAction 驱动化 + commandSends 消费面登记 + submitDescribe 补齐 + 后台 ask 迟到作答非死端 + 死端守护门禁扩张（双向反证）+ S0 全链机器化",
-  "phase": "specified",
+  "phase": "planned",
   "status": "tracked",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -40,20 +40,80 @@
   "artifacts": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/spec.md",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md"
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/discovery.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/plan.md",
+    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md",
+    "adr": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-001-driver-registry-timing-source.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-002-answered-timing-and-refaction-reanchor.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-003-driver-terminal-vocabulary-law7x.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-004-answer-driven-suspension.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-005-s0-self-driven-chain-machine.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-006-llm-configured-predicate-runchat-pregate.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-007-deterministic-onboarding-flow-resume.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-008-op-three-tier-partition.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-009-proactivity-guard-trio-and-killswitch.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-010-concurrency-arbitration.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-011-volume-budget-and-tier-crossing.md",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-012-supersession-ledger-and-leafs.md"
+    ]
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/TREE.md"
   ],
-  "coversIssues": ["Q-SELF-001", "Q-SELF-002", "Q-SELF-004", "Q-SELF-005", "Q-SELF-006", "Q-SELF-009", "Q-SELF-011"],
-  "coversGaps": ["GAP-SELF-01", "GAP-SELF-02", "GAP-SELF-03", "GAP-SELF-04", "GAP-SELF-05", "GAP-SELF-06"],
-  "coversRisks": ["R-SELF-002", "R-SELF-003", "R-SELF-007", "R-SELF-008", "R-SELF-901", "R-SELF-902", "R-SELF-903", "R-SELF-904", "R-SELF-908"],
-  "coversSuperSede": ["X-SELF-1(未发生取代·如实登记)", "X-SELF-2", "X-SELF-4", "X-SELF-5", "X-SELF-6"],
+  "coversIssues": [
+    "Q-SELF-001",
+    "Q-SELF-002",
+    "Q-SELF-004",
+    "Q-SELF-005",
+    "Q-SELF-006",
+    "Q-SELF-009",
+    "Q-SELF-011"
+  ],
+  "coversGaps": [
+    "GAP-SELF-01",
+    "GAP-SELF-02",
+    "GAP-SELF-03",
+    "GAP-SELF-04",
+    "GAP-SELF-05",
+    "GAP-SELF-06"
+  ],
+  "coversRisks": [
+    "R-SELF-002",
+    "R-SELF-003",
+    "R-SELF-007",
+    "R-SELF-008",
+    "R-SELF-901",
+    "R-SELF-902",
+    "R-SELF-903",
+    "R-SELF-904",
+    "R-SELF-908"
+  ],
+  "coversSuperSede": [
+    "X-SELF-1(未发生取代·如实登记)",
+    "X-SELF-2",
+    "X-SELF-4",
+    "X-SELF-5",
+    "X-SELF-6"
+  ],
   "specCounts": {
     "carriedParentFR": 40,
-    "parentACAnchors": ["AC-SELF-001", "AC-SELF-002", "AC-SELF-003", "AC-SELF-004", "AC-SELF-009", "AC-SELF-010", "AC-SELF-011", "AC-SELF-015", "AC-SELF-016", "AC-SELF-017", "AC-SELF-020", "AC-SELF-026"],
+    "parentACAnchors": [
+      "AC-SELF-001",
+      "AC-SELF-002",
+      "AC-SELF-003",
+      "AC-SELF-004",
+      "AC-SELF-009",
+      "AC-SELF-010",
+      "AC-SELF-011",
+      "AC-SELF-015",
+      "AC-SELF-016",
+      "AC-SELF-017",
+      "AC-SELF-020",
+      "AC-SELF-026"
+    ],
     "leafGoals": 6,
     "leafNonGoals": 7
   },
@@ -67,5 +127,13 @@
     "本叶体积五要素（本叶增量）——禁止在预算未评估前排全量落地",
     "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。"
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。首叶 / P0 / 依赖链起点。权威条文见父 ../spec.md（§5.2 DRIVE / §5.3 LAW7X / §5.4 TIMING / §5.9 SUPERSEDE 的 X-SELF-1·2·4·5·6 / §5.10 GATE / §5.12 S0）。本叶不落地主题①②。下游 = specs-tree-v55-2-deterministic-onboarding（依赖本叶的时机源 / 终态词汇 / 驱动者四元组 / 悬置任务入口）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-1-driver-layer/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。",
+  "phaseHistory": [
+    {
+      "phase": "planned",
+      "agent": "sddu-plan",
+      "at": "2026-09-22",
+      "artifact": "specs-tree-v55-1-driver-layer/plan.md v1.0"
+    }
+  ]
 }
