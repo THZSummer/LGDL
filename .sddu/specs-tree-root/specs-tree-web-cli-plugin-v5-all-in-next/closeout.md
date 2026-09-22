@@ -36,7 +36,7 @@
 
 > **任务总量**：22 + 30 + 24 = **76 任务 / 19 波**（S×5 · M×45 · L×26）；叶间严格串行 `v5-1 → v5-2 → v5-3`（ADR-V5-012）；4 个 spikeGate（SG-1~SG-4）；每叶收尾**全门禁必须绿**。父 = 轻量规范容器（`phase=tasked` / `workflow=4.tasks` / `agent=sddu-tasks`，**不承接 build/review/validate、不产出 tasks.json**）。
 
-> **抽查 3 个数字与源核对（本轮）**：① `npm test` **1181** ↔ 三叶产物（v5-1 `1130` → v5-2 `1172` → v5-3 validate-report §3.1 独立复跑 **1181**）**一致**；② `sidepanel.js` **547,558 B** ↔ 源 `packages/web-cli-plugin/test/size-baseline.ts` 现行基线（v5-3 review 修复轮五要素登记后值）**一致**（本轮 `git diff` 对 `test/**` 零改动，未移动该锚）；③ **档位 563,200** ↔ 源 `V3_VOL3_TIER_BYTES` / `PENDING_ABSOLUTE_CAP.absoluteCeilingBytes = round(563,200 × 1.10) = 619,520`（档位显式升档后派生）**一致**。
+> **抽查 3 个数字与源核对（本轮）**：① `npm test` **1181** ↔ 三叶产物（v5-1 `1130` → v5-2 `1172` → v5-3 validate-report §3.1 独立复跑 **1181**）**一致**；② `sidepanel.js` **547,558 B** ↔ 源 `packages/web-cli-plugin/test/size-baseline.ts:329 SIDEPANEL_BASELINE_BYTES = 547_558`（v5-3 review 修复轮五要素登记后值）**一致**（本轮 `git diff` 对 `test/**` 零改动，未移动该锚）；③ **档位 563,200 / 绝对上限 619,520** ↔ 源 `size-baseline.ts#SIDEPANEL_TIER_BYTES = ceilTo50KB(547,558) = 563,200` + `PENDING_ABSOLUTE_CAP.absoluteCeilingBytes = Math.round(SIDEPANEL_TIER_BYTES × ABSOLUTE_CAP_MARGIN(1.1)) = 619,520`（档位显式升档后派生；**历史闭合三值 465,000 / 512,000 / 563,200 逐字保留于 `V3_VOL3_*`，未被改写**）**一致**。
 
 ---
 
