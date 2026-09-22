@@ -237,7 +237,7 @@ async function main() {
     check('④ DOM value + 全部属性（逐项）零命中', f4.hits.length === 0, JSON.stringify(f4.hits));
     const fact = await evaluate(
       cdp,
-      `(() => { const t = document.getElementById('stream').textContent; return JSON.stringify({ mask: t.includes('\u2022\u2022\u2022\u2022\u2022\u2022'), cat: /8[+-]/.test(t), zero: t.includes('零明文') }); })()`,
+      `(() => { const t = document.getElementById('stream').textContent; return JSON.stringify({ mask: t.includes('\u63A9\u7801'), cat: /8[+-]/.test(t), zero: t.includes('\u96F6\u660E\u6587') }); })()`,
     ).then((r) => JSON.parse(r));
     check('④ 掩码写入的**事实**可读：固化区含「掩码 · 零明文」+ 长度类别（值零出现）', fact.mask === true && fact.zero === true && fact.cat === true, JSON.stringify(fact));
     check(
