@@ -352,3 +352,31 @@ test('v4-2 helpers: liveCardIds / lastOpenCardId / formatClock', () => {
   assert.equal(formatClock(new Date(2026, 0, 1, 9, 5, 7).getTime()), '09:05:07');
   assert.match(formatClock(Date.now()), /^\d{2}:\d{2}:\d{2}$/);
 });
+
+// ── V5-3 TASK-V5-156/157/158 (ADR-V5-002 §3 · FR-ALLN-012) ───────────────────
+
+test('V5-3 `error.payload.recovery`：出生铸造面流经 reduce/render 不被裁剪（缺省 ⇒ 零回归）', () => {
+  const recovery = Object.freeze([Object.freeze({ text: '授权当前站点', opId: 'op.authorize' })]);
+  let s = createStreamState('s1');
+  s = appendEvent(s, { kind: 'error', ts: 7, cardId: 'e1', payload: { text: '✖ 未授权站点', recovery } });
+  const [card] = project(s).filter((v) => v.kind === 'error');
+  assert.deepEqual(card.payload.recovery, [{ text: '授权当前站点', opId: 'op.authorize' }], 'recovery 必须在卡片 payload 上原样可见（出生铸造面）');
+  // 缺省 ⇒ payload 上根本没有该字段（渲染零变化，回滚 = 不传）。
+  let bare = createStreamState('s1');
+  bare = appendEvent(bare, { kind: 'error', ts: 7, cardId: 'e2', payload: { text: '✖ 一般错误' } });
+  const [bareCard] = project(bare).filter((v) => v.kind === 'error');
+  assert.equal('recovery' in bareCard.payload, false, '非阻塞类 error 不得带 recovery 字段');
+});
+
+test('V5-3 出生冻结不破：error 卡出生后再追加事件也不能补上 / 改写 recovery（append-only）', () => {
+  let s = createStreamState('s1');
+  s = appendEvent(s, { kind: 'error', ts: 7, cardId: 'e1', payload: { text: '✖ 阻塞' } });
+  const born = project(s).find((v) => v.kind === 'error');
+  assert.ok(born, '前置：error 卡必须存在');
+  assert.equal('recovery' in born.payload, false, '前置：出生时无 recovery');
+  // 事后追加同 cardId 的事件：error 属 BORN_FROZEN_KINDS ⇒ payload 不再折叠（无法事后 patch 出恢复区）。
+  s = appendEvent(s, { kind: 'error', ts: 8, cardId: 'e1', payload: { text: '✖ 阻塞', recovery: [{ text: 'x', opId: 'op.help' }] } });
+  const after = project(s).find((v) => v.kind === 'error');
+  assert.ok(after, 'error 卡必须仍在');
+  assert.equal('recovery' in after.payload, false, '出生后不得出现 recovery（无 patch 路径）');
+});

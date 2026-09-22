@@ -32,6 +32,22 @@ export const RISK_CLASSES: readonly RiskClass[] = Object.freeze([
   'staleRef',
 ]);
 
+// V5-3 TASK-V5-165 (ADR-V5-006 §2③): the rail's own subset — the auth state is a *state*,
+// not a risk; it lives in `#auth-state`. RISK_CLASSES stays the 5-value derivation source.
+export const RAIL_RISK_CLASSES: readonly RiskClass[] = Object.freeze([
+  'probing',
+  'hardline',
+  'confirm',
+  'staleRef',
+]);
+
+// V5-3 TASK-V5-164/165 (ADR-V5-006 §1/§2③, FR-ALLN-085): the two auth states — the ONE
+// declaration of the chip copy (the four-word scan expects exactly this one hit).
+export const AUTH_STATES: Readonly<Record<'yellow' | 'green', string>> = Object.freeze({
+  yellow: '未授权 · 零注入',
+  green: '已授权 · supported',
+});
+
 /** Readable copy per class — text + badge + icon (three channels, AC-V3-008). */
 export const RISK_COPY: Readonly<Record<RiskClass, { text: string; badge: string; icon: string }>> = Object.freeze({
   unauthorized: Object.freeze({
@@ -217,7 +233,9 @@ export function renderRiskRail(
   if (!rail) throw new RiskRowError('renderRiskRail: #risk-rail 不存在（风险位必须常驻）');
   const shell = doc.getElementById('risk-chips');
   const detail = doc.getElementById('risk-detail');
-  const uniq = RISK_CLASSES.filter((c) => active.includes(c));
+  // V5-3 TASK-V5-165 (ADR-V5-006 §2③): the rail carries the FOUR non-auth classes only
+  // — the authorization state is the status bar chip's job (one carrier, zero double write).
+  const uniq = RAIL_RISK_CLASSES.filter((c) => active.includes(c));
   const signature = `${uniq.join('|')}::${staleRef?.reason ?? ''}::${probeSteady?.text ?? ''}::${uniq.length === 0 ? 'calm' : 'risk'}`;
   const paint = (): number => {
     // Clear previous rows without innerHTML (no HTML injection surface at all).

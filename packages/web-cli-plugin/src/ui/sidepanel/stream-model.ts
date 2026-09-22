@@ -230,6 +230,16 @@ export interface StreamPayload {
    * `<details>` so its content never counts against the visible density budget.
    */
   readonly refEvidence?: readonly string[];
+  /**
+   * V5-3 TASK-V5-156/157 (ADR-V5-002 §3 · FR-ALLN-012) — the **born recovery face** of a
+   * blocked `error` card: the next chips the card is minted WITH (同一 `createErrorCard`
+   * 调用内完成, never a later patch — `error ∈ BORN_FROZEN_KINDS` stays untouched).
+   *
+   * Optional and additive: absent ⇒ rendering is byte-identical to before (rollback =
+   * simply not passing it). Each entry's `opId` is an already-registered op, so the
+   * rendered `[data-op]` really dispatches (no dead end).
+   */
+  readonly recovery?: readonly { readonly text: string; readonly opId: string }[];
   /** nextstep chips (each chip = a command). */
   readonly chips?: readonly string[];
   /**

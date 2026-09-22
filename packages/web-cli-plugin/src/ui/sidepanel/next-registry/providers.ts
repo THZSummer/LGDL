@@ -11,7 +11,7 @@
  */
 import { RECOVERY_CHIP_ORDER, RECOVERY_CHIP_TEXT, type NextstepAct, type RecoveryTrigger } from '../recommend.js';
 import { ACT_TO_OP } from './dispatch.js';
-import type { NextCtx, NextProvider } from './definition.js';
+import { BLOCKED_TERMINALS, type NextCtx, type NextProvider } from './definition.js';
 import { registerNextProvider } from './registry.js';
 
 /** The 5 P0 recovery providers ↔ their 5 triggers (逐条, registration order = precedence). */
@@ -58,6 +58,17 @@ export const OPS_RECOVERY_ROWS: readonly {
   { blocked: 'perm.missing', risk: PERM_BLOCKED_RISK, op: 'op.perm.request', text: '申请浏览器权限（可选能力）' },
 ]);
 export const OPS_RECOVERY_PROVIDER_IDS: readonly string[] = Object.freeze(OPS_RECOVERY_ROWS.map((r) => r.blocked));
+
+// V5-3 TASK-V5-156 (ADR-V5-002 §3): the born recovery chips of a blocked terminal.
+// Derived from the ONE registry (OPS_RECOVERY_ROWS + RECOVERY_CHIP_ORDER through ACT_TO_OP);
+// keys are BLOCKED_TERMINALS entries, so the single-source scan BT-1 stays green.
+export function blockedRecovery(blocked: string): { readonly text: string; readonly opId: string }[] {
+  const row = OPS_RECOVERY_ROWS.find((r) => r.blocked === blocked);
+  if (row) return [{ text: row.text, opId: row.op }];
+  const t = (['site', '', '', 'hardFloor', 'refInvalid'] as (RecoveryTrigger | '')[])[BLOCKED_TERMINALS.indexOf(blocked as never)];
+  const acts = t ? RECOVERY_CHIP_ORDER[t] : undefined;
+  return acts ? acts.slice(0, 3).map((a) => ({ text: RECOVERY_CHIP_TEXT[a], opId: ACT_TO_OP[a] })) : [];
+}
 
 /** The rule-group ids (the 4 `NEXTSTEP_PRIORITY` rules). */
 export const RULE_PROVIDER_IDS = Object.freeze(['onboarding', 'ref-action', 'capability-discovery']);

@@ -699,6 +699,9 @@ export interface L0OptionView {
 
 /** The derived L0 view (what the DOM must show). */
 export interface L0View {
+  // V5-3 TASK-V5-164 — the authorization fact the status bar's `#auth-state` chip is
+  // written from (`ctxOf(scene).site.authorized`); one derivation, never a second read.
+  authorized: boolean;
   band: {
     origin: string;
     siteName: string;
@@ -821,10 +824,12 @@ export function toolbarDigest(input: {
   sessionLabel?: string;
 }): string {
   const site = input.activeOrigin && input.activeOrigin.trim() ? input.activeOrigin.trim() : '无活跃站点';
-  const auth = input.authorized ? '已授权' : '未授权';
+  // V5-3 TASK-V5-165 (ADR-V5-006 §2①, FR-ALLN-086): the authorization state LEAVES the
+  // toolbar digest — it is now the status bar's `#auth-state` chip (the ONE carrier). The
+  // digest keeps `origin · 会话` only (the `authorized` field stays in the signature shape).
   const session =
     input.sessionLabel && input.sessionLabel.trim() ? input.sessionLabel.trim() : '会话：（无活跃站点）';
-  return `${site} · ${auth} · ${session}`;
+  return `${site} · ${session}`;
 }
 
 /**
@@ -882,6 +887,7 @@ export function l0ViewModel(input: L0Input): L0View {
   };
 
   return {
+    authorized: input.authorized === true,
     band: {
       origin,
       siteName,
@@ -897,7 +903,7 @@ export function l0ViewModel(input: L0Input): L0View {
       // keeps its first-round floor (`LOG_CLIENT_HEIGHT_FLOOR`).
       statusText: !origin
         ? '无活跃站点'
-        : `站点 ${origin} · 发现=${input.discoveryState ?? '未知'} · ${input.authorized ? '已授权' : '未授权'}`,
+        : `站点 ${origin} · 发现=${input.discoveryState ?? '未知'}`,
       policy: `策略：${input.trust === 'trusted' ? 'trusted' : 'untrusted'}`,
       // Compact, but it still carries the v1 `Key ✅ / Key ⚠` marker the existing
       // gates read (`#11b`); the verbose provider/model label is the band's title +

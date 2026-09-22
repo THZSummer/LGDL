@@ -37,7 +37,7 @@ import {
   openSessionSegment,
 } from './stream-model.js';
 import type { AskCancelReason, MaskedLengthCategory, OpenAskEntry, StreamEvent, StreamPayload, StreamState, StreamTerminal } from './stream-model.js';
-import { ASK_COPY, cancelSystemLine, label, plaintextTitle } from './stream-plaintext.js';
+import { ASK_COPY, cancelSystemLine, DIGEST_MASK, label, plaintextTitle } from './stream-plaintext.js';
 import { appendSystem, continuedSystemText, createSystemChannelState, SYSTEM_COPY } from './system-events.js';
 import type { SystemChannelState, SystemEventKind } from './system-events.js';
 
@@ -135,7 +135,7 @@ type SidepanelActionBody =
   | { type: 'assistant'; text: string }
   | { type: 'tool'; text: string; tool?: string; ok?: boolean; ms?: number }
   | { type: 'command'; text: string }
-  | { type: 'error'; text: string }
+  | { type: 'error'; text: string; recovery?: readonly { readonly text: string; readonly opId: string }[] }
   | { type: 'pending'; value: boolean }
   | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; probe?: ProbeState; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
   | { type: 'confirm'; requestId: string; summary: string; risk?: string }
@@ -556,7 +556,16 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
     case 'command':
       return push(state, { kind: 'command', ts: at, payload: { text: action.text } });
     case 'error': {
-      const withError = push(state, { kind: 'error', ts: at, payload: { text: action.text } });
+      // V5-3 TASK-V5-156 (ADR-V5-002 §3): the blocked error's **born recovery face**
+      // rides the payload unchanged — the card is minted WITH it (出生铸造), so the
+      // append-only / no-patch discipline (`error ∈ BORN_FROZEN_KINDS`) is untouched.
+      // The producer derives it from the ONE blocked-terminal enum (`blockedRecovery`);
+      // this reducer only carries the data (never a second judgement).
+      const withError = push(state, {
+        kind: 'error',
+        ts: at,
+        payload: { text: action.text, ...(action.recovery ? { recovery: action.recovery } : {}) },
+      });
       // I-06 (v4-3 review): the turn ended on an error ⇒ `reduceChat` already flipped
       // `pending` to false, so the `case 'pending'` settlement below would never run.
       // The un-settled background ask must still be settled — with its OWN reason
@@ -597,7 +606,8 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
         ...(action.answer !== undefined ? { answer: action.answer } : {}),
         ...(reason ? { cancelReason: reason } : {}),
         // V5-2: the masked card records the FACT (a length), never the value (FR-ALLN-022).
-        ...(action.maskedLength !== undefined ? { maskedLength: action.maskedLength } : {}),
+        // V5-3 TASK-V5-154: a masked write's digest trace is the MASK token only.
+        ...(action.maskedLength !== undefined ? { maskedLength: action.maskedLength, label: DIGEST_MASK } : {}),
       });
       const line = action.canceled ? cancelSystemLine(action.reason ?? 'user') : null;
       if (line) out = systemRow(out, at, line, 'decision');

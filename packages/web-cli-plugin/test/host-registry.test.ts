@@ -35,7 +35,12 @@
  * @module test/host-registry
  */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
+const PKG = fileURLToPath(new URL('../../', import.meta.url));
 
 import {
   REGISTERED_STRUCTURAL_HOSTS,
@@ -68,7 +73,21 @@ export interface ZeroHostReading {
   readonly retiredProofRegistered: Record<string, boolean>;
   /** Does the registry **source text** still carry the dual-write rationale? */
   readonly dualWriteRationaleResidual: boolean;
+  /**
+   * V5-3 TASK-V5-162 — the ids of the **net-new status-bar chrome** found inside the
+   * `#stream` subtree (the caller reads them by id; an empty list is the terminal state).
+   */
+  readonly streamChromeIds?: readonly string[];
 }
+
+/**
+ * V5-3 TASK-V5-162 (ADR-V5-006 §1 · NG-ALLN-016 / N17) — the **net-new chrome** of the
+ * auth chip. It is status-bar chrome: it must carry `data-chrome-control` (so the shipped
+ * `assertChromeNotInStream` covers it by MARK **and** by FORM) and it must never appear
+ * inside the `#stream` subtree. Read by this gate from `index.html` (below) and from the
+ * live reading shape, so「不在流内」is a machine fact, not a layout hope.
+ */
+export const AUTH_CHROME_IDS = Object.freeze(['auth-state', 'auth-detail', 'auth-detail-actions']);
 
 /**
  * The **terminal**（zero-host）judgement — six problem classes (ADR-V45-010 §3).
@@ -107,6 +126,12 @@ export function zeroHostProblems(reading: ZeroHostReading): string[] {
   if (reading.dualWriteRationaleResidual) {
     problems.push('注册表源文本仍含双写理由（ALSO append-recorded）—— 单写契约未收口');
   }
+  // ⑦ V5-3 TASK-V5-162：新增状态栏 chrome 不得进入 `#stream` 子树（零宿主反向判据）。
+  for (const id of reading.streamChromeIds ?? []) {
+    if (AUTH_CHROME_IDS.includes(id)) {
+      problems.push(`#${id} 出现在 #stream 子树 —— 状态栏 chrome 不得进入流内（零宿主反向判据）`);
+    }
+  }
   return problems;
 }
 
@@ -120,6 +145,7 @@ export function cleanZeroHostReading(): ZeroHostReading {
     retiredContainersPresent: [],
     retiredProofRegistered: proofs,
     dualWriteRationaleResidual: false,
+    streamChromeIds: [],
   };
 }
 
@@ -144,6 +170,8 @@ export const JUDGEMENTS: readonly NodeJudgement[] = Object.freeze([
   Object.freeze({ id: 'ZH-6-dual-write', expectFailPattern: '注册表源文本仍含双写理由', status: 'landed' }),
   // W1 预留位：真实 DOM reading 的接入（TASK-V45-111）
   Object.freeze({ id: 'ZH-7-live-dom-reading', expectFailPattern: '零宿主判据失败：任意深度仍存在 li[data-host="strips"]', status: 'landed' }),
+  // V5-3 TASK-V5-162：`#auth-state` / 管理详情 / 分隔条**不在 `#stream` 子树**（逐项断言）。
+  Object.freeze({ id: 'ZH-8-auth-chrome-out-of-stream', expectFailPattern: '出现在 #stream 子树 —— 状态栏 chrome 不得进入流内', status: 'landed' }),
 ]);
 
 /** `true` when at least one judgement of every class produces its declared pattern. */
@@ -303,6 +331,35 @@ const TEST_RETIRED_CONTAINER_IDS = Object.freeze([
 ]);
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * 4b. V5-3 TASK-V5-162 — 零宿主反向判据在 v5-3 改动后仍成立（§auth-state 不在流内）
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test('V5-3 ZH-8 零宿主复核：注册表仍空 ∧ `#auth-state` / 管理详情不在 `#stream` 子树（逐项）', () => {
+  // ① v4.5 的反向判据在 v5-3 改动后仍成立（注册表清空 + 目录扫描仍纳入本文件）。
+  assert.deepEqual([...REGISTERED_STRUCTURAL_HOSTS], [], '登记集合必须仍为空（零宿主是终态）');
+  assert.deepEqual(zeroHostProblems(cleanZeroHostReading()), [], '干净读数必须零问题（判据不得恒红）');
+  // ② `index.html` 的结构断言：三个新 chrome id 必须落在 `#stream` 之外，且带上「流外」标记。
+  const html = readFileSync(join(PKG, 'src/ui/sidepanel/index.html'), 'utf8');
+  const streamStart = html.indexOf('<ol id="stream"');
+  const streamEnd = html.indexOf('</main>', streamStart);
+  assert.ok(streamStart > 0 && streamEnd > streamStart, '前置：`#stream` 与 `</main>` 必须可定位（判据不得空转）');
+  const streamBlock = html.slice(streamStart, streamEnd);
+  for (const id of AUTH_CHROME_IDS) {
+    assert.equal(streamBlock.includes(`id="${id}"`), false, `#${id} 不得位于 #stream 子树（零宿主）`);
+    assert.ok(html.includes(`id="${id}"`), `#${id} 必须存在于 index.html（否则判据空转）`);
+  }
+  assert.ok(html.includes('id="auth-state" type="button" data-auth="yellow" data-chrome-control="statusbar"'), '`#auth-state` 必须带 data-chrome-control="statusbar"（流外标记 + 形态判据）');
+  assert.ok(html.includes('id="auth-detail" hidden'), '管理详情必须默认折叠（hidden ⇒ 不计默认密度）');
+  // ③ 反证：注入「新 chrome 在流内」读数 ⇒ 必红；还原 ⇒ 绿（判据非恒真）。
+  const forged = { ...cleanZeroHostReading(), streamChromeIds: ['auth-state'] };
+  const forgedProblems = zeroHostProblems(forged);
+  assert.ok(patternCovered(forgedProblems, JUDGEMENTS[7].expectFailPattern), JUDGEMENTS[7].expectFailPattern);
+  // 判据可产出性自证（ZH-8 的 pattern 必须真由本文件的判据产出，不得是空声明）。
+  assert.ok(forgedProblems.some((p) => p.includes('出现在 #stream 子树')), forgedProblems.join(' | '));
+  assert.deepEqual(zeroHostProblems(cleanZeroHostReading()), []);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
  * 5. `expectFailPattern` 表自检（每条判据必须声明，且不得是占位）
  * ──────────────────────────────────────────────────────────────────────────── */
 
@@ -321,6 +378,7 @@ test('V45 W1 元判据：每条 judgement 都声明非占位 expectFailPattern',
     retiredContainersPresent: ['y'],
     retiredProofRegistered: {},
     dualWriteRationaleResidual: true,
+    streamChromeIds: ['auth-state'],
   }).join('\n');
   for (const j of landed) {
     assert.ok(produced.includes(j.expectFailPattern), `${j.id}: 声明的 expectFailPattern 无法被产出（空声明）`);

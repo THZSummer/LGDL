@@ -196,11 +196,12 @@ test('S2 反证: 删掉恢复面 ⇒ 同一判据必须 FAIL（逐字节还原 �
   assert.equal(s2.judgeState(deps, s2.blockedStateCtx('site.unauthorized')).deadEnd, false, '还原后必须 PASS');
 });
 
-test('S2 边界: 本叶不落地 v5-3 的死端守护门禁（单点落地纪律）', () => {
-  // FR-ALLN-004 共享面纪律：`test/ui/no-dead-end.mjs` 由 v5-3 单点落地。
+test('S2 边界: v5-3 已单点落地死端守护门禁（本叶只交付共享样本 + seam）', () => {
+  // FR-ALLN-004 共享面纪律：`test/ui/no-dead-end.mjs` 由 v5-3 **单点**落地 —— v5-2 的
+  // 边界登记在 v5-3 build R1（TASK-V5-159）按约定**翻转**（判据双向：文件缺失即红）。
   assert.equal(
     existsSync(join(PKG, 'test/ui/no-dead-end.mjs')),
-    false,
-    'no-dead-end.mjs 必须留给 v5-3 落地（本叶只交付共享样本与 seam）',
+    true,
+    'no-dead-end.mjs 必须由 v5-3 单点落地（v5-2 的「留给 v5-3」边界已闭合）',
   );
 });

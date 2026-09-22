@@ -1044,3 +1044,26 @@ git status --short
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（V5-3 末叶 / 收口叶 24 原子任务 / 7 波 / 7 提交区间（**D / G 为原子区间**）：W1 **spikeGate-4**（5 类阻塞 headless 驱动 seam）+ `law8-plaintext.mjs` 四面机核（② digest 含 `••••••`；③ 审计渲染 + 存储**两面**；④ **全部元素属性**逐项 + 提交后 `value` 清空）+ 四类注入反证 → W2 `error` **出生铸造**恢复区（`BORN_FROZEN_KINDS` 不动）→ W3 死端守护门禁（5 类逐类 + `nextOf` 双形态 + **死端 = 0** + S2 主验收消费 v5-2 样本 + 双向注入）+ `host-registry` 零宿主反向判据 → W4 `#auth-state` 净新增 + 两态恒显其一 + **零双写五条** + 黄 / 绿点击（**不跳走**）→ W5 `ResizeObserver` → `data-narrow`（360/361）+ 三档 radio 零残留（**诚实登记「产品侧无拖动」**）→ W6 密度登记格**口径解耦**（格 = 控件计数，320 锚点，31 格**逐格留痕不删格**）+ X5 台账 → W7 **共享面收口**（journey **保段首选 / 必要时第三次八步** + 体积**三叶合计**终轮 + V3-VOL-3 三值同源 + 台账一致性 + 全门禁串行 + `e2e` + **人工面 9 项逐项标注**）。**本轮只做 tasks**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动；未跑门禁 / 构建 / Chromium。 | 2026-09-22 | SDDU Tasks Agent |
+
+---
+
+## 5. 实施状态（sddu-build）
+
+### 5.1 build R1（`TASK-V5-153~166` · 波 A~D 前段）— **已完成**（2026-09-22）
+
+| 区间 | 任务 | 状态 | 门禁读值 |
+|:--:|------|:--:|---|
+| A | `153` SG-4 | ✅ completed | **seam-available 5/5**，同步渲染同帧可断言（`w13-spike-blocked-seam.log` 6/0，只读探针，`git status` 零输出） |
+| A | `154` / `155` 法八四面机核 | ✅ completed | `test/ui/law8-plaintext.mjs` **24 / 0**（四面 + 四类注入反证 + 第 5 信号 + digest `••••••` + key 直写恰 1 点） |
+| B | `156` / `157` / `158` error 出生恢复区 | ✅ completed | `test:stream` **68 → 73 / 0**；`stream-model.test.ts` +2（`recovery` 透传 ∧ 出生后无 patch） |
+| C | `159` / `160` / `161` 死端守护 | ✅ completed | `test/ui/no-dead-end.mjs` **29 / 0**（5 类逐类 + 死端 = 0 同屏 + ✖ 行不裸奔 + S2 10 环节 + 双向注入反证 + N = 0 源文本口径） |
+| C | `162` 零宿主复核 | ✅ completed | `host-registry` ZH-8 绿（14/0 含 gate-integrity）；`index.html` 结构断言（流外 + `data-chrome-control` + 默认折叠） |
+| D | `163`~`166` 授权 chip | ✅ completed | `test/ui/auth-chip.mjs` **30 / 0**（两态恒显其一 + 四词唯一命中 + 黄/绿点击 + 三条注入反证）；`journey` **171 PASS**（保护段保段） |
+
+**门禁全局读数（R1 末）**：`npm test` **1175**（1171 pass / 4 fail = 体积五要素登记面 ⇒ R2 `174`）· `stream` **73/0** · `ask-auth` **71/0** · `recommendation` **65/0** · `gate-integrity` **14/0** · `journey` **171 PASS** · `l0` 245/3 · `density` 222/10 · `zero-injection` 26/1 · `binding` 191/1 · 体积 **545,273 B**（Δ **+3,209 ≤ 3,250**，上限 545,314 未越限）。
+
+### 5.2 承接 R2（`TASK-V5-167~176`）
+
+- **`169` / `173` / `175`**：授权态**载体下移**引起的既有门禁等价重锚 —— `l0`(3) · `density`(10) · `zero-injection`(1) · `binding` `#20e`(1)（binding 重锚须**偏移避让**，保护段 `107780..115930` 本轮零触碰）。
+- **`172` / `174`**：`docs/v4-density-baseline.json#tiers` 重锚 + `v5Ledger` 逐格留痕 + **X5 取代台账**；`test/size-baseline.ts` 五要素**三叶合计**（以 R1 实测 545,273 B 起算）+ 档位闸门。
+- **已登记差距**：法八面③ 的 `{opId, ts, result, maskedLength}` 完整四元组在产品侧无渲染面（`AUDIT_RENDERED_FIELDS` 无 `maskedLength` 列），补列需 **+246 B**（越本轮预算 3,250）⇒ 与体积轮一并评估，**不以文案冒充已渲染**。

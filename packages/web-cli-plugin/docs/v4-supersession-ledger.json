@@ -3172,11 +3172,22 @@
             "      assert.ok(opId, `chip act ${chip.act} 必须有 opId 映射（旧 act 无「无对应 op」的悬空项）`);",
             "      assert.ok(OBLIGATION_OP_IDS.includes(opId), `chip 的 opId ${opId} 必须在义务表内`);"
           ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/s2-deadend-chain.test.ts",
+          "count": 4,
+          "reason": "V5-3 build R1（TASK-V5-159）按 v5-2 预留的**边界登记**翻转：`test/ui/no-dead-end.mjs` 由 v5-3 单点落地，本文件原先断言该文件「尚不存在」的边界随之闭合（判据双向：文件缺失即红）。删除行逐字登记；断言只增不减（同一条判据由 false 翻为 true，无断言被删）。",
+          "registeredUncoveredLines": [
+            "test('S2 边界: 本叶不落地 v5-3 的死端守护门禁（单点落地纪律）', () => {",
+            "  // FR-ALLN-004 共享面纪律：`test/ui/no-dead-end.mjs` 由 v5-3 单点落地。",
+            "    false,",
+            "    'no-dead-end.mjs 必须留给 v5-3 落地（本叶只交付共享样本与 seam）',"
+          ]
         }
       ],
       "summary": {
-        "filesWithUnregisteredLeafDeletions": 12,
-        "registeredLines": 166,
+        "filesWithUnregisteredLeafDeletions": 13,
+        "registeredLines": 170,
         "caliber": "registeredLines = Σ 各文件 `registeredUncoveredLines` 组的逐字行数之和；filesWithUnregisteredLeafDeletions = 有非空登记的文件数（与 v3 台账 `leafBases[].summary` 同一口径，逐组实测复算）。",
         "note": "〖V5-2 R1（2026-09-22）〗删除面 = 等价重锚（入口守卫五校验面 / 本地 act 闭集扩项）。〖V5-2 review R1 修复轮（2026-09-22）〗新增登记：BLOCK-01 副本判据随执行体所有者迁到 op-bodies.ts、BLOCK-02 结算/回滚判据、BLOCK-03 BT-3 翻转与 S2 逐类断言、I-05 口径措辞订正 —— 全部为等价重锚（判据力只升），逐字登记。 〖V5-2 收口轮（2026-09-22，validate R1 N-01 + N-04~N-09 / KL-N-10 登记）〗新增逐字登记：size-baseline（披露判定方向化 / 正则符号化 / 累计与桶和注释前移）+ size-growth-evidence（最新一轮 rows 重指向 v52CloseoutRows / 披露方向断言方向化）—— 全部为等价重锚（判据力只升），断言零删减。"
       },

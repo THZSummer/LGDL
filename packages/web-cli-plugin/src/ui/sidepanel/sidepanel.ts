@@ -77,7 +77,7 @@ import {
 } from './view-model.js';
 import { createSettingsOps, transportFromRuntime, type SettingsOps } from '../settings/ops.js';
 import { createOpBodies, type OpBodies } from '../settings/op-bodies.js';
-import { LLM_BLOCKED_RISK, PERM_BLOCKED_RISK } from './next-registry/providers.js';
+import { blockedRecovery, LLM_BLOCKED_RISK, PERM_BLOCKED_RISK } from './next-registry/providers.js';
 import { mountSettingsPanel, type SettingsPanelHandle } from '../settings/panel.js';
 import { createViewSwitch } from '../settings/view-switch.js';
 import { AUTO_AUTH_HARD_LINES, type AutoAuthSettings } from '../../security/auto-authorize.js';
@@ -848,14 +848,23 @@ function installV3TestHooks(): void {
         return state.stream.events.length;
       },
       /** V4-2: rendered vs projected card count (the `children === project()` proof). */
-      streamStats() {
-        return {
+      streamStats() {        return {
           rendered: streamRender?.cardCount() ?? 0,
           projected: project(state.stream).length,
           dropped: state.stream.dropped,
           seq: state.stream.seq,
         };
       },
+      // V5-3 TASK-V5-159/161: mint a blocked `error` card through the REAL reducer with
+      // the recovery face derived from the ONE blocked-terminal enum.
+      blockedError(blocked: string, text: string) {
+        const recovery = blockedRecovery(blocked);
+        dispatch({ type: 'error', text, recovery });
+        return recovery.length;
+      },
+      // V5-3 TASK-V5-155 (law8 face 1): the folded payloads, so the zero-plaintext gate
+      // scans the in-memory payload face too. Read-only.
+      payloads: () => project(state.stream).map((v) => v.payload),
       /**
        * V4-3 (ADR-V4-032): the ONE turn-semantics projection. `pending` gates new
        * turns / recommendation chips only; open ask/auth cards stay submittable.
@@ -1057,9 +1066,15 @@ function installV3TestHooks(): void {
        * V4-4: run the REAL producer against the live state and mint the card through
        * the reducer. `mode` selects the fixture (the gate drives each truth source).
        */
-      recommend(mode: 'ref' | 'stale' | 'firstRun' | 'idle' | 'empty' = 'ref', at?: number) {
+      recommend(mode: 'ref' | 'stale' | 'firstRun' | 'idle' | 'empty' | 'llm' | 'perm' | 'hard' = 'ref', at?: number) {
         const views = project(state.stream);
         const counts = refCounts(views);
+        // V5-3 TASK-V5-159: the two op-driven blocked terminals (and `hardFloor`) are
+        // driven through the SAME derived risk ids the live panel folds into `risk`
+        // (`observedBlocked`) — no second truth source, no new ctx field.
+        const siteOk = mode === 'llm' || mode === 'perm' || mode === 'hard';
+        const steady = mode === 'idle' || siteOk;
+        const risks = mode === 'stale' ? ['refInvalid'] : mode === 'llm' ? [LLM_BLOCKED_RISK] : mode === 'perm' ? [PERM_BLOCKED_RISK] : mode === 'hard' ? ['hardFloor'] : [];
         const input: Parameters<typeof recommendNextStep>[0] = {
           ref: {
             validCount: mode === 'ref' || mode === 'idle' ? Math.max(1, counts.validCount) : 0,
@@ -1067,10 +1082,10 @@ function installV3TestHooks(): void {
             ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : { latestRefNum: 1 }),
           },
           session: { openAsks: state.stream.openAsks.length, busy: state.pending },
-          site: { authorized: state.authorized, trust: state.trust === 'trusted' ? 'trusted' : 'untrusted' },
+          site: { authorized: siteOk || state.authorized, trust: state.trust === 'trusted' ? 'trusted' : 'untrusted' },
           catalog: { toolCount: CATALOG_BASELINE_META.toolCount, subcommandCount: CATALOG_BASELINE_META.subcommandCount },
-          probe: { phase: mode === 'idle' ? 'ready' : state.probe?.phase, steady: state.probe?.steady === true },
-          risks: mode === 'stale' ? ['refInvalid'] : [],
+          probe: { phase: steady ? 'ready' : state.probe?.phase, steady: steady || state.probe?.steady === true },
+          risks,
           onboarding: { firstRun: mode === 'firstRun', pendingSteps: mode === 'firstRun' ? ['授权当前站点'] : [] },
           ...(at !== undefined ? { now: at } : { now: Date.now() }),
         };
@@ -1921,7 +1936,7 @@ function render(): void {
   updateScrollHint();
 
   $('status').textContent = state.activeOrigin
-    ? `站点 ${state.activeOrigin} · 发现=${state.discoveryState ?? '未知'} · ${state.authorized ? '已授权' : '未授权'} · 信任=${state.trust === 'trusted' ? 'trusted' : 'untrusted'}`
+    ? `站点 ${state.activeOrigin} · 发现=${state.discoveryState ?? '未知'} · 信任=${state.trust === 'trusted' ? 'trusted' : 'untrusted'}`
     : '无活跃站点';
   const buttons = buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending });
   ($('authorize') as HTMLButtonElement).disabled = buttons.authorizeDisabled;
@@ -3259,6 +3274,27 @@ function wire(): void {
       dispatch({ type: 'audit-count', count: events.length });
       dispatch({ type: 'notice', text: `审计记录已导出（${events.length} 条，零明文）` });
     });
+  });
+
+  // V5-3 TASK-V5-166 (ADR-V5-006 §3, FR-ALLN-087/088, NG-ALLN-019): state -> action.
+  // yellow => mint an `op.authorize` next card + a system row; green => expand the
+  // on-demand management detail. Neither path navigates away (in-place, never settings).
+  const authChip = $('auth-state');
+  const authDetail = $('auth-detail');
+  authChip.addEventListener('click', () => {
+    if (authChip.dataset.auth === 'green') {
+      authDetail.hidden = !authDetail.hidden;
+      authChip.setAttribute('aria-expanded', String(!authDetail.hidden));
+      return;
+    }
+    dispatch({ type: 'nextstep', chips: ['授权当前站点'], acts: ['authorize'] });
+    dispatch({ type: 'notice', text: '未授权：下一步' });
+  });
+  // The detail entries are op triggers via the SAME `dispatchOp` entry the settings face
+  // uses (one delegated listener); `op.revoke` keeps its consent carrier.
+  authDetail.addEventListener('change', (e) => {
+    const op = (e.target as HTMLSelectElement).value;
+    if (op) void dispatchOp(op, op === 'op.revoke' ? { value: 'site-auth' } : {});
   });
 
   chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {

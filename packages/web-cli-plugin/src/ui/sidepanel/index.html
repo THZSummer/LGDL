@@ -511,6 +511,35 @@
       .status-line .dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
       #statusbar-text { min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       #send-reason { min-width: 0; flex: 1 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* V5-3 TASK-V5-163/164 (ADR-V5-006 §1, FR-ALLN-085): the auth state chip.
+         It lives in the connection line (same row ⇒ **no new line**, so the
+         `#15b` stream-height ratio keeps its protected reading) and always precedes
+         `#risk-chips` in document order. 两态恒显其一 (`hidden` is never set by the
+         single writer). Sized `flex: 0 0 auto` so its copy is never ellipsized —
+         the ellipsis contract belongs to `#statusbar-text` / `#send-reason`. */
+      #auth-state {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--bg-elevated);
+        color: var(--text-muted);
+        font-size: 10.5px;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      #auth-state[data-auth='yellow'] { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn-text); }
+      #auth-state[data-auth='green'] { border-color: var(--ok-border, var(--border)); color: var(--text); }
+      #auth-state:focus-visible, #auth-detail button:focus-visible { outline: 2px solid var(--focus, var(--text)); outline-offset: 1px; }
+      /* V5-3 TASK-V5-163 (ADR-V5-006 §3): the on-demand management detail. Default
+         `hidden` ⇒ it never counts against the default density (the caliber exempts
+         `hidden` only); it is NOT inside `#stream` (zero-host) and NOT inside the
+         four-word scan range. */
+      #auth-detail { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 10.5px; color: var(--text-muted); }
+      #auth-detail button { font-size: 10.5px; padding: 1px 8px; }
       #risk-chips { display: flex; flex-wrap: wrap; gap: 4px; }
       #risk-rail { display: flex; flex-wrap: wrap; gap: 4px; }
       .risk-row {
@@ -1236,7 +1265,7 @@
         <div class="l2-views">
           <div class="l2-view" data-l2-view="tree" role="region" aria-label="全局连接树（四维度）" hidden>
             <button id="tree-fab" type="button" aria-controls="tree-drawer" aria-expanded="false" title="连接树：四维度总览与撤销入口（收起/展开树主体）" hidden>连接树</button>
-            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。</div></aside>
+            <aside id="tree-drawer" hidden aria-label="连接树" role="region"><div class="tree-note">连接树（L2，默认收起）：打开后按需拉取快照，关闭态不渲染、不轮询。授权状态见状态栏授权 chip（本台账不复制状态值）。</div></aside>
             <!-- ── V4.5-1 W3（TASK-V45-109 / ADR-V45-002 §4 · DC-V45-011）：局部树归因的
                  落位 —— **只读归因块**，`#view-host` 内，不引入第二个滚动容器。
                  内容容器沿用 `#l1-local-tree-rows` / `#l1-local-tree-hint`（同 id、
@@ -1289,10 +1318,29 @@
       <div class="status-line" role="status">
         <span class="dot" aria-hidden="true"></span>
         <span id="statusbar-text">状态：连接中…</span>
+        <!-- V5-3 TASK-V5-163/164 (ADR-V5-006 §1, FR-ALLN-085/086/092): the auth state
+             chip — the ONE always-resident carrier of the authorization state. It is a
+             `body`-direct status-bar descendant (never inside `#stream`, 守 N17) and it
+             precedes `#risk-chips` in document order. `statusbar.ts` is its only writer;
+             `data-auth` ∈ {yellow, green} and the chip is NEVER `hidden`. -->
+        <button id="auth-state" type="button" data-auth="yellow" data-chrome-control="statusbar" aria-controls="auth-detail" aria-expanded="false">未授权 · 零注入</button>
         <span id="send-reason" class="muted" role="status" aria-live="polite"></span>
       </div>
       <div id="risk-chips" data-chrome-control="statusbar" hidden aria-label="活跃风险">
         <div id="risk-rail" role="status" aria-live="polite" aria-label="风险位（常驻，永不折叠）"></div>
+      </div>
+      <!-- V5-3 TASK-V5-163 (ADR-V5-006 §3, FR-ALLN-088): the green-state **management
+           detail** — an on-demand face (`op.revoke` / `op.rebind` entries), default
+           collapsed (`hidden` + `data-density-exempt` ⇒ not counted by the default
+           density caliber), out of `#stream`, out of the four-word scan range. -->
+      <div id="auth-detail" hidden data-density-exempt aria-label="授权管理详情">
+        <!-- 管理详情 = **恰 1 个**键盘可达控件（展开后默认屏 6 + 1 = 7 ≤ 7，守 FR-ALLN-088）；
+             两个入口（`op.revoke` / `op.rebind`）是同一个控件的两个选项，不是两个可点元素。 -->
+        <select id="auth-detail-actions" aria-label="管理授权（撤销 / 重新绑定）">
+          <option value="">管理授权…</option>
+          <option value="op.revoke">撤销授权（不可逆）</option>
+          <option value="op.rebind">重新绑定当前标签页</option>
+        </select>
       </div>
       <div id="risk-detail" hidden aria-label="风险详情"></div>
     </footer>

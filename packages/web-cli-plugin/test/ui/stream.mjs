@@ -389,6 +389,69 @@ async function main() {
     check('⑧ 渲染卡数 == 投影卡数（长会话保持逐张一致）', long.stats.rendered === long.stats.projected, longRaw);
     check('⑧ 长会话下工具卡仍逐张渲染（无合并/丢弃）', long.toolCards >= 150, longRaw);
 
+    // ── ⑩ V5-3 TASK-V5-158（ADR-V5-002 §3 · FR-ALLN-012 / 115（X6））─────────────
+    // `error` 行内恢复 = **铸造期**属性（X6 等价重写形态 ④）：阻塞类出生即带
+    // `[data-act="next"][data-op]`；非阻塞类**零 chip**；卡出生后**只追加、不 patch**。
+    console.log('\n▶ ⑩ error 出生即带恢复区（阻塞类带 / 非阻塞不带 / 出生后不 patch）');
+    const blockedRaw = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.streamReset();
+        window.__v3.testing.blockedError('site.unauthorized', '✖ 页面侧不可用：未授权站点');
+        const card = document.querySelector('#stream [data-msg-type="error"]');
+        const chips = [...card.querySelectorAll('[data-act="next"][data-op]')];
+        return JSON.stringify({
+          chips: chips.map((b) => b.getAttribute('data-op')),
+          texts: chips.map((b) => b.textContent),
+          frozen: card.getAttribute('data-frozen'),
+          opPresent: Boolean(card.querySelector('[data-op]')),
+        });
+      })()`,
+    );
+    const blocked = JSON.parse(blockedRaw);
+    check('⑩ 阻塞类 error 卡**行内**含 [data-act="next"][data-op]（可定位）', blocked.chips.length > 0 && blocked.chips.includes('op.authorize'), blockedRaw);
+    check('⑩ 恢复区 chip 带可读文案（不是空壳）', blocked.texts.every((t) => t && t.length > 0), blockedRaw);
+    // 非阻塞类（普通错误行）⇒ 零 chip（渲染零变化）。
+    const bareRaw = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.streamReset();
+        window.__v3.testing.streamSeed([{ kind: 'error', cardId: 'e-bare', payload: { text: '✖ 一般错误' } }]);
+        const card = document.querySelector('#stream [data-msg-type="error"]');
+        return JSON.stringify({ chips: card.querySelectorAll('[data-op]').length, nextChips: card.querySelectorAll('.next-chips').length });
+      })()`,
+    );
+    const bare = JSON.parse(bareRaw);
+    check('⑩ 非阻塞类 error 卡**零 chip**（缺省 ⇒ 渲染零回归）', bare.chips === 0 && bare.nextChips === 0, bareRaw);
+    // 出生后不 patch：同 cardId 追加事件不得补出恢复区（源文本 + 行为双判据）。
+    const noPatchRaw = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.streamReset();
+        window.__v3.testing.streamSeed([{ kind: 'error', cardId: 'e1', payload: { text: '✖ 阻塞' } }]);
+        const before = document.querySelector('#stream [data-msg-type="error"]').querySelectorAll('[data-op]').length;
+        window.__v3.testing.streamSeed([{ kind: 'error', cardId: 'e1', payload: { text: '✖ 阻塞', recovery: [{ text: 'x', opId: 'op.help' }] } }]);
+        const after = document.querySelector('#stream [data-msg-type="error"]').querySelectorAll('[data-op]').length;
+        return JSON.stringify({ before, after, cards: document.querySelectorAll('#stream [data-msg-type="error"]').length });
+      })()`,
+    );
+    const noPatch = JSON.parse(noPatchRaw);
+    check('⑩ 「出生后不 patch」：事后追加事件**不得**补出恢复区（before=after=0）', noPatch.before === 0 && noPatch.after === 0 && noPatch.cards === 1, noPatchRaw);
+    // 点击 chip ⇒ 另起卡（不 patch 原卡）：点前后 error 卡的 chip 数不变。
+    const clickRaw = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.streamReset();
+        window.__v3.testing.blockedError('site.unauthorized', '✖ 阻塞');
+        const before = document.querySelector('#stream [data-msg-type="error"]').querySelectorAll('[data-op]').length;
+        document.querySelector('#stream [data-msg-type="error"] [data-op]').click();
+        const after = document.querySelector('#stream [data-msg-type="error"]').querySelectorAll('[data-op]').length;
+        return JSON.stringify({ before, after });
+      })()`,
+    );
+    const click = JSON.parse(clickRaw);
+    check('⑩ chip 点击不 patch 原卡（原卡 chip 数不变；dispatch 走 op 管线）', click.before === click.after && click.before > 0, clickRaw);
+
     check('无未捕获页面异常（流渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
 

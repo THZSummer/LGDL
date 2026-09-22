@@ -98,6 +98,10 @@ export function plaintextTitle(text: string): string {
  * plaintext-free by construction; {@link assertStreamCopySafe} re-checks it (a
  * future edit that pasted a URL would throw at module test time).
  */
+// V5-3 TASK-V5-154 (ADR-V5-010 §2 面②): the ONE mask token — the only trace a written
+// value may leave in the fixed copy / the persisted digest. Never the value, never a prefix.
+export const DIGEST_MASK = '••••••';
+
 export const ASK_COPY = Object.freeze({
   /** The empty answer guard — never auto-filled (fail-closed). */
   answeredPrefix: '已答：',

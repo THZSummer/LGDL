@@ -11,8 +11,18 @@
     "sourceSpec": "父 spec.md v1.0（§12 X5 / §13 N12·N17·N23·N24 / §9.4 AC-ALLN-022~025）+ 本叶 spec.md v1.0",
     "taskCount": 24,
     "waveCount": 7,
-    "complexity": { "S": 1, "M": 14, "L": 9 },
-    "typeBreakdown": { "implementation": 14, "gate": 8, "spike": 1, "doc": 1, "human": 0 },
+    "complexity": {
+      "S": 1,
+      "M": 14,
+      "L": 9
+    },
+    "typeBreakdown": {
+      "implementation": 14,
+      "gate": 8,
+      "spike": 1,
+      "doc": 1,
+      "human": 0
+    },
     "numbering": {
       "namespace": "TASK-V5-1xx",
       "globalBlock": "TASK-V5-153~176",
@@ -20,13 +30,41 @@
       "conflictCheck": "与 v5-1 TASK-V5-101~122 / v5-2 TASK-V5-123~152 连续、零冲突"
     },
     "commitIntervals": {
-      "A": { "wave": "W1", "content": "法八四面机核（判据先立）", "atomic": true },
-      "B": { "wave": "W2", "content": "error 出生带恢复区", "atomic": true },
-      "C": { "wave": "W3", "content": "死端守护门禁 + S2 主验收", "atomic": true },
-      "D": { "wave": "W4", "content": "授权 chip 唯一载体 + 零双写五条（终态状态栏 DOM 与其门禁同区间）", "atomic": true },
-      "E": { "wave": "W5", "content": "data-narrow + 三档 radio 零残留", "atomic": true },
-      "F": { "wave": "W6", "content": "密度口径解耦 + 台账重锚（X5）", "atomic": true },
-      "G": { "wave": "W7", "content": "共享面收口（journey / 体积终轮 / 台账 / 全门禁 + E2E）—— 单一原子区间", "atomic": true }
+      "A": {
+        "wave": "W1",
+        "content": "法八四面机核（判据先立）",
+        "atomic": true
+      },
+      "B": {
+        "wave": "W2",
+        "content": "error 出生带恢复区",
+        "atomic": true
+      },
+      "C": {
+        "wave": "W3",
+        "content": "死端守护门禁 + S2 主验收",
+        "atomic": true
+      },
+      "D": {
+        "wave": "W4",
+        "content": "授权 chip 唯一载体 + 零双写五条（终态状态栏 DOM 与其门禁同区间）",
+        "atomic": true
+      },
+      "E": {
+        "wave": "W5",
+        "content": "data-narrow + 三档 radio 零残留",
+        "atomic": true
+      },
+      "F": {
+        "wave": "W6",
+        "content": "密度口径解耦 + 台账重锚（X5）",
+        "atomic": true
+      },
+      "G": {
+        "wave": "W7",
+        "content": "共享面收口（journey / 体积终轮 / 台账 / 全门禁 + E2E）—— 单一原子区间",
+        "atomic": true
+      }
     },
     "volumeBudgetBytes": 3250,
     "volumeCaliber": "逐项 3,000 B（ADR-V5-011 §1 #8+#9+#10+#11）+ 胶水分摊 250 B = 3,250 B；本叶**收口承担三叶合计 17,600 B 登记**（父 tasks.md §4.1）",
@@ -63,128 +101,1681 @@
     }
   },
   "waves": [
-    { "wave": 1, "global": "W13", "name": "法八四面机核（判据先立）+ SG-4", "tasks": ["TASK-V5-153", "TASK-V5-154", "TASK-V5-155"], "count": 3, "interval": "A", "strategy": "半并行：153 只读探针 ∥ 154；155 依赖 154（同文件）" },
-    { "wave": 2, "global": "W14", "name": "error 出生带恢复区", "tasks": ["TASK-V5-156", "TASK-V5-157", "TASK-V5-158"], "count": 3, "interval": "B", "strategy": "串行：stream-model → cards/error → stream.mjs" },
-    { "wave": 3, "global": "W15", "name": "死端守护门禁 + S2 主验收", "tasks": ["TASK-V5-159", "TASK-V5-160", "TASK-V5-161", "TASK-V5-162"], "count": 4, "interval": "C", "strategy": "半并行：159 → 160 → 161 串行；162 ∥（文件不相交）" },
-    { "wave": 4, "global": "W16", "name": "授权 chip 唯一载体 + 零双写五条", "tasks": ["TASK-V5-163", "TASK-V5-164", "TASK-V5-165", "TASK-V5-166"], "count": 4, "interval": "D", "strategy": "串行（原子区间 D：终态状态栏 DOM 与零双写 / 点击行为互为依据）" },
-    { "wave": 5, "global": "W17", "name": "data-narrow + 三档 radio 零残留", "tasks": ["TASK-V5-167", "TASK-V5-168", "TASK-V5-169"], "count": 3, "interval": "E", "strategy": "串行（167 → 168 → 169）" },
-    { "wave": 6, "global": "W18", "name": "密度口径解耦 + 台账重锚（X5）", "tasks": ["TASK-V5-170", "TASK-V5-171", "TASK-V5-172"], "count": 3, "interval": "F", "strategy": "串行（170 → 171 → 172）" },
-    { "wave": 7, "global": "W19", "name": "共享面收口（journey / 体积终轮 / 台账 / 全门禁 + E2E）", "tasks": ["TASK-V5-173", "TASK-V5-174", "TASK-V5-175", "TASK-V5-176"], "count": 4, "interval": "G（原子）", "strategy": "串行（173 → 174 → 175 → 176）；test / test:ui / test:binding 绝不并发" }
+    {
+      "wave": 1,
+      "global": "W13",
+      "name": "法八四面机核（判据先立）+ SG-4",
+      "tasks": [
+        "TASK-V5-153",
+        "TASK-V5-154",
+        "TASK-V5-155"
+      ],
+      "count": 3,
+      "interval": "A",
+      "strategy": "半并行：153 只读探针 ∥ 154；155 依赖 154（同文件）"
+    },
+    {
+      "wave": 2,
+      "global": "W14",
+      "name": "error 出生带恢复区",
+      "tasks": [
+        "TASK-V5-156",
+        "TASK-V5-157",
+        "TASK-V5-158"
+      ],
+      "count": 3,
+      "interval": "B",
+      "strategy": "串行：stream-model → cards/error → stream.mjs"
+    },
+    {
+      "wave": 3,
+      "global": "W15",
+      "name": "死端守护门禁 + S2 主验收",
+      "tasks": [
+        "TASK-V5-159",
+        "TASK-V5-160",
+        "TASK-V5-161",
+        "TASK-V5-162"
+      ],
+      "count": 4,
+      "interval": "C",
+      "strategy": "半并行：159 → 160 → 161 串行；162 ∥（文件不相交）"
+    },
+    {
+      "wave": 4,
+      "global": "W16",
+      "name": "授权 chip 唯一载体 + 零双写五条",
+      "tasks": [
+        "TASK-V5-163",
+        "TASK-V5-164",
+        "TASK-V5-165",
+        "TASK-V5-166"
+      ],
+      "count": 4,
+      "interval": "D",
+      "strategy": "串行（原子区间 D：终态状态栏 DOM 与零双写 / 点击行为互为依据）"
+    },
+    {
+      "wave": 5,
+      "global": "W17",
+      "name": "data-narrow + 三档 radio 零残留",
+      "tasks": [
+        "TASK-V5-167",
+        "TASK-V5-168",
+        "TASK-V5-169"
+      ],
+      "count": 3,
+      "interval": "E",
+      "strategy": "串行（167 → 168 → 169）"
+    },
+    {
+      "wave": 6,
+      "global": "W18",
+      "name": "密度口径解耦 + 台账重锚（X5）",
+      "tasks": [
+        "TASK-V5-170",
+        "TASK-V5-171",
+        "TASK-V5-172"
+      ],
+      "count": 3,
+      "interval": "F",
+      "strategy": "串行（170 → 171 → 172）"
+    },
+    {
+      "wave": 7,
+      "global": "W19",
+      "name": "共享面收口（journey / 体积终轮 / 台账 / 全门禁 + E2E）",
+      "tasks": [
+        "TASK-V5-173",
+        "TASK-V5-174",
+        "TASK-V5-175",
+        "TASK-V5-176"
+      ],
+      "count": 4,
+      "interval": "G（原子）",
+      "strategy": "串行（173 → 174 → 175 → 176）；test / test:ui / test:binding 绝不并发"
+    }
   ],
-  "criticalPath": ["TASK-V5-153", "TASK-V5-154", "TASK-V5-155", "TASK-V5-156", "TASK-V5-157", "TASK-V5-158", "TASK-V5-159", "TASK-V5-160", "TASK-V5-161", "TASK-V5-162", "TASK-V5-163", "TASK-V5-164", "TASK-V5-165", "TASK-V5-166", "TASK-V5-167", "TASK-V5-168", "TASK-V5-169", "TASK-V5-170", "TASK-V5-171", "TASK-V5-172", "TASK-V5-173", "TASK-V5-174", "TASK-V5-175", "TASK-V5-176"],
+  "criticalPath": [
+    "TASK-V5-153",
+    "TASK-V5-154",
+    "TASK-V5-155",
+    "TASK-V5-156",
+    "TASK-V5-157",
+    "TASK-V5-158",
+    "TASK-V5-159",
+    "TASK-V5-160",
+    "TASK-V5-161",
+    "TASK-V5-162",
+    "TASK-V5-163",
+    "TASK-V5-164",
+    "TASK-V5-165",
+    "TASK-V5-166",
+    "TASK-V5-167",
+    "TASK-V5-168",
+    "TASK-V5-169",
+    "TASK-V5-170",
+    "TASK-V5-171",
+    "TASK-V5-172",
+    "TASK-V5-173",
+    "TASK-V5-174",
+    "TASK-V5-175",
+    "TASK-V5-176"
+  ],
   "parallelizable": [
-    { "set": ["TASK-V5-162", "TASK-V5-159"], "note": "host-registry.test.ts 与 no-dead-end.mjs 文件不相交" },
-    { "set": ["TASK-V5-153", "TASK-V5-154"], "note": "只读探针不落版本库" }
+    {
+      "set": [
+        "TASK-V5-162",
+        "TASK-V5-159"
+      ],
+      "note": "host-registry.test.ts 与 no-dead-end.mjs 文件不相交"
+    },
+    {
+      "set": [
+        "TASK-V5-153",
+        "TASK-V5-154"
+      ],
+      "note": "只读探针不落版本库"
+    }
   ],
   "spikes": [
-    { "id": "TASK-V5-153", "kind": "spikeGate", "code": "SG-4", "topic": "5 类阻塞终态 headless 驱动 seam 可得性（binding.stale / ref.all-invalid 尤需）", "gates": ["TASK-V5-159", "TASK-V5-160"], "decision": ["seam-available", "report-to-orchestrator"], "stoppingRule": "seam 不足 ⇒ 回 v5-1 补 provider 的可注入 when(ctx)（禁以人工判据替代）" }
+    {
+      "id": "TASK-V5-153",
+      "kind": "spikeGate",
+      "code": "SG-4",
+      "topic": "5 类阻塞终态 headless 驱动 seam 可得性（binding.stale / ref.all-invalid 尤需）",
+      "gates": [
+        "TASK-V5-159",
+        "TASK-V5-160"
+      ],
+      "decision": [
+        "seam-available",
+        "report-to-orchestrator"
+      ],
+      "stoppingRule": "seam 不足 ⇒ 回 v5-1 补 provider 的可注入 when(ctx)（禁以人工判据替代）",
+      "status": "completed"
+    }
   ],
   "coverageMap": {
-    "1": { "item": "法八四面零明文机核（payload / digest / 审计 / DOM 全属性）+ key 直写 + 四类注入反证", "tasks": ["TASK-V5-154", "TASK-V5-155"] },
-    "2": { "item": "error 出生带恢复区（阻塞类带 / 非阻塞不带；BORN_FROZEN_KINDS 不动）", "tasks": ["TASK-V5-156", "TASK-V5-157", "TASK-V5-158"] },
-    "3": { "item": "死端守护门禁（5 类逐类 + nextOf 双形态 + 死端 = 0 + 双向反证 + S2 主验收）", "tasks": ["TASK-V5-159", "TASK-V5-160", "TASK-V5-161"] },
-    "4": { "item": "零宿主反向判据（chip / 分隔条不在流内）", "tasks": ["TASK-V5-162"] },
-    "5": { "item": "授权 chip 唯一载体（#auth-state 两态常显 + J1~J4 + 零双写五条 + 黄 / 绿点击）", "tasks": ["TASK-V5-163", "TASK-V5-164", "TASK-V5-165", "TASK-V5-166"] },
-    "6": { "item": "data-narrow（ResizeObserver / 360-361）+ 三档 radio 零残留 + 诚实登记", "tasks": ["TASK-V5-167", "TASK-V5-168"] },
-    "7": { "item": "密度登记格口径解耦 + 31 格逐格留痕 + tiers 重锚 + X5 台账", "tasks": ["TASK-V5-170", "TASK-V5-171", "TASK-V5-172"] },
-    "8": { "item": "l0 / density 等价重锚（#auth-state 计数 + data-narrow 边界 + J1~J4）", "tasks": ["TASK-V5-169"] },
-    "9": { "item": "journey 保护段处置（保段首选 / 第三次八步）+ 计数守恒 ≥171 + RP-V4-08", "tasks": ["TASK-V5-173"] },
-    "10": { "item": "体积终轮（三叶合计）+ V3-VOL-3 三值同源 + 档位闸门", "tasks": ["TASK-V5-174"] },
-    "11": { "item": "台账一致性（X5 + designContractChanges 对账 + knownGap）+ gate-integrity 收口", "tasks": ["TASK-V5-175"] },
-    "12": { "item": "收尾全门禁串行 + e2e 汇总 + 人工面 9 项逐项 + 计数只增对账", "tasks": ["TASK-V5-176"] }
+    "1": {
+      "item": "法八四面零明文机核（payload / digest / 审计 / DOM 全属性）+ key 直写 + 四类注入反证",
+      "tasks": [
+        "TASK-V5-154",
+        "TASK-V5-155"
+      ]
+    },
+    "2": {
+      "item": "error 出生带恢复区（阻塞类带 / 非阻塞不带；BORN_FROZEN_KINDS 不动）",
+      "tasks": [
+        "TASK-V5-156",
+        "TASK-V5-157",
+        "TASK-V5-158"
+      ]
+    },
+    "3": {
+      "item": "死端守护门禁（5 类逐类 + nextOf 双形态 + 死端 = 0 + 双向反证 + S2 主验收）",
+      "tasks": [
+        "TASK-V5-159",
+        "TASK-V5-160",
+        "TASK-V5-161"
+      ]
+    },
+    "4": {
+      "item": "零宿主反向判据（chip / 分隔条不在流内）",
+      "tasks": [
+        "TASK-V5-162"
+      ]
+    },
+    "5": {
+      "item": "授权 chip 唯一载体（#auth-state 两态常显 + J1~J4 + 零双写五条 + 黄 / 绿点击）",
+      "tasks": [
+        "TASK-V5-163",
+        "TASK-V5-164",
+        "TASK-V5-165",
+        "TASK-V5-166"
+      ]
+    },
+    "6": {
+      "item": "data-narrow（ResizeObserver / 360-361）+ 三档 radio 零残留 + 诚实登记",
+      "tasks": [
+        "TASK-V5-167",
+        "TASK-V5-168"
+      ]
+    },
+    "7": {
+      "item": "密度登记格口径解耦 + 31 格逐格留痕 + tiers 重锚 + X5 台账",
+      "tasks": [
+        "TASK-V5-170",
+        "TASK-V5-171",
+        "TASK-V5-172"
+      ]
+    },
+    "8": {
+      "item": "l0 / density 等价重锚（#auth-state 计数 + data-narrow 边界 + J1~J4）",
+      "tasks": [
+        "TASK-V5-169"
+      ]
+    },
+    "9": {
+      "item": "journey 保护段处置（保段首选 / 第三次八步）+ 计数守恒 ≥171 + RP-V4-08",
+      "tasks": [
+        "TASK-V5-173"
+      ]
+    },
+    "10": {
+      "item": "体积终轮（三叶合计）+ V3-VOL-3 三值同源 + 档位闸门",
+      "tasks": [
+        "TASK-V5-174"
+      ]
+    },
+    "11": {
+      "item": "台账一致性（X5 + designContractChanges 对账 + knownGap）+ gate-integrity 收口",
+      "tasks": [
+        "TASK-V5-175"
+      ]
+    },
+    "12": {
+      "item": "收尾全门禁串行 + e2e 汇总 + 人工面 9 项逐项 + 计数只增对账",
+      "tasks": [
+        "TASK-V5-176"
+      ]
+    }
   },
   "testConservation": {
     "baselineSource": "父 spec.md §9.5",
-    "npmTest": { "baseline": 1045, "expected": ">=1045" },
-    "l0": { "baseline": 244, "expected": ">=244", "mode": "#auth-state 两态 + 零双写四词扫描 + J1~J4 增断言" },
-    "density": { "baseline": 232, "expected": ">=232", "mode": "#auth-state 计数 + data-narrow 边界 + 逐格留痕" },
-    "journey": { "baseline": 171, "expected": ">=171", "mode": "320 锚点 + 360/361 边界；保护段保段或八步取代（计数守恒）" },
-    "stream": { "baseline": 63, "expected": ">=63", "mode": "error 行内恢复增断言" },
-    "askAuth": { "baseline": 61, "expected": ">=61" },
-    "recommendation": { "baseline": 59, "expected": ">=59" },
-    "binding": { "baseline": 192, "expected": ">=192" },
-    "insight": { "baseline": 116, "expected": ">=116" },
-    "pageInput": { "baseline": 108, "expected": ">=108" },
-    "refPickWiring": { "baseline": 11, "expected": ">=11" },
-    "designContract": { "baseline": 6, "expected": ">=13" },
-    "supersession": { "baseline": 35, "expected": ">=35", "mode": "X5 条目 + 保护段处置 + designContractChanges 对账" },
-    "gateIntegrity": { "baseline": 13, "expected": ">=13", "mode": "8 个新门禁逐项纳入受审集合" },
-    "zeroInjection": { "baseline": 27, "expected": ">=27", "mode": "与 law8 门禁分别计数（不混池）" },
-    "sizeRulingVol3": { "baseline": 12, "expected": ">=12" },
-    "l1": { "baseline": 116, "expected": ">=116" },
-    "l2": { "baseline": 74, "expected": ">=74" },
-    "hardening": { "baseline": 24, "expected": ">=24" },
-    "l1Reverse": { "baseline": 9, "expected": ">=9" },
-    "l2Reverse": { "baseline": 10, "expected": ">=10" },
-    "e2e": { "baseline": "PASS", "expected": "PASS" }
+    "npmTest": {
+      "baseline": 1045,
+      "expected": ">=1045"
+    },
+    "l0": {
+      "baseline": 244,
+      "expected": ">=244",
+      "mode": "#auth-state 两态 + 零双写四词扫描 + J1~J4 增断言"
+    },
+    "density": {
+      "baseline": 232,
+      "expected": ">=232",
+      "mode": "#auth-state 计数 + data-narrow 边界 + 逐格留痕"
+    },
+    "journey": {
+      "baseline": 171,
+      "expected": ">=171",
+      "mode": "320 锚点 + 360/361 边界；保护段保段或八步取代（计数守恒）"
+    },
+    "stream": {
+      "baseline": 63,
+      "expected": ">=63",
+      "mode": "error 行内恢复增断言"
+    },
+    "askAuth": {
+      "baseline": 61,
+      "expected": ">=61"
+    },
+    "recommendation": {
+      "baseline": 59,
+      "expected": ">=59"
+    },
+    "binding": {
+      "baseline": 192,
+      "expected": ">=192"
+    },
+    "insight": {
+      "baseline": 116,
+      "expected": ">=116"
+    },
+    "pageInput": {
+      "baseline": 108,
+      "expected": ">=108"
+    },
+    "refPickWiring": {
+      "baseline": 11,
+      "expected": ">=11"
+    },
+    "designContract": {
+      "baseline": 6,
+      "expected": ">=13"
+    },
+    "supersession": {
+      "baseline": 35,
+      "expected": ">=35",
+      "mode": "X5 条目 + 保护段处置 + designContractChanges 对账"
+    },
+    "gateIntegrity": {
+      "baseline": 13,
+      "expected": ">=13",
+      "mode": "8 个新门禁逐项纳入受审集合"
+    },
+    "zeroInjection": {
+      "baseline": 27,
+      "expected": ">=27",
+      "mode": "与 law8 门禁分别计数（不混池）"
+    },
+    "sizeRulingVol3": {
+      "baseline": 12,
+      "expected": ">=12"
+    },
+    "l1": {
+      "baseline": 116,
+      "expected": ">=116"
+    },
+    "l2": {
+      "baseline": 74,
+      "expected": ">=74"
+    },
+    "hardening": {
+      "baseline": 24,
+      "expected": ">=24"
+    },
+    "l1Reverse": {
+      "baseline": 9,
+      "expected": ">=9"
+    },
+    "l2Reverse": {
+      "baseline": 10,
+      "expected": ">=10"
+    },
+    "e2e": {
+      "baseline": "PASS",
+      "expected": "PASS"
+    }
   },
   "serialGates": {
     "count": 24,
     "policy": "严格串行、一次一个 Chromium（finally 自清 profile）；test / test:ui / test:binding 绝不并发；日志全量落 /tmp/opencode/v5-gate-logs/",
     "newGates": [
-      { "gate": "no-dead-end", "file": "test/ui/no-dead-end.mjs", "owner": ["TASK-V5-159", "TASK-V5-160", "TASK-V5-161"] },
-      { "gate": "law8-plaintext", "file": "test/ui/law8-plaintext.mjs", "owner": ["TASK-V5-154", "TASK-V5-155"] }
+      {
+        "gate": "no-dead-end",
+        "file": "test/ui/no-dead-end.mjs",
+        "owner": [
+          "TASK-V5-159",
+          "TASK-V5-160",
+          "TASK-V5-161"
+        ]
+      },
+      {
+        "gate": "law8-plaintext",
+        "file": "test/ui/law8-plaintext.mjs",
+        "owner": [
+          "TASK-V5-154",
+          "TASK-V5-155"
+        ]
+      }
     ],
-    "gateIntegrityCloseout": ["next-registry", "next-obligation-table", "next-dispatch-diff0", "op-wiring", "sw-op-mirror", "op-protocol", "no-dead-end", "law8-plaintext"]
+    "gateIntegrityCloseout": [
+      "next-registry",
+      "next-obligation-table",
+      "next-dispatch-diff0",
+      "op-wiring",
+      "sw-op-mirror",
+      "op-protocol",
+      "no-dead-end",
+      "law8-plaintext"
+    ]
   },
   "tasks": [
-    { "id": "TASK-V5-153", "alias": "V53-01", "wave": 1, "globalWave": "W13", "size": "S", "type": "spike", "title": "spikeGate-4：5 类阻塞 headless 驱动 seam 探针", "deps": ["TASK-V5-152"], "fr": ["FR-ALLN-010", "FR-ALLN-011", "FR-ALLN-015"], "ac": ["AC-ALLN-002"], "adr": ["ADR-V5-009"], "risks": ["R-ALLN-014"], "redlines": ["F1", "F2", "F3", "T-d", "C-3", "L-a"], "parallelWith": ["TASK-V5-154"], "spikeGate": { "code": "SG-4", "gates": ["TASK-V5-159", "TASK-V5-160"] }, "acceptance": ["5 类逐类有 seam 名称 + file:line 或显式缺口条目", "binding.stale / ref.all-invalid 的 when(ctx) 可注入", "『同步渲染、同帧可断言』结论成文（无 sleep / 无 poll）", "结论二值之一且带证据；git status --short 零输出"], "verify": ["mkdir -p /tmp/opencode/v5-spike && node /tmp/opencode/v5-spike/blocked-seam-probe.mjs", "git status --short"] },
-    { "id": "TASK-V5-154", "alias": "V53-02", "wave": 1, "globalWave": "W13", "size": "L", "type": "gate", "title": "law8-plaintext.mjs 骨架：SENTINEL + 面 ①（流内 payload）②（digest）③（审计面）", "deps": ["TASK-V5-153"], "fr": ["FR-ALLN-023"], "ac": ["AC-ALLN-003"], "adr": ["ADR-V5-010"], "risks": ["R-ALLN-008", "R-ALLN-906"], "redlines": ["F1", "F2", "F3", "T-d", "C-1", "C-7"], "parallelWith": [], "acceptance": ["面 ① / ② / ③ 逐面断言存在且可 FAIL（每面 expectFailPattern）", "面 ② 判据含 digest 含 '••••••'", "面 ③ 覆盖审计渲染 + 审计存储两面", "key 直写调用点 == 1", "与 test:zero-injection（27）分别计数"], "verify": ["node packages/web-cli-plugin/test/ui/law8-plaintext.mjs"] },
-    { "id": "TASK-V5-155", "alias": "V53-03", "wave": 1, "globalWave": "W13", "size": "M", "type": "gate", "title": "法八面 ④（DOM value + 全部元素属性）+ 提交后清空 + 四类注入反证 + 受审追加", "deps": ["TASK-V5-154"], "fr": ["FR-ALLN-023", "FR-ALLN-024", "FR-ALLN-121"], "ac": ["AC-ALLN-003", "AC-ALLN-021"], "adr": ["ADR-V5-010"], "risks": ["R-ALLN-906"], "redlines": ["F1", "F2", "T-d", "C-1", "L-a"], "parallelWith": [], "acceptance": ["面 ④ 遍历全部 attributes（非白名单子集）∧ 提交后 value 清空", "4 类注入逐条实跑 FAIL → 逐字节还原 PASS", "第 5 信号：哨兵经 label() ⇒ 抛错", "EXPECTED_AUDITED_FILES ⊇ law8-plaintext.mjs ∧ zero-injection ≥27 独立计数", "存储侧边界声明存在 ∧ 无『存储已加密』类断言 / 文案"], "verify": ["node packages/web-cli-plugin/test/ui/law8-plaintext.mjs", "npm run test:zero-injection --workspace @lgdl/web-cli-plugin", "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-156", "alias": "V53-04", "wave": 2, "globalWave": "W14", "size": "M", "type": "implementation", "title": "stream-model.ts error.payload.recovery 渲染打通", "deps": ["TASK-V5-155"], "fr": ["FR-ALLN-012"], "ac": ["AC-ALLN-002"], "adr": ["ADR-V5-002", "ADR-V5-009"], "risks": ["R-ALLN-006"], "redlines": ["F1", "T-d", "C-1", "C-3", "L-a"], "parallelWith": [], "acceptance": ["error.payload.recovery 可选 ∧ 缺省不改变既有渲染", "阻塞类判定派生自 BLOCKED_TERMINALS（无第二个 5 字面量集合）", "BORN_FROZEN_KINDS 逐字不变（error 仍在集内）", "反证：去 recovery ⇒ TASK-V5-161 FAIL（联测）"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm run test:stream --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-157", "alias": "V53-05", "wave": 2, "globalWave": "W14", "size": "M", "type": "implementation", "title": "cards/error.ts 出生铸造恢复区（阻塞类带 / 非阻塞不带）", "deps": ["TASK-V5-156"], "fr": ["FR-ALLN-012"], "ac": ["AC-ALLN-002"], "adr": ["ADR-V5-002"], "risks": ["R-ALLN-006"], "redlines": ["F1", "T-d", "C-1", "C-3", "C-4", "L-a"], "parallelWith": [], "acceptance": ["阻塞类 error 卡行内含 [data-act=next][data-op]", "非阻塞类 error 卡零 chip", "恢复区在 createErrorCard 同一调用内完成（无 patch 路径）", "BORN_FROZEN_KINDS 未改 ∧ 『出生后不 patch』断言绿", "反证两条实跑 ⇒ FAIL → 还原 PASS"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm run test:stream --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-158", "alias": "V53-06", "wave": 2, "globalWave": "W14", "size": "M", "type": "gate", "title": "test/ui/stream.mjs 增断言（error 行内恢复）+ 出生后不 patch 反证", "deps": ["TASK-V5-157"], "fr": ["FR-ALLN-012", "FR-ALLN-115"], "ac": ["AC-ALLN-002", "AC-ALLN-021"], "adr": ["ADR-V5-002", "ADR-V5-012"], "risks": ["R-ALLN-006"], "redlines": ["F1", "T-d", "C-1", "C-5", "L-a"], "parallelWith": [], "acceptance": ["test:stream ≥63（只增）；新增断言 ≥4 条", "『出生后不 patch』可 FAIL 反证存在", "modifiedRanges[] 每处改写有 oldId / reason ≥40 / leaf:'v5-3'"], "verify": ["npm run test:stream --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-159", "alias": "V53-07", "wave": 3, "globalWave": "W15", "size": "L", "type": "gate", "title": "test/ui/no-dead-end.mjs：5 类阻塞逐类 + nextOf 双形态判据", "deps": ["TASK-V5-158", "TASK-V5-153"], "fr": ["FR-ALLN-010", "FR-ALLN-011", "FR-ALLN-015"], "ac": ["AC-ALLN-002"], "adr": ["ADR-V5-009"], "risks": ["R-ALLN-006"], "redlines": ["F1", "F2", "T-d", "C-3", "C-4", "L-a"], "parallelWith": ["TASK-V5-162"], "gateDependency": "TASK-V5-153 == report-to-orchestrator ⇒ 本任务暂停上报", "acceptance": ["5 类阻塞逐类 deadEnd === false（5 组读数）", "nextOf 形态① 与形态② 各至少 1 例命中", "阻塞枚举源 == BLOCKED_TERMINALS（唯一）+ 声明恰一次扫描绿", "EXPECTED_AUDITED_FILES ⊇ no-dead-end.mjs"], "verify": ["node packages/web-cli-plugin/test/ui/no-dead-end.mjs"] },
-    { "id": "TASK-V5-160", "alias": "V53-08", "wave": 3, "globalWave": "W15", "size": "L", "type": "gate", "title": "死端 = 0 同屏扫描 + S2 全链主验收（消费 v5-2 样本）", "deps": ["TASK-V5-159"], "fr": ["FR-ALLN-011", "FR-ALLN-016", "FR-ALLN-015"], "ac": ["AC-ALLN-001", "AC-ALLN-002"], "adr": ["ADR-V5-009"], "risks": ["R-ALLN-014"], "redlines": ["F1", "F2", "T-d", "C-3"], "parallelWith": [], "acceptance": ["#stream 阻塞卡死端计数 === 0", "S2 10 环节逐环节读数存在（含 ⑤ / ⑩）", "N = 0 口径：无 sleep / poll（源文本判据）", "人工面：浏览器原生权限弹窗体感 = ⏳ 未执行"], "verify": ["node packages/web-cli-plugin/test/ui/no-dead-end.mjs"] },
-    { "id": "TASK-V5-161", "alias": "V53-09", "wave": 3, "globalWave": "W15", "size": "M", "type": "gate", "title": "双向注入反证（新增阻塞无 next / 已有 next 被删）+ 逐字节还原", "deps": ["TASK-V5-160"], "fr": ["FR-ALLN-015", "FR-ALLN-121"], "ac": ["AC-ALLN-002", "AC-ALLN-021"], "adr": ["ADR-V5-009"], "risks": ["R-ALLN-013"], "redlines": ["F1", "F3", "T-d", "C-3", "L-a"], "parallelWith": [], "acceptance": ["注入 ① ⇒ FAIL ∧ 还原后 sha256 逐字节相同 ∧ PASS", "注入 ② ⇒ FAIL ∧ 还原后 sha256 逐字节相同 ∧ PASS", "两条注均在声明位置生效", "无恒绿判据遗留"], "verify": ["node packages/web-cli-plugin/test/ui/no-dead-end.mjs"] },
-    { "id": "TASK-V5-162", "alias": "V53-10", "wave": 3, "globalWave": "W15", "size": "M", "type": "gate", "title": "test/host-registry.test.ts 零宿主反向判据（chip / 分隔条不在流内）", "deps": ["TASK-V5-159"], "fr": ["FR-ALLN-085"], "ac": ["AC-ALLN-015"], "adr": ["ADR-V5-006", "ADR-V5-007"], "risks": ["R-ALLN-011"], "redlines": ["F1", "T-a", "C-7", "L-a"], "parallelWith": ["TASK-V5-159", "TASK-V5-160", "TASK-V5-161"], "acceptance": ["REGISTERED_STRUCTURAL_HOSTS.length === 0 ∧ #stream 子树 [data-host] == 0（任意深度）", "#auth-state / 管理详情 / 分隔条不在 #stream 子树", "反证：注入 li[data-host] ⇒ FAIL → 逐字节还原 ⇒ PASS"], "verify": ["npm test --workspace @lgdl/web-cli-plugin -- host-registry"] },
-    { "id": "TASK-V5-163", "alias": "V53-11", "wave": 4, "globalWave": "W16", "size": "M", "type": "implementation", "title": "index.html #auth-state 净新增（#risk-chips 之前）+ 管理详情 DOM", "deps": ["TASK-V5-162"], "fr": ["FR-ALLN-085", "FR-ALLN-088", "FR-ALLN-092"], "ac": ["AC-ALLN-012", "AC-ALLN-015"], "adr": ["ADR-V5-006"], "risks": ["R-ALLN-007", "R-V5-105"], "redlines": ["F1", "T-a", "C-7", "L-a"], "parallelWith": [], "acceptance": ["#auth-state 为 #region-statusbar 后代 ∧ 位于 #risk-chips 之前 ∧ 不在 #stream", "#auth-state 与 #risk-chips 同行（flex-wrap 生效）", "管理详情默认可折叠 ∧ 含 op.revoke / op.rebind 入口", "#risk-chips 本体零改 ∧ J1~J4 相关 id 零改"], "verify": ["node -e \"const h=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/index.html','utf8');const a=h.indexOf('id=\\\"auth-state\\\"'),r=h.indexOf('id=\\\"risk-chips\\\"');if(a<0||r<0||a>r)throw new Error('#auth-state must precede #risk-chips')\""] },
-    { "id": "TASK-V5-164", "alias": "V53-12", "wave": 4, "globalWave": "W16", "size": "L", "type": "implementation", "title": "statusbar.ts 两态恒显其一；仍是唯一写入者（J1~J4）", "deps": ["TASK-V5-163"], "fr": ["FR-ALLN-085", "FR-ALLN-092"], "ac": ["AC-ALLN-012", "AC-ALLN-015"], "adr": ["ADR-V5-006"], "risks": ["R-ALLN-007", "R-V5-105"], "redlines": ["F1", "F2", "T-a", "T-b", "C-7", "L-a"], "parallelWith": [], "acceptance": ["#auth-state 常显（永不 hidden）∧ 两态文案逐字命中", "data-auth ∈ {yellow,green}；7 场景默认值可判", "状态 ≡ ctxOf(scene).site.authorized", "J1~J4 逐条绿 ∧ #region-statusbar 本体永不带 hidden ∧ #risk-chips 语义不变", "反证：零风险时 #auth-state 被 hidden ⇒ FAIL"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm run test:l0 --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-165", "alias": "V53-13", "wave": 4, "globalWave": "W16", "size": "L", "type": "implementation", "title": "零双写五条（view-model / risk-rail / L2 站点行）", "deps": ["TASK-V5-164"], "fr": ["FR-ALLN-086", "FR-ALLN-092"], "ac": ["AC-ALLN-012"], "adr": ["ADR-V5-006"], "risks": ["R-ALLN-007", "R-ALLN-907", "R-V5-105"], "redlines": ["F2", "T-a", "T-b", "C-7", "L-a"], "parallelWith": [], "acceptance": ["① toolbarDigest 只含 origin · 会话 ② 四词在工具栏区零出现 ③ RAIL_RISK_CLASSES.length === 4 ∧ unauthorized 不在 rail ④ 状态栏第一行零授权态 ⑤ L2 站点行指向 chip", "四词扫描：唯一命中 = #auth-state", "反证：任一处重现已授权态 ⇒ FAIL"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm run test:l0 --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-166", "alias": "V53-14", "wave": 4, "globalWave": "W16", "size": "M", "type": "implementation", "title": "黄 / 绿 chip 点击行为（不跳走）+ 四词扫描断言复核", "deps": ["TASK-V5-165"], "fr": ["FR-ALLN-087", "FR-ALLN-088"], "ac": ["AC-ALLN-012"], "adr": ["ADR-V5-006"], "risks": ["R-ALLN-907"], "redlines": ["F1", "F2", "F3", "T-a", "T-b", "C-4", "C-7", "L-a"], "parallelWith": [], "acceptance": ["黄点击 ⇒ #stream 新增含 data-op=op.authorize 的 next 卡 + 系统行 ∧ 面板 / 视图零切换", "绿点击 ⇒ 管理详情展开 ∧ 默认折叠 ∧ 展开后默认屏 ≤7 ∧ 键盘可达", "反证两条实跑 ⇒ FAIL → 还原 PASS", "四词扫描唯一命中 = #auth-state"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "npm run test:l0 --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-167", "alias": "V53-15", "wave": 5, "globalWave": "W17", "size": "M", "type": "implementation", "title": "ResizeObserver → data-narrow（360/361）+ 窄屏样式块", "deps": ["TASK-V5-166"], "fr": ["FR-ALLN-090", "FR-ALLN-114"], "ac": ["AC-ALLN-013"], "adr": ["ADR-V5-007"], "risks": ["R-V5-106", "R-ALLN-908"], "redlines": ["F1", "T-a", "T-b", "C-7", "L-a"], "parallelWith": [], "acceptance": ["宽度 360 ⇒ data-narrow === 'true' ∧ 361 ⇒ 'false'", "反证：宽视口 + 窄面板 ⇒ data-narrow === true", "320px 无水平溢出 ∧ Tab 序 / :focus-visible 不退化", "样式块复用既有窄屏样式语言"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "node -e \"const s=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts','utf8');if(/matchMedia/.test(s)&&/data-narrow/.test(s))throw new Error('must use ResizeObserver');if(!/ResizeObserver/.test(s))throw new Error('ResizeObserver missing')\""] },
-    { "id": "TASK-V5-168", "alias": "V53-16", "wave": 5, "globalWave": "W17", "size": "M", "type": "gate", "title": "三档 radio 零残留 + 产品侧零宽度切换控件 + R-V5-106 反证 + 诚实登记", "deps": ["TASK-V5-167"], "fr": ["FR-ALLN-089", "FR-ALLN-090", "FR-ALLN-114"], "ac": ["AC-ALLN-013"], "adr": ["ADR-V5-007"], "risks": ["R-V5-106", "R-ALLN-908"], "redlines": ["F1", "T-a", "C-5", "L-a"], "parallelWith": [], "acceptance": ["产品侧零宽度切换控件（5 项扫描逐项零命中）", "反证两条：注入三档 radio ⇒ FAIL；matchMedia 版 ⇒ FAIL", "诚实登记存在（产品侧无拖动 + 设计稿契约侧归属）∧ 与 G 契约对账一致", "test:ui（journey）/ l0 / density 计数 ≥ 基线"], "verify": ["npm run typecheck --workspace @lgdl/web-cli-plugin", "git diff --quiet -- packages/web-cli-plugin/design", "npm run test:ui --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-169", "alias": "V53-17", "wave": 5, "globalWave": "W17", "size": "M", "type": "gate", "title": "test/ui/l0.mjs（244）/ density.mjs（232）等价重锚", "deps": ["TASK-V5-168"], "fr": ["FR-ALLN-091", "FR-ALLN-092", "FR-ALLN-120"], "ac": ["AC-ALLN-012", "AC-ALLN-014", "AC-ALLN-015", "AC-ALLN-020"], "adr": ["ADR-V5-006", "ADR-V5-007"], "risks": ["R-ALLN-009", "R-ALLN-013"], "redlines": ["F1", "F2", "T-a", "T-b", "C-7", "L-a"], "parallelWith": [], "acceptance": ["test:l0 ≥244 ∧ test:density ≥232（只增）", "默认可点 6 ≤ 7 ∧ S6 = 7 ≤ 7 ∧ unauthorized 子场景总可点数不变", "四词扫描 + J1~J4 断言在位", "反证 ≥2 条实跑 ⇒ FAIL → 逐字节还原 ⇒ PASS"], "verify": ["npm run test:l0 --workspace @lgdl/web-cli-plugin", "npm run test:density --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-170", "alias": "V53-18", "wave": 6, "globalWave": "W18", "size": "M", "type": "gate", "title": "test/density-thresholds.test.ts 阈值逐字 + data-narrow 边界 + 单源声明", "deps": ["TASK-V5-169"], "fr": ["FR-ALLN-091", "FR-ALLN-114"], "ac": ["AC-ALLN-014"], "adr": ["ADR-V5-007"], "risks": ["R-ALLN-009", "R-ALLN-908"], "redlines": ["F1", "T-a", "T-b", "C-7", "L-b"], "parallelWith": [], "acceptance": ["阈值 7/15 · 9/20 · 17/35 逐字（字面比对）", "DENSITY_EXCLUDED_SUBTREES 单源（全仓唯一声明点）", "data-narrow 360/361 双值 + 宽度 → 控件计数不变", "STREAM_HEIGHT_RATIO_MIN === 0.65 未下调"], "verify": ["npm test --workspace @lgdl/web-cli-plugin -- density-thresholds"] },
-    { "id": "TASK-V5-171", "alias": "V53-19", "wave": 6, "globalWave": "W18", "size": "L", "type": "implementation", "title": "密度登记格口径解耦（格 = 控件计数）+ 31 格逐格留痕", "deps": ["TASK-V5-170"], "fr": ["FR-ALLN-091", "FR-ALLN-114"], "ac": ["AC-ALLN-014"], "adr": ["ADR-V5-007"], "risks": ["R-ALLN-009"], "redlines": ["F1", "T-a", "T-b", "C-7", "L-b"], "parallelWith": [], "acceptance": ["registeredCells === 31 ∧ 无格被删除 ∧ 原数值零改", "『宽度 → 控件计数不变』判据存在且可 FAIL", "320px 锚点逐格断言保留", "#auth-state 计入后默认读数 ≤7", "反证：宽度耦合 ⇒ FAIL"], "verify": ["npm run test:density --workspace @lgdl/web-cli-plugin", "node -e \"const d=require('./packages/web-cli-plugin/docs/v4-density-baseline.json');console.log('registeredCells:',d.registeredCells??d.v5Ledger?.registeredCells)\""] },
-    { "id": "TASK-V5-172", "alias": "V53-20", "wave": 6, "globalWave": "W18", "size": "M", "type": "doc", "title": "density-baseline tiers 重锚 + v5Ledger + X5 取代台账条目", "deps": ["TASK-V5-171"], "fr": ["FR-ALLN-114", "FR-ALLN-116", "FR-ALLN-120"], "ac": ["AC-ALLN-014", "AC-ALLN-018"], "adr": ["ADR-V5-007", "ADR-V5-012"], "risks": ["R-ALLN-009", "R-ALLN-010"], "redlines": ["F1", "F4", "T-a", "T-b", "C-5", "L-a", "L-b"], "parallelWith": [], "acceptance": ["tiers 历史值零删零改（只追加说明）；v5Ledger 逐格留痕 ≥31", "X5 条目在 modifiedRanges[] ∧ 五要素齐备 ∧ reason ≥40", "riskIncrementRegistry 4 溯源字段齐备（缺一 FAIL）", "反证：删格 / 改数值 / 缺 rulingId ⇒ 逐项 FAIL"], "verify": ["npm run test:supersession --workspace @lgdl/web-cli-plugin", "python3 -c \"import json;d=json.load(open('packages/web-cli-plugin/docs/v4-density-baseline.json'));print('v5Ledger cells:',len(d.get('v5Ledger',{}).get('cells',[])))\""] },
-    { "id": "TASK-V5-173", "alias": "V53-21", "wave": 7, "globalWave": "W19", "size": "L", "type": "gate", "title": "journey 保护段处置（保段首选 / 第三次八步）+ 计数守恒 ≥171 + RP-V4-08", "deps": ["TASK-V5-172"], "fr": ["FR-ALLN-122", "FR-ALLN-123", "FR-ALLN-120"], "ac": ["AC-ALLN-018", "AC-ALLN-020"], "adr": ["ADR-V5-012"], "risks": ["R-ALLN-010", "R-ALLN-015"], "redlines": ["F1", "F4", "T-b", "C-5", "L-a"], "parallelWith": [], "acceptance": ["显式二选一结论存在（保段 or 取代，不得含糊）", "保段：sha cc79f413… ∧ startByte 43054 ∧ 240 行不变；取代：新 pin + 第 4 链节 + redlineRemap[]", "test:journey ≥171（计数守恒）", "RP-V4-08 实跑：段内 1 byte ⇒ FAIL；段外 1 byte ⇒ 不红；逐字节还原 ⇒ PASS", "knownGap ↔ status 一致性绿"], "verify": ["npm run test:ui --workspace @lgdl/web-cli-plugin", "npm run test:supersession --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-174", "alias": "V53-22", "wave": 7, "globalWave": "W19", "size": "L", "type": "doc", "title": "体积终轮（三叶合计）+ 五要素 + V3-VOL-3 三值同源 + 档位闸门", "deps": ["TASK-V5-173"], "fr": ["FR-ALLN-130", "FR-ALLN-131", "FR-ALLN-132", "FR-ALLN-133", "FR-ALLN-134"], "ac": ["AC-ALLN-022", "AC-ALLN-023"], "adr": ["ADR-V5-011"], "risks": ["R-ALLN-001", "R-ALLN-910"], "redlines": ["F2", "T-c", "L-a", "L-c"], "parallelWith": [], "acceptance": ["五要素齐备 + Σ 逐模块 Δ + 未归因 == 登记增量", "v3Vol3Closeout 三值同源 ∧ 档位 512,000 / 绝对上限 563,200 不变", "SIDEPANEL_CEILING_CAP === 'record-only' ∧ authorConfirmation.status === 'pending-author-line'", "档位闸门算术成立（不下移）；越限分级处置条目存在", "test:size-ruling-vol3 ≥12 ∧ 红线逐字节"], "verify": ["npm run build --workspace @lgdl/web-cli-plugin", "stat -c %s packages/web-cli-plugin/dist/content.js packages/web-cli-plugin/dist/pick-layer.js packages/web-cli-plugin/dist/sidepanel.js", "npm run test:size-budget --workspace @lgdl/web-cli-plugin", "npm run test:size-ruling-vol3 --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-175", "alias": "V53-23", "wave": 7, "globalWave": "W19", "size": "M", "type": "gate", "title": "supersession 台账一致性（X5 + designContractChanges + knownGap）+ gate-integrity 收口", "deps": ["TASK-V5-174"], "fr": ["FR-ALLN-123", "FR-ALLN-116", "FR-ALLN-121", "FR-ALLN-125"], "ac": ["AC-ALLN-017", "AC-ALLN-018", "AC-ALLN-021"], "adr": ["ADR-V5-012"], "risks": ["R-ALLN-013", "R-V5-110"], "redlines": ["F1", "F4", "T-c", "C-5", "L-a", "L-b", "L-c"], "parallelWith": [], "acceptance": ["test:supersession ≥35；X5 条目可核；designContractChanges 未被二次登记", "status ↔ knownGap 一致性绿", "test:gate-integrity ≥13 ∧ 8 个新门禁逐项在受审集合内", "共享面『恰一次』对账表（4 类 × 登记叶）无重复项", "反证两条实跑 ⇒ FAIL → 逐字节还原 ⇒ PASS"], "verify": ["npm run test:supersession --workspace @lgdl/web-cli-plugin", "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin"] },
-    { "id": "TASK-V5-176", "alias": "V53-24", "wave": 7, "globalWave": "W19", "size": "L", "type": "gate", "title": "收尾：全门禁串行 + e2e 汇总 + 人工面 9 项逐项 + 计数只增对账", "deps": ["TASK-V5-175"], "fr": ["FR-ALLN-003", "FR-ALLN-004", "FR-ALLN-120", "FR-ALLN-124", "FR-ALLN-125"], "ac": ["AC-ALLN-019", "AC-ALLN-020", "AC-ALLN-021", "AC-ALLN-024", "AC-ALLN-025"], "adr": ["ADR-V5-012"], "risks": ["R-ALLN-013", "R-ALLN-015", "R-V5-110"], "redlines": ["F1", "F2", "F3", "F4", "F5", "T-a", "T-b", "T-c", "T-d", "T-e", "L-a", "L-b", "L-c", "C-1", "C-2", "C-3", "C-4", "C-5", "C-6", "C-7"], "parallelWith": [], "acceptance": ["全门禁串行复跑全绿（日志全量落盘无截断）", "24 项计数 ≥ 基线（含 e2e = PASS）", "人工面 9 项逐项标注（⏳ / PASS，不得冒充）", "反证留证齐备；无不再 FAIL 的判据", "共享面『恰一次』登记确认", "git status --short 仅含本 Feature 目录 + 预期实施面"], "verify": ["npm test --workspace @lgdl/web-cli-plugin", "npm run test:ui --workspace @lgdl/web-cli-plugin", "npm run test:binding --workspace @lgdl/web-cli-plugin", "npm run test:e2e --workspace @lgdl/web-cli-plugin"] }
+    {
+      "id": "TASK-V5-153",
+      "alias": "V53-01",
+      "wave": 1,
+      "globalWave": "W13",
+      "size": "S",
+      "type": "spike",
+      "title": "spikeGate-4：5 类阻塞 headless 驱动 seam 探针",
+      "deps": [
+        "TASK-V5-152"
+      ],
+      "fr": [
+        "FR-ALLN-010",
+        "FR-ALLN-011",
+        "FR-ALLN-015"
+      ],
+      "ac": [
+        "AC-ALLN-002"
+      ],
+      "adr": [
+        "ADR-V5-009"
+      ],
+      "risks": [
+        "R-ALLN-014"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "F3",
+        "T-d",
+        "C-3",
+        "L-a"
+      ],
+      "parallelWith": [
+        "TASK-V5-154"
+      ],
+      "spikeGate": {
+        "code": "SG-4",
+        "gates": [
+          "TASK-V5-159",
+          "TASK-V5-160"
+        ]
+      },
+      "acceptance": [
+        "5 类逐类有 seam 名称 + file:line 或显式缺口条目",
+        "binding.stale / ref.all-invalid 的 when(ctx) 可注入",
+        "『同步渲染、同帧可断言』结论成文（无 sleep / 无 poll）",
+        "结论二值之一且带证据；git status --short 零输出"
+      ],
+      "verify": [
+        "mkdir -p /tmp/opencode/v5-spike && node /tmp/opencode/v5-spike/blocked-seam-probe.mjs",
+        "git status --short"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-154",
+      "alias": "V53-02",
+      "wave": 1,
+      "globalWave": "W13",
+      "size": "L",
+      "type": "gate",
+      "title": "law8-plaintext.mjs 骨架：SENTINEL + 面 ①（流内 payload）②（digest）③（审计面）",
+      "deps": [
+        "TASK-V5-153"
+      ],
+      "fr": [
+        "FR-ALLN-023"
+      ],
+      "ac": [
+        "AC-ALLN-003"
+      ],
+      "adr": [
+        "ADR-V5-010"
+      ],
+      "risks": [
+        "R-ALLN-008",
+        "R-ALLN-906"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "F3",
+        "T-d",
+        "C-1",
+        "C-7"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "面 ① / ② / ③ 逐面断言存在且可 FAIL（每面 expectFailPattern）",
+        "面 ② 判据含 digest 含 '••••••'",
+        "面 ③ 覆盖审计渲染 + 审计存储两面",
+        "key 直写调用点 == 1",
+        "与 test:zero-injection（27）分别计数"
+      ],
+      "verify": [
+        "node packages/web-cli-plugin/test/ui/law8-plaintext.mjs"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-155",
+      "alias": "V53-03",
+      "wave": 1,
+      "globalWave": "W13",
+      "size": "M",
+      "type": "gate",
+      "title": "法八面 ④（DOM value + 全部元素属性）+ 提交后清空 + 四类注入反证 + 受审追加",
+      "deps": [
+        "TASK-V5-154"
+      ],
+      "fr": [
+        "FR-ALLN-023",
+        "FR-ALLN-024",
+        "FR-ALLN-121"
+      ],
+      "ac": [
+        "AC-ALLN-003",
+        "AC-ALLN-021"
+      ],
+      "adr": [
+        "ADR-V5-010"
+      ],
+      "risks": [
+        "R-ALLN-906"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "T-d",
+        "C-1",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "面 ④ 遍历全部 attributes（非白名单子集）∧ 提交后 value 清空",
+        "4 类注入逐条实跑 FAIL → 逐字节还原 PASS",
+        "第 5 信号：哨兵经 label() ⇒ 抛错",
+        "EXPECTED_AUDITED_FILES ⊇ law8-plaintext.mjs ∧ zero-injection ≥27 独立计数",
+        "存储侧边界声明存在 ∧ 无『存储已加密』类断言 / 文案"
+      ],
+      "verify": [
+        "node packages/web-cli-plugin/test/ui/law8-plaintext.mjs",
+        "npm run test:zero-injection --workspace @lgdl/web-cli-plugin",
+        "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-156",
+      "alias": "V53-04",
+      "wave": 2,
+      "globalWave": "W14",
+      "size": "M",
+      "type": "implementation",
+      "title": "stream-model.ts error.payload.recovery 渲染打通",
+      "deps": [
+        "TASK-V5-155"
+      ],
+      "fr": [
+        "FR-ALLN-012"
+      ],
+      "ac": [
+        "AC-ALLN-002"
+      ],
+      "adr": [
+        "ADR-V5-002",
+        "ADR-V5-009"
+      ],
+      "risks": [
+        "R-ALLN-006"
+      ],
+      "redlines": [
+        "F1",
+        "T-d",
+        "C-1",
+        "C-3",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "error.payload.recovery 可选 ∧ 缺省不改变既有渲染",
+        "阻塞类判定派生自 BLOCKED_TERMINALS（无第二个 5 字面量集合）",
+        "BORN_FROZEN_KINDS 逐字不变（error 仍在集内）",
+        "反证：去 recovery ⇒ TASK-V5-161 FAIL（联测）"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "npm run test:stream --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-157",
+      "alias": "V53-05",
+      "wave": 2,
+      "globalWave": "W14",
+      "size": "M",
+      "type": "implementation",
+      "title": "cards/error.ts 出生铸造恢复区（阻塞类带 / 非阻塞不带）",
+      "deps": [
+        "TASK-V5-156"
+      ],
+      "fr": [
+        "FR-ALLN-012"
+      ],
+      "ac": [
+        "AC-ALLN-002"
+      ],
+      "adr": [
+        "ADR-V5-002"
+      ],
+      "risks": [
+        "R-ALLN-006"
+      ],
+      "redlines": [
+        "F1",
+        "T-d",
+        "C-1",
+        "C-3",
+        "C-4",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "阻塞类 error 卡行内含 [data-act=next][data-op]",
+        "非阻塞类 error 卡零 chip",
+        "恢复区在 createErrorCard 同一调用内完成（无 patch 路径）",
+        "BORN_FROZEN_KINDS 未改 ∧ 『出生后不 patch』断言绿",
+        "反证两条实跑 ⇒ FAIL → 还原 PASS"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "npm run test:stream --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-158",
+      "alias": "V53-06",
+      "wave": 2,
+      "globalWave": "W14",
+      "size": "M",
+      "type": "gate",
+      "title": "test/ui/stream.mjs 增断言（error 行内恢复）+ 出生后不 patch 反证",
+      "deps": [
+        "TASK-V5-157"
+      ],
+      "fr": [
+        "FR-ALLN-012",
+        "FR-ALLN-115"
+      ],
+      "ac": [
+        "AC-ALLN-002",
+        "AC-ALLN-021"
+      ],
+      "adr": [
+        "ADR-V5-002",
+        "ADR-V5-012"
+      ],
+      "risks": [
+        "R-ALLN-006"
+      ],
+      "redlines": [
+        "F1",
+        "T-d",
+        "C-1",
+        "C-5",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "test:stream ≥63（只增）；新增断言 ≥4 条",
+        "『出生后不 patch』可 FAIL 反证存在",
+        "modifiedRanges[] 每处改写有 oldId / reason ≥40 / leaf:'v5-3'"
+      ],
+      "verify": [
+        "npm run test:stream --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-159",
+      "alias": "V53-07",
+      "wave": 3,
+      "globalWave": "W15",
+      "size": "L",
+      "type": "gate",
+      "title": "test/ui/no-dead-end.mjs：5 类阻塞逐类 + nextOf 双形态判据",
+      "deps": [
+        "TASK-V5-158",
+        "TASK-V5-153"
+      ],
+      "fr": [
+        "FR-ALLN-010",
+        "FR-ALLN-011",
+        "FR-ALLN-015"
+      ],
+      "ac": [
+        "AC-ALLN-002"
+      ],
+      "adr": [
+        "ADR-V5-009"
+      ],
+      "risks": [
+        "R-ALLN-006"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "T-d",
+        "C-3",
+        "C-4",
+        "L-a"
+      ],
+      "parallelWith": [
+        "TASK-V5-162"
+      ],
+      "gateDependency": "TASK-V5-153 == report-to-orchestrator ⇒ 本任务暂停上报",
+      "acceptance": [
+        "5 类阻塞逐类 deadEnd === false（5 组读数）",
+        "nextOf 形态① 与形态② 各至少 1 例命中",
+        "阻塞枚举源 == BLOCKED_TERMINALS（唯一）+ 声明恰一次扫描绿",
+        "EXPECTED_AUDITED_FILES ⊇ no-dead-end.mjs"
+      ],
+      "verify": [
+        "node packages/web-cli-plugin/test/ui/no-dead-end.mjs"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-160",
+      "alias": "V53-08",
+      "wave": 3,
+      "globalWave": "W15",
+      "size": "L",
+      "type": "gate",
+      "title": "死端 = 0 同屏扫描 + S2 全链主验收（消费 v5-2 样本）",
+      "deps": [
+        "TASK-V5-159"
+      ],
+      "fr": [
+        "FR-ALLN-011",
+        "FR-ALLN-016",
+        "FR-ALLN-015"
+      ],
+      "ac": [
+        "AC-ALLN-001",
+        "AC-ALLN-002"
+      ],
+      "adr": [
+        "ADR-V5-009"
+      ],
+      "risks": [
+        "R-ALLN-014"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "T-d",
+        "C-3"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "#stream 阻塞卡死端计数 === 0",
+        "S2 10 环节逐环节读数存在（含 ⑤ / ⑩）",
+        "N = 0 口径：无 sleep / poll（源文本判据）",
+        "人工面：浏览器原生权限弹窗体感 = ⏳ 未执行"
+      ],
+      "verify": [
+        "node packages/web-cli-plugin/test/ui/no-dead-end.mjs"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-161",
+      "alias": "V53-09",
+      "wave": 3,
+      "globalWave": "W15",
+      "size": "M",
+      "type": "gate",
+      "title": "双向注入反证（新增阻塞无 next / 已有 next 被删）+ 逐字节还原",
+      "deps": [
+        "TASK-V5-160"
+      ],
+      "fr": [
+        "FR-ALLN-015",
+        "FR-ALLN-121"
+      ],
+      "ac": [
+        "AC-ALLN-002",
+        "AC-ALLN-021"
+      ],
+      "adr": [
+        "ADR-V5-009"
+      ],
+      "risks": [
+        "R-ALLN-013"
+      ],
+      "redlines": [
+        "F1",
+        "F3",
+        "T-d",
+        "C-3",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "注入 ① ⇒ FAIL ∧ 还原后 sha256 逐字节相同 ∧ PASS",
+        "注入 ② ⇒ FAIL ∧ 还原后 sha256 逐字节相同 ∧ PASS",
+        "两条注均在声明位置生效",
+        "无恒绿判据遗留"
+      ],
+      "verify": [
+        "node packages/web-cli-plugin/test/ui/no-dead-end.mjs"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-162",
+      "alias": "V53-10",
+      "wave": 3,
+      "globalWave": "W15",
+      "size": "M",
+      "type": "gate",
+      "title": "test/host-registry.test.ts 零宿主反向判据（chip / 分隔条不在流内）",
+      "deps": [
+        "TASK-V5-159"
+      ],
+      "fr": [
+        "FR-ALLN-085"
+      ],
+      "ac": [
+        "AC-ALLN-015"
+      ],
+      "adr": [
+        "ADR-V5-006",
+        "ADR-V5-007"
+      ],
+      "risks": [
+        "R-ALLN-011"
+      ],
+      "redlines": [
+        "F1",
+        "T-a",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [
+        "TASK-V5-159",
+        "TASK-V5-160",
+        "TASK-V5-161"
+      ],
+      "acceptance": [
+        "REGISTERED_STRUCTURAL_HOSTS.length === 0 ∧ #stream 子树 [data-host] == 0（任意深度）",
+        "#auth-state / 管理详情 / 分隔条不在 #stream 子树",
+        "反证：注入 li[data-host] ⇒ FAIL → 逐字节还原 ⇒ PASS"
+      ],
+      "verify": [
+        "npm test --workspace @lgdl/web-cli-plugin -- host-registry"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-163",
+      "alias": "V53-11",
+      "wave": 4,
+      "globalWave": "W16",
+      "size": "M",
+      "type": "implementation",
+      "title": "index.html #auth-state 净新增（#risk-chips 之前）+ 管理详情 DOM",
+      "deps": [
+        "TASK-V5-162"
+      ],
+      "fr": [
+        "FR-ALLN-085",
+        "FR-ALLN-088",
+        "FR-ALLN-092"
+      ],
+      "ac": [
+        "AC-ALLN-012",
+        "AC-ALLN-015"
+      ],
+      "adr": [
+        "ADR-V5-006"
+      ],
+      "risks": [
+        "R-ALLN-007",
+        "R-V5-105"
+      ],
+      "redlines": [
+        "F1",
+        "T-a",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "#auth-state 为 #region-statusbar 后代 ∧ 位于 #risk-chips 之前 ∧ 不在 #stream",
+        "#auth-state 与 #risk-chips 同行（flex-wrap 生效）",
+        "管理详情默认可折叠 ∧ 含 op.revoke / op.rebind 入口",
+        "#risk-chips 本体零改 ∧ J1~J4 相关 id 零改"
+      ],
+      "verify": [
+        "node -e \"const h=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/index.html','utf8');const a=h.indexOf('id=\\\"auth-state\\\"'),r=h.indexOf('id=\\\"risk-chips\\\"');if(a<0||r<0||a>r)throw new Error('#auth-state must precede #risk-chips')\""
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-164",
+      "alias": "V53-12",
+      "wave": 4,
+      "globalWave": "W16",
+      "size": "L",
+      "type": "implementation",
+      "title": "statusbar.ts 两态恒显其一；仍是唯一写入者（J1~J4）",
+      "deps": [
+        "TASK-V5-163"
+      ],
+      "fr": [
+        "FR-ALLN-085",
+        "FR-ALLN-092"
+      ],
+      "ac": [
+        "AC-ALLN-012",
+        "AC-ALLN-015"
+      ],
+      "adr": [
+        "ADR-V5-006"
+      ],
+      "risks": [
+        "R-ALLN-007",
+        "R-V5-105"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "T-a",
+        "T-b",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "#auth-state 常显（永不 hidden）∧ 两态文案逐字命中",
+        "data-auth ∈ {yellow,green}；7 场景默认值可判",
+        "状态 ≡ ctxOf(scene).site.authorized",
+        "J1~J4 逐条绿 ∧ #region-statusbar 本体永不带 hidden ∧ #risk-chips 语义不变",
+        "反证：零风险时 #auth-state 被 hidden ⇒ FAIL"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-165",
+      "alias": "V53-13",
+      "wave": 4,
+      "globalWave": "W16",
+      "size": "L",
+      "type": "implementation",
+      "title": "零双写五条（view-model / risk-rail / L2 站点行）",
+      "deps": [
+        "TASK-V5-164"
+      ],
+      "fr": [
+        "FR-ALLN-086",
+        "FR-ALLN-092"
+      ],
+      "ac": [
+        "AC-ALLN-012"
+      ],
+      "adr": [
+        "ADR-V5-006"
+      ],
+      "risks": [
+        "R-ALLN-007",
+        "R-ALLN-907",
+        "R-V5-105"
+      ],
+      "redlines": [
+        "F2",
+        "T-a",
+        "T-b",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "① toolbarDigest 只含 origin · 会话 ② 四词在工具栏区零出现 ③ RAIL_RISK_CLASSES.length === 4 ∧ unauthorized 不在 rail ④ 状态栏第一行零授权态 ⑤ L2 站点行指向 chip",
+        "四词扫描：唯一命中 = #auth-state",
+        "反证：任一处重现已授权态 ⇒ FAIL"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-166",
+      "alias": "V53-14",
+      "wave": 4,
+      "globalWave": "W16",
+      "size": "M",
+      "type": "implementation",
+      "title": "黄 / 绿 chip 点击行为（不跳走）+ 四词扫描断言复核",
+      "deps": [
+        "TASK-V5-165"
+      ],
+      "fr": [
+        "FR-ALLN-087",
+        "FR-ALLN-088"
+      ],
+      "ac": [
+        "AC-ALLN-012"
+      ],
+      "adr": [
+        "ADR-V5-006"
+      ],
+      "risks": [
+        "R-ALLN-907"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "F3",
+        "T-a",
+        "T-b",
+        "C-4",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "黄点击 ⇒ #stream 新增含 data-op=op.authorize 的 next 卡 + 系统行 ∧ 面板 / 视图零切换",
+        "绿点击 ⇒ 管理详情展开 ∧ 默认折叠 ∧ 展开后默认屏 ≤7 ∧ 键盘可达",
+        "反证两条实跑 ⇒ FAIL → 还原 PASS",
+        "四词扫描唯一命中 = #auth-state"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin"
+      ],
+      "status": "completed"
+    },
+    {
+      "id": "TASK-V5-167",
+      "alias": "V53-15",
+      "wave": 5,
+      "globalWave": "W17",
+      "size": "M",
+      "type": "implementation",
+      "title": "ResizeObserver → data-narrow（360/361）+ 窄屏样式块",
+      "deps": [
+        "TASK-V5-166"
+      ],
+      "fr": [
+        "FR-ALLN-090",
+        "FR-ALLN-114"
+      ],
+      "ac": [
+        "AC-ALLN-013"
+      ],
+      "adr": [
+        "ADR-V5-007"
+      ],
+      "risks": [
+        "R-V5-106",
+        "R-ALLN-908"
+      ],
+      "redlines": [
+        "F1",
+        "T-a",
+        "T-b",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "宽度 360 ⇒ data-narrow === 'true' ∧ 361 ⇒ 'false'",
+        "反证：宽视口 + 窄面板 ⇒ data-narrow === true",
+        "320px 无水平溢出 ∧ Tab 序 / :focus-visible 不退化",
+        "样式块复用既有窄屏样式语言"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "node -e \"const s=require('fs').readFileSync('packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts','utf8');if(/matchMedia/.test(s)&&/data-narrow/.test(s))throw new Error('must use ResizeObserver');if(!/ResizeObserver/.test(s))throw new Error('ResizeObserver missing')\""
+      ]
+    },
+    {
+      "id": "TASK-V5-168",
+      "alias": "V53-16",
+      "wave": 5,
+      "globalWave": "W17",
+      "size": "M",
+      "type": "gate",
+      "title": "三档 radio 零残留 + 产品侧零宽度切换控件 + R-V5-106 反证 + 诚实登记",
+      "deps": [
+        "TASK-V5-167"
+      ],
+      "fr": [
+        "FR-ALLN-089",
+        "FR-ALLN-090",
+        "FR-ALLN-114"
+      ],
+      "ac": [
+        "AC-ALLN-013"
+      ],
+      "adr": [
+        "ADR-V5-007"
+      ],
+      "risks": [
+        "R-V5-106",
+        "R-ALLN-908"
+      ],
+      "redlines": [
+        "F1",
+        "T-a",
+        "C-5",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "产品侧零宽度切换控件（5 项扫描逐项零命中）",
+        "反证两条：注入三档 radio ⇒ FAIL；matchMedia 版 ⇒ FAIL",
+        "诚实登记存在（产品侧无拖动 + 设计稿契约侧归属）∧ 与 G 契约对账一致",
+        "test:ui（journey）/ l0 / density 计数 ≥ 基线"
+      ],
+      "verify": [
+        "npm run typecheck --workspace @lgdl/web-cli-plugin",
+        "git diff --quiet -- packages/web-cli-plugin/design",
+        "npm run test:ui --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-V5-169",
+      "alias": "V53-17",
+      "wave": 5,
+      "globalWave": "W17",
+      "size": "M",
+      "type": "gate",
+      "title": "test/ui/l0.mjs（244）/ density.mjs（232）等价重锚",
+      "deps": [
+        "TASK-V5-168"
+      ],
+      "fr": [
+        "FR-ALLN-091",
+        "FR-ALLN-092",
+        "FR-ALLN-120"
+      ],
+      "ac": [
+        "AC-ALLN-012",
+        "AC-ALLN-014",
+        "AC-ALLN-015",
+        "AC-ALLN-020"
+      ],
+      "adr": [
+        "ADR-V5-006",
+        "ADR-V5-007"
+      ],
+      "risks": [
+        "R-ALLN-009",
+        "R-ALLN-013"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "T-a",
+        "T-b",
+        "C-7",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "test:l0 ≥244 ∧ test:density ≥232（只增）",
+        "默认可点 6 ≤ 7 ∧ S6 = 7 ≤ 7 ∧ unauthorized 子场景总可点数不变",
+        "四词扫描 + J1~J4 断言在位",
+        "反证 ≥2 条实跑 ⇒ FAIL → 逐字节还原 ⇒ PASS"
+      ],
+      "verify": [
+        "npm run test:l0 --workspace @lgdl/web-cli-plugin",
+        "npm run test:density --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-V5-170",
+      "alias": "V53-18",
+      "wave": 6,
+      "globalWave": "W18",
+      "size": "M",
+      "type": "gate",
+      "title": "test/density-thresholds.test.ts 阈值逐字 + data-narrow 边界 + 单源声明",
+      "deps": [
+        "TASK-V5-169"
+      ],
+      "fr": [
+        "FR-ALLN-091",
+        "FR-ALLN-114"
+      ],
+      "ac": [
+        "AC-ALLN-014"
+      ],
+      "adr": [
+        "ADR-V5-007"
+      ],
+      "risks": [
+        "R-ALLN-009",
+        "R-ALLN-908"
+      ],
+      "redlines": [
+        "F1",
+        "T-a",
+        "T-b",
+        "C-7",
+        "L-b"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "阈值 7/15 · 9/20 · 17/35 逐字（字面比对）",
+        "DENSITY_EXCLUDED_SUBTREES 单源（全仓唯一声明点）",
+        "data-narrow 360/361 双值 + 宽度 → 控件计数不变",
+        "STREAM_HEIGHT_RATIO_MIN === 0.65 未下调"
+      ],
+      "verify": [
+        "npm test --workspace @lgdl/web-cli-plugin -- density-thresholds"
+      ]
+    },
+    {
+      "id": "TASK-V5-171",
+      "alias": "V53-19",
+      "wave": 6,
+      "globalWave": "W18",
+      "size": "L",
+      "type": "implementation",
+      "title": "密度登记格口径解耦（格 = 控件计数）+ 31 格逐格留痕",
+      "deps": [
+        "TASK-V5-170"
+      ],
+      "fr": [
+        "FR-ALLN-091",
+        "FR-ALLN-114"
+      ],
+      "ac": [
+        "AC-ALLN-014"
+      ],
+      "adr": [
+        "ADR-V5-007"
+      ],
+      "risks": [
+        "R-ALLN-009"
+      ],
+      "redlines": [
+        "F1",
+        "T-a",
+        "T-b",
+        "C-7",
+        "L-b"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "registeredCells === 31 ∧ 无格被删除 ∧ 原数值零改",
+        "『宽度 → 控件计数不变』判据存在且可 FAIL",
+        "320px 锚点逐格断言保留",
+        "#auth-state 计入后默认读数 ≤7",
+        "反证：宽度耦合 ⇒ FAIL"
+      ],
+      "verify": [
+        "npm run test:density --workspace @lgdl/web-cli-plugin",
+        "node -e \"const d=require('./packages/web-cli-plugin/docs/v4-density-baseline.json');console.log('registeredCells:',d.registeredCells??d.v5Ledger?.registeredCells)\""
+      ]
+    },
+    {
+      "id": "TASK-V5-172",
+      "alias": "V53-20",
+      "wave": 6,
+      "globalWave": "W18",
+      "size": "M",
+      "type": "doc",
+      "title": "density-baseline tiers 重锚 + v5Ledger + X5 取代台账条目",
+      "deps": [
+        "TASK-V5-171"
+      ],
+      "fr": [
+        "FR-ALLN-114",
+        "FR-ALLN-116",
+        "FR-ALLN-120"
+      ],
+      "ac": [
+        "AC-ALLN-014",
+        "AC-ALLN-018"
+      ],
+      "adr": [
+        "ADR-V5-007",
+        "ADR-V5-012"
+      ],
+      "risks": [
+        "R-ALLN-009",
+        "R-ALLN-010"
+      ],
+      "redlines": [
+        "F1",
+        "F4",
+        "T-a",
+        "T-b",
+        "C-5",
+        "L-a",
+        "L-b"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "tiers 历史值零删零改（只追加说明）；v5Ledger 逐格留痕 ≥31",
+        "X5 条目在 modifiedRanges[] ∧ 五要素齐备 ∧ reason ≥40",
+        "riskIncrementRegistry 4 溯源字段齐备（缺一 FAIL）",
+        "反证：删格 / 改数值 / 缺 rulingId ⇒ 逐项 FAIL"
+      ],
+      "verify": [
+        "npm run test:supersession --workspace @lgdl/web-cli-plugin",
+        "python3 -c \"import json;d=json.load(open('packages/web-cli-plugin/docs/v4-density-baseline.json'));print('v5Ledger cells:',len(d.get('v5Ledger',{}).get('cells',[])))\""
+      ]
+    },
+    {
+      "id": "TASK-V5-173",
+      "alias": "V53-21",
+      "wave": 7,
+      "globalWave": "W19",
+      "size": "L",
+      "type": "gate",
+      "title": "journey 保护段处置（保段首选 / 第三次八步）+ 计数守恒 ≥171 + RP-V4-08",
+      "deps": [
+        "TASK-V5-172"
+      ],
+      "fr": [
+        "FR-ALLN-122",
+        "FR-ALLN-123",
+        "FR-ALLN-120"
+      ],
+      "ac": [
+        "AC-ALLN-018",
+        "AC-ALLN-020"
+      ],
+      "adr": [
+        "ADR-V5-012"
+      ],
+      "risks": [
+        "R-ALLN-010",
+        "R-ALLN-015"
+      ],
+      "redlines": [
+        "F1",
+        "F4",
+        "T-b",
+        "C-5",
+        "L-a"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "显式二选一结论存在（保段 or 取代，不得含糊）",
+        "保段：sha cc79f413… ∧ startByte 43054 ∧ 240 行不变；取代：新 pin + 第 4 链节 + redlineRemap[]",
+        "test:journey ≥171（计数守恒）",
+        "RP-V4-08 实跑：段内 1 byte ⇒ FAIL；段外 1 byte ⇒ 不红；逐字节还原 ⇒ PASS",
+        "knownGap ↔ status 一致性绿"
+      ],
+      "verify": [
+        "npm run test:ui --workspace @lgdl/web-cli-plugin",
+        "npm run test:supersession --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-V5-174",
+      "alias": "V53-22",
+      "wave": 7,
+      "globalWave": "W19",
+      "size": "L",
+      "type": "doc",
+      "title": "体积终轮（三叶合计）+ 五要素 + V3-VOL-3 三值同源 + 档位闸门",
+      "deps": [
+        "TASK-V5-173"
+      ],
+      "fr": [
+        "FR-ALLN-130",
+        "FR-ALLN-131",
+        "FR-ALLN-132",
+        "FR-ALLN-133",
+        "FR-ALLN-134"
+      ],
+      "ac": [
+        "AC-ALLN-022",
+        "AC-ALLN-023"
+      ],
+      "adr": [
+        "ADR-V5-011"
+      ],
+      "risks": [
+        "R-ALLN-001",
+        "R-ALLN-910"
+      ],
+      "redlines": [
+        "F2",
+        "T-c",
+        "L-a",
+        "L-c"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "五要素齐备 + Σ 逐模块 Δ + 未归因 == 登记增量",
+        "v3Vol3Closeout 三值同源 ∧ 档位 512,000 / 绝对上限 563,200 不变",
+        "SIDEPANEL_CEILING_CAP === 'record-only' ∧ authorConfirmation.status === 'pending-author-line'",
+        "档位闸门算术成立（不下移）；越限分级处置条目存在",
+        "test:size-ruling-vol3 ≥12 ∧ 红线逐字节"
+      ],
+      "verify": [
+        "npm run build --workspace @lgdl/web-cli-plugin",
+        "stat -c %s packages/web-cli-plugin/dist/content.js packages/web-cli-plugin/dist/pick-layer.js packages/web-cli-plugin/dist/sidepanel.js",
+        "npm run test:size-budget --workspace @lgdl/web-cli-plugin",
+        "npm run test:size-ruling-vol3 --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-V5-175",
+      "alias": "V53-23",
+      "wave": 7,
+      "globalWave": "W19",
+      "size": "M",
+      "type": "gate",
+      "title": "supersession 台账一致性（X5 + designContractChanges + knownGap）+ gate-integrity 收口",
+      "deps": [
+        "TASK-V5-174"
+      ],
+      "fr": [
+        "FR-ALLN-123",
+        "FR-ALLN-116",
+        "FR-ALLN-121",
+        "FR-ALLN-125"
+      ],
+      "ac": [
+        "AC-ALLN-017",
+        "AC-ALLN-018",
+        "AC-ALLN-021"
+      ],
+      "adr": [
+        "ADR-V5-012"
+      ],
+      "risks": [
+        "R-ALLN-013",
+        "R-V5-110"
+      ],
+      "redlines": [
+        "F1",
+        "F4",
+        "T-c",
+        "C-5",
+        "L-a",
+        "L-b",
+        "L-c"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "test:supersession ≥35；X5 条目可核；designContractChanges 未被二次登记",
+        "status ↔ knownGap 一致性绿",
+        "test:gate-integrity ≥13 ∧ 8 个新门禁逐项在受审集合内",
+        "共享面『恰一次』对账表（4 类 × 登记叶）无重复项",
+        "反证两条实跑 ⇒ FAIL → 逐字节还原 ⇒ PASS"
+      ],
+      "verify": [
+        "npm run test:supersession --workspace @lgdl/web-cli-plugin",
+        "npm run test:gate-integrity --workspace @lgdl/web-cli-plugin"
+      ]
+    },
+    {
+      "id": "TASK-V5-176",
+      "alias": "V53-24",
+      "wave": 7,
+      "globalWave": "W19",
+      "size": "L",
+      "type": "gate",
+      "title": "收尾：全门禁串行 + e2e 汇总 + 人工面 9 项逐项 + 计数只增对账",
+      "deps": [
+        "TASK-V5-175"
+      ],
+      "fr": [
+        "FR-ALLN-003",
+        "FR-ALLN-004",
+        "FR-ALLN-120",
+        "FR-ALLN-124",
+        "FR-ALLN-125"
+      ],
+      "ac": [
+        "AC-ALLN-019",
+        "AC-ALLN-020",
+        "AC-ALLN-021",
+        "AC-ALLN-024",
+        "AC-ALLN-025"
+      ],
+      "adr": [
+        "ADR-V5-012"
+      ],
+      "risks": [
+        "R-ALLN-013",
+        "R-ALLN-015",
+        "R-V5-110"
+      ],
+      "redlines": [
+        "F1",
+        "F2",
+        "F3",
+        "F4",
+        "F5",
+        "T-a",
+        "T-b",
+        "T-c",
+        "T-d",
+        "T-e",
+        "L-a",
+        "L-b",
+        "L-c",
+        "C-1",
+        "C-2",
+        "C-3",
+        "C-4",
+        "C-5",
+        "C-6",
+        "C-7"
+      ],
+      "parallelWith": [],
+      "acceptance": [
+        "全门禁串行复跑全绿（日志全量落盘无截断）",
+        "24 项计数 ≥ 基线（含 e2e = PASS）",
+        "人工面 9 项逐项标注（⏳ / PASS，不得冒充）",
+        "反证留证齐备；无不再 FAIL 的判据",
+        "共享面『恰一次』登记确认",
+        "git status --short 仅含本 Feature 目录 + 预期实施面"
+      ],
+      "verify": [
+        "npm test --workspace @lgdl/web-cli-plugin",
+        "npm run test:ui --workspace @lgdl/web-cli-plugin",
+        "npm run test:binding --workspace @lgdl/web-cli-plugin",
+        "npm run test:e2e --workspace @lgdl/web-cli-plugin"
+      ]
+    }
   ],
   "humanFacingChecklist": [
-    { "item": "浏览器原生权限弹窗体感", "owner": ["TASK-V5-160", "TASK-V5-176"], "status": "⏳ 未执行（headless 不可合成，PENDING_TIMEOUT）" },
-    { "item": "授权 chip 两态观感", "owner": ["TASK-V5-164", "TASK-V5-176"], "status": "⏳ 未执行" },
-    { "item": "拖动宽度体感与性能", "owner": ["TASK-V5-168", "TASK-V5-176"], "status": "⏳ 未执行（产品侧无拖动手柄；设计稿契约侧由 G 127 断言覆盖）" },
-    { "item": "绿态管理详情手感", "owner": ["TASK-V5-166", "TASK-V5-176"], "status": "⏳ 未执行" },
-    { "item": "双主题", "owner": ["TASK-V5-176"], "status": "⏳ 未执行" },
-    { "item": "320px", "owner": ["TASK-V5-167", "TASK-V5-176"], "status": "⏳ 未执行" },
-    { "item": "键盘", "owner": ["TASK-V5-166", "TASK-V5-176"], "status": "⏳ 未执行" },
-    { "item": "读屏（掩码输入 + chip）", "owner": ["TASK-V5-135", "TASK-V5-176"], "status": "⏳ 未执行" },
-    { "item": "真机 S2 断流走查", "owner": ["TASK-V5-160", "TASK-V5-176"], "status": "⏳ 未执行" }
+    {
+      "item": "浏览器原生权限弹窗体感",
+      "owner": [
+        "TASK-V5-160",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行（headless 不可合成，PENDING_TIMEOUT）"
+    },
+    {
+      "item": "授权 chip 两态观感",
+      "owner": [
+        "TASK-V5-164",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    },
+    {
+      "item": "拖动宽度体感与性能",
+      "owner": [
+        "TASK-V5-168",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行（产品侧无拖动手柄；设计稿契约侧由 G 127 断言覆盖）"
+    },
+    {
+      "item": "绿态管理详情手感",
+      "owner": [
+        "TASK-V5-166",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    },
+    {
+      "item": "双主题",
+      "owner": [
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    },
+    {
+      "item": "320px",
+      "owner": [
+        "TASK-V5-167",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    },
+    {
+      "item": "键盘",
+      "owner": [
+        "TASK-V5-166",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    },
+    {
+      "item": "读屏（掩码输入 + chip）",
+      "owner": [
+        "TASK-V5-135",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    },
+    {
+      "item": "真机 S2 断流走查",
+      "owner": [
+        "TASK-V5-160",
+        "TASK-V5-176"
+      ],
+      "status": "⏳ 未执行"
+    }
   ],
   "stoppingRules": [
-    { "trigger": "content.js / pick-layer.js 逐字节 ≠ 基线", "action": "立即停机（红线）" },
-    { "trigger": "F 契约常量 / G 127 映射被改动", "action": "停机（N21 / C-5）" },
-    { "trigger": "SG-4 结论 = report-to-orchestrator", "action": "TASK-V5-159 / 160 暂停并上报；回 v5-1 补 provider 的 when(ctx)（禁以人工判据替代）" },
-    { "trigger": "journey 既不能保段、八步亦未获批", "action": "停机上报（ADR-V5-012 §2；禁静默改 pin）" },
-    { "trigger": "STREAM_HEIGHT_RATIO_MIN 被下调（< 0.65）", "action": "停机（N6 / T-b）" },
-    { "trigger": "密度阈值 / 31 格 / 豁免口径被放宽", "action": "停机（T-a）" },
-    { "trigger": "体积越绝对上限 563,200 B", "action": "停机（硬墙）；不得自行放宽" },
-    { "trigger": "反证恒绿", "action": "停机；重写注入点（禁删属性 / 换口径充数）" },
-    { "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" }
+    {
+      "trigger": "content.js / pick-layer.js 逐字节 ≠ 基线",
+      "action": "立即停机（红线）"
+    },
+    {
+      "trigger": "F 契约常量 / G 127 映射被改动",
+      "action": "停机（N21 / C-5）"
+    },
+    {
+      "trigger": "SG-4 结论 = report-to-orchestrator",
+      "action": "TASK-V5-159 / 160 暂停并上报；回 v5-1 补 provider 的 when(ctx)（禁以人工判据替代）"
+    },
+    {
+      "trigger": "journey 既不能保段、八步亦未获批",
+      "action": "停机上报（ADR-V5-012 §2；禁静默改 pin）"
+    },
+    {
+      "trigger": "STREAM_HEIGHT_RATIO_MIN 被下调（< 0.65）",
+      "action": "停机（N6 / T-b）"
+    },
+    {
+      "trigger": "密度阈值 / 31 格 / 豁免口径被放宽",
+      "action": "停机（T-a）"
+    },
+    {
+      "trigger": "体积越绝对上限 563,200 B",
+      "action": "停机（硬墙）；不得自行放宽"
+    },
+    {
+      "trigger": "反证恒绿",
+      "action": "停机；重写注入点（禁删属性 / 换口径充数）"
+    },
+    {
+      "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）",
+      "action": "停机；还原并重锚"
+    }
   ],
   "blockers": [
-    { "id": "BLK-V5-6", "type": "spike-gate", "task": "TASK-V5-159", "desc": "TASK-V5-153 结论 = report-to-orchestrator ⇒ 死端守护门禁不得开工" },
-    { "id": "BLK-V5-7", "type": "dependency", "task": "TASK-V5-153~176", "desc": "v5-1 + v5-2 全绿为前置（叶间硬串行；S2 样本来自 v5-2）" },
-    { "id": "BLK-V5-8", "type": "shared-surface", "task": "TASK-V5-173", "desc": "journey 保护段处置必须显式二选一；含糊即阻塞收口" }
+    {
+      "id": "BLK-V5-6",
+      "type": "spike-gate",
+      "task": "TASK-V5-159",
+      "desc": "TASK-V5-153 结论 = report-to-orchestrator ⇒ 死端守护门禁不得开工"
+    },
+    {
+      "id": "BLK-V5-7",
+      "type": "dependency",
+      "task": "TASK-V5-153~176",
+      "desc": "v5-1 + v5-2 全绿为前置（叶间硬串行；S2 样本来自 v5-2）"
+    },
+    {
+      "id": "BLK-V5-8",
+      "type": "shared-surface",
+      "task": "TASK-V5-173",
+      "desc": "journey 保护段处置必须显式二选一；含糊即阻塞收口"
+    }
   ],
   "unfilledPoints": [
-    { "id": "V5-3-P-001", "topic": "密度 31 登记格在连续宽度下的逐格重锚值", "status": "pending-measurement", "owner": "TASK-V5-171", "rule": "禁预填（PO-ALLN-006）" },
-    { "id": "V5-3-P-002", "topic": "journey 保护段保段 or 第三次取代的实际结论", "status": "pending-measurement", "owner": "TASK-V5-173", "rule": "禁预填；须 Chromium 实测后二选一" },
-    { "id": "V5-3-P-003", "topic": "三叶合计体积净增最终值与是否触发档位上调", "status": "pending-measurement", "owner": "TASK-V5-174", "rule": "禁预填（PO-ALLN-005）；authorConfirmation 不得伪称已确认" },
-    { "id": "V5-3-P-004", "topic": "人工面 9 项（双主题 / 320px / 键盘 / 读屏 / 真机 S2 走查 等）", "status": "pending-human", "owner": "TASK-V5-176", "rule": "逐项 ⏳ / PASS，不得冒充 PASS（PO-ALLN-007）" }
+    {
+      "id": "V5-3-P-001",
+      "topic": "密度 31 登记格在连续宽度下的逐格重锚值",
+      "status": "pending-measurement",
+      "owner": "TASK-V5-171",
+      "rule": "禁预填（PO-ALLN-006）"
+    },
+    {
+      "id": "V5-3-P-002",
+      "topic": "journey 保护段保段 or 第三次取代的实际结论",
+      "status": "pending-measurement",
+      "owner": "TASK-V5-173",
+      "rule": "禁预填；须 Chromium 实测后二选一"
+    },
+    {
+      "id": "V5-3-P-003",
+      "topic": "三叶合计体积净增最终值与是否触发档位上调",
+      "status": "pending-measurement",
+      "owner": "TASK-V5-174",
+      "rule": "禁预填（PO-ALLN-005）；authorConfirmation 不得伪称已确认"
+    },
+    {
+      "id": "V5-3-P-004",
+      "topic": "人工面 9 项（双主题 / 320px / 键盘 / 读屏 / 真机 S2 走查 等）",
+      "status": "pending-human",
+      "owner": "TASK-V5-176",
+      "rule": "逐项 ⏳ / PASS，不得冒充 PASS（PO-ALLN-007）"
+    }
   ],
   "note": "V5-3 末叶 / 收口叶 24 任务 / 7 波 / 7 提交区间（**D / G 为原子区间**）。1 个 spikeGate：SG-4（5 类阻塞 headless 驱动 seam → 闸 159/160）。本叶**单点落地**两个新 Chromium 门禁（no-dead-end / law8-plaintext）并**收口** 8 个新门禁入 gate-integrity 受审集合。共享面：journey 结构重锚（保段优先 / 必要时第三次八步）、体积三叶合计、design-contract 对账（v5-1 已登）、取代台账 X5。诚实登记：产品侧无 280–640 拖动手柄（Chrome 控制侧栏宽度），产品侧承接 data-narrow 与密度口径解耦。"
 }

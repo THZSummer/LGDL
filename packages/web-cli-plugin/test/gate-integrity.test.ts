@@ -218,6 +218,15 @@ export const EXPECTED_AUDITED_FILES = [
   'test/next-obligation-table.test.ts',
   'test/blocked-terminals.test.ts',
   'test/design-contract.test.ts',
+  // ── V5-3（TASK-V5-155 / 159 / 162 · ADR-V5-010 / 009 / 006）────────────────
+  // v5-3 新增的三个 Chromium 门禁（**只追加**；`CHROMIUM_GATES.length === 9` 不动 ——
+  // 目录扫描按 `_v3-helpers.mjs` 标记自动纳入，本下界只让「改名 / 删除」可见）：
+  //   · `law8-plaintext`  — 法八四面零明文 + 全属性扫描 + key 直写恰 1 点（FR-ALLN-023/024）；
+  //   · `no-dead-end`     — 死端守护（5 类逐类 + 死端 = 0 + 双向注入反证 + S2 全链主验收）；
+  //   · `auth-chip`       — 授权 chip 两态 / 零双写四词 / 黄绿点击（FR-ALLN-085~088）。
+  'test/ui/law8-plaintext.mjs',
+  'test/ui/no-dead-end.mjs',
+  'test/ui/auth-chip.mjs',
 ] as const;
 
 /** V5-1：本轮新增 / 加严的 node 门禁（发现由 `NODE_GATE_MARKER` 自动完成）。 */
