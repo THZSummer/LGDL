@@ -19,6 +19,7 @@ specs-tree-web-cli-plugin-v5-all-in-next/
 ├── ADR-V5-010-law8-four-face-plaintext-gate.md          # ADR-V5-010: 法八四面零明文机核（流 payload / digest / 审计 / DOM 属性）
 ├── ADR-V5-011-volume-budget.md          # ADR-V5-011: 体积预算（24,926 B 分配 + 越限预案）
 ├── ADR-V5-012-wave-plan-and-protection.md          # ADR-V5-012: 波次与实施序（3 叶 W 波 + 保护段第三次取代预案 + binding 避让）
+├── closeout.md          # F-32 web-cli-plugin v5「All-in-Next 聊天即操作台」——全 Feature 总账（父收口）
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v5-all-in-next
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」）
@@ -45,6 +46,7 @@ specs-tree-web-cli-plugin-v5-all-in-next/
 | ADR-V5-010-law8-four-face-plaintext-gate.md | ADR-V5-010: 法八四面零明文机核（流 payload / digest / 审计 / DOM 属性） — 法八「值不入流」需要一个**可核判据**，而非仅靠净化面（R-ALLN-008：v4.5 有**反证恒绿**的三类教训——模板字面量语法错 / Trust... | ✅ 存在 |
 | ADR-V5-011-volume-budget.md | ADR-V5-011: 体积预算（24,926 B 分配 + 越限预案） — 现状实测（本轮只读复核，引自已入库产物）： | ✅ 存在 |
 | ADR-V5-012-wave-plan-and-protection.md | ADR-V5-012: 波次与实施序（3 叶 W 波 + 保护段第三次取代预案 + binding 避让） — 父 spec §14：父 Feature = 轻量规范容器（不承接 build/tasks.json），实施由 **3 叶依存序串行**承接（F-32）。... | ✅ 存在 |
+| closeout.md | F-32 web-cli-plugin v5「All-in-Next 聊天即操作台」——全 Feature 总账（父收口） — 1. **9 op 流内闭环**（设计稿 8 + `op.turn`）：`op.authorize` / `op.rebind` / `op.llm-co... | ✅ 存在 |
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v5-all-in-next — web-cli-plugin v5「All-in-Next 聊天即操作台」问题挖掘报告 —— 把作者主题（**所有需要用户操作的地方都在 chat 里以 ... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」；父 Feature 统领性技术方案） — v4 把「一切交互皆消息」做成了行为，v4.5 把流做成了纯时间序，但**「下一步」仍不保证**：真机 23:12:59 的 ✖ 行之后**流内零可达 n... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v5-all-in-next（web-cli-plugin v5「All-in-Next 聊天即操作台」） — web-cli-plugin v5「All-in-Next 聊天即操作台」需求规范 —— 把作者主题（**所有需要用户操作的地方都在 chat 里以 ne... | ✅ 存在 |

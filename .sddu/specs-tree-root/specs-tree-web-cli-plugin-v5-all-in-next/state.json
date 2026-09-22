@@ -54,7 +54,7 @@
   ],
   "leaf": false,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T17:20:00.000Z",
+  "updatedAt": "2026-09-22T18:00:00.000Z",
   "description": "web-cli-plugin v5「All-in-Next 聊天即操作台」（方案 G）的 discovery 阶段产物。立项来源 = ① 作者主题指示（2026-09-21 逐字：「所有的用户授权、权限申请、绑定、浏览器权限申请、LLM配置等，都要支持抽象成web-op-cli（类似LGDL的lgdl-web-op-cli），都要支持一站式在chat里面闭环」+「所有的下一步需要用户操作的地方，都要支持在chat里面以next的方式和用户交互完成，不允许让用户跳来跳去」）② 真机断流现场（23:12:51~23:12:59 逐字：未授权站点页面侧零注入之后无任何可达 next）③ 设计基准 option-g-all-in-next.html（定稿冻结，三轮优化终稿）+ option-g-shim.mjs（127/127 实跑全绿）④ 作者 5 裁决（optional_permissions / 掩码零明文 / F 式 HTML+shim / 设置视图保留管理面 / 断流并入首验收）。核心问题 5 条：真机死端（阻塞终态后流内零可达 next：error 卡裸奔 + risk-recovery 三动作不解未授权 + 授权入口仅首装态 + page-unavailable 仅风险行）· 用户操作面散落在 chat 之外（设置视图 8 分区 + options 页承载 LLM 配置 / 授权 / 浏览器权限 / 会话 / 诊断）· 架构不可扩张（推荐器 = 4 规则手写 + NEXTSTEP_ACTS 6 项逐字闭集 + handleCardAction 手写 switch 16 分支 + chip 绑 data-act 而非 opId）· 敏感值无流内入口且法二/法八未切分 · 授权态三处投影且非首装会话无授权入口。范围 = 核心 6（法七无死端 / web-op 管线 + NextProvider 注册表契约 v2 / 浏览器权限申请流内闭环 / LLM 配置流内闭环 + 法八 / 授权态下移状态栏常显 chip / 管理操作流内闭环 + 设置视图保留管理面）+ 附带 2（可拖动宽度 280–640 / S2 断流样板首验收）；非目标 8 项（content.js 与 pick-layer.js 冻结 / A2A F-29 不动 / 12 kind 不加 / 三区法则不变 / design 稿不改 / 判定链 zeroDiffFiles 零触碰 / 安装期静态权限不变 / L2 视图内部）。红线继承 N1~N21；显式取代 X1~X6。问题清单 Q-ALLN-001~014（核心 5 / 次要 5 / 潜在 4）；假设 A-ALLN-001~010；风险 R-ALLN-001~016（含 Top5 + 门禁迁移量估计）；开放问题 O-ALLN-001~012；叶子拆分草案 4 叶（串行）。",
   "scope": {
     "in": [
@@ -171,15 +171,15 @@
   "roadmap": {
     "id": "F-32",
     "idOccupancyCheck": "本轮实测（2026-09-22）：grep -c \"F-32\" .sddu/specs-tree-root/ROADMAP.md = 0（未占用）；grep -rn \"F-32\" .（排除 node_modules / .git）= 1 处，唯一命中 = v4.5 discovery.md:290 的表格行「F-32 / F-33 → 0 → 未占用（无需考虑）」——是文字说明，不是 Feature 登记，不构成占用；grep -c \"F-33\" ROADMAP.md = 0（备查）。结论：登记为 F-32 即可，无需顺延",
-    "versionPlacementSuggestion": "v0.10.0（新主题，非维护段）—— 本轮实测 grep -c \"v0.10.0\" ROADMAP.md = 8（已存在但非 Feature 登记：8 处全部属「v0.10.0 = AI 增强与生态（原 v0.8→v0.9 内容整体后移；审视后立项）」规划段与版本总览表行，尚无 F 编号、无 Feature 目录）⇒ 归属为**同版并列新主题**（先例：v0.9.0 现为三主题并列：工程质量与文档对齐 / F-28 v3-ui / F-30 v4-chat）。另 grep -c \"v0.9.2\" ROADMAP.md = 0（若走维护段命名可备选，但 G 是新主题不属维护段）。措辞建议：v0.10.0 = AI 增强与生态 + web-cli-plugin v5（All-in-Next）并列；v0.10.0 段既有叙述逐字保留。ROADMAP 登记由收口执行（本阶段未改 ROADMAP）",
+    "versionPlacementSuggestion": "v0.10.0（新主题，非维护段）—— 本轮实测 grep -c \"v0.10.0\" ROADMAP.md = 8（已存在但非 Feature 登记：8 处全部属「v0.10.0 = AI 增强与生态（原 v0.8→v0.9 内容整体后移；审视后立项）」规划段与版本总览表行，尚无 F 编号、无 Feature 目录）⇒ 归属为**同版并列新主题**（先例：v0.9.0 现为三主题并列：工程质量与文档对齐 / F-28 v3-ui / F-30 v4-chat）。另 grep -c \"v0.9.2\" ROADMAP.md = 0（若走维护段命名可备选，但 G 是新主题不属维护段）。措辞建议：v0.10.0 = AI 增强与生态 + web-cli-plugin v5（All-in-Next）并列；v0.10.0 段既有叙述逐字保留。ROADMAP 登记由收口执行（本阶段未改 ROADMAP） 〖收口轮执行（2026-09-22）〗已按上述建议完成 ROADMAP 登记：新增头部 **v1.29.0 素材增补行** + §二 v0.10.0 段 **v1.29.0 追加注（同版并列新主题）** + **「v0.10.0 同批 Feature（F-32）」详段（含 Feature 表行）** + 版本总览表 **v0.10.0（F-32）行** + 文档版本 **1.28.0 → 1.29.0** + 修订记录行 v1.29.0；**既有叙述逐字保留零删除**（`git diff --numstat` = +24 / −1，唯一 `-1` 为文档版本行）；**`F-29` 区段一字未动**（`## 未来方向候选（未立项）` → `## 修订记录` 整区间前后**字节相等**，sha `36a059c0…`，已核验）。",
     "reservedNeighbour": "F-29 = A2A 双向候选（未立项未排期，保持原样不动）",
-    "roadmapDocVersion": "1.28.0（本轮实测；未改动）",
+    "roadmapDocVersion": "1.29.0（收口轮登记后；登记前实测 1.28.0）",
     "touchPoints": [
-      "（收口轮待办）头部新增 vX 素材增补行（F-32 · v5「All-in-Next」· 目录指向 · 关键数字 · 过程价值）",
-      "（收口轮待办）§二 v0.10.0 段追加注（并列新主题，非维护段）+ Feature 表追加 F-32 行 + 「v0.10.0（F-32）」详段",
-      "（收口轮待办）版本总览表追加行 / 追加注（既有 v0.10.0「AI 增强与生态」行逐字保留）",
-      "（收口轮待办）文档版本 +0.1 + 修订记录行",
-      "（本轮不做）ROADMAP.md 零 diff；F-29 区段一字不动"
+      "头部 v1.29.0 素材增补行（F-32 · v5「All-in-Next」· 目录指向 · 关键数字 · 过程价值）",
+      "§二 v0.10.0 段 v1.29.0 追加注（同版并列新主题）+ 「v0.10.0 同批 Feature（F-32）」详段（含 Feature 表行）",
+      "版本总览表追加 v0.10.0（F-32）行（既有 v0.10.0「AI 增强与生态」行逐字保留）",
+      "文档版本 1.28.0 → 1.29.0 + 修订记录行 v1.29.0",
+      "（本轮不做）ROADMAP.md 之外的 src/test/dist：零改动；F-29 区段一字不动"
     ]
   },
   "domainBaseline": {
@@ -735,9 +735,14 @@
       "phase": "validated",
       "timestamp": "2026-09-22T01:56:00.000Z",
       "triggeredBy": "sddu-validate（子叶 specs-tree-v5-2-ops-first-batch 动态验证收口同步）：V1~V9 全绿 / 0 阻塞；门禁复跑 + 8 自研探针 + 对抗判红 + 红线复算 + 体积三值同源；N-02/N-03 订正、N-01 转登记（−86 B 实测）、人工面 ⏳。v5 进度 = 2/3 叶闭环（v5-1 validated + v5-2 validated），下一叶 = specs-tree-v5-3-chrome-face。"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-22T18:00:00.000Z",
+      "triggeredBy": "sddu-build（**父收口轮**：F-32 整体收口 = 三叶终态汇总 + ROADMAP v0.10.0（F-32）登记 + 新建父 closeout.md 总账 + 本 state closeout 记录。**容器纪律 = phase 保持 tasked / workflow=4.tasks / agent=sddu-tasks，父不进入 build/review/validate**；本条目仅为收口事件记账，不改变父 phase）"
     }
   ],
-  "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：产出父总览型 tasks（0 条可执行任务，偏差同 v4/v4.5 先例显式登记）+ 3 叶共 76 原子任务（19 波）。下游 = @sddu-build（按叶串行：v5-1 TASK-V5-101 → v5-2 TASK-V5-123 → v5-3 TASK-V5-153）。 〖v5-1 validate R1（2026-09-22）〗首叶 specs-tree-v5-1-next-registry-pipeline 完成 7/7（validated）：V1~V9 / 79 子断言全绿、0 阻塞、4 项本轮闭环订正（I-01 计数 / I-04 双源+跨表机核 / I-02 口径注 / N-01 sha 笔误）、7 项遗留非阻塞登记（N-04/N-05 由 v5-2 承接）。",
+  "phaseNote": "phase=tasked（status=tracked）。本轮为 tasks 阶段：产出父总览型 tasks（0 条可执行任务，偏差同 v4/v4.5 先例显式登记）+ 3 叶共 76 原子任务（19 波）。下游 = @sddu-build（按叶串行：v5-1 TASK-V5-101 → v5-2 TASK-V5-123 → v5-3 TASK-V5-153）。 〖v5-1 validate R1（2026-09-22）〗首叶 specs-tree-v5-1-next-registry-pipeline 完成 7/7（validated）：V1~V9 / 79 子断言全绿、0 阻塞、4 项本轮闭环订正（I-01 计数 / I-04 双源+跨表机核 / I-02 口径注 / N-01 sha 笔误）、7 项遗留非阻塞登记（N-04/N-05 由 v5-2 承接）。\n\n〖父收口轮完成（2026-09-22，sddu-build 代行）〗F-32 web-cli-plugin v5「All-in-Next 聊天即操作台」整体收口：**父（轻量规范容器）+ 3 叶全部收口，三叶 phase=validated / status=completed**；**主题达成 = all-in-next / chat**（法七死端 = 0 机器化 · 法八四面零明文 · 授权 chip 唯一载体 · NextProvider 插件注册表 diff = 0 · 设置视图 = 管理面）；9 op 流内闭环；`sidepanel.js` 498,521 → **547,558 B**（v5 段重登记 6 轮，累计 +9.83%）；**体积档位显式升档 512,000 → 563,200 + 绝对上限 → 619,520**（越档位触发，非静默；生效 574,935；`authorConfirmation` 仍 `pending-author-line`）；npm test 1045 → **1181**（v5 段 +136）+ 新门禁 11；`content.js` / `pick-layer.js` 逐字节未动。新建父 `closeout.md`（全 Feature 总账）+ 完成 **ROADMAP v0.10.0（F-32）** 登记（文档版本 1.28.0 → 1.29.0；**F-29 区段字节未动，sha `36a059c0…` 前后相等**）。**本轮为纯文档 / 状态收口：零 `src` / 零 `test` 改动、未跑门禁 / 构建 / Chromium**；数字一律取自三叶 build/validate 产物并抽查 3 个与源核对。**不合 main、不发布**。",
   "specCounts": {
     "fr": 80,
     "nfr": 12,
@@ -875,5 +880,211 @@
     "headroomBytes": 24926,
     "newGates": 8,
     "humanFacingItems": 9
+  },
+  "closeout": {
+    "round": "v5-all-in-next 父收口（整体收口，第 1 轮）",
+    "date": "2026-09-22",
+    "authorization": "编排器代作者决策（继承 F-30 / F-31 父收口先例；作者已授权编排器代行决策、全流程自行调度）",
+    "conclusion": "✅ F-32 完成：父（轻量规范容器）+ **3 叶**收口，三叶 phase=**validated** / status=**completed**（各 7/7 全闭环）；**主题达成 = `all-in-next` / chat**（一切操作皆 next 流内闭环）——① **法七无死端**（5 类阻塞终态流内必有可达 next；死端 = 0 机器化：`test/ui/no-dead-end.mjs` 39/0 含第 6 类注入**如实判红** + S2 十环节全链 + `test/s2-deadend-chain.test.ts` 6/0 + `blocked-terminals` 9/0）② **法八值不入流**（流内 payload / digest / 审计 / DOM **四面零明文**：`test/ui/law8-plaintext.mjs` 25/0 + key 直写 sink 恰 1 处 + `maskedLength` 只落长度类别）③ **授权态 = 状态栏常显 chip 唯一载体**（`test/ui/auth-chip.mjs` 37/0：语义位 `[data-auth]` 全 UI 恰 1 处 + L2 站点行改**指针** + 零双写）④ **NextProvider 插件注册表**（契约 v2 七点；`chip data-op = opId`；`handleCardAction` per-op **diff = 0 门禁** `next-dispatch-diff0` 14/0；`deepseek-harness` 已核实同构）⑤ **设置视图 = 管理面**（法则六不变，4 类操作单一执行体零双路径）。**9 op 流内闭环** = 授权 / 重绑 / LLM 配置（掩码 Key）/ 权限申请 / 撤销 / 拾取 / 描述 / 帮助 / 发回合。**关键数字**：`content.js` 177,076 B / `pick-layer.js` 33,900 B 逐字节未动；`sidepanel.js` **498,521 → 547,558 B**（v5 段五要素重登记 6 轮，累计 +9.83%）；**体积档位显式升档 512,000 → 563,200 + 绝对上限 → 619,520**（越档位触发，非静默；生效 574,935；`authorConfirmation` 仍 `pending-author-line`）；门禁 npm **1045 → 1181**（v5 段 +136）+ 新门禁 11。本轮为纯文档 / 状态收口：零 `src` / 零 `test` / 零三叶产物实义改动（叶 build.md 仅收口登记），不跑构建 / 门禁 / Chromium；数字一律取自三叶 build/validate 产物实测值并抽查 3 个与源核对；**不合 main、不发布**。",
+    "containerDiscipline": "父 Feature 仍为轻量规范容器：phase=**tasked** / workflow=**4.tasks** / agent=**sddu-tasks**，**不进入 build/review/validate**（与 v3 / v4 / v4.5 父先例一致 —— 父为规范容器，阶段语义由三叶承载）；父目录承载聚合产物（本轮新增 `closeout.md` = 全 Feature 总账）。**phase 保持 tasked，不因收口变化。**",
+    "leaves": [
+      {
+        "featureKey": "specs-tree-v5-1-next-registry-pipeline",
+        "name": "V5-1 NextProvider 注册表 + op 管线（首叶）",
+        "priority": "P0",
+        "deliveryOrder": 1,
+        "taskCount": 22,
+        "waves": 5,
+        "phase": "validated",
+        "status": "completed",
+        "validateVerdict": "✅ 通过（0 阻塞 / 4 本轮闭环 I-01·I-02·I-04·N-01 / 7 遗留 N-02~N-08）",
+        "closeoutCommits": [
+          "8526ef8（叶收口轮）"
+        ]
+      },
+      {
+        "featureKey": "specs-tree-v5-2-ops-first-batch",
+        "name": "V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收（次叶）",
+        "priority": "P0",
+        "deliveryOrder": 2,
+        "taskCount": 30,
+        "waves": 7,
+        "phase": "validated",
+        "status": "completed",
+        "validateVerdict": "✅ 通过（0 阻塞；review R1 3 阻塞全闭合；含 1 次体积停机 R1 + 首个 net-lowered 轮收口 −86 B）",
+        "closeoutCommits": [
+          "9b262ae（叶收口轮）"
+        ]
+      },
+      {
+        "featureKey": "specs-tree-v5-3-chrome-face",
+        "name": "V5-3 授权 chip + 可拖动宽度 + 死端守护 + 法八机核（末叶 / 收口叶）",
+        "priority": "P0",
+        "deliveryOrder": 3,
+        "taskCount": 24,
+        "waves": 7,
+        "phase": "validated",
+        "status": "completed",
+        "validateVerdict": "✅ 通过（0 阻塞 / 6 观察；review R1 1 阻塞全闭合；对抗探针 81/81）",
+        "closeoutCommits": [
+          "d829fe6（validate 产物）→ 80d34d5（叶收口轮 N-1~N-4）"
+        ]
+      }
+    ],
+    "taskTotal": 76,
+    "taskBreakdown": {
+      "waves": 19,
+      "complexity": {
+        "S": 5,
+        "M": 45,
+        "L": 26
+      },
+      "spikeGates": 4,
+      "commitIntervals": "三叶各自 A~G（v5-3 的 D / G 为原子区间）；叶间严格串行 v5-1 → v5-2 → v5-3（ADR-V5-012）"
+    },
+    "validate": {
+      "verdict": "✅ 三叶全部通过（0 阻塞）；v5-1 4 本轮闭环 + 7 遗留；v5-2 0 阻塞（review R1 3 阻塞全闭合）；v5-3 0 阻塞 / 6 观察（review R1 1 阻塞全闭合）",
+      "perLeaf": {
+        "v5-1": "✅ 通过 —— V1~V9 / 79 子断言全绿；对抗注入 10 类全红且逐字节还原；红线与保护段复算命中；体积 507,315 B ≤ 532,680；FR/NFR/EC 覆盖 100%",
+        "v5-2": "✅ 通过 —— 门禁复跑 npm 1172/0 · recommendation 65/0 · stream 68/0 · ask-auth 71/0 · binding 192/0（首轮 KL-N-10 flake 隔离复跑）· l0 244/0 · density 232/0 · size 三门禁 45/0；SW 伪造 7/7 拒 + 三表整体回滚 db==before + 短路回滚/恒 completed/删恢复面/3 条布线伪造逐条可红；体积 542,150 ≤ 569,257（档位 563,200 / 绝对上限 619,520 / pending-author-line）",
+        "v5-3": "✅ 通过 —— 15 门禁复跑全绿（npm 1181/0 · law8 25 · dead-end 39 · auth-chip 37 · insight 118 · density 242 · l0 248 · journey 171 · binding 192（隔离复跑）· stream 73 · zero-injection 28 · supersession 36 · gate-integrity 15 · size-ruling-vol3 12 · design-contract 19）+ typecheck 0 + build 547,558 B；自写对抗探针 81/81（V3 第 6 类 / V8 越限如实判红、还原判绿）；FR 27/27 · NFR 9/9 · EC 10/10；人工面 9 项 ⏳"
+      },
+      "fixesThisRound": "本收口轮为纯登记：v5-3 叶收口轮处置 validate R1 的 N-1~N-4（N-1 产品侧无拖动手柄=口径注 / N-2 binding KL-N-10 登记保留 / N-3 settings 解释性文案=独立按需面预存在 / N-4 台账临时日志路径登记）；零 src/test 改动"
+    },
+    "gates": {
+      "total": 26,
+      "passed": 26,
+      "typecheck": "PASS",
+      "build": "PASS",
+      "npmTest": 1181,
+      "law8": 25,
+      "deadEnd": 39,
+      "authChip": 37,
+      "insight": 118,
+      "density": 242,
+      "l0": 248,
+      "journey": 171,
+      "binding": 192,
+      "stream": 73,
+      "askAuth": 71,
+      "zeroInjection": 28,
+      "supersession": 36,
+      "gateIntegrity": 15,
+      "sizeRulingVol3": 12,
+      "designContract": 19,
+      "recommendation": 65,
+      "pageInput": 108,
+      "refPickWiring": 11,
+      "hardening": 24,
+      "l1": 116,
+      "l2": 74,
+      "l1Reverse": 9,
+      "l2Reverse": 10,
+      "e2e": "PASS",
+      "newGates": {
+        "count": 11,
+        "files": [
+          "test/ui/law8-plaintext.mjs",
+          "test/ui/no-dead-end.mjs",
+          "test/ui/auth-chip.mjs",
+          "test/op-wiring.test.ts",
+          "test/sw-op-mirror.test.ts",
+          "test/op-protocol.test.ts",
+          "test/next-registry.test.ts",
+          "test/next-pipeline.test.ts",
+          "test/next-dispatch-diff0.test.ts",
+          "test/next-obligation-table.test.ts",
+          "test/blocked-terminals.test.ts"
+        ],
+        "extra": [
+          "test/s2-deadend-chain.test.ts（S2 链 node 判据）",
+          "test/g-design-map.ts（G 契约映射数据面）+ design-contract G 侧扩展"
+        ],
+        "machineLedger": "test/gate-integrity.test.ts#V5_NEW_GATE_FILES = 8（no-dead-end / law8-plaintext / next-registry / next-obligation-table / next-dispatch-diff0 / op-wiring / sw-op-mirror / op-protocol）；CHROMIUM_GATES === 9 未动"
+      },
+      "note": "取自三叶 build/validate 产物实测值（v5-3 validate R1 独立复跑 15 门禁 + typecheck + build）；计数只增不减（npm 1045 → 1181），断言零删除零降级（本 Feature 未发生保护段第三次取代 —— journey / binding 均保段）"
+    },
+    "sizes": {
+      "contentJs": "177,076 B（sha256 `52a82620…`；无容差，全程未动 —— `op-*` 走 type-only，KIND_SET 40 项逐字不动）",
+      "pickLayerJs": "33,900 B（sha256 `5f567d7e…`；无容差，全程未动）",
+      "sidepanelJs": "498,521 → 547,558 B（v5 段显式五要素重登记 6 轮：v5-1-r2 / v5-2-r2 / v5-2-closeout（−86 B，首个 net-lowered 轮）/ v5-3-r1 / v5-3-r2 / v5-3-reviewfix；累计 +49,037 B / +9.83%）",
+      "ceilingFormula": "floor(547,558 × 1.05) = 574,935 B（容差 5% 未动）",
+      "tierBytes": 563200,
+      "absoluteCeilingBytes": 619520,
+      "tierChange": "512,000 → 563,200（v5-2 R2 显式升档，越档位触发，非静默）；绝对上限 563,200 → 619,520（= 档位 × 1.10）",
+      "effectiveCeilingBytes": 574935,
+      "authorConfirmation": "pending-author-line（保持；未伪称已确认 —— 作者一行可否决改值）",
+      "budgetHonesty": "plan ADR-V5-011 Σ 预算 17,600 B vs 实测 +49,037 B ≈ 2.8×（显著低估，如实登记）；v5-3 逐叶预算 3,250 B 被 R1 用满（+3,209），R2 的 maskedLength 审计列（估 +246 / 实测 +566 偏乐观）+ data-narrow ⇒ 本叶合计 +4,306 B 显式超出行预算并按三叶合计重登记",
+      "protectionPins": {
+        "journey": "test/ui/journey.mjs 43054..58287 / sha `cc79f413…` / 240 行（**保段**，三值不变；未发生第三次八步取代）",
+        "binding": "test/ui/binding.mjs 107780..115930 / sha `be9ad0e9…`（**保段**；段外改写 #20e 字节中立重锚逐行入账）"
+      }
+    },
+    "supersessionLedger": {
+      "items": [
+        "X1 `manifest.permissions` 禁新增 → 允许 `optional_permissions`（安装期静态权限不变；首批 0 项新增 + 机制预留）",
+        "X2 `PluginMessageKind`/`KIND_SET` 进 bundle → `op-*` type-only 消息族（content.js 逐字节零增长）",
+        "X3 `NEXTSTEP_ACTS` 6 项闭集 + 手写 switch 16 分支 → opId 注册表（ACT_TO_OP 6 行等价映射）",
+        "X4 G 稿 127 断言不在门禁内 → G 入 design-contract（双稿双 shim，F 60 冻结不替换 + designContractChanges 登记）",
+        "X5 三档宽度（320/400/520）→ 连续可拖动 280–640（密度登记格口径与宽度解耦，阈值逐字不动；data-narrow ≤360 兜底）",
+        "X6 chip `data-act` → `data-op = opId`（旧 6 act 等价映射为渲染别名；不得回读 data-act）"
+      ],
+      "machineCheck": "test:supersession 36/0（X1~X6 逐行登记 + 保护段八步链 + counts↔日志同源）+ gate-integrity 15/0（受审集合只增）"
+    },
+    "realProblemsCaught": [
+      "v5-2 review R1 BLOCK-01：非 chat 面 op 执行体不可达 + 载荷丢失 ⇒ `op.llm-config` 表单值不落存储 + **假成功**（`ops.ts` 零参箭头 + `(run?.(ctx), OK)` 丢弃 `OpOutcome` + options.html 未 bindPanelOps）→ 修：执行体统一收编 `settings/op-bodies.ts`（三面注入原子）+ options 注入 snapshot/restore + 失败路径落地；探针实证",
+      "v5-2 review R1 BLOCK-02：`execute`/`execSw` 返回 `{ok:false}` 仍 `settle('completed')` 并写成功回执（**失败零回滚 + 假回执**）⇒ EC-ALLN-011 / NFR-ALLN-010 生产路径不可达 → 修：管线四态按 ok 结算 + 三表整体回滚（snapshot 不 break/continue）+ 失败非死端；短路回滚/恒 completed/删恢复面/3 条布线伪造逐条可红",
+      "v5-2 review R1 BLOCK-03：`perm.missing` **无权限事实源** + v5-1 §6-③ 修复 provider owner 悬空 + S2 样本 ctx ≡ recoveredCtx()（首验收驱动失真）→ 修：blockedStateCtx 驱动各自事实（risk ∋ llmBlocked / permBlocked）+ 不再同构；s2-deadend-chain 由「全局 ≥1 可达」下沉为逐类修复 op 断言（EXPECTED_REPAIR 5 行）+ 同构 ctx 反证",
+      "v5-3 review R1 BLOCK-01：L2 树视图站点行**复制授权态**（违反 FR-ALLN-086⑤ / AC-ALLN-012 / ADR-V5-006 §2⑤ 唯一载体契约；站点行仍渲染徽标且被 insight#I-20a 钉死；静态 note 被 replaceChildren 清除）→ 修：站点行改**指针**（auth-pointer + data-auth-pointer=\"#auth-state\" + ensureShell 运行期重建说明节点；行零状态值）+ insight#I-20a1/#I-20a3 等价重锚（116→118）+ **独立两段证伪**（回退 ⇒ EXIT=1 / 逐字节还原 ⇒ EXIT=0 且产物 547,558 B）",
+      "v5-2 R1 **体积越档位停机**：sidepanel.js = 518,329 B（Δ +11,014，超 R1 上限 512,865 = +5,464；越过 512,000 档位）⇒ 5 项体积门禁**如实判红、未静默重登记** → 停机上报 → 编排器裁决① → 档位显式升档 + 2 轮五要素重登记（518,543 → 535,821）；机制按设计工作，未以放宽换功能",
+      "验证面（价值证明）：v5-3 validate 自写对抗探针 **81/81**（runtime 41 + static 40），V3 第 6 类（无 provider 恢复面）注入**如实判红**、还原必绿；V8 体积越限注入必 FAIL、逐字节还原必 PASS；v5-2 SW 伪造 7/7 拒 + 只读 probe + commit 唯一提交点 + 三表整体回滚 db==before；S2 死端 = 0 双向反证；保护段保段（journey/binding 三值不变）"
+    ],
+    "deferred": [
+      "N-06（安全小项）：op-executors.ts#execSwOp 的 op.perm.request commit 只校验 permission 字段存在性（ghost-cap ⇒ ok:true），在册判据实际在页侧 → owner = 安全小项 backlog",
+      "N-07（安全小项）：service-worker.ts#onMessage 无发送方校验（op-exec 与 legacy authorize 同等可伪造，非新增边界）；强绑定方案 =「面板签发 nonce + SW 一次校验」→ owner = 安全小项 backlog",
+      "N-08（第二手势入口）：src/ui/settings/panel.ts#requestCapability 仍有独立手势入口（pre-existing，对 leafBase 零 diff，本叶统一登记不伪称闭环）→ owner = 后续波次",
+      "N-04（口径项）：options.ts#bindPanelOps 无 snapshotTables/restoreTables ⇒ 失败回滚 no-op（单 sink 原子写无半完成态）",
+      "N-05（平台限制）：op-bodies.ts#revoke('permission') 多能力撤销中途失败 ⇒ permission 表只能 reconcile（Chrome 仅手势可授）；实测「仍持有」路径如实失败无假成功",
+      "N-09（口径）：S2 样本恢复态 ⑩ 拍产出 act=next（→op.turn）chip 而非字面 op.pick（判据 = 可行动 next ∧ opId 已注册）",
+      "PO-ALLN-001：会话 / 分组 / tabs 设置 / 诊断 / 主题 / 告警 未收编为首批 op（DC-ALLN-001 / NG-ALLN-011 deferred）",
+      "PO-ALLN-002：外部竞品调研未执行（登记，不阻塞，不编造结论）",
+      "PO-ALLN-003：存储侧加密 / 生命周期 / 轮换 out-of-scope（只保证流内零明文）",
+      "O- 系低危（v5-3）：O-1 counts 滞后（validate 已前移）/ O-2 RISK_COPY.unauthorized 类型位护栏（0 运行时字节）/ O-3 reanchorV5.previousExpectation 叙述订正（只追加）—— 均已落地；残余 6 观察（N-1 产品侧无拖动手柄 / N-2 binding flake / N-3 settings 解释性文案 / N-4 台账临时日志路径 / O-R2-1·O-R2-2 已闭环）",
+      "KL-N-10：test:binding 环境性 flake（串行链首轮偶发红且失败项每次不同；binding.mjs 零 diff，隔离复跑即绿）；纪律 = 串行 / 隔离复跑 ≥2 / 日志全量 / 仍红如实记录不阻塞",
+      "**未闭合义务**：authorConfirmation.status = pending-author-line（档位 563,200 / 绝对上限 619,520）—— 属未闭合义务，不是已完成项",
+      "**A2A（F-29）未立项未排期** —— 本轮 ROADMAP 对该区段一字未动（F-29 区段前后字节相等，已核验）",
+      "人工面 9 项未执行（见 humanFacesNotExecuted）"
+    ],
+    "humanFacesNotExecuted": {
+      "note": "v5-3 叶 validate 报告 §4 / 本父收口 §9 登记 9 项人工面为 `⏳ 未执行`（headless 不可合成真实手势 / 权限弹窗 / 人工观感；不得冒充 PASS，AC-ALLN-024）。另：产品侧「280–640 拖动手柄」登记为**不适用**（Chrome 控制侧栏宽度，承接 = ResizeObserver + data-narrow）。本轮为纯文档 / 状态收口，未跑门禁 / 构建 / Chromium。",
+      "items": [
+        "授权 chip 两态观感",
+        "拖动宽度体感与性能",
+        "绿态管理详情手感",
+        "双主题（三主题）",
+        "320px 窄栏真实体感",
+        "键盘真实体感",
+        "读屏（掩码输入 + chip）",
+        "浏览器原生权限弹窗体感",
+        "真机 S2 断流走查"
+      ],
+      "status": "⏳ 未执行（全部 9 项；不冒充 PASS）"
+    },
+    "commitChain": "三叶：v5-1 `32f62a2`（validate）→ **`8526ef8`（叶收口）**；v5-2 `9a9849b`（validate）→ **`9b262ae`（叶收口）**；v5-3 `c4d157c`（review R2 → TREE）→ **`d829fe6`（validate 产物）** → **`80d34d5`（叶收口 N-1~N-4）**｜父收口 HEAD = 本 commit（ROADMAP v0.10.0 F-32 登记 + 父 closeout.md + 父 state.json closeout）；均在 `feature/web-cli-plugin`（**main = `2ddc922` 未动**）",
+    "roadmap": {
+      "dispositionOption": "v0.10.0（「AI 增强与生态」既有规划段 = **同版并列新主题**；非维护段）",
+      "docVersion": "1.28.0 → 1.29.0",
+      "featureNumber": "F-32（discovery 已核查 0 占用；收口轮实测复核登记前仍 0 占用）",
+      "f29Untouched": true,
+      "touchPoints": [
+        "头部 v1.29.0 素材增补行",
+        "§二 v0.10.0 段 v1.29.0 追加注（同版并列新主题，既有叙述逐字保留）+ 「v0.10.0 同批 Feature（F-32）」详段（含 Feature 表行）",
+        "版本总览表追加 v0.10.0（F-32）行（既有 v0.10.0「AI 增强与生态」行逐字保留）",
+        "文档版本 1.28.0 → 1.29.0 + 修订记录行 v1.29.0"
+      ],
+      "diffNumstat": "+24 / −1（唯一 `-1` = 文档版本行）；F-29 区段字节未动（sha `36a059c0…` 前后相等）"
+    },
+    "thisRoundGuard": "纯文档 / 状态收口（只改：ROADMAP.md + 父 state.json + 新建父 closeout.md + 叶 build.md/state.json）；**零 `src` / 零 `test` / 零三叶产物实义改动、不跑构建 / 门禁 / Chromium**（以 `git diff --quiet -- packages/web-cli-plugin` 零 diff 佐证）；数字一律取自三叶 build/validate 产物实测值并抽查 3 个与源核对；**禁 `git add -A`**（逐路径 add）",
+    "merge": "不合入 main、不发布（v1 / v2 / v3 / v4 / v4.5 / v5 均在 `feature/web-cli-plugin`；合入 / 发布由作者决定）"
   }
 }
