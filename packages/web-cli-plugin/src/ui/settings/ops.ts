@@ -84,8 +84,10 @@ export interface SettingsOpsDeps {
    * V5-2 **TASK-V5-145** (ADR-V5-005 §1/§3 · FR-ALLN-075~078) — the **op single
    * execution body**, injected by the surface (side panel / options page). The four
    * overlapping settings actions below delegate here, so their `execute` bodies live
-   * exactly once (in `next-registry/ops.ts`'s table) and the settings surface owns no
-   * native implementation statement (`deps.store.save` / `removeCapabilityPermission` /
+   * exactly once (the shared surface-agnostic bodies in `settings/op-bodies.ts`, which
+   * every surface — panel / settings / options — injects its own atoms into; see
+   * V5-2 review R2 **N-02** docstring fix) and the settings surface owns no native
+   * implementation statement (`deps.store.save` / `removeCapabilityPermission` /
    * the auto-auth message) any more.
    *
    * `surface` is the **consent carrier** disclosure: `settings` / `options` skip the

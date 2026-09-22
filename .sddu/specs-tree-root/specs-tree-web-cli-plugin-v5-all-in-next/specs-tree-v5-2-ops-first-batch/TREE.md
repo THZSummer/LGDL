@@ -12,9 +12,11 @@ specs-tree-v5-2-ops-first-batch/
 ├── review.md          # 审查策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
 ├── review-report.md          # 审查报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
 ├── spec.md          # Feature Specification：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
-├── state.json          # 状态文件 (🟢 tracked [reviewed])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
-└── tasks.md          # 任务分解：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收；次叶）
+├── tasks.md          # 任务分解：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收；次叶）
+├── validate.md          # 验证策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
+└── validate-report.md          # 验证报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收）
 ```
 
 ## 文件说明
@@ -25,16 +27,18 @@ specs-tree-v5-2-ops-first-batch/
 | review.md | 审查策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 审查策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 审查报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 本叶 = v5 的**次叶**，交付「**一站式闭环真的能用**」：把 9 个 op（设计稿 8 个 + `op.turn`）逐个注册到 `v5-1` 的... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [reviewed] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收；次叶） — [前置] v5-1 全绿（TASK-V5-101~122）+ 本叶 plan.md（ADR-V5-002执行侧/003/004/005）+ 父 tasks... | ✅ 存在 |
+| validate.md | 验证策略：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 1. **扰动可还原**：所有注入/伪造只在探针内存或源码**副本**上进行；不修改仓库源码做对抗（唯一例外见 N-01 处置记录）。 | ✅ 存在 |
+| validate-report.md | 验证报告：specs-tree-v5-2-ops-first-batch（V5-2 首批 9 op 落地 + SW 执行器 + 断流首验收） — 1. **门禁与声明值逐项可复现**：node 1172/0、四张 Chromium 主门禁（recommendation 65 / stream 68 ... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 审查完成 (6/7) |
-| Status | 🟢 tracked [reviewed] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)

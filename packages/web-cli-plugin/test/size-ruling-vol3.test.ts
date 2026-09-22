@@ -217,7 +217,7 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 });
 
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
-  // 现网：min(619,520, floor(541,505 × 1.05) = 569257) = 569257（软纪律更紧）。
+  // 现网：min(619,520, floor(542,150 × 1.05) = 569257) = 569257（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
   assert.equal(live.ceilingBytes, 569257, '生效上限 = min(绝对上限, 5% 公式)');
   assert.equal(live.ceilingBytes, Math.min(619_520, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
@@ -238,7 +238,7 @@ test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PA
   assert.equal(Math.min(absWall, formula), absWall, '取小 ⇒ 硬墙生效');
   assert.equal(300_001 <= Math.min(absWall, formula), false, '超过绝对上限必须 FAIL（硬墙生效）');
   // ② ≤ 绝对上限但 > 5% 公式 ⇒ FAIL（软纪律仍生效）。
-  const softCase = 569_258; // > floor(541,505 × 1.05) = 568,580，仍 < 619,520
+  const softCase = 569_258; // > floor(542,150 × 1.05) = 569,257，仍 < 619,520
   assert.ok(softCase <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!);
   assert.equal(evaluateSidepanelSize(softCase).ok, false, '≤ 绝对上限但 > 5% 公式必须 FAIL（软纪律生效）');
   // ③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）——用假 marker 驱动同一公式。

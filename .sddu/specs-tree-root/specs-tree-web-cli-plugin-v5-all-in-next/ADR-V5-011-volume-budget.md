@@ -105,3 +105,18 @@ FR-ALLN-130 / 131 / 132 / 133 / 134；NFR-ALLN-005；N3 / N4；AC-ALLN-022 / 023
 **为何先前的「绝对上限不变」不再自洽**：旧文把绝对上限写成 563,200（= 旧档位的 1.10× 之半）而非「档位的函数」，于是「档位上移而绝对上限不动」会让新档位（563,200）**恰好等于**绝对上限 —— 生效上限被压回档位本身，`×1.10` 的硬墙失去意义。订正后的口径保持 §2 的本意（档位上调**不得**顺势解除硬墙）：绝对上限始终是**档位 × 1.10**，随档位上移而派生上移，且 `SIDEPANEL_CEILING_CAP === 'record-only'` 与「不设自缚装置」（NG-ALLN-009）均未变。
 
 **机核**：`test/size-ruling-vol3.test.ts` 逐条复算三值同源（`newBaselineBytes === SIDEPANEL_BASELINE_BYTES`、`tierBytes === ceilTo50KB(newBaseline)`、`absoluteCeilingBytes === round(tier × 1.1)`），`authorConfirmation.status` 保持 `pending-author-line`（**占位，不伪称已确认**）。
+
+### 追加注（v5.2 · 修复轮时效订正，2026-09-22；review R2 **N-03**）
+
+> **性质**：与 v5.1 注同理的**加注**（历史只追加）：上方正文与 v5.1 注逐字保留，仅追加修复轮后的**现行锚值**。
+
+**事实**：review R1 修复轮（R3）在 `542,150 B` 处重登记（`SIDEPANEL_BASELINE_BYTES = SIDEPANEL_FINAL_ARTIFACT_BYTES = 542,150`，实测产物同值；第三轮五要素重登记 `+6,329 B`），因此 v5.1 注中的 **535,821 / 562,612 为 R2 时点值**（保留作历史），**现行**三值为：
+
+| 量 | 现行值 | 派生式 |
+|---|---|---|
+| 现行基线 `newBaselineBytes` | **542,150** | 实测 `dist/sidepanel.js`（= `SIDEPANEL_BASELINE_BYTES` = `SIDEPANEL_FINAL_ARTIFACT_BYTES`） |
+| 档位 `tierBytes` | **563,200** | `ceilTo50KB(542,150)`（与 v5.1 同档，**未再上移**） |
+| 绝对上限 `absoluteCeilingBytes` | **619,520** | `tierBytes × 1.10`（不变） |
+| 生效上限 `ceilingBytes` | **569,257** | `min(619,520, floor(542,150 × 1.05) = 569,257)` |
+
+`authorConfirmation.status` 仍为 `pending-author-line`（占位，不伪称已确认）。机核：`test/size-ruling-vol3.test.ts` / `test/size-budget.test.ts` 的判定值 `569257` 未变（分母注释同步订正为 `542,150`）。

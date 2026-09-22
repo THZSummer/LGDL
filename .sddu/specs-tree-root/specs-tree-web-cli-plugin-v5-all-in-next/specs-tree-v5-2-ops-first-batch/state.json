@@ -3,15 +3,15 @@
   "featureKey": "specs-tree-v5-2-ops-first-batch",
   "version": "v5.0.0",
   "name": "V5-2 首批 9 op 落地（op.authorize / op.rebind / op.llm-config / op.perm.request / op.revoke / op.pick / op.describe / op.help / op.turn）+ SW 双层执行器 + op-* type-only 消息族 + optional_permissions + 掩码 secret 卡（值直达 key-store）+ settings 4 类收编（零双路径）+ 拒绝非死端 + S2 断流样板机器化首验收",
-  "phase": "reviewed",
-  "workflow": "6.review",
-  "agent": "sddu-review",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v5-all-in-next",
   "childrens": [],
   "leaf": true,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22T23:58:00.000Z",
+  "updatedAt": "2026-09-22T01:55:00.000Z",
   "description": "跟随父 Feature specs-tree-web-cli-plugin-v5-all-in-next（F-32 / v0.10.0）立项的**次叶**（P0，deliveryOrder=2，依赖 v5-1）。承载父 spec.md §5.5 OPS（FR-ALLN-040~049）/ §5.7 SW（FR-ALLN-065~069）/ §5.8 SETTINGS（FR-ALLN-075~078）/ §5.2 LAW7 的 014·016（拒绝非死端 + 断流首验收）/ §5.3 LAW8 的 020~022（掩码卡入口侧 + 值直达存储 + 流内只留事实）/ §5.11 X1·X2（FR-ALLN-110·111·116）/ GATE 本叶面（FR-ALLN-120~125）/ FR-ALLN-003·004·130·133 共 33 条 FR 的实施切片。交付：9 个 op 逐个注册（五要素齐备）；panel-local / SW 双层执行器（特权 op 恰 2 项）；op-* type-only 消息族（content.js 逐字节零增长）+ SW 侧注册表镜像契约；optional_permissions 放开（安装期静态面零漂移 + 最小集论证）；askuser 扩形 secret / form + 值直达 key-store；settings 4 类收编（单一执行入口 + 单一调用点机核）；拒绝不是死端；S2 断流样板 headless 全链首验收（死端 = 0；浏览器弹窗体感入人工面）。权威条文见父 spec.md。",
   "scope": {
     "in": [
@@ -157,7 +157,7 @@
     "O-ALLN-004（ruled：settings 4 类收编）",
     "O-ALLN-005（ruled：机器化主验收 + 弹窗人工面）"
   ],
-  "status": "tracked",
+  "status": "completed",
   "phaseHistory": [
     {
       "phase": "registered",
@@ -203,9 +203,14 @@
       "phase": "reviewed",
       "timestamp": "2026-09-22T23:58:00.000Z",
       "triggeredBy": "sddu-review R2（复审：R1 三阻塞闭环 + 修复轮新引入风险，审查对象 HEAD 13b7d76 / 基线 5abe0a1）：结论 = **✅ 通过**（0 阻塞 / 13 低危警告 / 45 通过，通过率 77.6%；R1 = ❌ 3 阻塞）。BLOCK-01~03 全部闭环：① 载荷透传（panel/settings/options 三面同执行体真实落储 + 缺缝 loud，假成功消灭，NP-11 + 两段证伪）；② {ok:false} ⇒ failed 结算 + 三表整体回滚（EC-ALLN-011/NFR-ALLN-010 生产可达，NP-5b + 反证）；③ BLOCKED_P0_MAP 5/5 landed + 修复 provider 真实注册/接线 + S2 两类 ctx 非同构且逐类断言（BT-3/S2 + 反证）。独立自研探针 13/13（不复用仓库测试）。门禁抽跑 6 项全绿（npm 1172/0 · next-pipeline 20/0 · blocked-terminals 9/0 · recommendation 65/0 · size-ruling-vol3 12/0 · op-wiring 7/0）+ 补跑 journey 171 PASS / sw-op-mirror 5/0。修复轮 diff 全量扫描（5abe0a1..13b7d76）：无双路径回归；journey 21 项 latent 修复正确（真机 171 PASS，等价重锚 + 新增断言零删除）。红线/冻结面逐字节不变（content.js 177,076/52a82620… · pick-layer.js 33,900/5f567d7e… · manifest/src/content/**/v3 台账零 diff · sidepanel.js 542,150）。新增 5 项低危观察（N-01 拒绝失败行重复写 / N-02 settings/ops.ts docstring 漂移 / N-03 体积登记时效 / N-04 options 面无快照 seam / N-05 permission 表回滚平台限制），均不阻塞。下游 = @sddu-validate。"
+    },
+    {
+      "phase": "validated",
+      "timestamp": "2026-09-22T01:55:00.000Z",
+      "triggeredBy": "sddu-validate（R1 独立动态验证，对象 HEAD 9a9849b + 本轮 N-02/N-03 订正）：产出 validate.md（策略，V1~V9）+ validate-report.md（R1 报告）。**结论 ✅ 通过 / 0 阻塞**。门禁串行复跑（npm 1172/0 · recommendation 65/0 · stream 68/0 · ask-auth 71/0 · binding 首轮 KL-N-10 flake→复跑 192/0 · l0 244/0 · density 232/0 · journey 171 · zero-injection 27/0 · size 三文件 45/0）+ 8 个自研探针（9 op 产品路径 / S2 全链 / SW 伪造 / 法八四面 / 失败语义 / 红线+体积 / AC 抽验 / N-01）。对抗全类判红并还原（伪造 7/7 拒 · KIND_SET 注入 · 体积越限 · 短路回滚 · 恒 completed · 删恢复面 · 3 条布线伪造）；红线/保护段/冻结面逐字节命中；体积三值同源 542,150/569,257/563,200/619,520 + pending-author-line；构建 exit 0 且冻结面可复现。N-02/N-03 F 级订正（零字节影响）；N-01 实测 −86 B 产物后果 ⇒ 转 N 登记（附修复清单）；新增 N-06~N-09 低危口径；人工面 ⏳（弹窗体感/读屏）。下游 = 无（本叶工作流终点）。"
     }
   ],
-  "phaseNote": "phase=reviewed（status=tracked）—— **review R1 = ❌ 不通过（3 阻塞）→ R3 修复轮闭环 → review R2 = ✅ 通过（0 阻塞 / 13 低危警告 / 45 通过，通过率 77.6%）**。R2 复审对象 HEAD `13b7d76`（基线 `5abe0a1`）：BLOCK-01~03 全部闭环（独立探针 13/13 + NP-11/NP-5b/BT-3/S2 两段证伪）；门禁抽跑 6 项全绿 + 补跑 journey 171 PASS / sw-op-mirror 5/0；修复轮 diff 全量扫描无双路径回归、journey 21 latent 修复正确；红线/冻结面逐字节不变。**未改 src/test/dist**；新增 5 项低危观察（N-01~N-05）。下游 = `@sddu-validate specs-tree-v5-2-ops-first-batch`。",
+  "phaseNote": "phase=validated（status=completed）—— **R1 独立动态验证 ✅ 通过 / 0 阻塞**。验证对象 HEAD `9a9849b`（工作树含本轮 N-02/N-03 订正）；策略 = validate.md（V1~V9 对抗优先矩阵），报告 = validate-report.md（R1）。门禁复跑：`npm test` 1172/1172/0、recommendation 65/0、stream 68/0、ask-auth 71/0、binding 192/0（首轮 5 项 KL-N-10 环境性 flake，隔离复跑 PASS）、l0 244/0、density 232/0、journey 171、zero-injection 27/0、size 三门禁 45/0；`npm run build` exit 0 且冻结面可复现。对抗：SW 伪造 7/7 拒 + probe 只读 + commit 唯一提交点；`KIND_SET` 40 项逐字 + 注入判红；体积越 1 B 判红；三表整体回滚 `db==before`；短路回滚/恒 completed/删恢复面/3 条布线伪造逐条可红。红线与冻结面：`content.js` 177,076/`52a82620…`、`pick-layer.js` 33,900/`5f567d7e…`、保护段 `be9ad0e9…`、manifest/`src/content/**`/v3 台账零 diff。体积：**542,150 ≤ 569,257**（档位 563,200 / 绝对上限 619,520 / pending-author-line）。review 建议订正：**N-02/N-03 = F 级闭环（零字节影响）**；**N-01 = N 级登记**（实测去重为 −86 B 产物变更，须走五要素体积重登记，validate 不静默移动冻结锚）；N-04/N-05 维持登记；新增 N-06~N-09 低危口径。人工面 ⏳：浏览器原生权限弹窗体感 / 读屏实感（不冒充 PASS）。**下游 = 无（7/7 工作流终点）**。",
   "specCounts": {
     "fr": 34,
     "nfr": 9,
@@ -222,7 +227,9 @@
     "tasks.json",
     "build.md",
     "review.md",
-    "review-report.md"
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
   ],
   "files": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/spec.md",
@@ -234,7 +241,9 @@
     "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/tasks.json",
     "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/build.md",
     "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/review.md",
-    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/review-report.md"
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/review-report.md",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/specs-tree-v5-2-ops-first-batch/validate-report.md"
   },
   "mainAdrs": [
     "ADR-V5-002（执行侧）",
@@ -604,5 +613,91 @@
       "N-05（低）permission 目标多能力撤销中途失败的整体回滚对 permission 表仅 reconcile（Chrome 仅手势可授，平台限制）"
     ],
     "next": "@sddu-validate specs-tree-v5-2-ops-first-batch（动手验证）"
+  },
+  "validateArtifact": {
+    "round": "R1（独立动态验证）",
+    "validatedAt": "2026-09-22",
+    "head": "9a9849b",
+    "baseline": "8526ef8（v5-1 收口）",
+    "branch": "feature/web-cli-plugin",
+    "strategy": "validate.md（V1~V9）",
+    "report": "validate-report.md",
+    "conclusion": "✅ 通过（0 阻塞 / 9 Vx 全绿 / 1 项无法执行=人工面 ⏳）",
+    "gates": {
+      "npmTest": "1172 / 1172 / 0（exit 0）",
+      "recommendation": "65 / 0",
+      "stream": "68 / 0",
+      "askAuth": "71 / 0",
+      "binding": "首轮 188✔/5✖（ERR:CDP socket not open = KL-N-10）→ 复跑 192 / 0 PASS",
+      "l0": "244 / 0",
+      "density": "232 / 0",
+      "journey": "PASS / 171",
+      "zeroInjection": "27 / 0",
+      "sizeTrio": "45 / 0（size-budget + size-ruling-vol3 + size-growth-evidence）",
+      "build": "exit 0；content.js / pick-layer.js 逐字节可复现"
+    },
+    "adversarial": {
+      "swForgedHandshakes": "7/7 拒（无/空 consentToken · 缺/非布尔 gestureResult · 坏 phase · 非 op-* kind · null）",
+      "swIllegalTargets": "未注册 opId / 无 origin / 缺 permission ⇒ 拒；probe 只读（authorize 0 次）/ commit 唯一提交点",
+      "kindSetInjection": "KIND_SET 40 项逐字 + 注入 3 字面判红 + src/content 0 边",
+      "s2DeadEnd": "5 类阻塞逐类可达 ∧ 死端 = 0 ∧ 删除恢复面判红",
+      "failureSemantics": "{ok:false} ⇒ failed + 三表 db==before；短路回滚/恒 completed 判红；revoke 中途「仍持有」如实失败",
+      "volumeInjection": "569,258 / 619,521 ⇒ FAIL（纯公式复算）",
+      "wiringForgery": "3/3 判红（复制调用点 / 本地 op 接 requestTurn / 本地 op 受 pending 门控）"
+    },
+    "redlines": {
+      "contentJs": {
+        "bytes": 177076,
+        "sha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6"
+      },
+      "pickLayerJs": {
+        "bytes": 33900,
+        "sha256": "5f567d7ededc58183afe4ce45e3293b68204dfbe788dc6b9fb09bdc6e0d13e59"
+      },
+      "protectedSegment": {
+        "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+        "start": 107780,
+        "end": 115930,
+        "sha256": "be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936"
+      },
+      "frozenDiff": "manifest.json / src/content/** / docs/v3-supersession-ledger.json 对 8526ef8 全空",
+      "sidepanelJs": 542150
+    },
+    "volume": {
+      "baselineBytes": 542150,
+      "tierBytes": 563200,
+      "absoluteCeilingBytes": 619520,
+      "effectiveCeilingBytes": 569257,
+      "formula": "effective = min(619,520, floor(542,150 x 1.05) = 569,257)",
+      "authorConfirmation": "pending-author-line"
+    },
+    "findings": {
+      "F": [
+        "F-01=review N-02 docstring 订正（settings/op-bodies.ts 指向；零字节）",
+        "F-02=review N-03 体积时效订正（5 处注释分母 542,150 + ADR v5.2 时效注 + 父 PO-ALLN-005 刷新；零字节）"
+      ],
+      "N": [
+        "N-01=op.perm.request 拒绝路径重复失败行（实测去重为 -86 B：542,150→542,064 ⇒ 须五要素体积重登记；附 6 文件修复清单）",
+        "N-04=options 面无快照 seam（维护登记）",
+        "N-05=permission 表回滚平台限制（维护登记）",
+        "N-06=SW commit 不校验能力在册（docstring 强于实现）",
+        "N-07=无发送方校验（与 legacy authorize 同等可伪造，I-08 口径）",
+        "N-08=settings/panel.ts 能力申请第二手势入口（范围外 pre-existing，零 diff）",
+        "N-09=S2 ⑩ 拍为 act=next chip（口径如实）",
+        "KL-N-10=binding 首轮环境性 flake（隔离复跑 PASS）"
+      ],
+      "blocking": 0
+    },
+    "manualFace": "浏览器原生权限弹窗体感 / 读屏实感 = ⏳（headless PENDING_TIMEOUT 不可合成；不冒充 PASS）",
+    "steps": "10 环节（V3 真链 10/10 拍）",
+    "deadEndCount": 0,
+    "blockedStatesReachable": {
+      "site.unauthorized": true,
+      "llm.unconfigured": true,
+      "perm.missing": true,
+      "binding.stale": true,
+      "ref.all-invalid": true
+    },
+    "next": "无（本叶 7/7 工作流终点；下游 = v5-3 依赖本叶 op.authorize/revoke/rebind 落地）"
   }
 }
