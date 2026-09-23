@@ -27,8 +27,8 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/",
       "name": "V5.5-2 主题① 确定性系统流（次叶）",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 2,
       "dependsOn": [

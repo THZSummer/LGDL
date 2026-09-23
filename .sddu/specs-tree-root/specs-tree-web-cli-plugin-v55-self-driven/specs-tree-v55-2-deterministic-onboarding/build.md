@@ -398,3 +398,118 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.2 | **v55-2 小修轮（review R1 的 I-01~04）**：I-01 §5b 逐门禁读数按实测订正（`onboarding-deterministic` 30→**23**、`s0-self-driven-chain` 10→**11**）；I-02 `over-capacity` 返回值被消费 + 留痕（口径订正为「原任务优先保留」）；I-03 同因去重只记主动放弃（`recordsDeclinedCause`）⇒ 失败可重试；I-04 双源独立（`llmBlockedFactApplies(ruled, passive)`：SW 的 `isLlmConfigured` 裁定投影 ∨ 被动快照）⇒ 冷启动不丢 guide chip；新增 OD-17/18/19（含反证）⇒ `npm test` **1277 → 1283 / 0**、`test:onboarding` **23 → 29 / 0**；体积 563,145 → **563,780 B**（+635，Σ 模块 +635 + glue 0）⇒ **越档位 ⇒ ADR-V55-011 §4 显式升档**（档位 563,200 → **614,400**、绝对上限 619,520 → **675,840**，`authorConfirmation` 保持 `pending-author-line`）；三冻结面逐字节不变；继承的环境性 flake（`page-input` F-01 / `binding` N-07）如实登记 | 2026-09-23 | SDDU Build Agent |
+
+---
+---
+
+# 构建报告 v1.3（v55-2 **收口段**：N 项归并 + 终态对账）
+
+> **文档定位**: SDDU 收口记录 —— 本叶 7 阶段流水线（build → review → validate 全通过）之后的**收口轮**：N 项归并登记 + 终态对账 + 交付物清单 + 移交项。**零产品代码改动**（`.sddu` 外零触碰）。
+> **输入**: `review-report.md` v1.0（R1；40 Cx / **0 BLOCK** / 4 I / O-01~O-06）+ `validate-report.md` v1.0（R1；V1~V15 全绿 / 0 阻塞 / L-01~L-03）+ 父 `spec.md` §12 映射表 / 父 `state.json` + `ADR-V55-011`（体积档位与越档升档）
+> **版本**: v1.3（本叶 **close 终态**）
+> **更新时间**: 2026-09-23
+> **更新说明**: 收口轮 —— review **O-01~O-06**（6 项）+ validate **L-01~L-03**（3 项）归并为 **N-01~N-10** 并逐条标注 owner（本叶已闭环 / v55-3 / 父收口 / 人工面）；终态对账（任务 **16/16** · 门禁 `npm test` **1246 → 1283 / 0** · 体积 **557,883 → 563,780 B（+5,897）** · 三冻结面零 diff · X-SELF-3/-SW 台账 · **越档显式升档 614,400 / 675,840 `pending-author-line`**）
+
+## 11. 终态快照（close 基线）
+
+| 项 | 终态读值（收口轮实测） |
+|---|---|
+| 分支 / HEAD | `feature/web-cli-plugin` / **`b2b7dcd`**（本叶最后提交 = validate） |
+| 任务 | **16 / 16 completed**（W1~W5；TASK-V55-201~216） |
+| 门禁 | 新增 **1 枚 node 门禁**（`onboarding-deterministic`，终态 **29 / 0**）+ **1 枚 Chromium 段**（`s0-self-driven` ⑰ `S0C-7`）；`V552_NODE_GATE_FILES` / `V552_W5_AUDITED_FILES` 入受审集合（`gate-integrity` **18 / 0**）；`CHROMIUM_GATES === 9` 逐字不动 |
+| `npm test`（node） | **1246 → 1283 / 0**（+37，只增不减；R1 +22 / R2 +9 / 小修轮 +6）—— 收口轮**亲跑复核 = 1283 / 0**（`node --test`，94.4 s） |
+| 体积 | `dist/sidepanel.js` **557,883 → 563,780 B（+5,897）**（R1 +4,390 / R2 +872 / 小修轮 +635）；叶预算 4,900 ⇒ **超 997 B**；叶上界 6,300 ⇒ **未越**（余 403 B） |
+| 越档 / 升档 | **越档位**（563,780 > 563,200）⇒ **显式升档**（ADR-V55-011 §4）：档位 563,200 → **614,400**、绝对上限 619,520 → **675,840**；生效上限 = `min(675,840, floor(563,780 × 1.05) = 591,969)` = **591,969**；`authorConfirmation` = **`pending-author-line`**（**不伪称已确认**） |
+| 冻结面（dist） | `dist/content.js` **177,076 B / sha `52a82620…b5f6`**、`dist/pick-layer.js` **34,358 B / sha `77796bab…575e`** —— **逐字节零 diff**；`dist/sidepanel.js` = 登记基线 **563,780 B**（本叶**登记增长**，非零 diff；红线口径 = **字节数**，非 sha ⇒ 见 N-04/N-07 同族口径） |
+| 源码 / 文档冻结面 | `src/content/**` · `manifest.json` · `docs/v3-*-ledger.json` · `ROADMAP.md` · `design/**` · `stream-model.ts` · `settings/**` —— **全零 diff**（`git diff 39c1fb0..HEAD` 禁令路径命中 **0**） |
+| 取代台账 | `X-SELF-3` 命中 **9**、`X-SELF-3-SW` 命中 **2**；两条以 `modificationType: 'pure-addition'` / `oldTitle: null` 落账且 `newTitle` **逐字可定位**（本叶 `leaf` 归属）；v55-1 `xSelfLedger` 的 `X-SELF-3: handed-over → specs-tree-v55-2-deterministic-onboarding` **本轮接管闭合**（链条：v55-1 移交 → v55-2 落账） |
+| S0 | node **11 / 0**（`S0N-1~S0N-8` + 元判据）· Chromium **42 / 0**（⑰ `S0C-7` 真产品路径：未配置 ⇒ detect ⇒ guide ⇒ 掩码卡(`type=password`) ⇒ 完成 ⇒ **自动续接** ⇒ 留痕逐字原话；A/B 独立计数） |
+| 保护段 | `journey` **171 PASS** · `binding` **192 PASS**（N-07/N-08 族环境性 flake，保段凭据 = `test:supersession` **36 / 0** 独立机核） |
+| 流水线结论 | review **✅ 通过**（R1：40 Cx / 36 ✅ / **0 BLOCK** / 4 I → 小修轮 `4ca1bf6` 全闭环 / 6 O）· validate **✅ 通过**（V1~V15 全绿；**0 阻塞 / 0 严重漂移**；受限项 L-01~L-03 如实登记；FR 覆盖 **23/23 = 100%**、NFR 机核 **9/10 = 90%**） |
+
+## 12. 交付物清单（本叶足迹；`git diff 39c1fb0..b2b7dcd` 实测）
+
+**源文件（新增 2 / 修改 8）**
+
+| 操作 | 文件 | 任务 |
+|:--:|---|:--:|
+| NEW | `src/ui/sidepanel/next-registry/onboarding-flow.ts` | 207 / 208 / 213 / 215 |
+| NEW | `src/ui/sidepanel/next-registry/suspension.ts` | 210 / 211 |
+| MODIFY | `src/llm/status.ts` | 201 / 202 |
+| MODIFY | `src/background/service-worker.ts` · `src/background/messaging.ts` · `src/background/chat-events.ts` | 203 / 204 |
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` | 205 / 208 / 211 / 214 / 215 |
+| MODIFY | `.../next-registry/ops.ts` · `.../next-registry/pipeline.ts` · `.../next-registry/providers.ts` | 205 / 206 / 210 / 211 |
+
+**门禁 / fixture（新增 1 / 修改 14）**
+
+| 操作 | 文件 |
+|:--:|---|
+| NEW | `test/onboarding-deterministic.test.ts`（OD-1~OD-19，终态 **29 / 0**） |
+| MODIFY（node） | `test/{blocked-terminals,next-registry,gate-integrity,s0-self-driven-chain,size-budget,size-growth-evidence,size-ruling-vol3,supersession-ledger}.test.ts` + `test/size-baseline.ts` |
+| MODIFY（Chromium / fixture） | `test/ui/s0-self-driven.mjs` · `test/ui/fixtures/s0-chain.mjs` · `test/ui/law8-plaintext.mjs` · `test/ui/stream.mjs` + `package.json`（`test:onboarding` 入 `test:v3` 串行链） |
+
+**台账（2）**：`docs/v4-supersession-ledger.json` · `docs/v4-density-baseline.json`
+**SDDU 产物（本 diff 内 8）**：`tasks.md` · `build.md` · `review.md` · `review-report.md` · `validate.md` · `validate-report.md` · `state.json` · `TREE.md`
+
+> 统计口径：非 `.sddu` 变更面 = **27 个文件**（**3 NEW + 24 MODIFY**）；`.sddu` 变更面 = **8 个产物文件**。`git diff --name-only` 合计 **35**。
+
+## 13. N 项归并登记（review O-01~O-06 + validate L-01~L-03 → N-01~N-10）
+
+> **归并口径**：review **O 6 项**（O-01~O-06）→ N-01~N-06；validate **L 3 项**（L-01~L-03）→ N-07~N-09；另 + 1 项**收口新增登记**（N-10 体积升档作者行确认）。**来源覆盖 = 9/9 全覆盖**（其中 O-04 ≡ L-01 同源，N-04 / N-07 合并同一处置）。
+
+| 统一编号 | 来源 | 类型 / 严重度 | 内容摘要 | owner | 处置 |
+|:--:|:--:|:--:|---|---|---|
+| **N-01** | review O-01 | 观察 / 低 | 生产 `src/**` **零消费**的导出：`ONBOARD_SCENARIOS` / `onboardScenario()`（两场景为**声明层**；生产由既有 `onboarding` provider + `risk` 源两路实现）、`onboardStepIndex()`（全仓零引用，**死代码**）、`ONBOARD_COLLECT_STEPS` / `MAX_SUSPENSIONS`（仅门禁消费）⇒「单源」目前是**门禁契约层**而非**生产接线层** | **v55-3** | 移交：随三叶共享面收口 —— 让生产消费（如 `MAX_SUSPENSIONS` 参与超容判定）或清理 `onboardStepIndex` 死代码；validate V15 已判**非漂移**（不改变承载 FR 成立性） |
+| **N-02** | review O-02 | 观察 / 低 | 续接**成功不清空**悬置（`SUSPENSIONS` 内条目常驻）⇒ 会话内后续任一次 `op.llm-config` 成功（如管理面改配置）会再次 `resumeAfterConfig`，若悬置仍「有效」则**重放旧原话**为回合输入（当前仅面板 `op.llm-config` 触发，风险低；与 **O-05 跨页面**同源） | **v55-3** | 移交：随 v55-3 的 `op.turn` 槽复用 + 并发仲裁，在续接后**标记已消费**（或显式登记「重放」为有意行为） |
+| **N-03** | review O-03 | 信息 | `service-worker.ts:891` 的 `const settings = await s.keys.load()` 由原 `try {}` **内**上提到 `try` **外**（为保持「忙检查 + 判据 + 置位」同一同步块）；`load()` 拒绝时错误**不再经 `finally`**（`chatBusy` 复位 / `persistChatHistory`）—— 因 `chatBusy` 尚未置位、且无回合发生，实测**与改前等价**（评审已核，无回退） | **本叶已闭环** | 本叶：§8 D2 + R2 段（判据源码序）已**如实登记**该错误路径作用域变化；无残留动作 |
+| **N-04** | review O-04 | 环境性 flake / 低 | `test/ui/binding.mjs` 亲跑 FAIL（两种面：`CDP socket not open (readyState=3)` / `selector not found: #confirm-allow`）；`binding.mjs` **不在本叶变更面**；保护段由 `test:supersession` **36 / 0**（sha + `startByte 107780`）独立机核 | **父收口** | 移交：登记为环境性 flake（**同源 v55-1 N-07 / KL-N-10**）；保段凭据 = `supersession` 36/0；不阻塞 |
+| **N-05** | review O-05 | 观察 / 低 | `EC-SELF-010` 的「配置**来源无关**」在实现中等于「**面板内** `op.llm-config` 完成」（设置视图 `saveLlm` 经 `dispatchOp` ⇒ 面板管线 ⇒ `opSettled`）。独立 `options.html` 页完成配置时，面板侧只在 focus / visibility 刷新 `llm-status`（引导**收敛**），**不会**触发续接（悬置活在面板内存） | **父收口** | 移交：在跨叶口径中显式登记该**边界**（跨页续接不属本 Feature；由父收口在共享面明示，或 v55-3 补跨页信号） |
+| **N-06** | review O-06 | 信息 | `docs/v4-density-baseline.json#volume.absoluteCeilingBytes` 曾实测 **563,200**，与权威口径（档位 563,200 / 绝对上限 **619,520**）脱钩 ⇒ 字段**陈旧**（F 快修轮遗留，**非本叶引入**）；本叶距档位仅 **55 B**，该字段易误导后续轮误读 headroom | **本叶已闭环** | 本叶：小修轮 `4ca1bf6`（§6c F6）**已同轮订正为 675,840** 并加 `absoluteCeilingNote` 说明历史链（该字段**零判据读取**，权威复算在 `size-ruling-vol3`）；零字节 |
+| **N-07** | validate L-01 | 环境性 flake / 低 | 与 **N-04 同源**：`binding.mjs` 本机 CDP harness 环境性 flake（复跑 3 次均同面）；`git diff` 0 命中；保段由 `supersession` **36/0** 兜底 —— 与 v55-1 N-07 同族 | **父收口**（**并入 N-04**） | 移交：与 N-04 **合并为同一条父收口登记**（不重复计项）；保段凭据同上 |
+| **N-08** | validate L-02 | 人工面 / ⏳ | 引导文案可读性 / 主动引导**体感** / 读屏掩码卡（**NFR-SELF-008**）= **未执行**（headless 不可合成）；`s0-self-driven.mjs` 末行显式 `⏳ 未执行（headless 不可合成，不得冒充 PASS）` | **人工面** | 移交：并列 v5 人工面 9 项；待真机人工验收；**不冒充 PASS**（不改变机核结论） |
+| **N-09** | validate L-03 | 继承 / 汇总 | review **O-01 / O-02 / O-05 / O-06** 的**继承汇总项**（零消费导出 / 续接后未清悬置 / 跨 options 页续接口径 / `v4-density-baseline.json` 陈旧字段） | **本叶已闭环** | 本叶：拆解后已逐条分流至 **N-01 / N-02 / N-05 / N-06**，本项**无独立动作**（O-06 部分已由小修轮订正） |
+| **N-10** | **本叶收口新增**（非 O/L 来源） | 体积 / 登记 | **体积越档位的作者行确认事项**：`ceilTo50KB(563,780) = 614,400 > 563,200` ⇒ 按 ADR-V55-011 §4 **显式升档**（档位 563,200 → **614,400**、绝对上限 619,520 → **675,840**、生效上限 **591,969**）；`authorConfirmation` 保持 **`pending-author-line`**（**不伪称已确认**）；升档触发点由 ADR 预计的 v55-3 收口轮**前移**至本叶小修轮（「谁先越谁登记」） | **父收口（作者行）** | 移交：**作者行确认**（签名 / 追加预算行）由父收口（v5.5 closeout）统一收取；此前保持 `pending-author-line`，零伪称、零静默 |
+
+**owner 分布**：**父收口 = 4**（N-04 / N-05 / N-07(≡N-04) / **N-10**，其中 N-10 = 作者行）· **本叶已闭环 = 3**（N-03 / N-06 / N-09）· **v55-3 = 2**（N-01 / N-02）· **人工面 = 1**（N-08）· **v55-2 = 0**（本叶自身无新遗留）。
+**严重度分布**：阻塞 **0** · 高 **0** · 低 / 信息 **10**（全部为登记项，**均不阻塞**）。
+
+## 14. 收口对账
+
+| 对账项 | 要求 | 终态实测 | 判定 |
+|---|---|---|:--:|
+| 任务 | 16 / 16 | **16 / 16 completed**（`tasks.json` 16 条；`build.md` §3 + §3b 逐条；W1~W5） | ✅ |
+| 门禁 | 新增 ∧ 只增 | **1 枚新 node 门禁**（`onboarding-deterministic` **29/0**）+ **1 枚 Chromium 段**（`s0-self-driven` 24 → **42/0**，⑰ `S0C-7`）；受审集合 `V552_NODE_GATE_FILES` / `V552_W5_AUDITED_FILES`；`CHROMIUM_GATES === 9` 逐字 | ✅ |
+| `npm test` | 只增不减 | **1246 → 1283 / 0**（+37）；收口轮**亲跑复核 1283 / 0** | ✅ |
+| 体积 | 登记 ∧ 超预算如实 ∧ 升档显式 | **557,883 → 563,780 B（+5,897）**；超叶预算 4,900 ⇒ **超 997 B**（**未越叶上界 6,300**，余 403 B）；**越档位 ⇒ 显式升档** 614,400 / 675,840；`pending-author-line` | ✅（超预算 + 越档均显式登记） |
+| 三冻结面 | 零 diff | `content.js` **177,076 B / sha `52a82620…`** · `pick-layer.js` **34,358 B / sha `77796bab…`** **逐字节零 diff**；`sidepanel.js` **563,780 B** = 登记基线 | ✅ |
+| 取代台账 | X-SELF-3 闭环 | `X-SELF-3` 命中 **9** / `X-SELF-3-SW` 命中 **2**；两条 `pure-addition` + `oldTitle:null` 落账且 `newTitle` 逐字可定位；v55-1 的 `handed-over → v55-2` **接管闭合**；`test:supersession` **36/0** | ✅ |
+| S0 双面 | 必判项载荷性 | node **11/0** + Chromium **42/0**；**真删自动续接 ⇒ 必红**（validate V8：`9/2` + `28/1`，还原复绿） | ✅ |
+| 保护段 | 保段 | `journey` **171 PASS** · `binding` **192 PASS**（fluke 由 `supersession` 36/0 兜底） | ✅ |
+| 规格漂移 | spec 零 diff | `git diff 39c1fb0..HEAD -- <leaf>/spec.md` = **0 命中**（spec mtime 早于 build） | ✅ |
+| ROADMAP | 零 diff（父收口统一登记） | `git diff 39c1fb0..HEAD -- .sddu/specs-tree-root/ROADMAP.md` = **0** | ✅ |
+| 红线路径 | 零命中 | 35 变更文件中 **禁令路径命中 0**（`src/content/**` / `manifest.json` / `dist/content.js` / `dist/pick-layer.js` / `ROADMAP.md` / `docs/v3-*` / `design/**` / `stream-model.ts` / `settings/**`） | ✅ |
+| `.sddu` 外触碰 | 收口轮零产品改动 | 收口轮仅改 `.sddu/**`（`build.md` / `state.json` / `TREE.md`）；`npm test` 仅重编译 `dist-test`（git 忽略），**产品源码零字节** | ✅ |
+
+## 15. 移交项（handover）
+
+| 移交对象 | 项 | 交接要点 |
+|---|---|---|
+| **v55-3**（末叶 / 收口叶） | **① 继承 v55-1 N-01（`op-wiring` 数值钉死）· ② 本叶 N-01 / N-02 · ③ D3 载体未落地（`pressCandidate`）** | ① **`nextAfterSettle(` 调用点数仍未在门禁中钉死**：v55-1 收口登记 `7 → 8`，本叶再增 **2 处**（`sidepanel.ts:3461` 取消收口缝 / `:3602` 主动识别分支）⇒ 收口轮实测 **1 定义 + 10 调用点**（`grep -c` = 13 = 1 定义 + 10 调用点 + 2 注释引用）；`op-wiring#OP-W-6` 仍只钉「定义恰 1」⇒ 请随 **TASK-V55-306**（**同文件**修改轮）一并钉死具体数值。② 生产零消费导出（N-01：`MAX_SUSPENSIONS` / `ONBOARD_COLLECT_STEPS` 消费，或清理 `onboardStepIndex` 死代码）+ 续接后悬置未清空（N-02：标记已消费）随**三叶共享面收口**处置。③ **`pressCandidate` 载体在本叶尚未落地**（ADR-V55-009/010 的 v55-3 API）⇒ 本叶续接/取消经**既有 `op.turn` 槽**（`dispatchOp('op.turn', …)` ⇒ 同一 `PANEL.turn` ⇒ `requestTurn(` 计数不变、面板 `dispatchChipAction` 仍恰 1 处、**零第二回合入口**）；v55-3 落地后**等价替换**，替换时须保持上述三条不变量 |
+| **父收口**（v5.5 closeout） | **N-04 · N-05 · N-07(≡N-04) · N-10** | `binding` 环境性 flake 登记（同 v55-1 N-07 / KL-N-10；保段凭据 = `supersession` **36/0**）；`EC-SELF-010` **跨 options 页续接口径**边界登记；**体积越档位显式升档的「作者行」确认**（`authorConfirmation = pending-author-line`；档位 **614,400** / 绝对上限 **675,840** / 生效上限 **591,969**）；ROADMAP F-33 / v0.11.0 统一登记 |
+| **人工面** | **N-08** | 引导文案可读性 / 主动引导体感 / 读屏掩码卡（NFR-SELF-008）= **⏳ 未执行**（headless 不可合成，**不冒充 PASS**），待真机人工验收；并列 v5 人工面 9 项 |
+| **v55-2（本叶）** | — | **无遗留指向本叶的动作**；review 4 项改进（I-01~I-04）已由小修轮 `4ca1bf6` 全闭环，validate V2/V3/V4 行为级独立复刻全绿 + V8 注入抽验证明其载荷性 |
+
+## 16. 对账订正（不静默）
+
+1. **体积终态口径**：R2 段 §6b 登记 **563,145 B**（未越档 563,200，距 **55 B**）→ 小修轮后 **563,780 B**（+635）**越档位** ⇒ **以本收口段 §11 / §14 数值为终态口径**；`authorConfirmation` 保持 `pending-author-line`。叶预算超支终值 = **+997 B**（预算 4,900 / 实际 5,897），**未越叶上界 6,300**（余 403 B）。
+2. **测试计数基线链**：`1246`（v55-1 收口终态）→ `1268`（R1）→ `1277`（R2）→ **`1283`（小修轮）**；收口轮**亲跑复核 `npm test` = 1283 / 0**（`node --test`，94.4 s）——与 validate-report §3.3 同源。
+3. **v55-1 N-01 的跨叶读数推移**：v55-1 登记 `nextAfterSettle(` 调用点 `7 → 8`；本叶新增 2 处 ⇒ 收口实测 **1 定义 + 10 调用点**（`grep -c` = 13 = 1 定义 + 10 调用点 + 2 注释引用）。`op-wiring#OP-W-6` 仍**不含**具体数值断言 ⇒ 「数值未钉死」的事实**延续**并**扩大**（移交 v55-3，见 §15①）。
+4. **门禁读数口径（review I-01 的延续）**：`onboarding-deterministic` 终态 **29 / 0**、`s0-self-driven-chain` **11 / 0**（含元判据）；小修轮已按实测订正 §5b 两行（30→23、10→11），本收口段以此为**终态口径**。总读数 `1283/0` 经收口轮亲跑复核无误。
+5. **文件计数口径**：收口实测（`b2b7dcd`）`git diff --name-only 39c1fb0..HEAD` = **35**（含 **8** 个 `.sddu` 产物；非 `.sddu` = **27** = 3 NEW + 24 MODIFY）。与 review / validate 段落的历史读数差异源自 `git diff` 基数 / 时点选择，**不影响任何红线判据**（红线条目逐项实测零 diff，见 §11 / §14）。
+6. **`state.json` 终态确认**：本叶 `phase = validated` / `status = completed`（保持）；本轮追加 `phaseHistory` 一条**收口记录**（agent `sddu-build`，artifact = 本收口段）。父 `state.json` 的 children 镜像同步 v55-2 `tasked/tracked → validated/completed`（父顶层仍 `tasked/tracked`，因 v55-3 未开工）。
+
+## 修订记录（v1.3）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.3 | **收口段**（review O-01~O-06 + validate L-01~L-03 → **N-01~N-10** 归并 + owner 分布 · 终态快照 · 交付物清单 · 收口对账 12 项 · 移交项（重点 v55-3：继承 v55-1 N-01 `op-wiring` 数值钉死 8→10 / 本叶 N-01·N-02 / `pressCandidate` 载体未落地 —— 续接暂用 `op.turn` 槽）· 对账订正 6 条；**零产品代码改动**，`.sddu` 外零触碰） | 2026-09-23 | SDDU Build Agent |
