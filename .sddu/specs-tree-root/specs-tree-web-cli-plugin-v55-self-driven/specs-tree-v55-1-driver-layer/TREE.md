@@ -12,9 +12,11 @@ specs-tree-v55-1-driver-layer/
 ├── review.md          # 审查策略：specs-tree-v55-1-driver-layer
 ├── review-report.md          # 审查报告：specs-tree-v55-1-driver-layer
 ├── spec.md          # Feature Specification：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
-├── state.json          # 状态文件 (🟢 tracked [builded])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
-└── tasks.md          # 任务分解：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
+├── tasks.md          # 任务分解：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
+├── validate.md          # 验证策略：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
+└── validate-report.md          # 验证报告：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
 ```
 
 ## 文件说明
@@ -25,16 +27,18 @@ specs-tree-v55-1-driver-layer/
 | review.md | 审查策略：specs-tree-v55-1-driver-layer — 1. ✅ `src/` 已实现（`next-registry/drivers.ts` / `terminals.ts` 新增；`sidepanel.ts`... | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-v55-1-driver-layer — `git diff --stat ace3033..HEAD` = 38 文件，**不含** `src/content/**`、`manifest.jso... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — 本叶 = v5.5 的**首叶 / 底座叶**，交付「可以让『用户已表达意图』之后**有人接手**」的那一层：**驱动者**成为**注册表条目**（不再是... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [builded] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — cd packages/web-cli-plugin && npm run typecheck && node -e "const s=require('... | ✅ 存在 |
+| validate.md | 验证策略：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — 验证策略：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） | ✅ 存在 |
+| validate-report.md | 验证报告：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — 1. **S0 双面独立复刻成立** —— node 面自写探针得出 `silentWindows=0 ∧ silentOk=6 ∧ deadEnds=0... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 构建完成 (5/7) |
-| Status | 🟢 tracked [builded] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)
