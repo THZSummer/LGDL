@@ -411,6 +411,19 @@ async function main() {
     check(`⑧-② 引用注入路径：digest 零明文（${f2r.keys.length} 键）`, f2r.hits.length === 0, JSON.stringify(f2r.hits));
     check('⑧-③ 引用注入路径：审计面（渲染 + 存储）零明文', f3r.hits.length === 0, JSON.stringify(f3r.hits));
     check('⑧-④ 引用注入路径：DOM value + 全部属性（逐项）零明文', f4r.hits.length === 0, JSON.stringify(f4r.hits));
+    // ★ V5.5F-2 TASK-V55F-213：越界未征询 ⇒ 面板先提 WIDEN 二择；选「仅引用范围内」⇒
+    // fail-closed 拒绝 + 范围留痕行（零值）。⑧-⑤ 的留痕读数因此在二择裁决之后成立。
+    await evaluate(
+      cdp,
+      `(() => {
+         const open = [...document.querySelectorAll('#stream [data-msg-type="askuser"][data-ask-kind="choice"]')].filter((c) => c.getAttribute('data-answered') === 'false');
+         const card = open[open.length - 1] ?? null;
+         const btn = card && [...card.querySelectorAll('[data-act="choose"]')].find((b) => b.textContent === '仅引用范围内');
+         if (btn) btn.click();
+         return true;
+       })()`,
+    );
+    await sleep(250);
     const trace8 = JSON.parse(
       await evaluate(
         cdp,
@@ -444,6 +457,59 @@ async function main() {
       maskSiteProblems(scopeSrc.replace('textDigest: maskRefDigest(', 'textDigest: ((x: string) => x)(')).length > 0 && maskSiteProblems(scopeSrc).length === 0,
       'injected=red / restored=green',
     );
+
+    // ── ⑨ V5.5F-2 TASK-V55F-215（ADR-SGO-004 §7 · FR-SGO-046/050/082 · N-SGO-026）─────
+    // **批量计划零明文**：计划行**仅 UI 渲染文本**（`CardView.plan` 与 payload **同级**，
+    // 不在 payload 内），凭据形值**渲染前掩码**；四面对计划正文零命中；批量留痕零明文。
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+    const l8Plan = {
+      fingerprint: `sha256:${'ab'.repeat(32)}`,
+      entries: [{ refNum: 1, selector: '[data-wcli-ref="ref_1"]', fromDigest: '宿主按钮', toText: SENTINEL }],
+    };
+    const l8PlanOffer = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           window.__v3.testing.confirmRequest('l8-plan', { tool: 'dom', subcommand: 'set-text', args: { text: 'x' }, reason: '批量写', risk: 'write', plan: ${JSON.stringify(l8Plan)} });
+           const card = [...document.querySelectorAll('#stream [data-msg-type="auth"]')].pop();
+           const rows = card ? [...card.querySelectorAll('.auth-plan-rows > li')].map((li) => li.textContent) : [];
+           const attrLeak = card ? [...card.querySelectorAll('.auth-plan-rows > li')].filter((li) => [...li.attributes].some((a) => String(a.value).includes(${JSON.stringify(SENTINEL)}))).length : 0;
+           return JSON.stringify({ card: Boolean(card), rows, attrLeak });
+         })()`,
+      ),
+    );
+    check(
+      '⑨-① 批量计划行仅 `textContent` ∧ 凭据形值**渲染前掩码**（DOM 属性零命中）',
+      l8PlanOffer.card === true && l8PlanOffer.rows.length === l8Plan.entries.length && l8PlanOffer.rows.every((r) => !r.includes(SENTINEL)) && l8PlanOffer.rows.some((r) => r.includes('•••')) && l8PlanOffer.attrLeak === 0,
+      JSON.stringify(l8PlanOffer),
+    );
+    const f1p = JSON.parse(await evaluate(cdp, SCAN_1));
+    const f2p = JSON.parse(await evaluate(cdp, SCAN_2));
+    const f3p = JSON.parse(await evaluate(cdp, SCAN_3));
+    const f4p = JSON.parse(await evaluate(cdp, SCAN_4));
+    check(`⑨-② 批量计划四面零明文：①流内 payload/文本（${f1p.payloadCount} payload）∧ ④DOM 属性`, f1p.hits.length === 0 && f4p.hits.length === 0, JSON.stringify([...f1p.hits, ...f4p.hits]));
+    check(`⑨-③ 批量计划四面零明文：②digest（${f2p.keys.length} 键）∧ ③审计（渲染 + 存储）`, f2p.hits.length === 0 && f3p.hits.length === 0, JSON.stringify([...f2p.hits, ...f3p.hits]));
+    // 一次手势批准 ⇒ 批量留痕（指纹摘要 + 条目数 + 手势 + 计数；零明文）。
+    await evaluate(cdp, `(() => { const b = [...document.querySelectorAll('#stream [data-msg-type="auth"] [data-act="approve"]')].pop(); if (b) b.click(); return true; })()`);
+    await sleep(250);
+    const l8PlanTrace = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const rows = [...document.querySelectorAll('#stream > li')].map((l) => l.textContent || '');
+           const line = rows.find((t) => /batch\\.plan=sha256:[0-9a-f]+ \\| batch\\.entries=\\d+ \\| batch\\.gesture=(user|none) \\| batch\\.results=\\d+\\/\\d+/.test(t)) ?? null;
+           return JSON.stringify({ line, hasSentinel: rows.some((t) => t.includes(${JSON.stringify(SENTINEL)})) });
+         })()`,
+      ),
+    );
+    check('⑨-④ 批量留痕零明文（指纹摘要 + 条目数 + 手势 + 计数；正文 / 译文零命中）', typeof l8PlanTrace.line === 'string' && l8PlanTrace.hasSentinel === false, JSON.stringify(l8PlanTrace));
+    // 反证（判据非恒真）：注入一条含哨兵的卡 payload ⇒ 同一扫描必命中 ⇒ 还原零命中。
+    await evaluate(cdp, `window.__v3.testing.streamSeed([{ kind: 'ai', cardId: 'l8-plan-evil', payload: { text: ${JSON.stringify(SENTINEL)} } }]); true`);
+    const inj9 = JSON.parse(await evaluate(cdp, SCAN_1));
+    check('⑨ (FAIL 段) 批量计划零明文判据非恒真：注入含哨兵 payload ⇒ 同一扫描必命中', inj9.hits.length > 0, JSON.stringify(inj9.hits));
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+    const res9 = JSON.parse(await evaluate(cdp, SCAN_1));
+    check('⑨ (PASS 段) 还原后零命中', res9.hits.length === 0, JSON.stringify(res9.hits));
 
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));

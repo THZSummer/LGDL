@@ -191,3 +191,35 @@ export function scopeWriteGate(f: ScopeFacts): { readonly reading: ScopeReading;
   return Object.freeze({ reading, blocked, message: blocked ? SCOPE_WRITE_BLOCK_TEXT : '' });
 }
 
+/* ── 扩围征询（WIDEN 二择）单源（TASK-V55F-213 · ADR-SGO-005 §1/§2/§3）──────────
+ *
+ * 越界未征询（`out-of-scope-unauthorized`）时，面板经**既有** `ask-user-request`
+ * 通道提二择；本模块只持有**选项文案 + 提示语 + 转值判据**的**唯一声明** ——
+ * `authorized` 的**写入面**在面板侧（真实点击回传），不在本模块（本模块零状态）。
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** 二择提示语（唯一声明；机器枚举文案，非用户内容值）。 */
+export const SCOPE_WIDEN_PROMPT = '本次写动作超出引用范围，是否扩大到整页？';
+
+/** 二择选项（唯一声明）：「仅引用范围内」（fail-closed 默认）/「整页（扩大范围）」。 */
+export const SCOPE_WIDEN_OPTIONS = Object.freeze(['仅引用范围内', '整页（扩大范围）'] as const);
+
+/** 「整页」选项字面量（唯一转值判据的锚）。 */
+export const SCOPE_WIDEN_WHOLE_PAGE = SCOPE_WIDEN_OPTIONS[1];
+
+/**
+ * 「整页」⇒ 扩围获批。**只由真实点击回传的选项值判定** —— AI / SW 路径无写入面
+ * （FR-SGO-061 / R-SGO-907）；`undefined`（取消）/ 另一选项 ⇒ `false`（fail-closed）。
+ */
+export function isWidenWholePage(choice: string | undefined): boolean {
+  return choice === SCOPE_WIDEN_WHOLE_PAGE;
+}
+
+/**
+ * 读数是否为**扩围已获批**（`out-of-scope-authorized`）—— 面板侧**唯一**的判据入口，
+ * 避免把读数值字面量散落到第二个模块（法九 L9-1「第二声明即红」）。
+ */
+export function isWidenAuthorizedReading(reading: ScopeReading): boolean {
+  return reading === 'out-of-scope-authorized';
+}
+

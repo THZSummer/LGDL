@@ -507,3 +507,103 @@ export function s0PChain() {
   return S0P_BEATS.map((b) => ({ id: b.id, label: b.label }));
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-2 **TASK-V55F-214**（ADR-SGO-006 §2/§3 · FR-SGO-093 · AC-SGO-015/016）——
+ * S0′ **批量段（S0P-B1~B3）**：一次手势覆盖计划内全部 + 计划外回落 + 二择 + 中止。
+ *
+ * 样本单源（node 面与 Chromium 面共用**这一份**；禁第二份样本）；判据纯函数，两面注入
+ * 各自真读数。存在性反证：每一拍的读数被置否 ⇒ 必红（见 `s0pBProblems`）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** S0′ 批量段的 3 拍（顺序即语义序；`S0P_B_ITEMS` 与之一一对应）。 */
+export const S0P_B_BEATS = Object.freeze([
+  { id: 'batch-one-gesture', label: 'B1′ 一次手势覆盖计划内全部 ∧ 计划外逐条回落' },
+  { id: 'batch-writes-le-refs', label: 'B2′ 批量改写处数 ≤ 引用数（授权读数例外）' },
+  { id: 'batch-widen-abort', label: 'B3′ 二择路径 ∧ 中止可判（cancelled + 部分完成留痕，零死端）' },
+]);
+
+/** S0′ 批量段三条必判项（`expectFailPattern` 逐字来自任务 214 / FR-SGO-093）。 */
+export const S0P_B_ITEMS = Object.freeze([
+  {
+    id: 'S0P-B1-one-gesture',
+    expectFailPattern: 'S0′ 批量：一次手势必须覆盖计划内全部；计划外必须逐条回落（一次点击不得放开无限写）',
+  },
+  {
+    id: 'S0P-B2-writes-le-refs',
+    expectFailPattern: 'S0′ 批量：未授权时批量改写处数不得超过引用数（授权读数例外 ⇒ out-of-scope-authorized）',
+  },
+  {
+    id: 'S0P-B3-widen-abort',
+    expectFailPattern: 'S0′ 批量：扩围必须经二择 ∧ 中止必须可判（cancelled + 部分完成留痕，零死端）',
+  },
+]);
+
+/**
+ * S0′ 批量段判据（纯函数，双面共用）。`reading`（注入读数）:
+ * ```
+ * {
+ *   planEntries: number,          // 计划内条目数（buildPlan 的 entries）
+ *   admittedOnOneGesture: number, // 一次手势（一次批准）之后被放行的计划内条目数
+ *   outOfPlanCount: number,       // 计划外条目数（探针）
+ *   fallbackCount: number,        // 其中被逐条回落的条目数
+ *   refCount: number,             // 本回合引用数
+ *   writeCount: number,           // 批量计划将要改写处数
+ *   authorized: boolean,          // 是否经二择获用户批准扩围
+ *   authorizedReading: string,    // 授权分支读数（须 out-of-scope-authorized）
+ *   choiceOffered: boolean,       // 越界是否经**既有** askuser 二择（choiceOffered）
+ *   abortJudged: boolean,         // 中止：cancelled 终态 ∧ 计划内拒执行 ∧ 部分完成留痕
+ *   trace: string,                // 批量留痕行（零明文：指纹摘要 + 条目数 + 手势 + 计数）
+ *   userValues: string[],         // 不得出现在留痕里的用户内容值
+ * }
+ * ```
+ */
+export function s0pBProblems(reading = {}) {
+  const problems = [];
+  const item = (id) => S0P_B_ITEMS.find((x) => x.id === id);
+  const planEntries = Number(reading.planEntries ?? 0);
+  const admitted = Number(reading.admittedOnOneGesture ?? 0);
+  const outOfPlan = Number(reading.outOfPlanCount ?? 0);
+  const fallback = Number(reading.fallbackCount ?? 0);
+  // B1：N≥2 才出计划卡；一次手势覆盖**全部**计划内条目；计划外**恰**逐条回落。
+  if (planEntries < 2) {
+    problems.push(`${item('S0P-B1-one-gesture').id} ${item('S0P-B1-one-gesture').expectFailPattern}（计划内 ${planEntries} < 2）`);
+  }
+  if (admitted !== planEntries) {
+    problems.push(`${item('S0P-B1-one-gesture').id} ${item('S0P-B1-one-gesture').expectFailPattern}：一次手势放行 ${admitted} ≠ 计划内 ${planEntries}`);
+  }
+  if (fallback !== outOfPlan) {
+    problems.push(`${item('S0P-B1-one-gesture').id} ${item('S0P-B1-one-gesture').expectFailPattern}：计划外回落 ${fallback} ≠ 计划外 ${outOfPlan}`);
+  }
+  // B2：未授权时 改写处数 ≤ 引用数；授权例外 ⇒ 读数必须转 out-of-scope-authorized。
+  const refCount = Number(reading.refCount ?? 0);
+  const writeCount = Number(reading.writeCount ?? 0);
+  if (reading.authorized !== true && writeCount > refCount) {
+    problems.push(`${item('S0P-B2-writes-le-refs').id} ${item('S0P-B2-writes-le-refs').expectFailPattern}（改写 ${writeCount} > 引用 ${refCount}）`);
+  }
+  if (reading.authorized === true && reading.authorizedReading !== 'out-of-scope-authorized') {
+    problems.push(`${item('S0P-B2-writes-le-refs').id} ${item('S0P-B2-writes-le-refs').expectFailPattern}：授权例外必须产生 out-of-scope-authorized`);
+  }
+  // B3：扩围必须经既有 askuser 二择；中止必须可判（cancelled + 部分完成留痕 ⇒ 零死端）。
+  if (reading.choiceOffered !== true) {
+    problems.push(`${item('S0P-B3-widen-abort').id} ${item('S0P-B3-widen-abort').expectFailPattern}：扩围未提二择`);
+  }
+  if (reading.abortJudged !== true) {
+    problems.push(`${item('S0P-B3-widen-abort').id} ${item('S0P-B3-widen-abort').expectFailPattern}：中止不可判（cancelled + 部分完成留痕缺失）`);
+  }
+  const trace = String(reading.trace ?? '');
+  if (!/^batch\.plan=sha256:[0-9a-f]+ \| batch\.entries=\d+ \| batch\.gesture=(user|none) \| batch\.results=\d+\/\d+$/.test(trace)) {
+    problems.push(`${item('S0P-B3-widen-abort').id} ${item('S0P-B3-widen-abort').expectFailPattern}（批量留痕格式不可判：${JSON.stringify(trace)}）`);
+  }
+  for (const value of reading.userValues ?? []) {
+    if (String(value).length > 0 && trace.includes(String(value))) {
+      problems.push(`${item('S0P-B3-widen-abort').id} ${item('S0P-B3-widen-abort').expectFailPattern}：留痕不得含用户内容值`);
+    }
+  }
+  return problems;
+}
+
+/** S0′ 批量段逐拍读数（两面各自登记自己真的驱动的拍）。 */
+export function s0pBChain() {
+  return S0P_B_BEATS.map((b) => ({ id: b.id, label: b.label }));
+}
+

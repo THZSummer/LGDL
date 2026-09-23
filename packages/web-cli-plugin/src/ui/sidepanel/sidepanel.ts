@@ -118,7 +118,7 @@ import { cancelReasonText } from './stream-plaintext.js';
 import { refReanchoredText, refStaleText } from './system-events.js';
 import { displaySelector, refOrdinal as parseRefOrdinal } from './l1/ref-store.js';
 // V5.5F-1 TASK-V55F-104/110/111/112: 引用快照投影 + 范围读数 / 写闸 / 留痕单源（A 列）。
-import { scopeReading, scopeReadingTrace, scopeRefsOf, scopeWriteGate, turnRefsOf } from './l1/ref-scope.js';
+import { isWidenAuthorizedReading, isWidenWholePage, SCOPE_WIDEN_OPTIONS, SCOPE_WIDEN_PROMPT, scopeReading, scopeReadingTrace, scopeRefsOf, scopeWriteGate, turnRefsOf, type ScopeRef, type ScopeTarget } from './l1/ref-scope.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
 import {
   OPTIONAL_CAPABILITIES,
@@ -254,10 +254,11 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     const allow = action === 'approve';
     if (requestId) void send(makeMessage('confirm-response', { requestId, allow }));
     dispatch({ type: 'confirm-resolved', allow, ...(requestId ? { requestId } : {}) });
-    // ★ V5.5F-2 **TASK-V55F-212**（ADR-SGO-004 §8 · FR-SGO-081/082）—— 批量计划被**拒绝**
-    // 时的如实留痕（零明文：只记**指纹摘要 + 条目数**，正文 / 译文不进留痕值）。
-    if (!allow && planTraceLine) dispatch({ type: 'notice', text: planTraceLine });
-    planTraceLine = null;
+    // ★ V5.5F-2 **TASK-V55F-212/213**（ADR-SGO-004 §8 · ADR-SGO-005 §4 · FR-SGO-081/082）——
+    // 批量计划的如实留痕（零明文：指纹摘要 + 条目数 + **手势事实** + **逐条结果计数**）：
+    // 批准 ⇒ `gesture=user` / `results=N/N`（一次手势覆盖计划内全部）；拒绝 ⇒ `gesture=none` / `results=0/N`。
+    if (planTrace) dispatch({ type: 'notice', text: batchTraceLine(allow ? 'user' : 'none', allow ? planTrace.entries : 0) });
+    planTrace = null;
     // V5-2 (ADR-V5-002 §1 ③): an op consent card settles the pipeline's await.
     const settleConsent = requestId ? opConsentResolvers.get(requestId) : undefined;
     if (settleConsent && requestId) {
@@ -506,10 +507,37 @@ let panelPort: ReturnType<typeof chrome.runtime.connect> | null = null;
 let llmSummary: LlmStatusSummary | null = null;
 let llmLoaded = false;
 /**
- * V5.5F-2 TASK-V55F-212：当前**批量计划**的零明文留痕行（`batch.plan=<fingerprint> |
- * batch.entries=<N>`）。计划卡被拒绝 / 中止时落一行；正文 / 译文**不进**该值。
+ * V5.5F-2 TASK-V55F-212/213：当前**批量计划**的零明文留痕数据（指纹摘要 + 条目数）。
+ * 计划卡批准 / 拒绝 / 中止时落一行（`batch.plan=… | batch.entries=… | batch.gesture=… |
+ * batch.results=…`）；正文 / 译文**不进**任何值（FR-SGO-081/082 · N-SGO-026）。
  */
-let planTraceLine: string | null = null;
+interface PlanTrace {
+  readonly fingerprint: string;
+  readonly entries: number;
+}
+let planTrace: PlanTrace | null = null;
+
+/**
+ * 批量留痕行（零明文）：指纹摘要 + 条目数 + **手势事实** + **逐条结果计数**。
+ * `gesture=user`（一次真实点击）/ `none`（拒绝 / 中止）；`results` = 被该手势覆盖的条目数。
+ */
+function batchTraceLine(gesture: 'user' | 'none', results: number): string {
+  const total = planTrace?.entries ?? 0;
+  return `batch.plan=${planTrace?.fingerprint ?? ''} | batch.entries=${total} | batch.gesture=${gesture} | batch.results=${results}/${total}`;
+}
+
+/**
+ * V5.5F-2 **TASK-V55F-213**（ADR-SGO-005 §1/§2/§3 · FR-SGO-060~063/081/082）——
+ * 本回合**扩围是否已获真实用户点击批准**。
+ *
+ * **唯一写入面** = WIDEN 二择卡的真实点击回传（`submitAskFor` 的 `scope-widen-*` 分支）；
+ * SW / AI 路径**无**写入面（结构性：没有任何其它赋值点）。跨回合**不累积** ——
+ * 回合结束（`chat-result{done}`）与 `testing.reset()` 均复位。
+ */
+let scopeWidenAuthorized = false;
+/** 待裁决的扩围二择（requestId → 续裁决）；**只**由面板真实点击路径消费。 */
+const scopeWidenResolvers = new Map<string, (choice: string | undefined) => void>();
+let scopeWidenSeq = 0;
 /** Last non-sensitive active-tab projection (TASK-020 任务 B). */
 let activeTab: ActiveTabView | null = null;
 /** decision ② / FR-048: current session id + switcher data. */
@@ -883,6 +911,17 @@ function installV3TestHooks(): void {
         dispatch({ type: 'ask', requestId: 'v3-test-ask', kind: 'choice', prompt, options });
       },
       /**
+       * V5.5F-2 **TASK-V55F-213** test seam: drives a `confirm-request` through the
+       * **same** production handler (`handleConfirmRequest`) the runtime message path
+       * uses — only the transport (background → panel message) is bypassed. Lets the
+       * WIDEN 二择 be asserted synchronously (no `sleep`, no timers — the
+       * `no-dead-end` N=0 caliber).
+       */
+      confirmRequest(requestId: string, question: Record<string, unknown>) {
+        handleConfirmRequest(requestId, question as ConfirmWireQuestion);
+        return true;
+      },
+      /**
        * V4-2 (TASK-610) test seam — seed stream events through the REAL model +
        * renderer (no shadow implementation). Used by `test/ui/stream.mjs` to drive
        * every one of the 12 card types and the open→terminal固化 transition, which
@@ -1014,6 +1053,10 @@ function installV3TestHooks(): void {
         // V5.5-2 TASK-V55-215: 「取消引导」的同因去重键同样是 per-fixture 状态。
         onboardGuideCause = undefined;
         declinedOnboardCauses.length = 0;
+        // V5.5F-2 TASK-V55F-213：扩围授权 / 待裁决二择 / 批量留痕数据同样是 per-fixture 状态。
+        scopeWidenAuthorized = false;
+        scopeWidenResolvers.clear();
+        planTrace = null;
         // I-09: `firstRunEntryHandled` is deliberately **NOT** cleared here —— it is a
         // panel-LIFETIME fact (「首装」happens once per panel), not fixture state. A
         // fixture that reloads the page (which is what the panel fixtures do) gets a
@@ -2896,6 +2939,22 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
   const refId = isRef && rid ? rid.slice(REF_ROUND_PREFIX.length) : null;
   const trimmed = value?.trim();
   const isCanceled = canceled || !trimmed;
+  // ★ V5.5F-2 **TASK-V55F-213**（ADR-SGO-005 §1/§2/§3 · FR-SGO-060~063）—— WIDEN 二择
+  // 的**唯一裁决入口**：`scope-widen-*` 卡的真实点击（choose）或取消回到这里。
+  // 「整页」⇒ 记本回合 `authorized=true`（唯一写入面）；其余 / 取消 ⇒ fail-closed。
+  const widenSettle = rid ? scopeWidenResolvers.get(rid) : undefined;
+  if (widenSettle && rid) {
+    scopeWidenResolvers.delete(rid);
+    dispatch({
+      type: 'ask-resolved',
+      requestId: rid,
+      ...(!isCanceled && trimmed !== undefined ? { answer: trimmed } : {}),
+      canceled: isCanceled,
+      reason: 'user',
+    });
+    widenSettle(isCanceled ? undefined : trimmed);
+    return;
+  }
   // V5-2 (ADR-V5-002 §1 ②): an op `params` ask is PANEL-local — no background bridge —
   // and a masked ask routes its value to `submitSecret` (the ONE value sink), never
   // into the answer payload (法八: 值不入流).
@@ -2976,6 +3035,90 @@ function submitAsk(value: string | undefined, canceled: boolean): void {
   const res = resolveAsk(state, value, canceled);
   submitAskFor(res?.requestId, res?.canceled ? undefined : res?.value, res ? res.canceled : canceled);
   void refId; // kept for the readable R1 rationale above; routing is requestId-driven now
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-2 **TASK-V55F-213**（ADR-SGO-005 §1/§2/§3 · FR-SGO-060~063 · FR-SGO-081/082）——
+ * confirm 面的**范围写闸 + WIDEN 二择 + 批量留痕**（从 listener 闭包提为**具名函数**，
+ * 以便测试 seam 走**同一条生产路径**；零第二实现）。
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+/** confirm-request 的 wire 形状（`question` 的读取面；`plan` = 既有 type-only 扩展字段）。 */
+interface ConfirmWireQuestion {
+  tool?: string;
+  subcommand?: string;
+  args?: Record<string, string>;
+  reason?: string;
+  risk?: string;
+  plan?: { fingerprint?: string; entries?: readonly { refNum?: number; selector: string; fromDigest: string; toText: string }[] };
+}
+
+/** 出既有 confirm 卡（计划行 + 批量留痕数据登记）；计划路径与范围写闸**并行**。 */
+function emitConfirmCard(requestId: string, question: ConfirmWireQuestion | undefined): void {
+  const planWire = question?.plan;
+  const planRows = authPlanRows(planWire);
+  // 批量留痕数据（零明文：指纹摘要 + 条目数；正文 / 译文不进任何值）。
+  planTrace = planRows.length > 0 ? { fingerprint: String(planWire?.fingerprint ?? ''), entries: planWire?.entries?.length ?? 0 } : null;
+  dispatch({
+    type: 'confirm',
+    requestId,
+    summary: `${question?.tool ?? '工具'}：${question?.reason ?? '敏感操作'}`,
+    ...(question?.risk ? { risk: question.risk } : {}),
+    ...(planRows.length ? { plan: planRows } : {}),
+  });
+}
+
+/**
+ * 越界未征询 ⇒ 经**既有** `ask-user-request` 通道提**二择**（复用 `askuser` kind，零新增载体）。
+ *
+ * 用户选「整页」⇒ `scopeWidenAuthorized = true`（**唯一写入面**）+ 留痕 `out-of-scope-authorized`
+ * + 继续出 confirm 卡；其余 / 取消 ⇒ **fail-closed**（deny + 可读理由 + 可达 next，零死端）。
+ */
+function presentScopeWidenAsk(requestId: string, targets: readonly ScopeTarget[], question: ConfirmWireQuestion | undefined): void {
+  scopeWidenSeq += 1;
+  const rid = `scope-widen-${scopeWidenSeq}`;
+  scopeWidenResolvers.set(rid, (choice) => {
+    scopeWidenResolvers.delete(rid);
+    // 裁决时**重取**当前回合引用集合（漂移不静默放行）。
+    const refs = scopeRefsOf(l1?.store().activeValid() ?? []);
+    if (isWidenWholePage(choice)) {
+      scopeWidenAuthorized = true;
+      const gate = scopeWriteGate({ targets, refs, authorized: true });
+      dispatch({ type: 'notice', text: scopeReadingTrace(gate.reading, true) });
+      emitConfirmCard(requestId, question);
+      return;
+    }
+    const gate = scopeWriteGate({ targets, refs, authorized: false });
+    if (requestId) void send(makeMessage('confirm-response', { requestId, allow: false }));
+    dispatch({ type: 'confirm-resolved', allow: false, ...(requestId ? { requestId } : {}) });
+    dispatch({ type: 'notice', text: gate.message }); // 可读理由 + 可达 next
+    dispatch({ type: 'notice', text: scopeReadingTrace(gate.reading, false) });
+  });
+  dispatch({ type: 'ask', requestId: rid, kind: 'choice', prompt: SCOPE_WIDEN_PROMPT, options: [...SCOPE_WIDEN_OPTIONS] });
+}
+
+/**
+ * confirm-request 的**唯一处理入口**（listener 与测试 seam 共用）：范围写闸 ⇒（越界未征询）
+ * WIDEN 二择 ⇒ 否则既有 confirm 卡。`in-scope` / `no-ref` ⇒ 既有路径**逐字不变**。
+ */
+function handleConfirmRequest(requestId: string, question: ConfirmWireQuestion | undefined): void {
+  if (question?.tool === 'dom' && question.subcommand === 'set-text') {
+    const rawArgs = question.args ?? {};
+    const selector = (rawArgs.selector ?? '').trim();
+    const refRaw = (rawArgs.ref ?? '').trim();
+    const refNum = /^\d+$/.test(refRaw) ? Number(refRaw) : undefined;
+    if (selector || refNum !== undefined) {
+      const targets: readonly ScopeTarget[] = [{ selector, ...(refNum !== undefined ? { refNum } : {}) }];
+      const refs = scopeRefsOf(l1?.store().activeValid() ?? []);
+      const gate = scopeWriteGate({ targets, refs, authorized: scopeWidenAuthorized });
+      if (gate.blocked) {
+        presentScopeWidenAsk(requestId, targets, question);
+        return;
+      }
+      if (isWidenAuthorizedReading(gate.reading)) dispatch({ type: 'notice', text: scopeReadingTrace(gate.reading, scopeWidenAuthorized) });
+    }
+  }
+  emitConfirmCard(requestId, question);
 }
 
 function dispatch(action: Parameters<typeof reduce>[1]): void {
@@ -3862,64 +4005,19 @@ function wire(): void {
         // V5.5-3 TASK-V55-306：回合结束（`pending` 已置假）是「在飞时被让位」的那次自动
         // 成回合的**续流点** —— 用户那句话仍在悬置里等，此时不再 busy ⇒ 交 `op.turn` 槽。
         driveAnsweredTurn();
+        // ★ V5.5F-2 TASK-V55F-213（ADR-SGO-005 §2）：扩围授权 = **本回合**事实 ⇒ 回合结束复位。
+        scopeWidenAuthorized = false;
       }
       else if (text) dispatch({ type: 'assistant', text });
       return undefined;
     }
     if (msg.kind === 'confirm-request') {
-      const question = msg.question as
-        | { tool?: string; subcommand?: string; args?: Record<string, string>; reason?: string; risk?: string }
-        | undefined;
-      const requestId = String(msg.requestId ?? '');
-      // ★ V5.5F-1 **TASK-V55F-111/112** (ADR-SGO-002 §4/§5 · FR-SGO-025/027/080/084) ——
-      // **越界写的机制拦截（confirm 面）**：`dom set-text` 的写，若目标 ∉ 活跃引用集合且
-      // **未征询**（`out-of-scope-unauthorized`）⇒ **fail-closed 拦下**（deny）+ 可读理由 +
-      // **可达 next**（回到引用范围内 / 重新拾取）。`in-scope` / `no-ref` ⇒ 既有 confirm
-      // 路径**逐字不变**（无引用回合不得因此阻断，EC-SGO-008）。**判定链零触碰**
-      // （`policy.ts` / `auto-authorize.ts` 零 diff）；本闸是**面板侧**判定 + 既有 confirm 应答面。
-      if (question?.tool === 'dom' && question.subcommand === 'set-text') {
-        const rawArgs = question.args ?? {};
-        const selector = (rawArgs.selector ?? '').trim();
-        const refRaw = (rawArgs.ref ?? '').trim();
-        const refNum = /^\d+$/.test(refRaw) ? Number(refRaw) : undefined;
-        // 只有**真的带目标**的写才进闸（无目标的写走既有路径）。
-        if (selector || refNum !== undefined) {
-          const gate = scopeWriteGate({
-            targets: [{ selector, ...(refNum !== undefined ? { refNum } : {}) }],
-            refs: scopeRefsOf(l1?.store().activeValid() ?? []),
-            // 本叶无扩围确认路径（WIDEN 二择卡为叶2）；故 authorized 恒 false ⇒ fail-closed。
-            authorized: false,
-          });
-          if (gate.blocked) {
-            if (requestId) void send(makeMessage('confirm-response', { requestId, allow: false }));
-            dispatch({ type: 'confirm-resolved', allow: false, ...(requestId ? { requestId } : {}) });
-            dispatch({ type: 'notice', text: gate.message });           // 可读理由 + 可达 next
-            dispatch({ type: 'notice', text: scopeReadingTrace(gate.reading, false) }); // 范围留痕行（独立成行）
-            return undefined;
-          }
-        }
-      }
-      // ★ V5.5F-2 **TASK-V55F-209/211**（ADR-SGO-004 §2/§7 · FR-SGO-050 · N-SGO-026）——
-      // 计划经 `question.plan`（**既有 `confirm-request` 的 type-only 扩展字段**）到达：
-      // 渲染为**与 payload 同级**的渲染用行（**不进 payload**，R-SGO-914 消除），
-      // 逐行掩码 + 有界展示（≤8 + 诚实计数）。计划路径与范围写闸**并行**：
-      // 越界条目不进计划（SW 侧已过滤）⇒ 仍走既有写闸 / 逐条确认。
-      const planWire = (msg.question as
-        | { plan?: { fingerprint?: string; entries?: readonly { refNum?: number; selector: string; fromDigest: string; toText: string }[] } }
-        | undefined)?.plan;
-      const planRows = authPlanRows(planWire);
-      // 批量留痕（零明文：指纹摘要 + 条目数；正文 / 译文不进任何值）。
-      planTraceLine =
-        planRows.length > 0
-          ? `batch.plan=${String(planWire?.fingerprint ?? '')} | batch.entries=${planWire?.entries?.length ?? 0}`
-          : null;
-      dispatch({
-        type: 'confirm',
-        requestId,
-        summary: `${question?.tool ?? '工具'}：${question?.reason ?? '敏感操作'}`,
-        ...(question?.risk ? { risk: question.risk } : {}),
-        ...(planRows.length ? { plan: planRows } : {}),
-      });
+      // ★ V5.5F-1 **TASK-V55F-111/112** + V5.5F-2 **TASK-V55F-213** —— confirm 面处理
+      // 提为**具名** `handleConfirmRequest`（listener 与测试 seam 共用**同一条**生产路径）：
+      // 范围写闸（`in-scope` / `no-ref` 逐字不变）+ 越界未征询 ⇒ **WIDEN 二择**（既有 askuser）；
+      // 「整页」⇒ 读数转 `out-of-scope-authorized` + 入留痕；拒绝 / 取消 ⇒ fail-closed + 零死端。
+      // **判定链零触碰**（`policy.ts` / `auto-authorize.ts` 零 diff）。
+      handleConfirmRequest(String(msg.requestId ?? ''), msg.question as ConfirmWireQuestion | undefined);
       return undefined;
     }
     if (msg.kind === 'ask-user-request') {

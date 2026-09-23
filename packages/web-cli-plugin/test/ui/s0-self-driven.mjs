@@ -25,6 +25,8 @@ import { CHROME, DIST, PACKAGE_ROOT, check, connectCdp, evaluate, findTarget, fi
 import { S0_ANSWER, S0_B_PARAM_KINDS, S0_B_STEPS, S0_CHAIN, s0BranchBProblems } from './fixtures/s0-chain.mjs';
 // V5.5F-1 TASK-V55F-124（W4，纯追加 import）：S0′ 范围内核样本（**与 node 面同一份**）。
 import { S0P_ANCHOR_SELECTOR, S0P_BEATS, S0P_ITEMS, S0P_REF_NUM, s0PChain, s0pProblems } from './fixtures/s0-chain.mjs';
+// V5.5F-2 TASK-V55F-214（W3，纯追加 import）：S0′ **批量段**样本（**与 node 面同一份**）。
+import { S0P_B_BEATS, S0P_B_ITEMS, s0pBChain } from './fixtures/s0-chain.mjs';
 // V5.5-3 TASK-V55-316/317（W5，纯追加）：分支 A 端到端 + 护栏在链路上可判（**同一份样本**）。
 import {
   S0_A_BEATS,
@@ -49,6 +51,8 @@ export const JUDGEMENTS = [
   { id: 'S0C-9-guard-on-chain', expectFailPattern: '护栏在链路上真实可判：越限 ⇒ 可读抑制行 ∧ 真的没发起 ∧ 关断 ⇒ 主题① 仍放行（删护栏缝 ⇒ FAIL）' },
   // V5.5F-1 TASK-V55F-124（W4，只增不减）：S0′ 范围内核（`ty.md` 原案重放）的真面板面。
   { id: 'S0C-10-s0p-ref-anchor', expectFailPattern: 'S0′：真面板回合载荷含引用事实 ∧ 系统段追加段在位 ∧ 合成锚在真 DOM 恰 1 命中 ∧ 范围留痕行独立成行' },
+  // V5.5F-2 TASK-V55F-214（W3，只增不减）：S0′ **批量段**的真面板面（一次手势 / 计划外回落 / 二择）。
+  { id: 'S0C-11-s0p-batch', expectFailPattern: 'S0′ 批量：一条 confirm-request{plan} ⇒ 单张 auth 卡承载 N 行 ∧ 一次手势留痕（gesture=user / results=N/N）∧ 扩围二择走既有 askuser' },
 ];
 
 /**
@@ -541,6 +545,35 @@ async function main() {
       `chrome.runtime.sendMessage({ kind: 'confirm-request', requestId: 's0p-trace', question: { tool: 'dom', subcommand: 'set-text', args: { ref: '9' }, risk: 'write' } }).then(() => true).catch(() => true)`,
     );
     await sleep(400);
+    // ★ V5.5F-2 TASK-V55F-213（ADR-SGO-005 §1/§3）：越界未征询 ⇒ 面板先提 **WIDEN 二择**
+    //（既有 askuser choice），选「仅引用范围内」⇒ fail-closed 拒绝 + 范围留痕行独立成行。
+    const s0pWidenOffer = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const open = [...document.querySelectorAll('#stream [data-msg-type="askuser"][data-ask-kind="choice"]')].filter((c) => c.getAttribute('data-answered') === 'false');
+           const card = open[open.length - 1] ?? null;
+           const opts = card ? [...card.querySelectorAll('[data-act="choose"]')].map((b) => b.textContent) : [];
+           return JSON.stringify({ hasCard: Boolean(card), opts });
+         })()`,
+      ),
+    );
+    check(
+      'S0P-C4 越界未征询写 ⇒ 先提 WIDEN 二择（复用既有 askuser choice；零新 kind / 宿主）',
+      s0pWidenOffer.hasCard === true && s0pWidenOffer.opts.includes('仅引用范围内') && s0pWidenOffer.opts.includes('整页（扩大范围）'),
+      JSON.stringify(s0pWidenOffer),
+    );
+    await evaluate(
+      cdp,
+      `(() => {
+         const open = [...document.querySelectorAll('#stream [data-msg-type="askuser"][data-ask-kind="choice"]')].filter((c) => c.getAttribute('data-answered') === 'false');
+         const card = open[open.length - 1] ?? null;
+         const btn = card && [...card.querySelectorAll('[data-act="choose"]')].find((b) => b.textContent === '仅引用范围内');
+         if (btn) btn.click();
+         return true;
+       })()`,
+    );
+    await sleep(250);
     const s0pTrace = JSON.parse(
       await evaluate(
         cdp,
@@ -576,6 +609,91 @@ async function main() {
     check(
       'S0P 人工面 M1（「原地」语义遵从观感）/ M4（SPA 锚定失败提示可理解度）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）',
       S0P_ITEMS.length === 8,
+      '⏳ 未执行',
+    );
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // V5.5F-2 **TASK-V55F-214**（ADR-SGO-004 §1/§2 · ADR-SGO-006 §3 · FR-SGO-093）
+    //   —— **S0′ 批量段**的真面板面（**只加断言不加文件**；`CHROMIUM_GATES === 9` 不动）。
+    //   样本 + 判据取自共享 `./fixtures/s0-chain.mjs`（禁第二份）；本面只注入**真面板读数**。
+    // ═════════════════════════════════════════════════════════════════════════
+    // B1′：一条 `confirm-request{plan}` ⇒ **单张** auth 卡承载 N 行（一次手势覆盖计划内全部）。
+    const s0pbPlan = {
+      fingerprint: 'sha256:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
+      entries: [
+        { refNum: 1, selector: '[data-wcli-ref="ref_1"]', fromDigest: '宿主按钮', toText: '译文一' },
+        { refNum: 2, selector: '[data-wcli-ref="ref_2"]', fromDigest: '次要按钮', toText: '译文二' },
+      ],
+    };
+    await evaluate(
+      sw.cdp,
+      `chrome.runtime.sendMessage({ kind: 'confirm-request', requestId: 's0pb-plan', question: { tool: 'dom', subcommand: 'set-text', args: { text: '译文一' }, risk: 'write', reason: '批量写', plan: ${JSON.stringify(s0pbPlan)} } }).then(() => true).catch(() => true)`,
+    );
+    await sleep(400);
+    const s0pbCard = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const cards = [...document.querySelectorAll('#stream [data-msg-type="auth"]')];
+           const card = cards[cards.length - 1];
+           const rows = card ? [...card.querySelectorAll('.auth-plan-rows > li')].map((li) => li.textContent) : [];
+           const blocked = card ? [...card.querySelectorAll('.auth-plan-rows > li')].filter((li) => [...li.attributes].some((a) => a.value.includes('译文') || a.value.includes('宿主'))).length : 0;
+           return JSON.stringify({ cards: cards.length, rows: rows.length, texts: rows, attrLeak: blocked });
+         })()`,
+      ),
+    );
+    check(
+      `S0P-C6 批量计划卡：一条 confirm-request{plan} ⇒ **单张** auth 卡承载 N 行（一次手势覆盖计划内全部；行仅 textContent）`,
+      s0pbCard.cards >= 1 && s0pbCard.rows === s0pbPlan.entries.length && s0pbCard.attrLeak === 0,
+      JSON.stringify(s0pbCard),
+    );
+    // B1′/B3′：一次真实手势（approve）⇒ 批量留痕 `batch.gesture=user` ∧ `batch.results=N/N`（零明文）。
+    const s0pbApproved = await evaluate(
+      cdp,
+      `(() => { const btn = [...document.querySelectorAll('#stream [data-msg-type="auth"] [data-act="approve"]')].pop(); if (!btn) return false; btn.click(); return true; })()`,
+    );
+    await sleep(350);
+    const s0pbTrace = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const rows = [...document.querySelectorAll('#stream > li')].map((l) => l.textContent || '');
+           const t = rows.find((x) => /batch\\.plan=sha256:[0-9a-f]+ \\| batch\\.entries=\\d+ \\| batch\\.gesture=(user|none) \\| batch\\.results=\\d+\\/\\d+/.test(x)) ?? null;
+           return JSON.stringify({ trace: t, plain: t === null ? false : (t.includes('译文一') || t.includes('宿主按钮')) });
+         })()`,
+      ),
+    );
+    check(
+      `S0P-C6 一次手势批准 ⇒ 批量留痕 batch.gesture=user ∧ batch.results=N/N（零明文：正文不入留痕）`,
+      s0pbApproved === true && typeof s0pbTrace.trace === 'string' && /batch\.gesture=user/.test(s0pbTrace.trace) && s0pbTrace.plain === false,
+      JSON.stringify(s0pbTrace),
+    );
+    // B3′：扩围二择（越界未征询写）⇒ 既有 `askuser` choice 二择（不是直接 deny / 执行）。
+    const s0pbWiden = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           window.__v3.testing.confirmRequest('s0pb-widen', { tool: 'dom', subcommand: 'set-text', args: { selector: '#outside', text: '整页译文' }, reason: '写', risk: 'write' });
+           const open = [...document.querySelectorAll('#stream [data-msg-type="askuser"][data-ask-kind="choice"]')].filter((c) => c.getAttribute('data-answered') === 'false');
+           const card = open[open.length - 1] ?? null;
+           const opts = card ? [...card.querySelectorAll('[data-act="choose"]')].map((b) => b.textContent) : [];
+           return JSON.stringify({ hasCard: Boolean(card), opts });
+         })()`,
+      ),
+    );
+    check(
+      `S0P-C6 扩围二择（B3′）：越界未征询写 ⇒ 复用既有 askuser choice（零新 kind）；已驱动拍 ${s0PChain().length + S0P_B_BEATS.length}`,
+      s0pbWiden.hasCard === true &&
+        s0pbWiden.opts.includes('仅引用范围内') &&
+        s0pbWiden.opts.includes('整页（扩大范围）') &&
+        S0P_B_BEATS.length === 3 &&
+        s0pBChain().every((b, i) => b.id === S0P_B_BEATS[i].id) &&
+        readFileSync(join(PACKAGE_ROOT, 'test/s0-self-driven-chain.test.ts'), 'utf8').includes('test/ui/fixtures/s0-chain.mjs'),
+      JSON.stringify(s0pbWiden),
+    );
+    check(
+      'S0P 人工面 M2（42 连点疲劳体感）/ M3（批量计划卡真机可读性 / 可否决性）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）',
+      S0P_B_ITEMS.length === 3,
       '⏳ 未执行',
     );
 

@@ -629,3 +629,20 @@ cd packages/web-cli-plugin && npm run build && npx tsx --test test/size-ruling-v
 7 项红 = **6 体积/红线 pin 家族**（登记基线滞后于产物；**逐叶重登记属 W3 `TASK-V55F-216`**，R1 如实红并归因）+ **1 预提交 worktree 漂移**（`zeroDiffFiles` 巡检对未提交改动敏感，提交后自愈）。
 
 **体积（R1 实测）**：A 列 **585,732 → 589,033 B（+3,301 B ≈ 3.22 KiB）**；B 列 **1,627,424 → 1,635,675 B（+8,251 B，不计账）**；三冻结面 `content.js` 177,076 / `pick-layer.js` 34,358 逐字节不变。
+
+---
+
+## 9. 执行进度（**R2 = W3**，`TASK-V55F-213~216`）—— **16 / 16 全部完成**
+
+> R2（W3）收口轮：WIDEN 二择 / S0′ 批量段 / X 台账 / 体积逐叶重登记。**6 项体积/红线 pin 一次闭环 ⇒ `npm test` 1394 / 0 fail。**
+
+| 波 | 任务 | 状态 | 证据 |
+|:--:|------|:--:|------|
+| W3 | `TASK-V55F-213` WIDEN 二择接线 + 转值 + 批量留痕 | ✅ completed | `l1/ref-scope.ts` 扩围单源（`SCOPE_WIDEN_*` / `isWidenWholePage` / `isWidenAuthorizedReading`）；`sidepanel.ts` `handleConfirmRequest` + WIDEN 二择（既有 `askuser`）+ 「整页」唯一写入面 + 留痕 + 批量留痕（`batch.gesture` / `batch.results`）+ `__v3.testing.confirmRequest` seam；`law9` L9-9（AI 自填 authorized 注入必红）；`no-dead-end` ND-10（拒绝零死端） |
+| W3 | `TASK-V55F-214` S0′ 批量段 `S0P-B1~B3` | ✅ completed | `s0-chain.mjs` 样本单源（`S0P_B_BEATS` / `S0P_B_ITEMS` / `s0pBProblems`）；node 判官（真源切片 `batch-plan.ts`）+ Chromium 面（`S0C-11`）；**只加断言不加文件**；`CHROMIUM_GATES === 9` |
+| W3 | `TASK-V55F-215` X-SGO-4/6/7 台账 + 法八只增 | ✅ completed | `v4-supersession-ledger.json#xSgoLedgerLeaf2`（X-SGO-4 已发生 + `redlineRemap[]` 三条；6/7 如实）+ `modifiedRanges` 本叶同步面；`law8` **⑨ 批量计划零明文**（46 → **52**，零降级） |
+| W3 | `TASK-V55F-216` 体积本叶重登记 + 收口 | ✅ completed | A 列 585,732 → **591,946 B**（五要素 + `v55f2R1R2Rows` + TIMELINE/RE_REGISTRATIONS 只追加）；`V55F2_NODE_GATE_FILES`（`batch-consent`）入受审集合；**6 pin 闭环**；`e2e` PASS |
+
+**门禁（R2 终值）**：`typecheck` 绿 · `build` 绿 · `npm test` **1394（1394 / 0）** · `batch-consent` 7/0 · `test:supersession` 40/0 · `op-three-tier` 12/0 · `capability-wiring` 10/0 · `host-registry` 绿 · `gate-integrity` 20/0 · `test:law8` **52/0** · `test:dead-end` **53/0** · `journey` 171 · `binding` 192（1 次 flake ⇒ 复跑 PASS）· `l0/l1/l2` 248/131/74 · `stream` 76 · `auth-chip` 37 · `ask-auth` 78 · `s0-self-driven` **70/0** · `insight/density/recommendation/zero-injection/page-input/l1-reverse/l2-reverse/onboarding/ref-pick-wiring/design-contract/hardening` 绿 · `e2e` PASS。
+
+**体积（R2 终值）**：A 列 **585,732 → 591,946 B（+6,214 B ≈ 6.07 KiB）**；B 列 **1,635,675 B（不计账）**；三冻结面 `content.js` 177,076 / `pick-layer.js` 34,358 逐字节不变；两叶 Σ **+13,323 B ≈ 13.0 KiB**（正常口径 9.5~14.5 KB 内，不触发升档）。

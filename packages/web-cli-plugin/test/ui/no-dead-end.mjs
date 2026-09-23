@@ -77,6 +77,8 @@ export const JUDGEMENTS = [
   // V5.5-1 TASK-V55-124（判据升级，不是改布尔值）：4 类「已表达意图」终态逐类必有可达 next。
   { id: 'ND-8-intent-terminals', expectFailPattern: '4 类已表达意图终态逐类必有可达 next（判据升级）' },
   { id: 'ND-9-intent-driven', expectFailPattern: '引用意图作答必须产生悬置登记 + 可达 next（答案不被丢弃）' },
+  // V5.5F-2 TASK-V55F-213（ADR-SGO-005 §1/§2/§3）：扩围二择 + 转值 + 拒绝零死端。
+  { id: 'ND-10-widen-choice', expectFailPattern: '扩围二择必须经既有 askuser 且拒绝后零死端（未确认 ⇒ 不得放行）' },
 ];
 
 /* ── in-page helpers (one implementation, shipped in the gate) ───────────────── */
@@ -459,6 +461,99 @@ async function main() {
       `ND-9 (FAIL 段) ${JUDGEMENTS[8].expectFailPattern}`,
       refDrive.susp.length === 1 && driverTerminalsOf(terminalsSrc.replace("'describe-submitted',", '')).length === 3,
       '注入：删掉 describe-submitted / 清掉悬置 ⇒ 本判据必 FAIL',
+    );
+
+    // ── V5.5F-2 TASK-V55F-213（ADR-SGO-005 §1/§2/§3 · FR-SGO-060~063）─────────────
+    // 扩围二择（WIDEN）在真面板上可判：越界未征询写 ⇒ **既有** `askuser` choice 二择；
+    // 选「仅引用范围内」⇒ fail-closed 拒绝 + 可读理由 + **零死端**（无阻塞载体 / 无开口 ask）；
+    // 选「整页」⇒ 读数转 `out-of-scope-authorized` + 入留痕 + 出既有 confirm 卡。
+    // 全程**同步**（测试 seam 走同一生产 `handleConfirmRequest`），无 sleep / 无定时器（N=0 口径）。
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const WIDEN_SETUP = `(() => {
+      const rec = window.__v3.testing.l1('ref', {
+        selector: '#widen-in', semanticPath: 'body › button', textDigest: '宿主按钮', origin: 'https://widen.test',
+        documentId: 'doc-w', navSeq: 1, declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+      });
+      window.__v3.testing.l1('env', { currentOrigin: 'https://widen.test', authorized: true, documentId: 'doc-w', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+      window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+      return true;
+    })()`;
+    await evaluate(cdp, WIDEN_SETUP);
+    const widenOffer = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.confirmRequest('nd-widen', { tool: 'dom', subcommand: 'set-text', args: { selector: '#outside-target', text: '整页译文' }, reason: '写', risk: 'write' });
+          const card = document.querySelector('#stream [data-msg-type="askuser"][data-ask-kind="choice"]');
+          const opts = card ? [...card.querySelectorAll('[data-act="choose"]')].map((b) => b.textContent) : [];
+          const authBefore = document.querySelectorAll('#stream [data-msg-type="auth"]').length;
+          return JSON.stringify({ hasCard: Boolean(card), opts, authBefore, opens: window.__v3.testing.openAsks().length });
+        })()`,
+      ),
+    );
+    check(
+      'ND-10 越界未征询写 ⇒ 面板提 WIDEN 二择（复用既有 `askuser` choice；零新 kind / 宿主）',
+      widenOffer.hasCard === true && widenOffer.opts.includes('仅引用范围内') && widenOffer.opts.includes('整页（扩大范围）') && widenOffer.authBefore === 0,
+      JSON.stringify(widenOffer),
+    );
+    const widenDeny = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const card = document.querySelector('#stream [data-msg-type="askuser"][data-ask-kind="choice"]');
+          const btn = card && [...card.querySelectorAll('[data-act="choose"]')].find((b) => b.textContent === '仅引用范围内');
+          if (btn) btn.click();
+          const text = document.getElementById('stream').textContent || '';
+          const carriers = [...document.querySelectorAll('#stream > li')].filter((l) => l.getAttribute('data-msg-type') === 'error' || (l.getAttribute('data-msg-type') === 'system' && (l.textContent || '').trim().indexOf('✖') === 0));
+          const trace = [...document.querySelectorAll('#stream > li')].map((l) => l.textContent || '').find((t) => /scope\\.reading=out-of-scope-unauthorized \\| scope\\.authorized=none/.test(t));
+          const authCard = document.querySelectorAll('#stream [data-msg-type="auth"]').length;
+          return JSON.stringify({ clicked: Boolean(btn), reason: text.includes('超出当前引用的范围'), trace: Boolean(trace), authCard, carriers: carriers.length, opens: window.__v3.testing.openAsks().length });
+        })()`,
+      ),
+    );
+    check(
+      `ND-10 拒绝扩大 ⇒ fail-closed（不写 + 可读理由 + 范围留痕）∧ 零死端（无阻塞载体 / 无开口 ask）`,
+      widenDeny.clicked === true && widenDeny.reason === true && widenDeny.trace === true && widenDeny.authCard === 0 && widenDeny.carriers === 0 && widenDeny.opens === 0,
+      JSON.stringify(widenDeny),
+    );
+    // 反证：**未确认**（未点任何选项）时不得产生 confirm 卡 / 不得放行 ⇒ 判据非恒真。
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, WIDEN_SETUP);
+    const widenUnconfirmed = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.confirmRequest('nd-widen-2', { tool: 'dom', subcommand: 'set-text', args: { selector: '#outside-target', text: '整页译文' }, reason: '写', risk: 'write' });
+          return JSON.stringify({ authCard: document.querySelectorAll('#stream [data-msg-type="auth"]').length, hasCard: Boolean(document.querySelector('#stream [data-msg-type="askuser"][data-ask-kind="choice"]')) });
+        })()`,
+      ),
+    );
+    check(
+      `ND-10 (FAIL 段) 未确认扩围 ⇒ 必红（不得出 confirm 卡 / 不得放行）`,
+      widenUnconfirmed.hasCard === true && widenUnconfirmed.authCard === 0,
+      JSON.stringify(widenUnconfirmed),
+    );
+    // 选「整页」⇒ 读数转 out-of-scope-authorized + 入留痕 + 出既有 confirm 卡。
+    const widenAllow = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const card = document.querySelector('#stream [data-msg-type="askuser"][data-ask-kind="choice"]');
+          const btn = card && [...card.querySelectorAll('[data-act="choose"]')].find((b) => b.textContent === '整页（扩大范围）');
+          if (btn) btn.click();
+          const rows = [...document.querySelectorAll('#stream > li')].map((l) => l.textContent || '');
+          return JSON.stringify({
+            clicked: Boolean(btn),
+            authorizedTrace: rows.some((t) => /scope\\.reading=out-of-scope-authorized \\| scope\\.authorized=user/.test(t)),
+            confirmCard: document.querySelectorAll('#stream [data-msg-type="auth"]').length,
+          });
+        })()`,
+      ),
+    );
+    check(
+      `ND-10 选「整页」⇒ 读数转 out-of-scope-authorized + 入留痕 + 出既有 confirm 卡`,
+      widenAllow.clicked === true && widenAllow.authorizedTrace === true && widenAllow.confirmCard >= 1,
+      JSON.stringify(widenAllow),
     );
 
     // ── N = 0 口径（源文本：无 sleep / 无轮询） ────────────────────────────────

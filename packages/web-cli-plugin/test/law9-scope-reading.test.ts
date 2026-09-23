@@ -29,6 +29,10 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import {
+  isWidenWholePage,
+  SCOPE_WIDEN_OPTIONS,
+  SCOPE_WIDEN_PROMPT,
+  SCOPE_WIDEN_WHOLE_PAGE,
   SCOPE_READINGS,
   SCOPE_TRACE_FIELDS,
   scopeReading,
@@ -51,6 +55,8 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'L9-6-write-gate', expectFailPattern: '未征询的越界写必须被机制拦下（deny + 可达 next）' },
   { id: 'L9-7-not-tautology', expectFailPattern: '禁恒真：每条判据必须能 FAIL，且必须有必不判的中性输入（n/a 单独计数）' },
   { id: 'L9-8-source-slice', expectFailPattern: '真源切片：读生产模块（不读 SYSTEM_PROMPT / 测试自建常量）' },
+  // V5.5F-2 TASK-V55F-213（ADR-SGO-005 §1/§2/§3）：扩围二择 + 转值单源 + AI 无写入面。
+  { id: 'L9-9-widen-choice', expectFailPattern: '扩围必须由真实用户点击「整页」产生 out-of-scope-authorized（AI 自填 authorized ⇒ 必红）' },
 ];
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
@@ -156,10 +162,14 @@ export function outOfScopeProblems(read: Reader = scopeReading): string[] {
 
 /** `confirm-request` 分支切片（左闭右开到分支末的 `}`）。 */
 export function confirmBranch(source: string): string {
-  const start = source.indexOf("if (msg.kind === 'confirm-request') {");
-  if (start < 0) return '';
+  // ★ V5.5F-2 TASK-V55F-213：写闸从 listener 闭包提为**具名** `handleConfirmRequest`
+  //（+ `presentScopeWidenAsk` / `emitConfirmCard`）⇒ 真源切片跟随生产结构（同一条路径）。
+  const anchor = source.indexOf('function handleConfirmRequest(');
+  if (anchor < 0) return '';
+  const helper = source.indexOf('function emitConfirmCard(');
+  const start = helper >= 0 && helper < anchor ? helper : anchor;
   let depth = 0;
-  for (let i = source.indexOf('{', start); i < source.length; i += 1) {
+  for (let i = source.indexOf('{', anchor); i < source.length; i += 1) {
     if (source[i] === '{') depth += 1;
     else if (source[i] === '}') {
       depth -= 1;
@@ -221,6 +231,43 @@ export function sourceSliceProblems(refScope: string, sidepanel: string): string
   return problems;
 }
 
+/* ── L9-9：扩围二择（WIDEN）真源切片 ───────────────────────────────────────── */
+
+/**
+ * V5.5F-2 **TASK-V55F-213**（ADR-SGO-005 §1/§2/§3 · FR-SGO-060~063 · R-SGO-907）——
+ * 扩围落地的**真源判据**（不是数值重 pin）：
+ *   ① 扩围授权 `scopeWidenAuthorized = true` **恰一处写入**，且在 sidepanel 的 WIDEN 二择
+ *      解析器内、被 `isWidenWholePage(choice)`（真实点击回传值）守卫；
+ *   ② AI / LLM 侧模块**零写入面**（不得出现 `scopeWidenAuthorized`）；
+ *   ③ 二择复用既有 `askuser`（`SCOPE_WIDEN_OPTIONS` / `SCOPE_WIDEN_PROMPT` 被面板消费）。
+ * 注入「AI 自填 authorized」⇒ 必红（R-SGO-907）。
+ */
+export function widenProblems(files: Map<string, string>): string[] {
+  const p = JUDGEMENTS[8].expectFailPattern;
+  const problems: string[] = [];
+  const writeSites: string[] = [];
+  for (const [rel, text] of files) if (/scopeWidenAuthorized\s*=\s*true/.test(text)) writeSites.push(rel);
+  if (writeSites.length !== 1 || writeSites[0] !== SIDEPANEL_REL) {
+    problems.push(`${p}：扩围授权的写入面必须恰一处且只在面板（实测 ${JSON.stringify(writeSites)}）`);
+  }
+  const panel = files.get(SIDEPANEL_REL) ?? '';
+  if (!/if \(isWidenWholePage\(choice\)\) \{\s*scopeWidenAuthorized = true;/.test(panel)) {
+    problems.push(`${p}：扩围授权必须被「整页」真实点击值守卫（isWidenWholePage(choice)）`);
+  }
+  // ② AI / LLM 侧零写入面：这些模块**不得**出现扩围授权标识。
+  for (const [rel, text] of files) {
+    if (rel === SIDEPANEL_REL) continue;
+    if (/next-registry|llm|ai-drive|recommend|background/.test(rel) && /scopeWidenAuthorized/.test(text)) {
+      problems.push(`${p}：AI / SW 侧模块 ${rel} 不得有扩围授权写入面`);
+    }
+  }
+  // ③ 二择复用既有 ask 机制（选项 / 提示语被面板消费；零新增 kind）。
+  if (!/SCOPE_WIDEN_OPTIONS/.test(panel) || !/SCOPE_WIDEN_PROMPT/.test(panel) || !/type: 'ask'/.test(panel)) {
+    problems.push(`${p}：二择必须复用既有 ask 通道（SCOPE_WIDEN_OPTIONS / SCOPE_WIDEN_PROMPT 未被消费）`);
+  }
+  return problems;
+}
+
 /* ── 真源 ─────────────────────────────────────────────────────────────────── */
 const SRC_FILES = readSrcFiles();
 const REF_SCOPE_SRC = readFileSync(join(PKG, REF_SCOPE_REL), 'utf8');
@@ -265,8 +312,10 @@ test('L9-4 / L9-5 越界两态：未征询 / 已批准', () => {
 test('L9-6 生产写闸切片：越界未征询写必被拦（deny + 可达 next）', () => {
   assert.deepEqual(writeGateProblems(SIDEPANEL_SRC), [], JUDGEMENTS[5].expectFailPattern);
   const branch = confirmBranch(SIDEPANEL_SRC);
-  assert.ok(branch.length > 0, '切片必须真的取到 confirm-request 分支体');
-  assert.ok(branch.includes("msg.kind === 'confirm-request'"), '切片必须含分支头');
+  assert.ok(branch.length > 0, '切片必须真的取到 confirm-request 处理体');
+  // V5.5F-2 TASK-V55F-213：listener 必须**委托**具名 `handleConfirmRequest`（同一生产路径）。
+  assert.ok(SIDEPANEL_SRC.includes('handleConfirmRequest(String(msg.requestId'), 'listener 必须委托 handleConfirmRequest');
+  assert.ok(branch.includes('function handleConfirmRequest('), '切片必须含具名处理入口');
   // 动态裁决：越界未征询 ⇒ blocked + 可读理由；在范围内 ⇒ 放行（既有 confirm 路径）。
   const blocked = scopeWriteGate({ targets: [{ selector: '#gamma' }], refs: REFS, authorized: false });
   assert.equal(blocked.blocked, true, '越界未征询必须 blocked');
@@ -296,6 +345,39 @@ test('L9-8 真源切片：读生产模块（不读 SYSTEM_PROMPT）', () => {
   assert.deepEqual(sourceSliceProblems(REF_SCOPE_SRC, SIDEPANEL_SRC), [], JUDGEMENTS[7].expectFailPattern);
   assert.ok(REF_SCOPE_SRC.includes('export function scopeReading'), '切片必须取自 ref-scope 生产模块');
   assert.ok(!/SYSTEM_PROMPT/.test(REF_SCOPE_SRC), '判据不读提示词（B 轨是引导）');
+});
+
+test('L9-9 扩围二择（WIDEN）：转值单源 + 真实点击唯一写入面 + AI 零写入面', () => {
+  // ① 真源：写入面恰一处（侧栏）、被「整页」真实点击值守卫；AI / SW 侧零写入面。
+  assert.deepEqual(widenProblems(SRC_FILES), [], JUDGEMENTS[8].expectFailPattern);
+  // ② 转值单源（`ref-scope.ts`）：选项 / 提示语 / 判据。
+  assert.deepEqual([...SCOPE_WIDEN_OPTIONS], ['仅引用范围内', '整页（扩大范围）']);
+  assert.equal(SCOPE_WIDEN_WHOLE_PAGE, '整页（扩大范围）');
+  assert.ok(SCOPE_WIDEN_PROMPT.length > 0, '提示语不得为空');
+  assert.equal(isWidenWholePage('整页（扩大范围）'), true, '「整页」⇒ 扩围获批（唯一转值判据）');
+  assert.equal(isWidenWholePage('仅引用范围内'), false, '「仅引用范围内」⇒ fail-closed');
+  assert.equal(isWidenWholePage(undefined), false, '取消 / 未答 ⇒ fail-closed（不得默认整页）');
+  // ③ 转值读数 + 留痕（读数四值单源；扩围事实可判）。
+  assert.equal(scopeWriteGate({ targets: [{ selector: '#gamma' }], refs: REFS, authorized: true }).reading, 'out-of-scope-authorized');
+  assert.equal(scopeReadingTrace('out-of-scope-authorized', true), 'scope.reading=out-of-scope-authorized | scope.authorized=user');
+});
+
+test('L9-9 反证：AI 自填 authorized / 去掉「整页」守卫 / 第二写入面 ⇒ 判红 → 还原 PASS', () => {
+  assert.deepEqual(widenProblems(SRC_FILES), []);
+  // ① 注入「AI 自填 authorized = true」（on-disk 模拟：AI 侧模块出现写入面）⇒ 必红。
+  const aiForged = new Map(SRC_FILES);
+  aiForged.set('src/ui/sidepanel/next-registry/ai-drive.ts', `${SRC_FILES.get('src/ui/sidepanel/next-registry/ai-drive.ts') ?? ''}\nscopeWidenAuthorized = true; // AI 自答\n`);
+  assert.ok(widenProblems(aiForged).some((x) => /AI \/ SW 侧|写入面/.test(x)), 'AI 自填 authorized ⇒ 必红');
+  // ② 去掉「整页」真实点击守卫（改成无条件写）⇒ 必红。
+  const unguarded = new Map(SRC_FILES);
+  unguarded.set(SIDEPANEL_REL, (SRC_FILES.get(SIDEPANEL_REL) ?? '').replace('if (isWidenWholePage(choice)) {\n      scopeWidenAuthorized = true;', 'scopeWidenAuthorized = true;'));
+  assert.ok(widenProblems(unguarded).some((x) => /真实点击值守卫/.test(x)), '去掉真实点击守卫 ⇒ 必红');
+  // ③ 第二写入面（同一标识在 AI 模块再写一次）⇒ 必红。
+  const twice = new Map(SRC_FILES);
+  twice.set('src/ui/sidepanel/next-registry/recommend.ts', `${SRC_FILES.get('src/ui/sidepanel/next-registry/recommend.ts') ?? ''}\nscopeWidenAuthorized = true;\n`);
+  assert.ok(widenProblems(twice).length > 0, '第二写入面 ⇒ 必红');
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(widenProblems(SRC_FILES), []);
 });
 
 /* ── TASK-V55F-114：双向反证族（注入 ⇒ FAIL ⇒ 逐字节还原 ⇒ PASS）──────────── */
@@ -377,7 +459,7 @@ test('L9-112 范围留痕单源：字段名 + 机器枚举（零用户内容值�
 });
 
 test('L9 元判据：每条 judgement 声明非占位 expectFailPattern', () => {
-  assert.ok(JUDGEMENTS.length >= 8, '法九判据下界 ≥8（L9-1~8）');
+  assert.ok(JUDGEMENTS.length >= 9, '法九判据下界 ≥9（L9-1~8 + L9-9 扩围二择）');
   for (const j of JUDGEMENTS) {
     assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 的 expectFailPattern 不得占位`);
   }

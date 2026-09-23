@@ -4,10 +4,10 @@
 > **前置依赖**: 本叶 `tasks.md` / `tasks.json`（16 任务 / 3 波）、本叶 `plan.md` v1.0、父 `plan.md` + `ADR-SGO-004/005`（另读 006/007 做落点判定）、叶1 `specs-tree-v55f-1-ref-context-and-anchor`（**validated**，硬依赖已满足）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-24
-> **版本**: v1.0（**R1 = W1 + W2，12 / 16**；W3 留 R2）
+> **版本**: v2.0（**R1 = W1+W2（12/16）+ R2 = W3（4/16）⇒ 16/16 全部完成**）
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-24
-> **更新说明**: 初始创建（**R1 = W1+W2**）：边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权 op 不入批机核 + 载体零新增 + `batch-consent` 门禁 BC-1~7）→ 计划/指纹/准入/回落/漂移/零明文/中止。**W3（`TASK-V55F-213~216`：WIDEN 二择 / S0′ 批量段 / X 台账 / 体积逐叶收口）留 R2。**
+> **更新说明**: v2.0 追加 **R2（W3：`TASK-V55F-213~216`）**：WIDEN 二择接线 + `out-of-scope-authorized` 转值 + 批量留痕（213）→ S0′ 批量段 `S0P-B1~B3`（214）→ X-SGO-4/6/7 台账 + 法八批量零明文只增（215）→ 体积逐叶重登记 + 本叶收口（216：**6 项体积/红线 pin 一次闭环，`npm test` 1394 / 0 fail**）。v1.0（R1 = W1+W2）逐字保留。
 
 ---
 
@@ -83,10 +83,10 @@
 | TASK-V55F-210 | `security/confirm.ts` 计划感知桥（指纹准入 + 回落 + 零明文） | L | ✅ completed | FR-SGO-042 / 044 / 046 / 049 |
 | TASK-V55F-211 | 计划卡渲染（`chat-state.ts` 字段 + `cards/auth.ts` 计划行） | M | ✅ completed | FR-SGO-050 / 046 / 048 |
 | TASK-V55F-212 | 中止 + 部分完成如实 + 逐条保留（`cancelled` 语义保持） | M | ✅ completed | FR-SGO-047 / 048 |
-| TASK-V55F-213 | WIDEN 二择接线 + `out-of-scope-authorized` 转值 + 批量留痕 | M | ⏳ **留 R2（W3）** | FR-SGO-060~063 / 081 / 082 |
-| TASK-V55F-214 | S0′ 批量段（S0P-B1~B3） | L | ⏳ **留 R2（W3）** | FR-SGO-093 |
-| TASK-V55F-215 | X-SGO-4/6/7 台账 + 法八批量零明文只增 | M | ⏳ **留 R2（W3）** | FR-SGO-103 / 105 / 107 |
-| TASK-V55F-216 | 体积本叶重登记 + 本叶收口 | M | ⏳ **留 R2（W3）** | FR-SGO-120~125 |
+| TASK-V55F-213 | WIDEN 二择接线 + `out-of-scope-authorized` 转值 + 批量留痕 | M | ✅ completed（**R2**） | FR-SGO-060~063 / 081 / 082 |
+| TASK-V55F-214 | S0′ 批量段（S0P-B1~B3） | L | ✅ completed（**R2**） | FR-SGO-093 |
+| TASK-V55F-215 | X-SGO-4/6/7 台账 + 法八批量零明文只增 | M | ✅ completed（**R2**） | FR-SGO-103 / 105 / 107 |
+| TASK-V55F-216 | 体积本叶重登记 + 本叶收口 | M | ✅ completed（**R2**） | FR-SGO-120~125 |
 
 ### 3.1 测试覆盖（R1 新增 11 用例）
 
@@ -205,3 +205,112 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（**R1 = W1+W2**，`TASK-V55F-201~212`）：边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权 op 不入批机核 + 载体零新增 + `batch-consent` BC-1~7）→ 计划/指纹/准入/回落/漂移/零明文/中止。`npm test` 1375 → 1386（+11）；`batch-consent` **7/0**；A 列 +3,301 B / B 列 +8,251 B；三冻结面逐字节不变；`law8` 46/0 · `dead-end` 49/0 · journey 171 · binding 192 · l0 248 · l1 131 · stream 76 · auth-chip 37 · ask-auth 78 · s0 65 · `e2e` PASS。R1 末 7 红 = 6 体积/红线 pin（重登记属 W3 `216`）+ 1 预提交 worktree 漂移（提交后自愈）；W3（`213~216`）留 R2。零受管 Provider 调用（routing.v1 = `local_or_compute → none`） | 2026-09-24 | SDDU Build Agent |
+| v2.0 | **R2 = W3（`TASK-V55F-213~216`）⇒ 16/16 全部完成**：WIDEN 二择（`ref-scope.ts` 单源 + `sidepanel.ts` 接线 + 批量留痕）→ S0′ 批量段 `S0P-B1~B3`（样本单源扩展 + node/Chromium 双面只加断言）→ X-SGO-4/6/7 台账 + 法八批量零明文只增 → 体积逐叶重登记（A 列 585,732 → **591,946 B**）+ v55f-2 叶段台账。**6 项体积/红线 pin 一次闭环：`npm test` 1394 / 0 fail**；`law8` 52/0（+6）· `dead-end` 53/0（+4）· `s0-self-driven` 70/0（+5）· `stream` 76/0 · `ask-auth` 78/0 · `auth-chip` 37/0 · `l0` 248 · `l1` 131 · `l2` 74 · journey 171 · binding 192（1 次 KL-N-10 flake ⇒ 隔离复跑 PASS）· `e2e` PASS。零受管 Provider 调用 | 2026-09-24 | SDDU Build Agent |
+
+---
+
+## 9. R2 = W3 收口（`TASK-V55F-213~216`）
+
+> 本节记录 **R2（W3）** 的实现、反证与门禁终值；R1 段（§1~§8）逐字保留。
+
+### 9.1 文件变更（R2）
+
+| 操作 | 文件路径 | 对应任务 | 说明 |
+|:--:|------|:--:|------|
+| MODIFY | `.../src/ui/sidepanel/l1/ref-scope.ts` | 213 | **扩围二择单源**：`SCOPE_WIDEN_PROMPT` / `SCOPE_WIDEN_OPTIONS`（「仅引用范围内」/「整页（扩大范围）」）/ `SCOPE_WIDEN_WHOLE_PAGE` / `isWidenWholePage` / `isWidenAuthorizedReading`。零状态（写入面在面板）。 |
+| MODIFY | `.../src/ui/sidepanel/sidepanel.ts` | 213 | confirm 面处理提为**具名** `handleConfirmRequest`（listener 与测试 seam 同一路径）；越界未征询 ⇒ **WIDEN 二择**（既有 `askuser`；零新 kind）+ 「整页 ⇒ `authorized=true`（唯一写入面 = 真实点击）」+ 留痕 `scope.reading=out-of-scope-authorized \| scope.authorized=user`；拒绝 / 取消 ⇒ fail-closed + 可读理由 + 零死端；`__v3.testing.confirmRequest` seam；批量留痕扩展为 `batch.gesture` / `batch.results`。 |
+| MODIFY | `.../test/ui/fixtures/s0-chain.mjs` | 214 | **S0′ 批量段样本单源**：`S0P_B_BEATS` / `S0P_B_ITEMS` / `s0pBProblems` / `s0pBChain`（node + Chromium 双面共用；只加断言不加文件）。 |
+| MODIFY | `.../test/s0-self-driven-chain.test.ts` | 214 | S0′ 批量段 **node 判官**（真源切片 = `background/batch-plan.ts`；`S0P_B1~B3` + 反证）。 |
+| MODIFY | `.../test/ui/s0-self-driven.mjs` | 214 | S0′ 批量段 **Chromium 面**（单卡 N 行 / 一次手势留痕 / 扩围二择；`S0C-11`）。 |
+| MODIFY | `.../test/law9-scope-reading.test.ts` | 213 | `confirmBranch` 真源切片跟随生产结构前移 + **L9-9 扩围二择**（转值单源 + AI 零写入面 + 注入必红）。 |
+| MODIFY | `.../test/ui/no-dead-end.mjs` | 213 | **ND-10**：WIDEN 拒绝 ⇒ fail-closed ∧ 零死端（无阻塞载体 / 无开口 ask）；未确认 ⇒ 不得放行；整页 ⇒ 转值 + 留痕 + 出 confirm 卡。 |
+| MODIFY | `.../docs/v4-supersession-ledger.json` | 215 / 216 | **X-SGO-4/6/7 台账**（`xSgoLedgerLeaf2` + `redlineRemap[]`）+ `modifiedRanges` 本叶同步面 + `v55f-2-batch-consent` 叶段（leafBase `37e4e28`）+ 体积三值前移 + `V55F2-E-VOL-*` 取代条目。 |
+| MODIFY | `.../test/supersession-ledger.test.ts` | 215 | `xSgoLeaf2Problems` + 叶2 X-SGO 判据 + 本叶受判文件 `modifiedRanges` 判据。 |
+| MODIFY | `.../test/ui/law8-plaintext.mjs` | 215 | **⑨ 批量计划零明文**（计划行仅 `textContent` + 凭据形掩码；四面零命中；批量留痕零明文）+ 反证；⑧ 随 WIDEN 接线同步（二择后再读留痕）。 |
+| MODIFY | `.../test/size-baseline.ts` | 216 | **A 列逐叶重登记**：基线 585,732 → **591,946**（五要素 + TIMELINE + `v55f-2-r2` 登记条目 + `v55f2R1R2Rows` + 桶和 + 累计归因）。 |
+| MODIFY | `.../test/size-budget.test.ts` / `size-growth-evidence.test.ts` / `size-ruling-vol3.test.ts` | 216 | 数值重 pin（591,946 / 621,543 / 296,721 / 6,214）+ 最新一轮 rows 重指向 `v55f2R1R2Rows`（组数 33 → 34）。 |
+| MODIFY | `.../test/gate-integrity.test.ts` | 216 | `V55F2_NODE_GATE_FILES`（`batch-consent`）+ `V55F2_W3_AUDITED_FILES` 下界声明 + 反证；`CHROMIUM_GATES === 9` 逐字不动。 |
+| MODIFY | `.../docs/v4-density-baseline.json` | 216 | 密度登记 `registeredBaselineBytes` / `ceilingBytes` 与代码同源（591,946 / 621,543）。 |
+
+> **NOOP（R2 显式登记）**: `packages/web-cli-base/**`（零 diff）· `src/content/**` · `dist/content.js` · `dist/pick-layer.js` · `manifest.json` · `src/security/policy.ts` / `auto-authorize.ts`（判定链）· `shared/op-table.ts`（`tierOf` 单源）· `requestTurn(`（仍恰 2）· `KIND_SET`（40 逐字）· `MAX_OPEN_ASKS`（2）/ `ASK_CANCEL_REASONS`（4）。
+
+### 9.2 门禁终值（R2 收口，6 项 pin 闭环）
+
+| 门禁 | R1 实测 | **R2 终值** | 结论 |
+|---|---:|---:|---|
+| `npm run typecheck` | 绿 | **绿** | 无类型错误 |
+| `npm run build` | 绿 | **绿** | `sidepanel.js` = **591,946** / `background.js` = 1,635,675 |
+| `npm test`（全部 node 门禁） | 1386（1380/6） | **1394（1394 / 0）** | **6 项体积/红线 pin 全部闭环**；+8 用例（213/214/215/216 只增） |
+| `batch-consent`（新） | 7 / 0 | **7 / 0** | BC-1~7 全绿 |
+| `test:supersession` | 40 / 0（除体积） | **40 / 0** | RL-06 扩批量变体在册；X-SGO 台账（215）落账 |
+| `op-three-tier` | 12 / 0 | **12 / 0** | `tierOf` 逐 op 不变；特权恒 gesture |
+| `capability-wiring` | 10 / 0 | **10 / 0** | `.request(` 计数不减；批量不触达特权 op |
+| `host-registry` | 绿 | **绿** | 零宿主 / 12 kind / `KIND_SET` 40 |
+| `test:gate-integrity` | 20 / 0 | **20 / 0** | `V55F2_NODE_GATE_FILES ≥1`；`CHROMIUM_GATES === 9` |
+| `test:law8`（法八四面） | 46 / 0 | **52 / 0**（+6） | 批量计划零明文 + 掩码；**零降级** |
+| `test:dead-end` | 49 / 0 | **53 / 0**（+4） | ND-10 WIDEN 拒绝零死端；**只增** |
+| `test:auth-chip` | 37 / 0 | **37 / 0** | 授权 chip 两态不变 |
+| `test:ask-auth` | 78 / 0 | **78 / 0** | ask/auth 流入链路不变 |
+| `test:stream` | 76 / 0 | **76 / 0** | 流模型不变 |
+| `test:ui`（journey；保护段） | 171 / 0 | **171 / 0** | 保护段 `43054..58287` 零字节 |
+| `test:binding`（保护段） | 192 / 0 | **192 / 0**（1 次 KL-N-10 flake ⇒ 隔离复跑 PASS） | 保护段 `107780..115930` 零字节 |
+| `test:l0` / `l1` / `l2` | 248 / 131 / 74 | **248 / 131 / 74** | 计数不减 |
+| `s0-self-driven`（Chromium） | 65 / 0 | **70 / 0**（+5） | S0′ 批量段 `S0P-B1~B3` |
+| `test:insight` / `density` / `recommendation` / `zero-injection` / `page-input` / `l1-reverse` / `l2-reverse` / `onboarding` / `ref-pick-wiring` / `design-contract` / `hardening` | 绿 | **绿**（hardening 1 次环境 flake ⇒ 复跑 PASS） | 计数不减 |
+| `e2e` | PASS | **PASS** | 4 产物真实全链 |
+| `size-*` / `test:size-ruling-vol3` | **6 红**（登记滞后产物） | **全绿** | 逐叶重登记一次闭合 |
+| 红线巡检 | — | **绿** | `content.js` 177,076 / sha `52a82620…`；`pick-layer.js` 34,358 / sha `77796bab…`；base 零 diff；`KIND_SET` 40；`requestTurn(` 2 |
+
+### 9.3 体积五要素（R2 终值）
+
+| 要素 | 值 |
+|---|---|
+| **① 前值 / 后值** | A 列（`sidepanel.js`）：`585,732 → 591,946 B`（**+6,214 B ≈ 6.07 KiB**，+1.06%）；B 列（`background.js`，**不计账**）：`1,627,424 → 1,635,675 B`（R1 +8,251 B；R2 无 SW src 改动） |
+| **② 日期** | 2026-09-24（R1+R2 合并逐叶收口） |
+| **③ 来源 / 命令 / 测量者** | `packages/web-cli-plugin/dist/sidepanel.js` / `npm run build`（esbuild `metafile: true` ⇒ `dist/build-meta.json`）/ SDDU Build Agent |
+| **④ 理由（真实 metafile 逐模块归因）** | `SIDEPANEL_GROWTH_BREAKDOWN.v55f2R1R2Rows`：`sidepanel.ts` **+2,829** / `cards/auth.ts` **+2,113** / `l1/ref-scope.ts` **+532** / `stream-model.ts` **+455** / `chat-state.ts` **+285** ⇒ Σ **+6,214** + glue **0** == 登记增量 |
+| **⑤ 历史保留** | `SIDEPANEL_BASELINE_BYTES_TIMELINE` / `SIDEPANEL_RE_REGISTRATIONS` **只追加**（新增 `v55f-2-r2` 条目；历史值逐字保留） |
+| **预算对照（诚实登记）** | 本叶 A 列预算 **3.5~5.5 KB**（上界 +15% **4.0~6.3 KB**）⇒ 实测 **+6,214 B**：**越预算基线上界（5.5 KB）但未越 +15% 上界（6.3 KB）**，显式超出并登记（不删判据 / 不放宽容差） |
+| **三值同源（V3-VOL-3）** | baseline **591,946** ∧ 档位 `ceilTo50KB(591,946)` = **614,400**（未动）∧ 绝对上限 **675,840**（未动）；生效上限 = `min(675,840, floor(591,946 × 1.05) = 621,543)`；`cap` 保持 `record-only` |
+| **EC-SGO-022 二态（显式）** | 越生效上限（615,018）= **否**（591,946 < 615,018）· 越档位（614,400）= **否** · 越绝对上限（675,840）= **否** ⇒ 三分支均未触发 |
+| **`authorConfirmation`** | 保持 **`pending-author-line`**（不伪称已确认） |
+| **两叶 Σ 对照** | 叶1 **+7,109 B** + 本叶 **+6,214 B** = **+13,323 B ≈ 13.0 KiB**，落在正常口径 **9.5~14.5 KB**（+15% 16.7 KB）内；对照余量 **22,454 B**（614,400 − 591,946）⇒ **不触发升档** |
+
+### 9.4 反证摘要（R2：注入 ⇒ 必红 ⇒ 还原 ⇒ PASS）
+
+| 任务 | 注入点 | 期望 FAIL 模式 | 实测 |
+|:--:|---|---|:--:|
+| **213** | 把 `scopeWidenAuthorized = true` 注入 AI / SW 侧模块（合成 facts，on-disk 模拟） | 「AI / SW 侧模块不得有扩围授权写入面」 | ✅ FAIL → 还原（sha 复核）PASS（L9-9 反证） |
+| **213** | 去掉「整页」真实点击守卫 / 加第二写入面 | 「扩围授权必须被真实点击值守卫」/「写入面恰一处」 | ✅ FAIL → 还原 PASS |
+| **213** | **扩围未确认**（未点任何选项）却出 confirm 卡 / 放行 | 「未确认扩围 ⇒ 不得出 confirm 卡 / 不得放行」 | ✅ 判据承重（ND-10 FAIL 段：`hasCard ∧ authCard===0`） |
+| **213** | 拒绝二择后仍继续写（fail-closed 失效） | WIDEN 拒绝 ⇒ 不写 + 可读理由 + 零死端 | ✅ ND-10（拒绝后 `authCard===0 ∧ carriers===0`） |
+| **214** | 一次手势只放行 1 条 / 计划外不回落 / 计划内 <2 | 「S0P-B1」 | ✅ FAIL → 还原 PASS |
+| **214** | 未授权却改写 > 引用数 / 授权读数错 | 「S0P-B2」 | ✅ FAIL → 还原 PASS（授权例外本身 ⇒ 绿） |
+| **214** | 二择缺失 / 中止不可判 / 留痕格式坏 / 留痕含用户内容值 | 「S0P-B3」 | ✅ FAIL → 还原 PASS |
+| **215** | AI 自填 authorized / 去掉「整页」守卫 / 第二写入面 | 「L9-9 AI 零写入面」 | ✅ FAIL → 还原 PASS |
+| **215** | 计划行未掩码 / 注入含哨兵 payload | 「⑨ 批量计划零明文非恒真」 | ✅ 注入 ⇒ 命中 ⇒ 还原零命中 |
+| **216** | 登记值与实测脱钩 / 桶和 / Σ ≠ 增量 / 越 1 B | 体积回归 + N-01/N-05 判据 | ✅ 全绿（6 pin 闭环） |
+
+### 9.5 纪律与偏差登记（R2）
+
+| 项 | 状态 |
+|---|---|
+| 红线⑥（consent 不得被 AI 代答） | ✅ WIDEN 二择仅由**真实点击**写入 `authorized`；AI / SW 零写入面（L9-9 on-disk 注入必红）；批量变体三类注入必红（R1） |
+| 法八（页面文本可入载荷 / 凭据不可 / 审计零明文） | ✅ 批量计划行仅 `textContent` + `maskRefDigest` 掩码；`CardView.plan` 与 `payload` **同级**；批量留痕只记指纹摘要 + 计数 + 手势 + 结果；`law8` 52/0 **零降级** |
+| 零新增载体 | ✅ 二择复用既有 `askuser`；`KIND_SET` 40 / 12 kind / `REGISTERED_STRUCTURAL_HOSTS === []` / `MAX_OPEN_ASKS = 2` / `ASK_CANCEL_REASONS` 4 逐字 |
+| 计数只增 | ✅ `law8` 46→52 · `dead-end` 49→53 · `s0` 65→70 · `npm test` 1386→1394；`tierOf` 逐 op 不变；`.request(` 不减；`CHROMIUM_GATES === 9` |
+| 门禁串行 + 日志 | ✅ 一次一个 Chromium；日志 `/tmp/opencode/v4-gate-logs/v55f-2-r2/` |
+| `git add -A` | ✅ 未使用（按文件精确 stage） |
+| **偏差登记 1（诚实）** | **A 列越预算基线上界**：实测 +6,214 B > 预算上界 5.5 KB，但未越 +15% 上界（6.3 KB）与任何体积上限；已显式登记（不删判据 / 不放宽容差），两叶 Σ 13.0 KiB 在正常口径内 |
+| **偏差登记 2（flake）** | `binding` 与 `hardening` 各出现 **1 次环境性 flake**（CDP socket / 探测时序），按 `EC-SGO-021 / KL-N-10` **隔离复跑 ≥2 ⇒ PASS**；如实记录，不冒充零 flake |
+| **偏差登记 3（人工面）** | S0′ M2（连点疲劳体感）/ M3（批量计划卡真机可读性 / 可否决性）= **`⏳ 未执行`**（headless 不可合成，不得冒充 PASS） |
+| 受管 Provider | **零调用**（routing.v1 = `local_or_compute → none`） |
+
+### 9.6 下一步
+
+| 场景 | 操作 |
+|------|------|
+| **16 / 16 全部完成** | `npm test` 1394 / 0 · `e2e` PASS · 6 项 pin 闭环 · 三冻结面/base 零 diff |
+| 审阅 | 运行 `@sddu-review specs-tree-v55f-2-batch-consent`（红线⑥ + 法八 + 授权语义） |
+| 父收口 | 父 `specs-tree-web-cli-plugin-v55-f-scope-governance` 待两叶均收口后登记 ROADMAP |
+

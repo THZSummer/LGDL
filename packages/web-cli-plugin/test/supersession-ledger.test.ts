@@ -2507,6 +2507,103 @@ test('ledger(V4 段 · V5.5F-1): 本叶同步的受判文件逐项在 modifiedRa
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-2 **TASK-V55F-215**（FR-SGO-103/105/107 · AC-SGO-004）—— 叶2 的 X-SGO-4/6/7
+ * 台账（**X-SGO-4 已发生** + `redlineRemap[]` 扩断言；6/7 如实登记）+ 本叶同步受判文件登记。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XSgoLeaf2Row {
+  readonly id: string;
+  readonly decision: string;
+  readonly owner: string;
+  readonly counterCheck: string;
+  readonly evidence: string;
+}
+interface RedlineRemapRow {
+  readonly gate: string;
+  readonly from: string;
+  readonly to: string;
+  readonly reason: string;
+}
+
+/** 叶2 X-SGO 台账判据（注入 `exists` ⇒ 反证可打）。 */
+export function xSgoLeaf2Problems(
+  rows: readonly XSgoLeaf2Row[],
+  redlineRemap: readonly RedlineRemapRow[],
+  exists: (rel: string) => boolean,
+): string[] {
+  const p = 'X-SGO（叶2 批量授权）台账一致性：X-SGO-4 已发生 ∧ 6/7 未发生 ∧ redlineRemap 扩断言';
+  const problems: string[] = [];
+  const ids = rows.map((r) => r.id);
+  for (const id of ['X-SGO-4', 'X-SGO-6', 'X-SGO-7']) if (!ids.includes(id)) problems.push(`${p}：${id} 必须登记`);
+  if (ids.length !== 3) problems.push(`${p}：叶2 只处置 X-SGO-4/6/7（实测 ${JSON.stringify(ids)}）`);
+  for (const r of rows) {
+    if (!['superseded', 'no-supersession'].includes(r.decision)) problems.push(`${p}：${r.id} decision 非法（${r.decision}）`);
+    if ((r.owner ?? '').trim().length < 4) problems.push(`${p}：${r.id} 必须写明 owner`);
+    if ((r.evidence ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的解释必须非套话（≥20 字符）`);
+    const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
+    if (refs.length === 0) problems.push(`${p}：${r.id} counterCheck 必须指向真实门禁文件`);
+    for (const ref of refs) if (!exists(ref) && !exists(`packages/web-cli-plugin/${ref}`)) problems.push(`${p}：${r.id} counterCheck 悬空（${ref}）`);
+  }
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  if (byId.get('X-SGO-4')?.decision !== 'superseded') problems.push(`${p}：X-SGO-4 必须登记为**已发生**（superseded）`);
+  if (byId.get('X-SGO-6')?.decision !== 'no-supersession') problems.push(`${p}：X-SGO-6 必须为 no-supersession（读数为承载、词汇未扩张）`);
+  if (byId.get('X-SGO-7')?.decision !== 'no-supersession') problems.push(`${p}：X-SGO-7 必须为 no-supersession（未发生取代）`);
+  if (redlineRemap.length < 3) problems.push(`${p}：redlineRemap 至少 3 条（RL-06 / OT-⑩ / law8 扩断言）`);
+  for (const r of redlineRemap) {
+    if ((r.gate ?? '').trim().length < 2) problems.push(`${p}：redlineRemap gate 必填`);
+    if ((r.from ?? '').trim().length < 4 || (r.to ?? '').trim().length < 8) problems.push(`${p}：${r.gate} 必须写明 from→to（扩断言，非替换）`);
+    if ((r.reason ?? '').trim().length < 20) problems.push(`${p}：${r.gate} 的理由必须非套话（≥20 字符）`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段 · V5.5F-2): X-SGO-4 已发生（redlineRemap 扩断言）∧ X-SGO-6/7 如实登记', () => {
+  const v4 = readV4Ledger() as unknown as { xSgoLedgerLeaf2?: { rows?: readonly XSgoLeaf2Row[]; redlineRemap?: readonly RedlineRemapRow[]; leaf?: string; adr?: string } };
+  const rows = v4.xSgoLedgerLeaf2?.rows ?? [];
+  const remap = v4.xSgoLedgerLeaf2?.redlineRemap ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xSgoLeaf2Problems(rows, remap, existsRel), [], '叶2 X-SGO 台账一致性未通过');
+  assert.equal(v4.xSgoLedgerLeaf2?.leaf, 'specs-tree-v55f-2-batch-consent');
+  assert.match(String(v4.xSgoLedgerLeaf2?.adr ?? ''), /ADR-SGO-00[45]/);
+  // 反证（判据非恒真）：伪造 decision / 抽掉 X-SGO-4 / redlineRemap 悬空 ⇒ 必红。
+  assert.ok(xSgoLeaf2Problems(rows.map((r) => (r.id === 'X-SGO-6' ? { ...r, decision: 'maybe' } : r)), remap, existsRel).some((x) => x.includes('非法')));
+  assert.ok(xSgoLeaf2Problems(rows.filter((r) => r.id !== 'X-SGO-4'), remap, existsRel).some((x) => x.includes('X-SGO-4')));
+  assert.ok(xSgoLeaf2Problems(rows, remap.filter((r) => r.gate !== 'RL-06'), existsRel).some((x) => x.includes('redlineRemap') || x.includes('RL-06')));
+  assert.deepEqual(xSgoLeaf2Problems(rows, remap, existsRel), []);
+});
+
+test('ledger(V4 段 · V5.5F-2): 本叶同步的受判文件逐项在 modifiedRanges 登记（换锚是登记行为）', () => {
+  const v4 = readV4Ledger() as unknown as { modifiedRanges?: readonly { file: string; range: string; reason: string }[] };
+  const ranges = v4.modifiedRanges ?? [];
+  const synced: string[] = [
+    'packages/web-cli-plugin/test/law9-scope-reading.test.ts',
+    'packages/web-cli-plugin/test/supersession-ledger.test.ts',
+    'packages/web-cli-plugin/test/capability-wiring.test.ts',
+    'packages/web-cli-plugin/test/op-three-tier.test.ts',
+    'packages/web-cli-plugin/test/batch-consent.test.ts',
+    'packages/web-cli-plugin/test/s0-self-driven-chain.test.ts',
+    'packages/web-cli-plugin/test/ui/s0-self-driven.mjs',
+    'packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs',
+    'packages/web-cli-plugin/test/ui/law8-plaintext.mjs',
+    'packages/web-cli-plugin/test/gate-integrity.test.ts',
+    'packages/web-cli-plugin/test/size-baseline.ts',
+    'packages/web-cli-plugin/test/size-budget.test.ts',
+    'packages/web-cli-plugin/test/size-growth-evidence.test.ts',
+    'packages/web-cli-plugin/test/size-ruling-vol3.test.ts',
+  ];
+  const problems: string[] = [];
+  for (const file of synced) {
+    const entry = ranges.find((r) => r.file === file);
+    if (!entry) { problems.push(`本叶同步的受判文件未在 modifiedRanges 登记：${file}`); continue; }
+    if ((entry.range ?? '').trim().length < 4) problems.push(`${file}: range 必须写明改动面（≥4 字符）`);
+    if ((entry.reason ?? '').trim().length < 40) problems.push(`${file}: reason 必须写明理由（≥40 字符）`);
+  }
+  assert.deepEqual(problems, [], `modifiedRanges 未逐项登记：\n${problems.join('\n')}`);
+  const forged = ranges.filter((r) => r.file !== 'packages/web-cli-plugin/test/law9-scope-reading.test.ts');
+  assert.ok(forged.length < ranges.length, '注入必须真的移出一项（判据非恒真）');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
  * V5.5F-2 **TASK-V55F-201**（ADR-SGO-004 §4 · FR-SGO-049/103 · AC-SGO-005 ·
  * N-SGO-006/025 · R-SGO-001）—— **RL-06 扩批量变体**（边界先行）.
  *

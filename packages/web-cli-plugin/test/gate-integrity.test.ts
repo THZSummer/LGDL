@@ -321,6 +321,23 @@ export const V551_NODE_GATE_FILES = [
  */
 export const V552_NODE_GATE_FILES = ['test/onboarding-deterministic.test.ts'] as const;
 
+/**
+ * V5.5F-2（leaf `specs-tree-v55f-2-batch-consent`）—— **任务级批量授权叶**的新增 node 门禁。
+ *
+ * 本叶在 W1（TASK-V55F-205）落地 **1** 枚新 node 门禁 `batch-consent`（BC-1~7：计划构建 /
+ * 指纹 / 准入 / 回落 / 漂移 / 特权不入批 / 审计零明文）；W3（TASK-V55F-216）收口轮**不新增**
+ * Chromium 门禁文件（`s0-self-driven` / `no-dead-end` / `law8` 均**只加断言不加文件** ⇒
+ * `CHROMIUM_GATES === 9` 逐字不动）。
+ */
+export const V55F2_NODE_GATE_FILES = ['test/batch-consent.test.ts'] as const;
+
+/** V5.5F-2 W3 收口轮**实际改动、承载新判据**的受判门禁（只增不减；含叶1 的法九门禁重锚）。 */
+export const V55F2_W3_AUDITED_FILES = [
+  'test/batch-consent.test.ts',
+  'test/law9-scope-reading.test.ts',
+  'test/s0-self-driven-chain.test.ts',
+] as const;
+
 /** V4.5-1 W1: the node (non-Chromium) gates — discovered by {@link NODE_GATE_MARKER}. */
 export const NODE_GATE_FILES = [
   'test/host-registry.test.ts',
@@ -840,6 +857,42 @@ test('元门禁（V5.5-2）：主题① 叶的新增 node 门禁在受审集合�
   for (const file of V551_NODE_GATE_FILES) assert.ok(discovered.includes(file), `${file} 不得因本次追加而脱离受审集合`);
   assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本轮零新增 Chromium 门禁文件）');
   console.log(`  ℹ V5.5-2 新门禁受审：${V552_NODE_GATE_FILES.length}/${V552_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
+// ── 0a-4b. V5.5F-2: the batch-consent leaf's new node gate joins the audited set ──
+test('元门禁（V5.5F-2）：批量授权叶的新增 node 门禁在受审集合内（只增不减，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V55F2_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新增门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    if ((text.match(/expectFailPattern\s*:/g) ?? []).length < 3) problems.push(`${file}: 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  assert.deepEqual(problems, [], `V5.5F-2 新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  assert.ok(V55F2_NODE_GATE_FILES.length >= 1, 'V5.5F-2 新增 node 门禁下界不得低于 1（batch-consent）');
+  const forged = [...V55F2_NODE_GATE_FILES, 'test/ghost-gate.test.ts'];
+  assert.ok(forged.some((f) => !discovered.includes(f)), '新增一个不在受审集合的门禁必须判红（判据非恒真）');
+  for (const file of V551_NODE_GATE_FILES) assert.ok(discovered.includes(file), `${file} 不得因本次追加而脱离受审集合`);
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（收口轮零新增 Chromium 门禁文件）');
+  console.log(`  ℹ V5.5F-2 新门禁受审：${V55F2_NODE_GATE_FILES.length}/${V55F2_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
+test('元门禁（V5.5F-2 W3）：本轮承载新判据的门禁仍在受审集合内（只增不减，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V55F2_W3_AUDITED_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里`);
+  }
+  assert.deepEqual(problems, [], `V5.5F-2 W3 受判门禁未全部在册：\n${problems.join('\n')}`);
+  // 反证：把任一枚从集合里拿掉 ⇒ 同一判据必红（判据非恒真）。
+  const dropped = V55F2_W3_AUDITED_FILES.filter((f) => f !== 'test/batch-consent.test.ts');
+  assert.ok(dropped.length < V55F2_W3_AUDITED_FILES.length);
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字');
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────

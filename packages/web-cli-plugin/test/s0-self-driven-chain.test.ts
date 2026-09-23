@@ -67,6 +67,10 @@ import {
   turnRefsOf,
 } from '../src/ui/sidepanel/l1/ref-scope.js';
 import { anchorSelectorFor, wrapDomEntryForAnchor } from '../src/tools/dom-anchor.js';
+// ── V5.5F-2 TASK-V55F-214（W3，纯追加 import）──────────────────────────────────
+// S0′ 批量段的**真源切片**：计划构建 / 准入 / 计划 holder（生产模块，不读 dist 副本）。
+import { BATCH_ACTION_TYPE, buildPlan, createBatchConsent, type PlanRef } from '../src/background/batch-plan.js';
+import { isWidenWholePage, SCOPE_WIDEN_OPTIONS } from '../src/ui/sidepanel/l1/ref-scope.js';
 import { createDomToolEntry, type PlatformEnv } from '@lgdl/web-cli-base';
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const SIDEPANEL_REL = 'src/ui/sidepanel/sidepanel.ts';
@@ -130,6 +134,11 @@ interface S0Module {
   readonly S0P_ANCHOR_SELECTOR: string;
   readonly s0PChain: () => readonly { readonly id: string; readonly label: string }[];
   readonly s0pProblems: (reading?: Record<string, unknown>) => readonly string[];
+  /** V5.5F-2 TASK-V55F-214：S0′ **批量段**（S0P-B1~B3）样本 + 判据（双面共用）。 */
+  readonly S0P_B_BEATS: readonly { readonly id: string; readonly label: string }[];
+  readonly S0P_B_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly s0pBProblems: (reading?: Record<string, unknown>) => readonly string[];
+  readonly s0pBChain: () => readonly { readonly id: string; readonly label: string }[];
 }
 const s0 = (await import(S0_FIXTURE)) as unknown as S0Module;
 const s2 = (await import(S2_FIXTURE)) as unknown as { readonly S2_CHAIN: readonly { readonly id: string }[] };
@@ -139,6 +148,8 @@ const { S2_CHAIN } = s2;
 const { S0_A_BEATS, S0_A_GUARD_REASONS, S0_A_ON_CHAIN_REASONS, S0_A_SLOT, s0BranchABeats, s0BranchAProblems } = s0;
 /** V5.5F-1 TASK-V55F-123（W4，纯追加解构）：S0′ 范围内核样本与判据（双面共用同一份）。 */
 const { S0P_ANCHOR_SELECTOR, S0P_BEATS, S0P_ITEMS, S0P_REF_NUM, s0PChain, s0pProblems } = s0;
+/** V5.5F-2 TASK-V55F-214（W3，纯追加解构）：S0′ 批量段样本与判据（双面共用同一份）。 */
+const { S0P_B_BEATS, S0P_B_ITEMS, s0pBChain, s0pBProblems } = s0;
 
 export interface Judgement {
   readonly id: string;
@@ -900,4 +911,119 @@ test('S0P 元判据：八条必判项齐备且 expectFailPattern 非占位（下
   assert.deepEqual(s0PChain().map((b) => b.id), S0P_BEATS.map((b) => b.id));
   assert.deepEqual(S0P_BEATS.map((b) => b.id), ['ref-in-turn', 'scope-inject', 'read-in-scope', 'write-1', 'no-injection']);
   assert.equal(S0_CHAIN.length, 10, '既有 S0_CHAIN 10 环节逐字保留');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-2 **TASK-V55F-214**（ADR-SGO-004 §1~§8 · ADR-SGO-006 §2/§3 · FR-SGO-093 ·
+ * **AC-SGO-015/016** · N-SGO-025）——
+ *
+ * **S0′ 批量段的 node 面判官**：`S0P-B1~B3` 逐条判据 + 各自反证。真源切片 = 生产
+ * `background/batch-plan.ts`（`buildPlan` / `createBatchConsent` / `admitEntry` 单源），
+ * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs`（与 Chromium 面共用同一份）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** S0′ 批量段三条判据（`expectFailPattern` 从共享样本单源取）。 */
+export const S0P_B_JUDGEMENTS: readonly S0PJudgement[] = S0P_B_ITEMS.map((i) => ({ id: i.id, expectFailPattern: i.expectFailPattern }));
+
+/** 本回合引用集合（计划内 2 处；`ref_9` 缺省 ⇒ 第 3 条写为**计划外**探针）。 */
+const S0P_B_REFS: readonly PlanRef[] = Object.freeze([
+  { refNum: 1, refId: 'ref_1', selector: '#r1', textDigest: '摘要1' },
+  { refNum: 2, refId: 'ref_2', selector: '#r2', textDigest: '摘要2' },
+]);
+
+/**
+ * **诚实读数**（生产模块驱动 ⇒ 反证打在判据上）：单条 assistant 消息的 3 条 `set-text`
+ * （2 条 in-scope + 1 条越界）⇒ `buildPlan` 恰 2 条；一次批准放行 2 条；计划外 1 条回落；
+ * 中止分支（独立 holder）判 `cancelled` + 计划内拒执行。
+ */
+async function s0pBReading(opts: { extraWrites?: number; authorized?: boolean } = {}): Promise<Record<string, unknown>> {
+  const refs = S0P_B_REFS;
+  const plan = await buildPlan(
+    [
+      { name: 'dom', subcommand: 'set-text', args: { ref: '1', text: '译文1' } },
+      { name: 'dom', subcommand: 'set-text', args: { ref: '2', text: '译文2' } },
+      { name: 'dom', subcommand: 'set-text', args: { ref: '9', text: '越界' } },
+    ],
+    refs,
+  );
+  const consent = createBatchConsent();
+  consent.setPlan(plan);
+  const planConsent = consent.admit(plan.entries[0]!, refs);
+  consent.markApproved();
+  let admitted = 0;
+  for (const e of plan.entries) if (consent.admit(e, refs).kind === 'admitted') admitted += 1;
+  const outEntry = Object.freeze({ selector: '#outside', actionType: BATCH_ACTION_TYPE, fromDigest: '摘要9', toText: '越界' });
+  const outOfPlanCount = 1;
+  const fallbackCount = consent.admit(outEntry, refs).kind === 'fallback' ? 1 : 0;
+  // 中止分支（独立 holder；同一计划）。
+  const ab = createBatchConsent();
+  ab.setPlan(plan);
+  ab.markCancelled();
+  const abVerdict = ab.admit(plan.entries[0]!, refs);
+  const authorized = opts.authorized === true;
+  const writeCount = plan.entries.length + (opts.extraWrites ?? 0);
+  const total = plan.entries.length;
+  return {
+    planEntries: total,
+    planConsent: planConsent.kind,
+    admittedOnOneGesture: admitted,
+    outOfPlanCount,
+    fallbackCount,
+    refCount: refs.length,
+    writeCount,
+    authorized,
+    authorizedReading: scopeReading({ targets: [{ selector: '#whole-page' }], refs, authorized: true }),
+    choiceOffered: total >= 2 && isWidenWholePage(SCOPE_WIDEN_OPTIONS[1]),
+    abortJudged: ab.state() === 'cancelled' && abVerdict.kind === 'rejected',
+    trace: `batch.plan=${plan.fingerprint} | batch.entries=${total} | batch.gesture=user | batch.results=${total}/${total}`,
+    authorizedTrace: scopeReadingTrace('out-of-scope-authorized', true),
+    userValues: ['译文1', '译文2', '越界'],
+  };
+}
+
+test('S0P-B1~B3：S0′ 批量段 3 拍可判（一次手势覆盖计划内全部 / 计划外回落 / 改写≤引用 / 二择 + 中止）', async () => {
+  const reading = await s0pBReading();
+  assert.deepEqual(s0pBProblems(reading), [], S0P_B_JUDGEMENTS.map((j) => j.id).join(' / '));
+  assert.equal(reading.planConsent, 'plan-consent', '首次写必须出**一次**计划卡');
+  assert.equal(reading.planEntries, 2, '计划边界 = 单条消息的 in-scope `set-text`（越界不入计划）');
+  assert.equal(reading.admittedOnOneGesture, 2, '一次手势覆盖计划内**全部**');
+  assert.equal(reading.fallbackCount, 1, '计划外第 N+1 条必须逐条回落');
+  assert.deepEqual(s0pBChain().map((b) => b.id), S0P_B_BEATS.map((b) => b.id), '样本单源 3 拍逐序');
+  assert.match(String(reading.authorizedTrace), /scope\.authorized=user/, '扩围事实必须入留痕（可判）');
+});
+
+test('S0P-B 反证：一次手势少放行 / 计划外不回落 / 越权改写 / 二择缺失 / 中止不可判 ⇒ 必红 → 还原 PASS', async () => {
+  const clean = await s0pBReading();
+  assert.deepEqual(s0pBProblems(clean), []);
+  // B1：一次手势只放行 1 条 / 计划外不回落 ⇒ 必红。
+  assert.ok(s0pBProblems({ ...clean, admittedOnOneGesture: 1 }).some((p) => p.includes('S0P-B1')), '少放行 ⇒ 必红');
+  assert.ok(s0pBProblems({ ...clean, fallbackCount: 0 }).some((p) => p.includes('S0P-B1')), '计划外不回落 ⇒ 必红');
+  assert.ok(s0pBProblems({ ...clean, planEntries: 1 }).some((p) => p.includes('S0P-B1')), 'N<2 ⇒ 必红');
+  // B2：未授权却改写 3 处（引用 2）⇒ 必红；授权例外读数错 ⇒ 必红；授权例外本身 ⇒ 绿。
+  assert.ok(s0pBProblems({ ...clean, writeCount: 3 }).some((p) => p.includes('S0P-B2')), '越权改写 ⇒ 必红');
+  assert.ok(
+    s0pBProblems({ ...clean, authorized: true, writeCount: 3, authorizedReading: 'out-of-scope-unauthorized' }).some((p) => p.includes('S0P-B2')),
+    '授权例外读数错 ⇒ 必红',
+  );
+  assert.deepEqual(s0pBProblems({ ...clean, authorized: true, writeCount: 3 }), [], '授权例外（out-of-scope-authorized）⇒ 绿');
+  // B3：二择缺失 / 中止不可判 / 留痕格式坏 / 留痕含用户内容值 ⇒ 各必红。
+  assert.ok(s0pBProblems({ ...clean, choiceOffered: false }).some((p) => p.includes('S0P-B3')), '二择缺失 ⇒ 必红');
+  assert.ok(s0pBProblems({ ...clean, abortJudged: false }).some((p) => p.includes('S0P-B3')), '中止不可判 ⇒ 必红');
+  assert.ok(s0pBProblems({ ...clean, trace: 'batch.plan=xxx' }).some((p) => p.includes('S0P-B3')), '留痕格式坏 ⇒ 必红');
+  assert.ok(s0pBProblems({ ...clean, trace: `${clean.trace} 译文1` }).some((p) => p.includes('S0P-B3')), '留痕含用户内容值 ⇒ 必红');
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(s0pBProblems(clean), []);
+});
+
+test('S0P-B 真源切片：批量段判据走生产模块（batch-plan.ts）∧ 既有 S0P-1~8 / S0_CHAIN 逐字保留', () => {
+  const batchSrc = readSrc('src/background/batch-plan.ts');
+  // 计划外回落 / 中止（rejected）语义在**生产真源**里可定位（改判即红）。
+  assert.match(batchSrc, /kind: 'fallback'/, '生产模块必须保留计划外回落分支');
+  assert.match(batchSrc, /BATCH_REJECTED_TEXT/, '生产模块必须保留中止 / 拒绝语义');
+  assert.match(batchSrc, /planDriftProblems/, '生产模块必须保留批准前漂移重校验');
+  assert.equal(S0P_B_ITEMS.length, 3, '批量段恰 3 条必判项');
+  assert.equal(S0P_BEATS.length, 5, '既有 S0′ 5 拍逐字保留');
+  assert.equal(S0P_ITEMS.length, 8, '既有 S0P-1~8 逐字保留');
+  assert.equal(S0_CHAIN.length, 10, '既有 S0_CHAIN 10 环节逐字保留');
+  for (const j of S0P_B_JUDGEMENTS) assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 不得占位`);
 });

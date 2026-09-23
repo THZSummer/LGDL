@@ -43,15 +43,18 @@
       "改写 v5.5 / R6 产物与体积登记"
     ]
   },
-  "artifacts": {
-    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
-    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
-    "dependsOnSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
-    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md",
-    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json"
-  },
+  "artifacts": [
+    "spec",
+    "parentSpec",
+    "discovery",
+    "dependsOnSpec",
+    "plan",
+    "tasks",
+    "tasksJson",
+    "build.md（R1+R2）",
+    "xSgoLedgerLeaf2",
+    "v55f2R1R2Rows"
+  ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/state.json",
@@ -134,6 +137,14 @@
       "agent": "sddu-build",
       "artifact": "build.md（R1 = W1+W2）+ 5 源码文件（1 NEW + 4 MODIFY）+ 4 测试文件（1 NEW + 3 MODIFY）",
       "note": "V5.5F-2 R1（W1+W2，TASK-V55F-201~212）落地：边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权不入批机核 + 载体零新增 + batch-consent 门禁 BC-1~7）→ 计划/指纹/准入/回落/漂移/零明文/中止。npm test 1375 → 1386（1379 pass / 7 fail：6 = 体积/红线 pin 家族（重登记留 W3 TASK-V55F-216）+ 1 = 预提交 worktree 漂移，提交后自愈）；A 列 +3,301 B（585,732 → 589,033，预算 3.5~5.5 KB 下界未达/上界未越）；B 列 +8,251 B（不计账）；三冻结面逐字节不变；law8 46/0、dead-end 49/0、journey 171、binding 192、l0 248、l1 131、stream 76、auth-chip 37、ask-auth 78、s0 65、e2e PASS。W3（TASK-V55F-213~216：WIDEN 二择 / S0′ 批量段 / 台账 / 体积收口）留 R2。零受管 Provider 调用（routing.v1 = local_or_compute → none）"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-build",
+      "artifact": "build.md v2.0（R2 = W3）+ 6 源码/文档 + 8 测试文件",
+      "note": "V5.5F-2 R2（W3，TASK-V55F-213~216）收口 ⇒ 16/16 全部完成：WIDEN 二择（ref-scope 单源 + sidepanel 接线 + 批量留痕；AI 零写入面注入必红）→ S0′ 批量段 S0P-B1~B3（样本单源 + node/Chromium 双面只加断言）→ X-SGO-4 已发生（redlineRemap 扩断言）+ 6/7 如实 + law8 批量零明文 → 体积逐叶重登记（A 列 585,732 → 591,946 B，+6,214）。6 项体积/红线 pin 一次闭环：npm test 1394 / 0 fail；law8 52/0（+6）、dead-end 53/0（+4）、s0 70/0（+5）、stream 76、auth-chip 37、ask-auth 78、l0 248、l1 131、l2 74、journey 171、binding 192（1 次 KL-N-10 flake ⇒ 复跑 PASS）、e2e PASS；三冻结面/base 零 diff；两叶 Σ +13,323 B（正常口径内，不触发升档）。零受管 Provider 调用（routing.v1 = local_or_compute → none）"
     }
   ]
 }
