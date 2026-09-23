@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-1-ref-context-and-anchor",
   "version": "v0.11.1",
   "name": "V5.5F-1 范围底座——引用事实进回合（chat type-only 载荷 + 系统段基座/追加段）+ 范围读数单源（法九）+ 工具面 --ref <n> 锚定（仅 dom set-text；plugin 侧包装；单节点保证；失配 fail-closed 非静默）+ 留痕扩字段 + S0′ 双向样板（含反证）",
-  "phase": "specified",
+  "phase": "planned",
   "status": "tracked",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -14,7 +14,7 @@
   "deliveryOrder": 1,
   "dependsOn": [],
   "createdAt": "2026-09-23",
-  "updatedAt": "2026-09-23",
+  "updatedAt": "2026-09-24",
   "description": "本叶 = F-34 的首叶 / 底座叶，交付「让引用事实到达模型 + 让范围可判 + 让写动作可锚定」的那一层：回合载荷携带 type-only 引用事实（两条入口同一构建点，requestTurn( 仍恰 2）、系统段 = 常量基座 + 每回合追加段（零引用逐字不变）、范围读数单源（in-scope / out-of-scope-authorized / out-of-scope-unauthorized / no-ref）、立法「法九」机核门禁（双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片）、dom set-text --ref <n> → [data-wcli-ref=\"ref_n\"]（plugin 侧包装，base 零 diff 不解冻；单节点保证；失配非静默）、留痕扩范围读数字段名（不含值）、S0′ 全链机器化 + 双向反证（去注入 ⇒ 读数为空必红）。本叶不做任务级批量授权（叶2）、不做读命令 --ref（PD-SGO-001）。",
   "scope": {
     "in": [
@@ -44,11 +44,13 @@
   "artifacts": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md"
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/state.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md"
   ],
   "coversFr": [
     "FR-SGO-001~006",
@@ -112,6 +114,14 @@
       "agent": "sddu-spec",
       "artifact": "specs-tree-v55f-1-ref-context-and-anchor/spec.md v1.0",
       "note": "初始创建（叶规范）：承载父 FR ≈62 条切片（GOV/REFCTX/SCOPE/ANCHOR/LAW9/TRACE 部分/S0′ 部分/SUPERSEDE 部分/GATE/VOL）；交付 8 项；执行序 8 步（先读数后法则）"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-plan",
+      "artifact": "specs-tree-v55f-1-ref-context-and-anchor/plan.md v1.0",
+      "note": "V5.5F-1 叶 plan：承接父 plan.md + ADR-SGO-001~008；文件影响 / 执行序 / 风险 / 体积预算逐项落地；零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
     }
   ]
 }

@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "version": "v5.5.1",
   "name": "web-cli-plugin「范围治理（scope governance）：引用即范围」—— ① 引用事实进回合（id / 序号 / 文本摘要 / 选择器 / data-wcli-ref 标记注入系统段）② 范围法则（引用存在 ⇒ 任务范围默认限定于引用目标；扩大范围必须先征询）③ 工具面 ref 锚定（dom set-text --ref <n>；单节点保证；失配 / 失效非静默）④ 任务级批量授权（AI 先出写入计划 ⇒ 一次 consent 覆盖整批；逐条审计保留零明文；中途可中止；非批次仍逐条）",
-  "phase": "specified",
+  "phase": "planned",
   "status": "tracked",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -15,7 +15,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/",
       "name": "V5.5F-1 范围底座：引用事实进回合 + 范围读数（法九）+ ref 锚定",
       "leaf": true,
-      "phase": "specified",
+      "phase": "planned",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 1,
@@ -27,7 +27,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/",
       "name": "V5.5F-2 任务级批量授权",
       "leaf": true,
-      "phase": "specified",
+      "phase": "planned",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 2,
@@ -39,7 +39,7 @@
   ],
   "leaf": false,
   "createdAt": "2026-09-23",
-  "updatedAt": "2026-09-23",
+  "updatedAt": "2026-09-24",
   "description": "立项来源 = 编排指示 2026-09-23（P1 引用事实进回合 / P1′ 范围法则 / P3 工具面 ref 锚定 / P2 任务级批量授权；P3/P4/P5 已由 R6 74d76c1 修复，本 Feature 不重复立项）+ 真机证据 ty.md（1963 行，21:28:28–21:32:29，本轮入库）。核心事实：用户拾取引用 ① → 答「原地翻译为中文」→ 回合 user 载荷只有答案原文（引用范围未进回合）→ AI 把「原地」理解为整页就地替换 → 42 处 dom set-text 全页改写 + 42 张同文案授权卡。决定性反证：AI 已读到 data-wcli-ref=\"ref_1\"（ty.md:550）且 [data-wcli-ref] 恰 1 命中（ty.md:566）仍未锚定 ⇒ 问题不是 AI 能力，而是引用事实在链路上不可见 + 无范围法则 + 工具面无 ref 参数 + 授权逐条。",
   "scope": {
     "core": [
@@ -70,7 +70,18 @@
     "specs-tree-v55f-1-ref-context-and-anchor/spec.md",
     "specs-tree-v55f-1-ref-context-and-anchor/state.json",
     "specs-tree-v55f-2-batch-consent/spec.md",
-    "specs-tree-v55f-2-batch-consent/state.json"
+    "specs-tree-v55f-2-batch-consent/state.json",
+    "plan.md",
+    "ADR-SGO-001-ref-context-in-turn.md",
+    "ADR-SGO-002-law9-scope-reading.md",
+    "ADR-SGO-003-ref-anchor-parse-chain.md",
+    "ADR-SGO-004-batch-consent.md",
+    "ADR-SGO-005-widen-consult.md",
+    "ADR-SGO-006-s0p-dual-face.md",
+    "ADR-SGO-007-volume-split-budget.md",
+    "ADR-SGO-008-open-points-rulings.md",
+    "specs-tree-v55f-1-ref-context-and-anchor/plan.md",
+    "specs-tree-v55f-2-batch-consent/plan.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
@@ -80,7 +91,18 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ty.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ty.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-001-ref-context-in-turn.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-002-law9-scope-reading.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-003-ref-anchor-parse-chain.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-004-batch-consent.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-005-widen-consult.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-006-s0p-dual-face.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-007-volume-split-budget.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-008-open-points-rulings.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md"
   ],
   "coversIssues": [
     "Q-SGO-001 引用事实不进回合（母问题；反证：ty.md:550 / :566 AI 已读到 data-wcli-ref 且恰 1 命中仍未锚定）",
@@ -203,6 +225,14 @@
       "agent": "sddu-spec",
       "artifact": "spec.md v1.0 + 2 叶（specs-tree-v55f-1-ref-context-and-anchor / specs-tree-v55f-2-batch-consent）spec.md v1.0 + 三份 state.json",
       "note": "F-34 需求规范：FR 88 / NFR 14 / EC 22 / NG 22 / AC 26 / US 10 / G 8；O-SGO-001~009 全部裁决（DC-SGO-001~009）；X-SGO-1~7 等价重锚映射表；N-SGO-001~023 继承 + N-SGO-024~030 新增；R-SGO-901~910 新增；体积分列预算；S0′（ty.md 原案重放）机器化口径；2 叶拆分（依存序，已论证不退化单叶）"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-plan",
+      "artifact": "plan.md v1.0（父）+ 2 叶 plan.md + ADR-SGO-001~008（8 条正文）",
+      "note": "F-34 plan：父 plan.md v1.0 + 2 叶 plan.md + ADR-SGO-001~008（8 条正文，全 ACCEPTED）；八条设计任务定案（引用进回合/法九读数/--ref 锚定/批量授权/扩围征询/S0′ 双面/体积分列预算/PD 裁决）；X-SGO-1~7 逐条处置（1/2/3/5 已发生、4 已发生、6 以读数承载未扩张、7 未发生）；体积分列预算 A 列 Σ 9.5~14.5 KB（+15% 16.7 KB ≤ 余量 28,931 ⇒ 正常不触发升档）+ 2.8× 最坏预置 EC-SGO-022 升档路径；PD-SGO-001~007 全部裁决；零运行时验证、零受管 Provider 调用（routing.v1 = local_or_compute → none）"
     }
   ],
   "spec": {
