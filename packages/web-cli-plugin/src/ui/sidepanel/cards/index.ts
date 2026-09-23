@@ -53,8 +53,7 @@ import { createNoticeCard } from './notice.js';
 import { createToolCard, patchToolCard } from './tool.js';
 import { createThinkingCard, patchThinkingCard } from './thinking.js';
 import { answeredState, createAskuserCard, patchAskuserCard } from './askuser.js';
-import { createAuthCard, decisionState, patchAuthCard } from './auth.js';
-import { createRefCard } from './ref.js';
+import { createAuthCard, decisionState, patchAuthCard } from './auth.js';import { createRefCard } from './ref.js';
 import { createNextstepCard } from './nextstep.js';
 
 export { CARD_KIND_LAYER, PROCESS_CARD_TYPES, PRIMARY_CARD_TYPES, STREAM_EVENT_KINDS, formatClock };
@@ -86,6 +85,8 @@ export {
   answeredState,
   decisionState,
 };
+// V5.5F-2 TASK-V55F-211/212: 计划卡渲染行 + 中止如实交代（单源：卡侧构造）。
+export { AUTH_PLAN_RENDER_MAX, AUTH_PLAN_ABORT_TEXT, authPlanRows } from './auth.js';
 
 /** 12 项 = 7 主类（前，设计契约顺序）+ 5 过程族。 */
 export const CARD_TYPES: readonly StreamEventKind[] = STREAM_EVENT_KINDS;

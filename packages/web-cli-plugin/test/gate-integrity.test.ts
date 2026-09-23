@@ -262,6 +262,12 @@ export const EXPECTED_AUDITED_FILES = [
   'test/ref-context-in-turn.test.ts',
   'test/law9-scope-reading.test.ts',
   'test/dom-ref-anchor.test.ts',
+  // ── V5.5F-2（leaf specs-tree-v55f-2-batch-consent）批量授权叶的 1 枚新 node 门禁 ──
+  // W1 落 `batch-consent`（BC-1~7：计划构建 / 指纹 / 准入 / 回落 / 漂移 / 特权不入批 /
+  // 零明文 / 中止）。**只追加** ⇒ 改名 / 删除仍 FAIL；`CHROMIUM_GATES.length === 9` 逐字
+  // 不动（本叶零新增 Chromium 门禁文件：S0′ 批量段走既有 `test/ui/s0-self-driven.mjs`，
+  // 只加断言不加文件）。`V55F2_NODE_GATE_FILES` 下界声明见 W3（TASK-V55F-216）。
+  'test/batch-consent.test.ts',
 ] as const;
 
 /**

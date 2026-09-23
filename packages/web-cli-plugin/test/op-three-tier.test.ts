@@ -406,3 +406,46 @@ test('OT ⑪: 判定链零触碰 —— v3 台账 `zeroDiffFiles` 9 项逐项零
   const forged = [...v3.zeroDiffFiles, 'packages/web-cli-plugin/src/shared/op-table.ts'];
   assert.ok(zeroDiffProblems(forged, unfrozen, runGit).length > 0, '改动过的文件塞进 zeroDiffFiles 必须判红');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-2 **TASK-V55F-202**（ADR-SGO-004 §6 · FR-SGO-049/103 · AC-SGO-005 ·
+ * N-SGO-005 · R-SGO-001）—— **OT-⑩ 扩批量变体**：批量机制**不得**改变档位裁决.
+ *
+ * 原判据（OT-⑩：gesture 档发起方必须是用户手势）**逐字不改**；本段**扩**批量变体：
+ *   · `tierOf` **逐 op 对照不变**（衍生式 5/2/2 保持）；
+ *   · 批量**准入集必须 ⊆ `auto` 档**（批次是执行面的聚合，不是档位的旁路）；
+ *   · 特权 op（`op.authorize` / `op.perm.request`）**恒 `gesture`** ⇒ 永不可入批（注入必红）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 批量准入集 ⊆ `auto` 档（纯函数；空数组 ⇒ 通过）。 */
+export function bulkAdmitProblems(batchAdmitted: readonly string[], tiers: Readonly<Record<string, OpTier>>): string[] {
+  const p = 'OT-⑩扩批量变体：批量准入不得含非 auto 档（批次不改变档位裁决）';
+  return batchAdmitted
+    .filter((id) => tiers[id] !== 'auto')
+    .map((id) => `${p}：${id} 实测档位 ${String(tiers[id])}`);
+}
+
+test('OT ⑩ 扩批量变体：批量准入 ⊆ auto ∧ tierOf 逐 op 不变 ∧ 特权恒 gesture（注入必红）', () => {
+  // ① 原判据不复述、不替换：本段只**追加**批量面的读数（OT-⑩ 的原测试逐字保留）。
+  // ② `tierOf` 逐 op 对照不变：按描述符重算 == 物化表（衍生式 5/2/2 保持）。
+  const recomputed: Record<string, OpTier> = Object.fromEntries(OP_DESCRIPTORS.map((d) => [d.id, tierOf(d)]));
+  assert.deepEqual(recomputed, { ...OP_TIER_TABLE }, '批量机制不得改变任何 op 的档位裁决');
+  assert.deepEqual(EXPECTED_TIER_COUNTS, { auto: 5, confirm: 2, gesture: 2 });
+  // ③ 特权 op 恒 gesture（批量不得把它们拉进 auto）。
+  for (const id of PRIVILEGED_IDS) assert.equal(tierOfId(id), 'gesture', `${id} 必须恒 gesture（不得因批次改变）`);
+  // ④ 批量准入集 ⊆ auto：合法批次的成员只能是 auto 档（真实读数为空 ⇒ 通过）。
+  const batchAdmitted: readonly string[] = [];
+  assert.deepEqual(bulkAdmitProblems(batchAdmitted, OP_TIER_TABLE), []);
+  assert.deepEqual(bulkAdmitProblems(tierMembers(OP_TIER_TABLE, 'auto'), OP_TIER_TABLE), []);
+  // ⑤ 注入：把特权 op 塞进批量准入集 ⇒ 必红；还原 ⇒ PASS。
+  const forgedAdmit = bulkAdmitProblems(['op.authorize'], OP_TIER_TABLE);
+  assert.ok(forgedAdmit.length > 0, '特权 op 入批必须判红');
+  assert.ok(forgedAdmit.some((x) => x.includes('OT-⑩扩批量变体')), '必红必须命中 OT-⑩ 扩批量变体判据');
+  assert.ok(bulkAdmitProblems(['op.llm-config'], OP_TIER_TABLE).length > 0, 'confirm 档入批同样必红');
+  // ⑥ 注入：把 op.authorize 的档位改成 auto（改安全声明）⇒ 档位判据 + 批量判据**双红**。
+  const forgedTiers: Record<string, OpTier> = { ...OP_TIER_TABLE, 'op.authorize': 'auto' };
+  assert.ok(partitionProblems(forgedTiers, OP_IDS, PRIVILEGED_IDS).some((p) => p.includes(JUDGEMENTS[2].expectFailPattern)), '改档位必须让特权恒 gesture 判据红');
+  assert.deepEqual(bulkAdmitProblems(batchAdmitted, OP_TIER_TABLE), []);
+  // ⑦ `auth` 6 终态语义保持：本文件不持有终态词表，只机核「档位不被批量改变」（OT-⑩ 原判据）。
+  assert.equal(OP_TIERS.length, 3, '档位枚举必须恰 3（无第四档）');
+});

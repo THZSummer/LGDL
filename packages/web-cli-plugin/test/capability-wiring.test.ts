@@ -343,3 +343,49 @@ test('V5.5-3 三档等价重锚：特权集 == gesture 档（恰 2）∧ AI 不�
   // 逐档读数与单源一致（清分不脱钩）。
   for (const d of SW_OP_DESCRIPTORS) assert.equal(tierOfId(d.id), 'gesture');
 });
+
+/* ── V5.5F-2 **TASK-V55F-203**（ADR-SGO-004 §6 · FR-SGO-045 · AC-SGO-005 ·
+ * N-SGO-005 · NFR-SGO-002）—— **特权 op 不入批机核** ─────────────────────────
+ *
+ * 批量机制**只识别** `dom set-text`；`op.authorize` / `op.perm.request` **永不**进入
+ * 计划 holder，**永不**被批量放行。判据面：
+ *   ① 计划模块（`src/background/batch-plan.ts`）**不含**特权 op 标识 ∧ 不含 `.request(`；
+ *   ② 「SW 永不 `.request(`」**计数不减**（既有断言逐字保留，本段**追加**复合读数）；
+ *   ③ 注入「把 `op.authorize` 塞入计划」⇒ 必红。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** 批量入批集不得含非 `auto` 档 op（计划只认 `dom set-text` ⇒ 真实读数为空）。 */
+export function batchPrivilegedProblems(batchEntryIds: readonly string[], tiers: Readonly<Record<string, OpTier>>): string[] {
+  const p = '特权 op 不入批：批量路径不得触达特权 op（计划只识别 dom set-text）';
+  return batchEntryIds
+    .filter((id) => tiers[id] !== 'auto')
+    .map((id) => `${p}：${id} 实测档位 ${String(tiers[id])}`);
+}
+
+test('V5.5F-2 特权 op 不入批：计划模块零特权标识 ∧ `.request(` 计数不减 ∧ 注入必红', () => {
+  const privileged = SW_OP_DESCRIPTORS.map((d) => d.id);
+  assert.equal(privileged.length, 2, '特权 op 恰 2（FR-ALLN-066 逐字保留）');
+  // ① 计划模块（生产真源）不得出现特权 op 标识 / `.request(`。
+  const batchPlan = read('../../src/background/batch-plan.ts');
+  for (const id of privileged) {
+    assert.equal(batchPlan.includes(id), false, `批量计划模块不得出现特权 op ${id}（不得有入批入口）`);
+  }
+  assert.equal(/\.request\s*\(/.test(batchPlan), false, '批量计划模块不得调用 `.request(');
+  // 计划只识别 `dom` + `set-text`（唯一动作类型）。
+  assert.match(batchPlan, /BATCH_ACTION_TYPE = 'set-text'/);
+  assert.match(batchPlan, /call\.name !== 'dom'/);
+  // ② `.request(` 计数不减（既有两条断言逐字保留，这里追加同口径复合读数）。
+  const sw = read('../../src/background/service-worker.ts');
+  assert.equal((sw.match(/\.request\s*\(/g) ?? []).length, 0, '「SW 永不 .request(」计数不得减');
+  const helper = read('../../src/platform/capability-permissions.ts');
+  assert.ok((helper.match(/\.request\s*\(/g) ?? []).length >= 1, '手势 helper 的请求点不得消失');
+  // ③ 真实读数：批量入批集为空 ⇒ 通过；注入特权 op ⇒ 必红；还原 ⇒ PASS。
+  assert.deepEqual(batchPrivilegedProblems([], OP_TIER_TABLE), []);
+  const forged = batchPrivilegedProblems(['op.authorize'], OP_TIER_TABLE);
+  assert.ok(forged.length > 0, '把 op.authorize 塞入计划必须判红');
+  assert.ok(forged.some((x) => x.includes('特权 op 不入批')), '必红必须命中特权不入批判据');
+  assert.ok(batchPrivilegedProblems(['op.perm.request'], OP_TIER_TABLE).length > 0, 'op.perm.request 入批同样必红');
+  // 特权 op 逐项恒 gesture（与单源一致；批量不改变档位）。
+  for (const id of privileged) assert.equal(tierOfId(id), 'gesture');
+  assert.deepEqual(batchPrivilegedProblems([], OP_TIER_TABLE), []);
+});

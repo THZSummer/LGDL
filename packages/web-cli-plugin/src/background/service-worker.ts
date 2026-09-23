@@ -84,6 +84,8 @@ import { refContextSegment, validateRefPayload } from './ref-context.js';
 // 同源 import ⇒ 禁第二份副本；`nodeCount === 1` 为唯一通过条件，AC-SGO-022）。
 import { observeIdentity } from './ref-observe.js';
 import { refTurnHolder } from './ref-turn.js';
+// V5.5F-2 TASK-V55F-206/209 (ADR-SGO-004 §1/§2/§4): 写入计划（系统聚合）+ 计划 holder 单源。
+import { batchConsent, buildPlan } from './batch-plan.js';
 import type { ChatRefFact } from './messaging.js';
 import {
   errorResponse,
@@ -618,6 +620,10 @@ async function init(): Promise<Singletons> {
       onAsk: createConfirmBridge({
         currentOrigin: () => controller.get()?.origin,
         audit,
+        // ★ V5.5F-2 **TASK-V55F-209/210**（ADR-SGO-004 §3/§4/§5）—— 计划感知桥接线：
+        // holder 单源 = 本模块的 `batchConsent`；漂移重校验用**同源**回合引用快照
+        // （`refTurnHolder.refs()`，与 `--ref` live 闸同一份事实）。零新增 kind / 宿主。
+        plan: { consent: batchConsent, refs: () => refTurnHolder.refs() },
         // Author reversal (2026-09-13): name the exact tab in the confirmation
         // summary for `tabs` mutating ops (title + stripped URL; `close` also gets
         // the irreversibility + side-panel warning). Best-effort: a resolution
@@ -973,12 +979,20 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
       // `chat-runner.ts` 已支持 `system: string | (() => string)` ⇒ **零改**。
       system: () => SYSTEM_PROMPT + refContextSegment(refs),
       maxRounds: settings.maxRounds,
-      chat: async (turns, system) =>
-        providerChat(
+      chat: async (turns, system) => {
+        const res = await providerChat(
           { providerId: settings.providerId, apiKey: settings.apiKey, model: settings.model, baseURL: settings.baseURL },
           [{ role: 'system', content: system }, ...turns],
           s.host.deriveTools(),
-        ),
+        );
+        // ★ V5.5F-2 **TASK-V55F-206/209**（ADR-SGO-004 §1 · FR-SGO-040/041）——
+        // **计划捕获唯一处**：本回调是「单条 assistant 消息的全部 toolCalls」的**唯一**交付点
+        // （base `runner.ts` 把 `res.toolCalls` 一次给出）。计划在任何写**执行之前**成立 ⇒
+        // 计划与实际写入**同源**（R-SGO-906 结构性消除）。每条消息各自成计划 ⇒ 跨轮不累积
+        // （R-SGO-915）；`N<2` / 空计划在 holder 入口归一为「无批次」（不空弹）。
+        batchConsent.setPlan(await buildPlan(res.toolCalls, refs));
+        return res;
+      },
       dispatch: (tc) => s.host.dispatch(tc, { origin: s.controller.get()?.origin }),
       deriveCommand: (tc) => s.host.router.deriveCommand(tc),
       events: {
@@ -1024,6 +1038,8 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
   } finally {
     // V5.5F-1 TASK-V55F-105：回合结束即清空引用快照（下一回合绝不见到上一回合的引用）。
     refTurnHolder.clear();
+    // V5.5F-2 TASK-V55F-209：计划 holder 同寿命 —— 回合结束即清空（零跨回合累积）。
+    batchConsent.clear();
     chatBusy = false;
     await persistChatHistory(s, sessionIdAtStart);
   }

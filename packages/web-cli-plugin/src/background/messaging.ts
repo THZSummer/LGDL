@@ -161,6 +161,40 @@ export interface ChatRefTurnPayload {
   readonly refs?: readonly ChatRefFact[];
 }
 
+/**
+ * V5.5F-2 **TASK-V55F-204** (ADR-SGO-004 §2 · FR-SGO-041/063 · N-SGO-009/010) — 批量计划的
+ * **wire 形状**（`question.plan` 的 type-only 字段）。
+ *
+ * **Type-only 纪律（零新增载体）**：
+ *   · 这是既有 `confirm-request` 消息的 `question` 上的**扩展字段**，**不是** kind ⇒
+ *     `KIND_SET` **40 逐字不动**（该集合被 bundle 进注入的 `content.js`，零余量）；
+ *   · 卡 = 既有 `auth` kind（复用）；二择 = 既有 `ask-user-request`（复用）；
+ *   · 类型联合由编译器**擦除** ⇒ `content.js` / `pick-layer.js` **零运行时字节**。
+ *
+ * **零明文边界**：`toText` / `fromDigest` 是**页面文本**（法八允许入载荷，凭据形先掩码）；
+ * 它们**永不**进 `CardView.payload` 值 / `digest` 值 / 审计值 / DOM 属性 —— 只经**渲染用
+ * 字段**（`CardView.plan`，与 `payload` 同级）以 `textContent` 渲染。
+ */
+export interface BatchPlanWireEntry {
+  /** `--ref` 命中时的引用序号（不入指纹四元组）。 */
+  readonly refNum?: number;
+  readonly selector: string;
+  readonly actionType: 'set-text';
+  readonly fromDigest: string;
+  readonly toText: string;
+}
+
+/** 计划 wire（`question.plan`）：指纹**摘要** + 条目（含文本对）。 */
+export interface BatchPlanWire {
+  readonly fingerprint: string;
+  readonly entries: readonly BatchPlanWireEntry[];
+}
+
+/** `confirm-request` 的 `question` 扩展（缺省 ⇒ 字段**缺席** ⇒ 单条路径逐字不变）。 */
+export interface ConfirmPlanQuestionExt {
+  readonly plan?: BatchPlanWire;
+}
+
 export interface PluginMessage {
   kind: PluginMessageKind;
   requestId?: string;

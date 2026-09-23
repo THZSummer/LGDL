@@ -2505,3 +2505,110 @@ test('ledger(V4 段 · V5.5F-1): 本叶同步的受判文件逐项在 modifiedRa
   const forged = ranges.filter((r) => r.file !== 'packages/web-cli-plugin/test/size-baseline.ts');
   assert.ok(forged.length < ranges.length, '注入必须真的移出一项');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-2 **TASK-V55F-201**（ADR-SGO-004 §4 · FR-SGO-049/103 · AC-SGO-005 ·
+ * N-SGO-006/025 · R-SGO-001）—— **RL-06 扩批量变体**（边界先行）.
+ *
+ * 红线⑥原判据（`RL-06-consent-no-proxy`：consent 档不得被 AI 代答）**不改**；本段
+ * **扩**三类批量变体并注入必红：
+ *   ① 「AI 代答计划卡」（计划审批状态由 AI 写入）；
+ *   ② 「AI 建议计划即视为同意」（把建议当 consent）；
+ *   ③ 「自动展开计划卡」（无需手势即展开 / 放行）。
+ *
+ * 判据真源 = 生产模块的**写入点**：计划审批状态（`markApproved` / `markRejected` /
+ * `markCancelled` / `setPlan`）只允许出现在面板真实点击回传路径（`security/confirm.ts`
+ * ← `confirm-resolved`）；AI / LLM 侧模块出现任一写入点即 FAIL。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+export interface BulkConsentFacts {
+  /** 被 AI 写入审批状态的**写入点**（`模块:符号`）；空 ⇒ 无代答。 */
+  readonly answeredByAi: readonly string[];
+  /** 被当作 consent 的「AI 建议」标识；空 ⇒ 无「建议即同意」。 */
+  readonly suggestedAsConsent: readonly string[];
+  /** 被自动展开 / 自动放行的卡标识；空 ⇒ 无自动展开。 */
+  readonly autoExpanded: readonly string[];
+}
+
+/** RL-06 扩批量变体的三类注入形态（逐条可判；不得占位）。 */
+export const BULK_CONSENT_VARIANTS = Object.freeze([
+  'ai-answer-plan-card',
+  'ai-suggest-equals-consent',
+  'auto-expand-plan-card',
+] as const);
+
+/** 计划审批状态的**写入符号**（计划 holder 的唯一写入面）。 */
+export const BULK_CONSENT_WRITE_MARKERS = Object.freeze([
+  'markApproved(',
+  'markRejected(',
+  'markCancelled(',
+  'setPlan(',
+  'batchConsent',
+] as const);
+
+/** AI / LLM 侧模块（**不得**出现任何审批状态写入点 ⇒ 结构上不可代答）。 */
+export const BULK_CONSENT_AI_MODULES = Object.freeze([
+  'src/ui/sidepanel/next-registry/ai-drive.ts',
+  'src/llm/providers.ts',
+  'src/llm/status.ts',
+  'src/llm/key-store.ts',
+] as const);
+
+/** 红线⑥扩批量变体的**唯一判据**（纯函数；空数组 ⇒ 通过）。 */
+export function bulkConsentProxyProblems(f: BulkConsentFacts): string[] {
+  const p = '红线⑥扩批量变体：批量卡 / 计划不得被 AI 代答 / 代填 / 自动放行 / 自动展开';
+  const problems: string[] = [];
+  for (const site of f.answeredByAi) problems.push(`${p}：AI 代答了计划审批（${site}）`);
+  for (const id of f.suggestedAsConsent) problems.push(`${p}：把 AI 建议的计划当作同意（${id}）`);
+  for (const id of f.autoExpanded) problems.push(`${p}：计划卡被自动展开 / 自动放行（${id}）`);
+  return problems;
+}
+
+/** 真源读数：AI / LLM 侧模块中的审批写入点（`模块:符号`；空 ⇒ 无代答通道）。 */
+export function bulkConsentWriteSites(files: ReadonlyMap<string, string>): string[] {
+  const out: string[] = [];
+  for (const rel of BULK_CONSENT_AI_MODULES) {
+    const text = files.get(rel);
+    if (text === undefined) continue;
+    for (const marker of BULK_CONSENT_WRITE_MARKERS) {
+      if (text.includes(marker)) out.push(`${rel}:${marker}`);
+    }
+  }
+  return out;
+}
+
+test('V5.5F-2 RL-06 扩批量变体：AI 代答计划 / 建议即同意 / 自动展开 三类注入 ⇒ 必红（原判据不改）', () => {
+  // ① 原判据**不改**：consent 档（confirm）与特权档（gesture）在 AI 上下文一律不得代答。
+  const aiCtx = { actor: 'ai' as const, driverId: 'ref-action', driverClass: 'ai-driven' as const, configured: true, armed: true };
+  const consentOps = ['op.llm-config', 'op.revoke'];
+  const privileged = ['op.authorize', 'op.perm.request'];
+  const proxy = [...consentOps, ...privileged].filter((id) => pressDecision(id, aiCtx).ok);
+  assert.deepEqual(proxy, [], '红线⑥原判据必须逐字保持（consent / 特权一律不得被 AI 按下）');
+  const wrongTier = [...consentOps].filter((id) => tierOfId(id) !== 'confirm');
+  assert.deepEqual(wrongTier, [], 'consent 档必须恒 confirm（原判据不改）');
+
+  // ② 扩批量变体：真源读数（AI / LLM 侧零审批写入点）+ 三类注入逐条必红。
+  const files = new Map<string, string>();
+  for (const rel of BULK_CONSENT_AI_MODULES) files.set(rel, readFileSync(resolve(PKG, rel), 'utf8'));
+  const live = bulkConsentWriteSites(files);
+  const problems = bulkConsentProxyProblems({ answeredByAi: live, suggestedAsConsent: [], autoExpanded: [] });
+  assert.deepEqual(problems, [], 'AI / LLM 侧不得存在任何计划审批写入点（结构上不可代答）');
+  // 计划审批的唯一写入面 = 面板真实点击回传路径（`confirm.ts` 消费 `resolution.action`）。
+  const confirmSrc = readFileSync(resolve(PKG, 'src/security/confirm.ts'), 'utf8');
+  assert.match(confirmSrc, /planGate\.markApproved\(\)/, '批准只允许由面板点击回传驱动');
+  assert.match(confirmSrc, /planGate\.markRejected\(\)/, '拒绝只允许由面板点击回传驱动');
+
+  // ③ 三类变体逐一注入 ⇒ 必红（判据非恒真）；还原 ⇒ PASS。
+  assert.equal(BULK_CONSENT_VARIANTS.length, 3, '三类变体必须齐备（删除即断言减少）');
+  const injected: BulkConsentFacts[] = [
+    { answeredByAi: ['src/ui/sidepanel/next-registry/ai-drive.ts:markApproved('], suggestedAsConsent: [], autoExpanded: [] },
+    { answeredByAi: [], suggestedAsConsent: ['plan-1'], autoExpanded: [] },
+    { answeredByAi: [], suggestedAsConsent: [], autoExpanded: ['plan-card-1'] },
+  ];
+  for (const [i, facts] of injected.entries()) {
+    const p = bulkConsentProxyProblems(facts);
+    assert.ok(p.length > 0, `变体 ${BULK_CONSENT_VARIANTS[i]} 注入必须判红`);
+    assert.ok(p.some((x) => x.includes('红线⑥扩批量变体')), `变体 ${BULK_CONSENT_VARIANTS[i]} 必须命中 RL-06 扩批量变体判据`);
+  }
+  assert.deepEqual(bulkConsentProxyProblems({ answeredByAi: [], suggestedAsConsent: [], autoExpanded: [] }), [], '还原 ⇒ PASS');
+});

@@ -61,6 +61,15 @@ export interface PluginAuditEvent {
   origin?: string;
   trust?: 'untrusted' | 'trusted';
   risk?: string;
+  /**
+   * V5.5F-2 **TASK-V55F-210** (ADR-SGO-004 §7 · FR-SGO-046 · N-SGO-026) — the batch
+   * plan's **digest-only** audit fields: the fingerprint **summary** and the entry
+   * count. The plan's text pair (`fromDigest` / `toText`) never reaches any audit
+   * value; **zero-plaintext** is structural (`fieldNames` = names only).
+   */
+  fingerprintDigest?: string;
+  batchEntries?: number;
+  fieldNames?: readonly string[];
   /** Masked argument summary — never raw plaintext. */
   argsSummary?: string;
   /** Raw args bag; the sink masks it into `argsSummary` on record (never stored raw). */

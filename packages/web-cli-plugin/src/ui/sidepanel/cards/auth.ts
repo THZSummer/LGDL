@@ -31,8 +31,42 @@
  */
 import { ASK_COPY } from '../stream-plaintext.js';
 import type { CardView } from '../stream-model.js';
+// V5.5F-2 TASK-V55F-211：凭据形掩码走**单一口径**（`maskRefDigest` = base `maskTextPayload`
+// + 裸词元形兜底，EC-SGO-019）—— 禁止第二份掩码实现。
+import { maskRefDigest } from '../l1/ref-scope.js';
 import { mountDecisionRegion } from './decision-region.js';
 import { CARD_TAG_LABELS, createCardShell, createFixedRegion, fixedText, type CardDeps } from './shared.js';
+
+/**
+ * V5.5F-2 **TASK-V55F-211 / 212** (ADR-SGO-004 §7/§8/§10 · FR-SGO-046/047/050 ·
+ * PD-SGO-007 · N-SGO-026 · R-SGO-914) — the batch plan's **render-only rows**.
+ *
+ * ── 纪律（为什么在卡里而不是在 wire 里）──────────────────────────────────────
+ *
+ *   · 行**只经 `textContent` 渲染** ⇒ 不进任何 `data-*` / DOM 属性（法八四面之一）；
+ *   · 每行在**渲染前**逐字段掩码（`maskTextPayload`）⇒ 凭据形值上不了屏（EC-SGO-019）；
+ *   · 展示上限 **8 行 + 诚实计数行**（PD-SGO-007：纯显示策略，**不改变授权范围** ——
+ *     指纹覆盖全部 N 条）。
+ */
+export const AUTH_PLAN_RENDER_MAX = 8;
+
+/** 计划行的可读文案（唯一构造点；掩码 + 有界展示 + 诚实计数）。 */
+export function authPlanRows(plan: { readonly entries?: readonly { readonly refNum?: number; readonly selector: string; readonly fromDigest: string; readonly toText: string }[] } | undefined): readonly string[] {
+  const entries = plan?.entries ?? [];
+  if (entries.length === 0) return [];
+  const rows = entries.slice(0, AUTH_PLAN_RENDER_MAX).map((e, i) => {
+    const label = `#${e.refNum ?? i + 1} ${maskRefDigest(e.selector)}`;
+    return `${label}：${maskRefDigest(e.fromDigest)} → ${maskRefDigest(e.toText)}`;
+  });
+  if (entries.length > AUTH_PLAN_RENDER_MAX) {
+    rows.push(`共 ${entries.length} 条（仅显示前 ${AUTH_PLAN_RENDER_MAX}）—— 一次批准覆盖全部 ${entries.length} 条`);
+  }
+  return rows;
+}
+
+/** 中止 / 部分完成的**如实交代**文案（不谎报整批成功；零死端 ⇒ 附可达下一步）。 */
+export const AUTH_PLAN_ABORT_TEXT =
+  '本轮批量计划已中止：计划内条目**未全部执行**（如实登记，不视为整批成功）。可在已引用目标内重新发起，或重新拾取目标后再试。';
 
 /**
  * `data-decision` for an auth card (shim D2/D3/D5 verbatim, plus BLOCK-01).
@@ -127,6 +161,28 @@ function consequencePreview(view: CardView, deps: CardDeps, col: HTMLElement): v
   col.appendChild(box);
 }
 
+/** The batch plan block: `textContent`-only rows (≤8) + the honest count line. */
+function planBlock(view: CardView, doc: Document, col: HTMLElement): void {
+  const rows = view.plan ?? [];
+  if (rows.length === 0) return;
+  const box = doc.createElement('div');
+  box.className = 'auth-plan';
+  const head = doc.createElement('p');
+  head.className = 'auth-plan-head';
+  head.textContent = '本批将写入（一次批准覆盖下列条目）：';
+  box.appendChild(head);
+  const list = doc.createElement('ol');
+  list.className = 'auth-plan-rows';
+  for (const row of rows) {
+    const li = doc.createElement('li');
+    // 仅 textContent（内容绝不进属性）；行已在构造处掩码。
+    li.textContent = row;
+    list.appendChild(li);
+  }
+  box.appendChild(list);
+  col.appendChild(box);
+}
+
 /** Populate + reveal the固化 region (shared by create and patch). */
 export function fillAuthFixed(node: HTMLElement, view: CardView): void {
   const fixed = node.querySelector('.card-fixed') as HTMLElement | null;
@@ -166,6 +222,8 @@ export function createAuthCard(view: CardView, deps: CardDeps): HTMLLIElement {
     // mounted FIRST so the card-local `#l1-consequence-tpl` is the one cloned below.
     mountDecisionRegion(view, deps, col);
     consequencePreview(view, deps, col);
+    // V5.5F-2 TASK-V55F-211：计划行（渲染用字段，**非 payload**）；缺省 ⇒ 零变化。
+    planBlock(view, doc, col);
 
     const actions = doc.createElement('div');
     actions.className = 'auth-actions';
@@ -219,6 +277,15 @@ export function patchAuthCard(view: CardView, node: HTMLElement, deps?: CardDeps
   const summary = node.querySelector('#confirm-summary') as HTMLElement | null;
   if (summary) summary.hidden = true;
   fillAuthFixed(node, view);
+  // V5.5F-2 **TASK-V55F-212**（ADR-SGO-004 §8 · FR-SGO-047 · EC-SGO-011）——
+  // 批量计划**中止**的如实交代：`cancelled` 终态 + 部分完成如实（**不谎报整批成功**）+
+  // 零死端（文案给出可达下一步）。`auth` 6 终态语义逐字不变（此处只**追加**一行可读交代）。
+  if (view.terminal === 'cancelled' && (view.plan?.length ?? 0) > 0 && !node.querySelector('.auth-plan-partial')) {
+    const p = node.ownerDocument.createElement('p');
+    p.className = 'auth-plan-partial';
+    p.textContent = AUTH_PLAN_ABORT_TEXT;
+    node.querySelector('.card-col')?.appendChild(p);
+  }
   if (!node.querySelector('.auth-audit')) {
     // BLOCK-04 (v4-3 review): the audit exit must carry the REAL deps — the previous
     // `{ doc: node.ownerDocument }` left `onCardAction` undefined while the handler

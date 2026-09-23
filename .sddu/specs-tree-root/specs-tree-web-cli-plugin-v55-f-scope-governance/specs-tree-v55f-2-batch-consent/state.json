@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-2-batch-consent",
   "version": "v0.11.1",
   "name": "V5.5F-2 任务级批量授权——写入计划（N 处 目标+原文→译文）+ 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次用户手势 + 计划外逐条回落 + 逐条审计零明文 + 中途可中止 + 特权 op 恒不入批 + 批量变体注入必红 + WIDEN ask-user 二择",
-  "phase": "tasked",
+  "phase": "builded",
   "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -126,6 +126,14 @@
       "agent": "sddu-tasks",
       "artifact": "specs-tree-v55f-2-batch-consent/tasks.md + tasks.json v1.0",
       "note": "V5.5F-2 叶 tasks：16 任务 / 3 波（TASK-V55F-201~216；S×1 / M×13 / L×2）。W1 边界先行（RL-06 / OT-⑩ 批量变体注入必红 + 特权不入批机核 + 载体零新增 + batch-consent 门禁骨架 BC-1~7）→ W2 计划结构 + 指纹 + 准入/回落 + 计划感知桥 + 零明文 + 中止 → W3 WIDEN 二择 + S0′ 批量段（S0P-B1~B3）+ 台账 + 体积收口。1 新 node 门禁（batch-consent）；S0′ 批量段编号冲突显式裁决 = S0P-B1~B3（S0P-7/8 保留 node 面）；体积 A 列 3.5~5.5 KB 收口重登记 216（含两叶 Σ 对照 + EC-SGO-022 二态）。硬依赖叶1（须 validated）。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-build",
+      "artifact": "build.md（R1 = W1+W2）+ 5 源码文件（1 NEW + 4 MODIFY）+ 4 测试文件（1 NEW + 3 MODIFY）",
+      "note": "V5.5F-2 R1（W1+W2，TASK-V55F-201~212）落地：边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权不入批机核 + 载体零新增 + batch-consent 门禁 BC-1~7）→ 计划/指纹/准入/回落/漂移/零明文/中止。npm test 1375 → 1386（1379 pass / 7 fail：6 = 体积/红线 pin 家族（重登记留 W3 TASK-V55F-216）+ 1 = 预提交 worktree 漂移，提交后自愈）；A 列 +3,301 B（585,732 → 589,033，预算 3.5~5.5 KB 下界未达/上界未越）；B 列 +8,251 B（不计账）；三冻结面逐字节不变；law8 46/0、dead-end 49/0、journey 171、binding 192、l0 248、l1 131、stream 76、auth-chip 37、ask-auth 78、s0 65、e2e PASS。W3（TASK-V55F-213~216：WIDEN 二择 / S0′ 批量段 / 台账 / 体积收口）留 R2。零受管 Provider 调用（routing.v1 = local_or_compute → none）"
     }
   ]
 }

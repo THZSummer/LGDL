@@ -138,7 +138,7 @@ type SidepanelActionBody =
   | { type: 'error'; text: string; recovery?: readonly { readonly text: string; readonly opId: string }[] }
   | { type: 'pending'; value: boolean }
   | { type: 'state'; origin?: string; discoveryState?: SidepanelState['discoveryState']; discoveryReason?: string; probe?: ProbeState; authorized?: boolean; trust?: SidepanelState['trust']; autoAuth?: { read: boolean; write: boolean }; invalidated?: boolean }
-  | { type: 'confirm'; requestId: string; summary: string; risk?: string }
+  | { type: 'confirm'; requestId: string; summary: string; risk?: string; plan?: readonly string[] }
   | { type: 'confirm-resolved'; allow: boolean; requestId?: string }
   | {
       type: 'ask';
@@ -620,6 +620,9 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
         ts: at,
         cardId,
         payload: { requestId: action.requestId, askKind: 'confirm', prompt: action.summary },
+        // V5.5F-2 TASK-V55F-211：计划行是**与 payload 同级**的渲染用字段（**不在**
+        // payload 内，R-SGO-914 消除）；缺省 ⇒ 字段缺席 ⇒ 单条卡逐字节不变。
+        ...(action.plan && action.plan.length ? { plan: action.plan } : {}),
       });
       let out: SidepanelState = {
         ...state,

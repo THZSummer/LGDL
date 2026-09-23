@@ -33,6 +33,8 @@ import {
 } from './stream-digest.js';
 import type { CardDeps } from './cards/index.js';
 import { syncNextstepPending } from './cards/nextstep.js';
+// V5.5F-2 TASK-V55F-211/212：计划卡渲染行（单源在卡侧；仅 textContent + 掩码）。
+import { authPlanRows } from './cards/auth.js';
 import { refActionDigest, refActionTextKey, recommendCtx, recommendNextStep } from './recommend.js';
 import { bindPanelOps, dispatchOp, PARAMS_REJECTED } from './next-registry/pipeline.js';
 import { OP_PARAM_SEQUENCE } from './next-registry/ops.js';
@@ -252,6 +254,10 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     const allow = action === 'approve';
     if (requestId) void send(makeMessage('confirm-response', { requestId, allow }));
     dispatch({ type: 'confirm-resolved', allow, ...(requestId ? { requestId } : {}) });
+    // ★ V5.5F-2 **TASK-V55F-212**（ADR-SGO-004 §8 · FR-SGO-081/082）—— 批量计划被**拒绝**
+    // 时的如实留痕（零明文：只记**指纹摘要 + 条目数**，正文 / 译文不进留痕值）。
+    if (!allow && planTraceLine) dispatch({ type: 'notice', text: planTraceLine });
+    planTraceLine = null;
     // V5-2 (ADR-V5-002 §1 ③): an op consent card settles the pipeline's await.
     const settleConsent = requestId ? opConsentResolvers.get(requestId) : undefined;
     if (settleConsent && requestId) {
@@ -499,6 +505,11 @@ let panelPort: ReturnType<typeof chrome.runtime.connect> | null = null;
 /** Last background `llm-status` summary; null until the round-trip completes. */
 let llmSummary: LlmStatusSummary | null = null;
 let llmLoaded = false;
+/**
+ * V5.5F-2 TASK-V55F-212：当前**批量计划**的零明文留痕行（`batch.plan=<fingerprint> |
+ * batch.entries=<N>`）。计划卡被拒绝 / 中止时落一行；正文 / 译文**不进**该值。
+ */
+let planTraceLine: string | null = null;
 /** Last non-sensitive active-tab projection (TASK-020 任务 B). */
 let activeTab: ActiveTabView | null = null;
 /** decision ② / FR-048: current session id + switcher data. */
@@ -3888,11 +3899,26 @@ function wire(): void {
           }
         }
       }
+      // ★ V5.5F-2 **TASK-V55F-209/211**（ADR-SGO-004 §2/§7 · FR-SGO-050 · N-SGO-026）——
+      // 计划经 `question.plan`（**既有 `confirm-request` 的 type-only 扩展字段**）到达：
+      // 渲染为**与 payload 同级**的渲染用行（**不进 payload**，R-SGO-914 消除），
+      // 逐行掩码 + 有界展示（≤8 + 诚实计数）。计划路径与范围写闸**并行**：
+      // 越界条目不进计划（SW 侧已过滤）⇒ 仍走既有写闸 / 逐条确认。
+      const planWire = (msg.question as
+        | { plan?: { fingerprint?: string; entries?: readonly { refNum?: number; selector: string; fromDigest: string; toText: string }[] } }
+        | undefined)?.plan;
+      const planRows = authPlanRows(planWire);
+      // 批量留痕（零明文：指纹摘要 + 条目数；正文 / 译文不进任何值）。
+      planTraceLine =
+        planRows.length > 0
+          ? `batch.plan=${String(planWire?.fingerprint ?? '')} | batch.entries=${planWire?.entries?.length ?? 0}`
+          : null;
       dispatch({
         type: 'confirm',
         requestId,
         summary: `${question?.tool ?? '工具'}：${question?.reason ?? '敏感操作'}`,
         ...(question?.risk ? { risk: question.risk } : {}),
+        ...(planRows.length ? { plan: planRows } : {}),
       });
       return undefined;
     }

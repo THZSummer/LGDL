@@ -282,6 +282,15 @@ export interface StreamEvent {
   /** The session segment this event belongs to. */
   readonly sessionId: string;
   readonly payload: StreamPayload;
+  /**
+   * V5.5F-2 **TASK-V55F-211** (ADR-SGO-004 §2/§7 · FR-SGO-050 · N-SGO-026 · R-SGO-914) —
+   * the batch plan's **render-only** rows, a sibling of (and **never inside**) `payload`.
+   *
+   * 计划正文/译文只经此字段以 `textContent` 渲染（逐行已掩码）：绝不进 `payload` 值 /
+   * `digest` 值 / 审计值 / DOM 属性。缺省 ⇒ 字段缺席 ⇒ 渲染与既有**逐字节相同**。
+   * **不持久化**（不在 `DIGEST_FIELDS`）⇒ 重载后只是少一次展示，不是事实丢失。
+   */
+  readonly plan?: readonly string[];
   /** Terminal-fact marker: an event carrying this IS the card's terminal event. */
   readonly terminal?: StreamTerminal;
 }
@@ -316,6 +325,8 @@ export interface StreamEventInput {
   readonly ts: number;
   readonly cardId?: string;
   readonly payload?: StreamPayload;
+  /** V5.5F-2 TASK-V55F-211: 计划卡渲染行（与 `payload` 同级；缺省 ⇒ 字段缺席）。 */
+  readonly plan?: readonly string[];
   readonly terminal?: StreamTerminal;
 }
 
@@ -384,6 +395,8 @@ export function appendEvent(state: StreamState, input: StreamEventInput): Stream
     // F-01: DEEP freeze (copy) — a nested `options`/`chips` array must not stay
     // writable through the event, and must not alias the caller's array.
     payload: deepFreeze({ ...(input.payload ?? {}) }),
+    // V5.5F-2：计划行**深冻结拷贝**（与 payload 同等纪律：调用方数组不被别名 / 不改写）。
+    ...(input.plan ? { plan: deepFreeze([...input.plan]) } : {}),
     ...(input.terminal !== undefined ? { terminal: input.terminal } : {}),
   });
   const openAsks = nextOpenAsks(state.openAsks, event);
@@ -494,7 +507,7 @@ export function arbitrateOpenAsks(state: StreamState, incomingRequestId: string 
  */
 export function appendAskEvent(
   state: StreamState,
-  input: { readonly kind: 'askuser' | 'auth'; readonly ts: number; readonly cardId?: string; readonly payload?: StreamPayload },
+  input: { readonly kind: 'askuser' | 'auth'; readonly ts: number; readonly cardId?: string; readonly payload?: StreamPayload; readonly plan?: readonly string[] },
 ): { readonly state: StreamState; readonly superseded: readonly OpenAskEntry[] } {
   const superseded = arbitrateOpenAsks(state, input.payload?.requestId);
   let next = state;
@@ -507,7 +520,13 @@ export function appendAskEvent(
       terminal: 'cancelled',
     });
   }
-  next = appendEvent(next, { kind: input.kind, ts: input.ts, ...(input.cardId !== undefined ? { cardId: input.cardId } : {}), payload: input.payload ?? {} });
+  next = appendEvent(next, {
+    kind: input.kind,
+    ts: input.ts,
+    ...(input.cardId !== undefined ? { cardId: input.cardId } : {}),
+    payload: input.payload ?? {},
+    ...(input.plan ? { plan: input.plan } : {}),
+  });
   return Object.freeze({ state: next, superseded });
 }
 
@@ -670,6 +689,11 @@ export interface CardView {
   readonly terminalSeq?: number;
   /** The folded payload (events after the terminal one are NOT folded). */
   readonly payload: StreamPayload;
+  /**
+   * V5.5F-2 TASK-V55F-211 (ADR-SGO-004 §7): the plan's **render-only** rows — a sibling
+   * of `payload`, **never** inside it (R-SGO-914). Absent ⇒ rendering is byte-identical.
+   */
+  readonly plan?: readonly string[];
   /** `true` iff `terminal !== undefined` — the DOM of such a card is frozen. */
   readonly frozen: boolean;
 }
@@ -704,6 +728,7 @@ export function project(state: StreamState, deps: ProjectDeps = {}): CardView[] 
     terminalSeq?: number;
     terminalTs?: number;
     payload: StreamPayload;
+    plan?: readonly string[];
   }
 
   const order: string[] = [];
@@ -721,6 +746,7 @@ export function project(state: StreamState, deps: ProjectDeps = {}): CardView[] 
         lastSeq: e.seq,
         ts: e.ts,
         payload: { ...e.payload },
+        ...(e.plan ? { plan: [...e.plan] } : {}),
         ...(e.terminal !== undefined ? { terminal: e.terminal, terminalSeq: e.seq, terminalTs: e.ts } : {}),
       };
       byCard.set(e.cardId, acc);
@@ -732,6 +758,7 @@ export function project(state: StreamState, deps: ProjectDeps = {}): CardView[] 
     if (existing.terminal !== undefined || BORN_FROZEN_KINDS.has(existing.kind)) continue;
     existing.lastSeq = e.seq;
     existing.payload = { ...existing.payload, ...e.payload };
+    if (e.plan && existing.plan === undefined) existing.plan = [...e.plan];
     if (e.terminal !== undefined) {
       existing.terminal = e.terminal;
       existing.terminalSeq = e.seq;
@@ -755,6 +782,7 @@ export function project(state: StreamState, deps: ProjectDeps = {}): CardView[] 
       // not share a nested array with the events it was folded from.
       payload: deepFreeze({ ...acc.payload }),
       frozen,
+      ...(acc.plan ? { plan: deepFreeze([...acc.plan]) } : {}),
       ...(acc.terminal !== undefined ? { terminal: acc.terminal, terminalSeq: acc.terminalSeq, terminalTs: acc.terminalTs } : {}),
     }) as CardView;
   });

@@ -603,3 +603,29 @@ cd packages/web-cli-plugin && npm run build && npx tsx --test test/size-ruling-v
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（V5.5F-2 批量授权叶任务：**16 任务 / 3 波**（`TASK-V55F-201~216`；S×1 / M×13 / L×2）；**边界先行**（W1 RL-06 / OT-⑩ / 特权不入批注入反证先落）；1 个新 node 门禁（`batch-consent` BC-1~7）；S0′ 批量段落 W3（`S0P-B1~B3`，编号裁决显式登记）；体积逐叶重登记 `216`（A 列 3.5~5.5 KB + 两叶 Σ 对照 + EC-SGO-022 二态）。**本轮只做 tasks**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动；未跑门禁 / 构建 / Chromium | 2026-09-24 | SDDU Tasks Agent |
+
+---
+
+## 8. 执行进度（**R1 = W1 + W2**，`TASK-V55F-201~212`）
+
+> 本轮 build 只做 **R1（W1+W2）**；W3（`TASK-V55F-213~216`：WIDEN 二择 / S0′ 批量段 / 台账 / 体积收口）留 R2。
+
+| 波 | 任务 | 状态 | 证据 |
+|:--:|------|:--:|------|
+| W1 | `TASK-V55F-201` RL-06 扩批量变体 | ✅ completed | `test/supersession-ledger.test.ts` 追加 1 用例 + `bulkConsentProxyProblems`（三类注入必红；AI/LLM 侧零审批写入点；on-disk 注入 `ai-drive.ts` ⇒ FAIL ⇒ 逐字节还原 ⇒ PASS） |
+| W1 | `TASK-V55F-202` OT-⑩ 扩批量变体 | ✅ completed | `test/op-three-tier.test.ts` 追加 1 用例 + `bulkAdmitProblems`（`tierOf` 逐 op 不变；特权入批必红） |
+| W1 | `TASK-V55F-203` 特权 op 不入批机核 | ✅ completed | `test/capability-wiring.test.ts` 追加 1 用例 + `batchPrivilegedProblems`（计划模块零特权标识 / 零 `.request(`；`.request(` 计数不减；on-disk 注入 ⇒ FAIL ⇒ 还原 ⇒ PASS） |
+| W1 | `TASK-V55F-204` 载体零新增 | ✅ completed | `messaging.ts` 只增 type-only `BatchPlanWireEntry` / `BatchPlanWire` / `ConfirmPlanQuestionExt`；`KIND_SET` 40 逐字；zero 运行时字节 |
+| W1 | `TASK-V55F-205` `batch-consent` 新门禁 | ✅ completed（**7 / 0**） | `test/batch-consent.test.ts`：BC-1~7 逐条 `expectFailPattern` + 注入反证；真源切片读生产模块；已入 `EXPECTED_AUDITED_FILES` |
+| W2 | `TASK-V55F-206` `batch-plan.ts` 计划结构 + `buildPlan` | ✅ completed | 单条 assistant 消息的 in-scope `dom set-text`；`N≥2 / N==1 / N==0`；跨轮不累积；空计划不空弹 |
+| W2 | `TASK-V55F-207` `planFingerprint` | ✅ completed | `sha256:` + `sha256Hex(canonical(selector ∧ actionType ∧ fromDigest ∧ toText))`；空白改动 ⇒ 指纹变；出账只记摘要 |
+| W2 | `TASK-V55F-208` `admitEntry` + 回落 / 漂移 | ✅ completed | 计划内放行 / 计划外逐条回落 / 批准前漂移显式失败（`test/batch-consent.test.ts` BC-3/BC-4 + on-disk 注入必红） |
+| W2 | `TASK-V55F-209` SW 批次 `toolCalls` 捕获 + holder + 桥接线 | ✅ completed | `runChat` 的 `chat` 回调内**恰一处** `batchConsent.setPlan(await buildPlan(res.toolCalls, refs))`；`finally` `clear()`；`requestTurn(` 仍恰 2 |
+| W2 | `TASK-V55F-210` `confirm.ts` 计划感知桥 | ✅ completed | 指纹准入 + 计划外回落 + 零明文审计（只记 `fingerprintDigest` / `batchEntries`）；单条路径逐字不变（`plan` 缺省 ⇒ 既有行为） |
+| W2 | `TASK-V55F-211` 计划卡渲染 | ✅ completed | `stream-model.ts` `CardView.plan?`（**与 `payload` 同级**）+ `chat-state.ts` 渲染用字段 + `cards/auth.ts` 计划行（`textContent` + `maskRefDigest` 掩码 + 上限 8 行 + 诚实计数行） |
+| W2 | `TASK-V55F-212` 中止 + 部分完成如实 | ✅ completed | `markCancelled` ⇒ 计划内拒绝 + `AUTH_PLAN_ABORT_TEXT` 如实交代（不谎报整批成功）+ 拒绝留痕（零明文）；`auth` 6 终态语义逐字 |
+
+**门禁（R1 实测）**：`typecheck` 绿 · `build` 绿 · `npm test` **1386 用例（1379 pass / 7 fail）** · `batch-consent` **7/0** · `test:law8` **46/0** · `test:dead-end` **49/0** · `journey` **171** · `binding` **192** · `l0` **248** · `l1` **131** · `stream` **76** · `auth-chip` **37** · `ask-auth` **78** · `s0-self-driven` **65** · `e2e` PASS。
+7 项红 = **6 体积/红线 pin 家族**（登记基线滞后于产物；**逐叶重登记属 W3 `TASK-V55F-216`**，R1 如实红并归因）+ **1 预提交 worktree 漂移**（`zeroDiffFiles` 巡检对未提交改动敏感，提交后自愈）。
+
+**体积（R1 实测）**：A 列 **585,732 → 589,033 B（+3,301 B ≈ 3.22 KiB）**；B 列 **1,627,424 → 1,635,675 B（+8,251 B，不计账）**；三冻结面 `content.js` 177,076 / `pick-layer.js` 34,358 逐字节不变。
