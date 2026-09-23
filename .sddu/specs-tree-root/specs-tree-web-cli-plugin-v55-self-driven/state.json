@@ -15,8 +15,8 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-1-driver-layer/",
       "name": "V5.5-1 驱动者层 + 法七扩展底座（首叶 / 底座叶）",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 1,
       "dependsOn": [],
@@ -54,7 +54,7 @@
   ],
   "leaf": false,
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22",
+  "updatedAt": "2026-09-23",
   "description": "作者主题（2026-09-22 原话提炼，逐字保留）：主题①「没有配置 LLM 时：由系统代码流程驱动用户去配置 LLM」（确定性系统流，不是 AI）；主题②「已配置 LLM 时：让 AI 来启动整个 chat/next」（AI 驱动编排）；母理念「主动帮用户、引导用户解决用户的问题、完成用户的需求，而不是被动接受任务，被动发挥的价值太小了」——即主动性 / 驱动权从用户侧转移到系统 / AI 侧。",
   "scope": {
     "core": [

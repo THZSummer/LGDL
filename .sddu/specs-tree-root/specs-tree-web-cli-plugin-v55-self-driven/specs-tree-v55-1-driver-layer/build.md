@@ -453,3 +453,113 @@
 | v1.0 | R1 = W1+W2（12 任务 · SG-V55-01 可行 · 3 新门禁 · 体积中间登记 +4,967 B · npm test 1220/0） | 2026-09-23 | SDDU Build Agent |
 | v2.0 | R2 = W3+W4（13 任务 · SG-V55-02 可行 · 答案驱动化 + S0 双面 + 法七扩展 + `no-dead-end` 升级 · 体积收口 +8,152 B（超叶预算未越上界，如实登记）· npm test 1244/0 · 本叶 25/25 completed） | 2026-09-23 | SDDU Build Agent |
 | v3.0 | **review R1 修复轮**（BLOCK-01 后台 ask 取消守卫 + 新门禁 `L7X-4` · BLOCK-02 X-SELF-2/4/5/6 + X-SELF-1「未发生取代」台账落账 · I-01 恒真断言修复 · I-02 调用点口径显式化 + 静态门禁 · I-03 S0 十环节机序；4 组**真源注入**反证（sha 逐字节还原）· npm test **1246/0** · supersession 36/0 · dead-end **49/0 不减** · s0-self-driven **24/0** · 体积 **557,883 B**（+122）· 两冻结面逐字节不变） | 2026-09-23 | SDDU Build Agent |
+
+---
+---
+
+# 构建报告 v4.0（v55-1 **收口段**：N 项归并 + 终态对账）
+
+> **文档定位**: SDDU 收口记录 —— 本叶 7 阶段流水线（build → review → validate 全通过）之后的**收口轮**：N 项归并登记 + 终态对账 + 移交项。**零产品代码改动**（`.sddu` 外零触碰）。
+> **输入**: `review-report.md` v1.1（R1+R2；N-R2-01~06）+ `validate-report.md` v1.0（N-R1-01~04）；父 `spec.md` §12 映射表 / `ADR-V55-012`
+> **版本**: v4.0（本叶 **close 终态**）
+> **更新时间**: 2026-09-23
+> **更新说明**: 收口轮 —— review 6 项 + validate 4 项归并为 **N-01~N-10** 并逐条标注 owner（本叶已闭环 / 移交 v55-2 / v55-3 / 父收口 / 人工面）；终态对账（任务 25/25 · 门禁 6+2 · `npm test` 1186→1246 · 体积 549,609→557,883 · 三冻结面零 diff · X-SELF 7 行台账 · SG-V55-01/02 可行）
+
+## 23. 终态快照（close 基线）
+
+| 项 | 终态读值（收口轮实测） |
+|---|---|
+| 分支 / HEAD | `feature/web-cli-plugin` / `e76f13f`（本叶最后提交 = validate） |
+| 任务 | **25 / 25 completed**（W1~W4；TASK-V55-101~125） |
+| 门禁 | **新增 6 + 2**：6 枚新门禁（node 5 = `driver-timings` / `driver-quadruple` / `driver-terminals` / `s0-self-driven-chain` / `law7x-ext`；Chromium 1 = `s0-self-driven`）+ 2 枚先验探针 `SG-V55-01` / `SG-V55-02`（跑毕即删，未入库）；`V551_NODE_GATE_FILES` 3 → 5；`CHROMIUM_GATES === 9` 逐字不动 |
+| `npm test`（node） | **1186 → 1246 / 0**（+60，只增不减） |
+| 体积 | `dist/sidepanel.js` **549,609 → 557,883 B（+8,274）** ⇒ 超叶预算 7,000 **+1,274**（R2 登记 +8,152 ⇒ +1,152；修复轮 +122）、**未越上界 9,000**（余 726）；档位 `ceilTo50KB = 563,200` / 绝对上限 **619,520** 未动；生效上限 **585,777** |
+| 冻结面（dist） | `dist/content.js` **177,076 B / sha `52a82620…b5f6`**、`dist/pick-layer.js` **34,358 B / sha `77796bab…575e`** —— **逐字节零 diff**；`dist/sidepanel.js` = 登记基线 **557,883 B**（本叶**登记增长**，非零 diff） |
+| 源码冻结面 | `src/content/**` · `manifest.json` · `docs/v3-*-ledger.json` · `ROADMAP.md` · `design/**` · `stream-model.ts` · `security/policy.ts` · `security/auto-authorize.ts` · `background/messaging.ts` —— **全零 diff**（`git diff ace3033..HEAD` 实测 0） |
+| 取代台账 | `X-SELF` 命中 **41**；`xSelfLedger.rows` **恰 7**（4 `superseded` + 2 `handed-over` + 1 `no-supersession`）；`modifiedRanges` 4 条 `V551-MR-X-SELF-2/4/5/6` |
+| S0 | node **8/0** · Chromium **24/0**（分支 A 机制侧 / 分支 B 识别侧独立计数） |
+| 保护段 | `journey` **171 PASS** · `binding` **192 PASS**（环境性 flake，由 `supersession` **36/0** 独立兜底） |
+| SG 闸门 | **SG-V55-01 = 可行**（8/8）· **SG-V55-02 = 可行**（五要素） |
+| 流水线结论 | review **✅ 通过**（R1 2 BLOCK / 3 I → R2 全闭环；红线 12/12）· validate **✅ 通过**（V1~V9 全绿；0 阻塞 / 0 严重漂移） |
+
+## 24. 交付物清单（本叶足迹；`git diff ace3033..e76f13f` 实测）
+
+**源文件（新增 2 / 修改 8）**
+
+| 操作 | 文件 | 任务 |
+|:--:|---|:--:|
+| NEW | `src/ui/sidepanel/next-registry/drivers.ts` | 101 / 103 / 106 / 111 / 113 / 115 / 116 / 117 / 123 |
+| NEW | `src/ui/sidepanel/next-registry/terminals.ts` | 102 / 123 |
+| MODIFY | `.../next-registry/definition.ts` · `.../next-registry/providers.ts` | 106 · 107 / 111 |
+| MODIFY | `.../sidepanel/recommend.ts` · `.../sidepanel/sidepanel.ts` | 103 · 103 / 113~117 / 122 |
+| MODIFY | `.../next-registry/ops.ts` · `.../next-registry/pipeline.ts` | 113（`reachableNext` → `nextAfterSettle` 改名） |
+| MODIFY | `src/background/ask-bridge.ts` · `src/background/service-worker.ts` | 117 |
+
+**门禁 / fixture（新增 7 / 修改 16）**
+
+| 操作 | 文件 |
+|:--:|---|
+| NEW（node） | `test/driver-timings.test.ts`(11) · `test/driver-quadruple.test.ts`(14) · `test/driver-terminals.test.ts`(8) · `test/s0-self-driven-chain.test.ts`(8) · `test/law7x-ext.test.ts`(5) |
+| NEW（Chromium / fixture） | `test/ui/s0-self-driven.mjs`(24) · `test/ui/fixtures/s0-chain.mjs` |
+| MODIFY | `op-wiring` · `driver-timings` · `recommendation-sources` · `l1-ref-validity` · `ask-bridge` · `blocked-terminals` · `next-registry` · `gate-integrity` · `size-baseline` / `size-budget` / `size-growth-evidence` / `size-ruling-vol3`（12 个 `.ts`）+ `test/ui/{ask-auth-inflow,law8-plaintext,no-dead-end,recommendation}.mjs` + `package.json` |
+
+**台账（2）**：`docs/v4-supersession-ledger.json` · `docs/v4-density-baseline.json`
+**SDDU 产物（本 diff 内 7）**：`build.md` · `review.md` · `review-report.md` · `validate.md` · `validate-report.md` · `state.json` · `TREE.md`
+
+> 统计口径：非 `.sddu` 变更面 = **35 个文件**（**9 NEW + 26 MODIFY**）；`.sddu` 变更面 = **7 个产物文件**。
+
+## 25. N 项归并登记（review 6 项 + validate 4 项 → N-01~N-10）
+
+| 统一编号 | 来源 | 类型 / 严重度 | 内容摘要 | owner | 处置 |
+|:--:|:--:|:--:|---|---|---|
+| **N-01** | review N-R2-01 | 观察 / 低 | `nextAfterSettle(` 调用点 **7 → 8**（取消守卫新增第 8 处）；`op-wiring#OP-W-6` 仅钉「定义恰 1 ∧ 调用点 ≥ 4」⇒ **无门禁钉死具体数值**；修复轮 build 未显式登记该 +1（判据不破、语义正确） | **v55-3** | 移交：随 **TASK-V55-306**（`op-wiring.test.ts` 修改轮）在门禁口径中钉死 `nextAfterSettle(` 调用点数（或显式登记 +1） |
+| **N-02** | review N-R2-02 | 信息 | `dist/sidepanel.js` 的 **sha 不可跨重建复现**（内嵌 `BUILD_STAMP`；字节数稳定 557,883）⇒ 红线口径 = **字节数**，非 sha；`content.js` / `pick-layer.js` 的 sha 可继续作冻结面凭据 | **父收口** | 移交：由父收口在红线口径（FR-SELF-123 读法）与 v55-2/3 共享面中明示「sidepanel 红线 = 字节数」 |
+| **N-03** | review N-R2-03 | 继承 / 低 | **O-01~O-04 未处置**：`s0-chain.mjs#judgeBeat` 的 `driverAttribution` 取常量（O-01）· `PROACTIVE_MOMENTS` 伞名 vs ADR 三型（O-02）· `SettleSource.terminal?` 生产零消费死字段（O-03）· `ref-action.driverClass:'ai-driven'` 供 v55-3（O-04） | **v55-3**（主）；O-01/O-02 → **父收口** 登记 | 移交：O-03/O-04 与 v55-3 驱动者消费面同轮消费/清理；O-01/O-02 由父收口登记为「不影响判据的设计重叠」 |
+| **N-04** | review N-R2-04 | 继承 / 登记 | **I-02 规范文本未改**：ADR-V55-004 §1 / leaf plan §2·§6 / TASK-V55-115 仍写「调用点恰 1」，与源码（生产 1 + seam 1）不符；修复轮不改冻结文本，口径以门禁 `applyRefCallSiteProblems` 为准 | **父收口** | 移交：父收口登记「冻结文本 ↔ 门禁口径」差异，下游引用一律以**门禁口径**为准 |
+| **N-05** | review N-R2-05 | 继承 / 设计行为 | `test:supersession` 的 `counts` 同源层依赖 `/tmp/opencode/v4-gate-logs/v55-1-fix/registry/`；目录被清理 ⇒ 回到**显式 skip**（不静默通过） | **本叶已闭环** | 本叶：已在 build §22.4 显式登记为设计行为（skip ≠ pass）；无残留动作 |
+| **N-06** | review N-R2-06 | 继承 / 人工面 | S0 主动接手**体感** / 打断感 / 引导文案可读性 = ⏳ **未执行**（headless 不可合成） | **人工面** | 移交：并列 v5 人工面 9 项；**不冒充 PASS**，待真机人工验收 |
+| **N-07** | validate N-R1-01 | 环境性 flake / 低 | `test:binding` 本机多次亲跑无稳定 PASS（`191/192` 滚动时序 / CDP socket 关闭）；`binding.mjs` **不在本叶变更面**；保护段由 `supersession` 独立机核双绿 | **父收口** | 移交：登记为环境性 flake（同源 K L-N-10）；保段凭据 = `supersession` 36/0 |
+| **N-08** | validate N-R1-02 | 观察 / 低 | `test:recommendation` 首跑 `70/3` ⇒ 同产物重跑 **72/0** ⇒ 环境性 flake（headless 探测相位 / 权限探针） | **父收口** | 移交：登记为环境性 flake，非本叶回归 |
+| **N-09** | validate N-R1-03 | 观察 / 低 | `driver-timings` 的 **DT-2/DT-3 读编译后常量**（`dist-test/src`），对「仅改 `src` 未重编译」注入无感；DT-1/DT-4 已读真源 | **v55-3** | 移交：随 N-01 同一门禁强化轮，为 DT-2/DT-3 增加源文本抽取（与 `law7x-ext#L7X-4` 同口径） |
+| **N-10** | validate N-R1-04 | 继承 / 汇总 | **N-R2-01~06 的继承汇总项**（调用点 8 无钉死 / sha 不可复现 / O-01~O-04 / counts 外部日志 / 人工面 ⏳） | **本叶收口** | 本叶：拆解后已逐条分流至 N-01~N-09，本项**无独立动作** |
+
+**owner 分布**：**v55-3 = 3**（N-01 / N-03 / N-09）· **父收口 = 4**（N-02 / N-04 / N-07 / N-08）· **人工面 = 1**（N-06）· **本叶已闭环 / 本叶收口 = 2**（N-05 / N-10）· **v55-2 = 0**（无本叶遗留项落 v55-2）。
+**严重度分布**：阻塞 **0** · 高 **0** · 低 / 信息 **10**（全部为登记项，均不阻塞）。
+
+## 26. 收口对账
+
+| 对账项 | 要求 | 终态实测 | 判定 |
+|---|---|---|:--:|
+| 任务 | 25 / 25 | **25 / 25 completed**（build §3 + §12 逐条；`tasks.json` 25 条） | ✅ |
+| 门禁 | 新增 6 + 2 | **6 枚新门禁 + 2 枚 spikeGate**（见 §23）；受审 node 门禁 3 → 5；`gate-integrity` 16/0 | ✅ |
+| `npm test` | 只增不减 | **1186 → 1246 / 0**（+60） | ✅ |
+| 体积 | 登记 ∧ 未越上界 | **549,609 → 557,883（+8,274）**；超叶预算 7,000 **+1,274**（R2 +1,152 ＋ 修复轮 +122）；**未越上界**（终态余 726）；档位 / 绝对上限未动 | ✅（超预算如实登记） |
+| 三冻结面 | 零 diff | `content.js` 177,076 B / sha `52a82620…` · `pick-layer.js` 34,358 B / sha `77796bab…` **逐字节零 diff**；`sidepanel.js` 557,883 B = 登记基线 | ✅ |
+| 取代台账 | X-SELF-1~7 | 命中 **41**；`xSelfLedger.rows` **恰 7**（4 + 2 + 1） | ✅ |
+| SG 闸门 | 均可行 | **SG-V55-01 = 可行**（8/8）· **SG-V55-02 = 可行** | ✅ |
+| ROADMAP | 零 diff（父收口统一登记） | `git diff ace3033..HEAD -- .sddu/specs-tree-root/ROADMAP.md` = **0** | ✅ |
+| `.sddu` 外触碰 | 收口轮零产品改动 | 收口轮仅改 `.sddu/**`（`build.md` / `state.json` / `TREE.md`） | ✅ |
+
+## 27. 移交项（handover）
+
+| 移交对象 | 项 | 交接要点 |
+|---|---|---|
+| **v55-3**（末叶 / 收口叶） | **N-01 · N-03 · N-09** | 随 `op-wiring.test.ts` 修改轮（TASK-V55-306）钉死 `nextAfterSettle(` 调用点数；消费 / 清理 `driverClass` 与 `SettleSource.terminal?`；DT-2/DT-3 加源文本抽取 |
+| **父收口**（v5.5 closeout） | **N-02 · N-04 · N-07 · N-08**（+ O-01/O-02 登记） | 红线口径 = sidepanel **字节数**；I-02 冻结文本 ↔ 门禁口径差异登记；两项环境性 flake 登记；ROADMAP F-33 / v0.11.0 统一登记 |
+| **人工面** | **N-06** | S0 主动接手体感 / 打断感 / 引导文案可读性真机验收（⏳ 未执行，不冒充 PASS） |
+| **v55-2** | — | 无本叶遗留项（**0 项**）；依赖本叶时机源 / 终态词汇 / 驱动者四元组 / 悬置登记入口 |
+
+## 28. 对账订正（不静默）
+
+1. **build.md v2.0 §11（R2 修改文件枚举）遗漏 2 个源文件**：`next-registry/ops.ts` / `next-registry/pipeline.ts`（`reachableNext` → `nextAfterSettle` 改名，属 **TASK-V55-113**，已在 `tasks.md` 逐条登记）。本收口段在 §24 补正：R2 源码修改 = **7 个文件**（原文枚举 5 + 补 2）。两文件**非冻结面**，不影响任何判据。
+2. **体积超预算口径**：build §13 登记「超叶预算 +1,152 B」（= 8,152 − 7,000）；修复轮 +122 B 后**累计超 +1,274 B**（= 8,274 − 7,000）。两次均**未越上界 9,000 B**（终态余 726 B）。以本收口段数值为**终态口径**。
+3. **文件计数口径**：`review-report.md` §3.4③ 记 `git diff ace3033..HEAD` = 38 文件；收口实测（`e76f13f`）`--name-only` = **42**（含 **7** 个 `.sddu` 产物；非 `.sddu` = **35**）。差异源自 `git diff` 基数 / 时点选择，**不影响任何红线判据**（红线条目逐项实测零 diff，见 §23 / §26）。
+
+## 修订记录（v4.0）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | R1 = W1+W2（12 任务 · SG-V55-01 可行 · 3 新门禁 · 体积中间登记 +4,967 B · `npm test` 1220/0） | 2026-09-23 | SDDU Build Agent |
+| v2.0 | R2 = W3+W4（13 任务 · SG-V55-02 可行 · 答案驱动化 + S0 双面 + 法七扩展 + `no-dead-end` 升级 · 体积收口 +8,152 B（超叶预算未越上界，如实登记）· `npm test` 1244/0 · 本叶 25/25 completed） | 2026-09-23 | SDDU Build Agent |
+| v3.0 | review R1 修复轮（BLOCK-01 后台 ask 取消守卫 + 新门禁 `L7X-4` · BLOCK-02 X-SELF-2/4/5/6 + X-SELF-1 台账落账 · I-01~I-03 · 4 组真源注入反证 · `npm test` 1246/0 · 体积 557,883 B） | 2026-09-23 | SDDU Build Agent |
+| v4.0 | **收口段**（N-01~N-10 归并 + owner 分布 · 终态快照 · 交付物清单 · 收口对账 9 项 · 移交项 · 对账订正 3 条；**零产品代码改动**，`.sddu` 外零触碰） | 2026-09-23 | SDDU Build Agent |
