@@ -75,6 +75,9 @@ import {
 } from './content-script-registry.js';
 import { runChatTurn } from './chat-runner.js';
 import { commandEvent, llmErrorEvent, toolResultEvent } from './chat-events.js';
+// V5.5-3 TASK-V55-309 (ADR-V55-010 §2/§4): the bounded turn-arbitration queue — pure logic
+// in `background/` ⇒ **零 sidepanel 字节**（队列与 `chatBusy` 同居 SW）。
+import { classifyChatRequest, createTurnQueue, type QueuedTurn } from './turn-queue.js';
 import {
   errorResponse,
   isPluginMessage,
@@ -160,6 +163,12 @@ let confirmResponder: ((requestId: string, allow: boolean) => void) | null = nul
 /** decision ②/FR-048: track the pending confirmation so a session switch can cancel it. */
 let pendingConfirmId: string | null = null;
 let chatBusy = false;
+/**
+ * V5.5-3 **TASK-V55-309** (ADR-V55-010 §2/§4 · FR-SELF-061 · AC-SELF-014) — the **bounded**
+ * turn buffer (hard cap `TURN_QUEUE_MAX = 1`, FIFO). It lives here (SW bundle) so the panel
+ * pays **zero bytes** for it; the panel only renders the readable row + restores the draft.
+ */
+const turnQueue = createTurnQueue();
 
 /**
  * One-shot readable notice surfaced through the next `state` reply (D-064).
@@ -890,9 +899,20 @@ async function runChat(s: Singletons, user: string): Promise<void> {
   // in flight the existing busy reply still wins (checked first, unchanged).
   const settings = await s.keys.load();
   if (chatBusy) {
-    await chrome.runtime
-      .sendMessage(makeMessage('chat-result', { variant: 'error', text: '上一条消息仍在处理中，请稍候再发送。' }))
-      .catch(() => {});
+    // ★ V5.5-3 **TASK-V55-309** (ADR-V55-010 §2 · FR-SELF-061 · AC-SELF-014) —
+    // X-SELF-7 的「第二条被丢弃 + 回错误」被重锚为**可判仲裁**：同一时刻仍只有一个在飞
+    // 回合（单飞保留），但第二条**不再静默丢弃**：
+    //   ② 在飞 ∧ 队列有余量 ⇒ 入队（FIFO，硬上限 1）⇒ `queued`（面板写「已排队」行）；
+    //   ③ 在飞 ∧ 队列已满 ⇒ **明确拒绝** ⇒ `busy-rejected`（`text` = 用户原话，面板把它
+    //      **放回 `#input`** —— 最坏情况下「永不静默丢失」也成立）。
+    const verdict = classifyChatRequest(true, turnQueue.size());
+    if (verdict === 'queued') {
+      const queued: QueuedTurn = { user, sessionId: s.currentSessionId, at: Date.now() };
+      turnQueue.enqueue(queued);
+      await chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'queued' })).catch(() => {});
+      return;
+    }
+    await chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'busy-rejected', text: user })).catch(() => {});
     return;
   }
   if (!isLlmConfigured({ hasKey: settings.apiKey.length > 0, providerId: settings.providerId, model: settings.model })) {
@@ -961,6 +981,18 @@ async function runChat(s: Singletons, user: string): Promise<void> {
   } finally {
     chatBusy = false;
     await persistChatHistory(s, sessionIdAtStart);
+  }
+  // ★ V5.5-3 TASK-V55-309 (ADR-V55-010 §2 ②/§后果): 在飞回合结束后 **drain** 队列
+  // （放在 `try/finally` **之外**：`finally` 里 `return` 会吞掉 `try` 的异常）。
+  // 排队条目**绑定入队时的 session**：会话已切换 ⇒ 二选一显式走「明确拒绝 + 留痕」
+  // （`busy-rejected` 让面板把原话回填 `#input`），绝不误归属到新会话。
+  const drained = turnQueue.drain();
+  if (drained) {
+    if (drained.sessionId !== s.currentSessionId) {
+      await chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'busy-rejected', text: drained.user })).catch(() => {});
+    } else {
+      await runChat(s, drained.user);
+    }
   }
 }
 

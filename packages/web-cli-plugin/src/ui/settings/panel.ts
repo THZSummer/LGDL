@@ -19,6 +19,10 @@ import type { DiagReport } from './diagnostics.js';
 import { diagStatusIcon, renderDiagText, sanitizeDiagText, summarizeReport } from './diagnostics.js';
 import { ensureSettingsStyles } from './styles.js';
 import { buildHelpSection } from './help.js';
+// V5.5-3 TASK-V55-314 (ADR-V55-009 §4 · FR-SELF-069/094 · AC-SELF-006) — the proactivity
+// kill-switch. The preference is read/written through the ONE guard module (key name and
+// default value are single-sourced there); this surface only renders the checkbox.
+import { loadProactivePref, proactivity, saveProactivePref } from '../sidepanel/next-registry/guard.js';
 import { AUTO_AUTH_HARD_LINES } from '../../security/auto-authorize.js';
 import { requestCapabilityPermissionOnGesture, type OptionalCapability } from '../../platform/capability-permissions.js';
 import {
@@ -187,6 +191,20 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     }),
   );
   llmSection.appendChild(form);
+
+  // ── V5.5-3 TASK-V55-314（ADR-V55-009 §4 · FR-SELF-069/094）—— 主动性**总开关** ──
+  // 落在**既有** `settings-llm` 分区内（零新增分区 / 零新增必需 id）；键名与默认值都在
+  // `guard.ts` 单源声明（本面只渲染 + 转发）。**主题① 不受本开关控制**（口径显式登记）。
+  const proactiveWrap = h(doc, 'label', { class: 'wc-inline', for: 'settings-proactive-enabled' });
+  const proactiveCheck = h(doc, 'input', { id: 'settings-proactive-enabled', type: 'checkbox' }) as HTMLInputElement;
+  proactiveCheck.checked = proactivity.enabled();
+  proactiveWrap.append(proactiveCheck, doc.createTextNode(' 让 AI 主动继续（默认开；关断后 AI 主动零发起，主题① 不受影响）'));
+  llmSection.appendChild(proactiveWrap);
+  const proactiveStatus = h(doc, 'div', { id: 'settings-proactive-status', class: 'wc-muted' });
+  proactiveStatus.setAttribute('role', 'status');
+  proactiveStatus.setAttribute('aria-live', 'polite');
+  llmSection.appendChild(proactiveStatus);
+
   root.appendChild(llmSection);
 
   // ── section 2: auto-authorization (per site) ─────────────────────────────
@@ -561,6 +579,14 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     tabsStatus.textContent = res.data ? res.text : res.text;
   }
 
+  /** V5.5-3 TASK-V55-314：把**持久偏好**读回控件与内存单例（读取失败 ⇒ 单源默认 ON）。 */
+  async function refreshProactive(): Promise<void> {
+    const on = await loadProactivePref();
+    proactiveCheck.checked = on;
+    proactivity.setEnabled(on);
+    proactiveStatus.textContent = on ? '当前：已开启（受六项护栏约束）。' : '当前：已关断（主题① 引导不受影响）。';
+  }
+
   function renderCapabilityStatus(): void {
     if (!capsView) return;
     const v = capsView;
@@ -776,6 +802,16 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
       if (!res.ok) void refreshTabs();
     });
   });
+  // V5.5-3 TASK-V55-314：关断 / 恢复**可逆**（NFR-SELF-010）—— 切换即时生效（内存单例）
+  // 并持久化（既有 `chrome.storage.local`，键名单源）；失败如实告知，绝不伪称已保存。
+  proactiveCheck.addEventListener('change', () => {
+    const on = proactiveCheck.checked;
+    proactivity.setEnabled(on);
+    proactiveStatus.textContent = on ? '已开启：AI 可主动续上下一回合（受六项护栏约束）。' : '已关断：AI 主动零发起；主题① 引导不受影响。';
+    void saveProactivePref(on).catch(() => {
+      proactiveStatus.textContent += '（偏好未能持久化：本次会话内仍生效）';
+    });
+  });
   // FR-054: the permission request MUST run inside this click gesture in the
   // extension page (never in the SW). The promise's UI updates happen after.
   const requestCapability = (row: (typeof capRows)[number]): void => {
@@ -875,6 +911,7 @@ export function mountSettingsPanel(deps: SettingsPanelDeps): SettingsPanelHandle
     aaSiteDetail.textContent = deps.getSiteDetail?.() ?? '';
     await refreshLlm();
     await refreshTabs();
+    await refreshProactive();
     await refreshCapabilities();
     await refreshAutoAuth();
     await refreshSessions();

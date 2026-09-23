@@ -1,58 +1,69 @@
-# 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2**）
+# 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2 · R2 = W3+W4**）
 
-> **文档定位**: SDDU 构建报告 — 记录全部任务的文件变更和实现结果，作为 review 阶段的输入  
+> **文档定位**: SDDU 构建报告 — 记录全部任务的文件变更和实现结果，作为 review / validate 阶段的输入  
 > **前置依赖**: `tasks.md`（20 任务 / 5 波）、`tasks.json`、本叶 `plan.md` v1.0、父 `../plan.md` + `ADR-V55-008/009/010/011/012`、前置叶 `v55-1` / `v55-2`（全绿）  
 > **创建人**: SDDU Build Agent  
 > **创建时间**: 2026-09-23  
-> **版本**: v1.0（**R1 中间构建报告**：W1+W2 = TASK-V55-301~307；W3~W5 留 R2）  
+> **版本**: v1.1（**R1 = W1+W2**（TASK-V55-301~307）+ **R2 = W3+W4**（TASK-V55-308~315）；W5 = TASK-V55-316~320 留 R3）  
 > **更新人**: SDDU Build Agent  
 > **更新时间**: 2026-09-23  
-> **更新说明**: 初始创建（派生式三档清分 + SG-V55-03 结论 + `pressCandidate` 载体 + AI 自动成回合（`requestTurn` 仍恰 2）+ 逐档反证 + 判定链零触碰；R1 体积中间登记）
+> **更新说明**: R2 增量——SW 有界仲裁（`TURN_QUEUE_MAX = 1`）+ 溢出明确拒绝 + 草稿回填 · 护栏六常量单源（`guard.ts`）+ 越限真抑制 + 关断偏好 · 不可达用户输入为零（三路径）· 载体零新增保持 · 体积重登记 566,535 → **573,424 B**（R2 单轮 +6,889，仍 < 单轮上界 7,600，产物在旧生效上限内）
 
 ---
 
-## 0. R1 范围与基线
+## 0. 范围与基线
 
-| 项 | 值 |
-|---|---|
-| 本轮范围 | **W1 + W2**：`TASK-V55-301`（SG-V55-03 探针）· `302`（`tierOf` + 物化表）· `303`（三档清分门禁）· `304`（`capability-wiring` / `sw-op-mirror` 等价重锚）· `305`（`ai-drive.ts`）· `306`（`op.turn` 槽复用 + 分支 A 端到端）· `307`（逐档反证 + 判定链零触碰） |
-| 未做（留 R2） | W3 仲裁（`TURN_QUEUE_MAX=1` + 草稿回填）· W4 护栏六常量 + 留痕 + 关断否决 · W5 共享面收口（`journey`/`binding` 保护段 / 台账收口 / 体积终轮 T319 / 全门禁 T320） |
-| 起点 | 分支 `feature/web-cli-plugin`，HEAD `69133ad`（v55-2 收口） |
-| 入线基线 | `npm test` **1283 / 0**；`dist/sidepanel.js` **563,780 B**；生效上限 591,969 / 档位 614,400 / 绝对上限 675,840；`dist/content.js` 177,076 B；`dist/pick-layer.js` 34,358 B |
-| 出线 | `npm test` **1299 / 0**（+16）；`dist/sidepanel.js` **566,535 B**（+2,755 / +0.49%）；档位 / 绝对上限 / `pending-author-line` **均未动** |
+| 项 | R1（W1+W2） | R2（W3+W4） |
+|---|---|---|
+| 本轮范围 | `TASK-V55-301`（SG-V55-03）· `302`（`tierOf` + 物化表）· `303`（三档清分门禁）· `304`（`capability-wiring`/`sw-op-mirror` 等价重锚）· `305`（`ai-drive.ts`）· `306`（`op.turn` 槽复用 + 分支 A e2e）· `307`（逐档反证 + 判定链零触碰） | `TASK-V55-308`（SG-V55-04）· `309`（SW 有界仲裁队列）· `310`（留痕 + 草稿回填）· `311`（`turn-arbitration` 门禁）· `312`（`guard.ts` 六常量单源）· `313`（越限抑制 + 链深截断 + `driverSuppressedLine`）· `314`（主动性开关 + 关断否决）· `315`（`proactivity-guard` 门禁 + 载体零新增） |
+| 未做（留 R3） | — | W5：`TASK-V55-316~320`（保护段 `journey`/`binding` · 台账收口 · **体积终轮（三叶合计）** · 全门禁 + e2e 收口） |
+| 起点 | 分支 `feature/web-cli-plugin`，HEAD `69133ad`（v55-2 收口） | 同分支，HEAD `5d0c489`（v55-3 R1） |
+| 入线基线 | `npm test` 1283 / 0；`dist/sidepanel.js` 563,780 B | `npm test` 1299 / 0；`dist/sidepanel.js` 566,535 B；生效上限 594,861 |
+| 出线 | `npm test` **1299 / 0**（+16）；`sidepanel.js` **566,535 B** | `npm test` **1312 / 0**（+13）；`sidepanel.js` **573,424 B** |
 
 ---
 
 ## 1. 构建概要
 
-| 维度 | 数值 |
+| 维度 | 数值（R1 + R2 累计） |
 |------|:--:|
-| 完成任务数 | **7 / 7**（本轮 W1+W2；全叶 20 任务） |
-| 复杂度分布 | S×1（301） / M×4（302 / 304 / 305 / 307） / L×2（303 / 306） |
-| 新增文件 | **2** 个（`ai-drive.ts` / `op-three-tier.test.ts`） |
-| 修改文件 | **11** 个（src 2 / test 7 / docs 2） |
-| 新增判据（node 用例） | **+16**（1283 → 1299） |
-| 新增门禁文件 | 1（`test/op-three-tier.test.ts`，10 用例；W5 T320 纳入受审集合） |
+| 完成任务数 | **15 / 20**（R1 7 + R2 8；W5 5 项留 R3） |
+| 复杂度分布（R2） | S×1（308） / M×5（309 / 310 / 312 / 313 / 315） / L×2（311 / 314） |
+| 新增文件（R2） | **4**（`src/background/turn-queue.ts` / `src/ui/sidepanel/next-registry/guard.ts` / `test/turn-arbitration.test.ts` / `test/proactivity-guard.test.ts`） |
+| 修改文件（R2） | **12**（src 6 / test 4 / docs 2；见 §2.1） |
+| 新增判据（node 用例） | R1 **+16**（1283 → 1299）；R2 **+13**（1299 → **1312**） |
+| 新增门禁文件 | R1 1（`op-three-tier`） + R2 2（`turn-arbitration` / `proactivity-guard`） = **3**（W5 T320 纳入受审集合） |
 
 ---
 
 ## 2. 文件变更
 
+### 2.1 R2（W3 + W4）
+
 | 操作 | 文件路径 | 对应任务 | 说明 |
 |:--:|------|:--:|------|
-| NEW | `packages/web-cli-plugin/src/ui/sidepanel/next-registry/ai-drive.ts` | TASK-V55-305/306 | `pressCandidate` **唯一自动按下点** + `pressDecision` 档位判定 + `driverClass` 权限矩阵 + `driverTraceLine` 留痕三要素 |
-| NEW | `packages/web-cli-plugin/test/op-three-tier.test.ts` | TASK-V55-303/307 | 三档清分机核 10 用例（5/2/2 + 成员集逐字 + 特权恒 `gesture` + 与 `IMPL` 逐字段一致 + `auto` 零三表写入 + 新 op 归档 + 逐档反证 + 判定链零 diff） |
-| MODIFY | `packages/web-cli-plugin/src/shared/op-table.ts` | TASK-V55-302 | `OpDescriptor.hasConsent`（consent 存在性提升为描述符字段）+ `OP_TIERS` / `tierOf`（**派生式**）+ 物化 `OP_TIER_TABLE` + `tierOfId`；**零新增 op** |
-| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts` | TASK-V55-306 | `driveAnsweredTurn()` 接线（`nextAfterSettle` 的 `answered` 分支 + 回合结束续流点）；经 **既有** `op.turn` 槽 ⇒ `requestTurn(` **仍恰 2** |
-| MODIFY | `packages/web-cli-plugin/test/op-wiring.test.ts` | TASK-V55-306 | `OP-W⑦` 三段：自动按下点恰 1 / `requestTurn` 仍恰 2 / `nextAfterSettle` 调用点钉死（1 def + 10 calls）+ 分支 A 端到端 + 逐档拒绝 |
-| MODIFY | `packages/web-cli-plugin/test/capability-wiring.test.ts` | TASK-V55-304 | 三档等价重锚（特权集 == `gesture` 档 ∧ `.request(` 计数不减 ∧ AI 自动执行特权 op 必红）；既有两条断言逐字保留 |
-| MODIFY | `packages/web-cli-plugin/test/sw-op-mirror.test.ts` | TASK-V55-304 | `SW-M⑤` 三档加固 + 漂移反证锚点随 `hasConsent` 5 元组**等价重锚** |
-| MODIFY | `packages/web-cli-plugin/test/size-baseline.ts` | R1 体积中间登记 | 基线 563,780 → **566,535**；TIMELINE / RE_REGISTRATIONS(`v55-3-r1`) / GROWTH_BREAKDOWN(`v553R1Rows` + glue 49) / `rows` 三值 / 输入模块数 90 → 91 |
-| MODIFY | `packages/web-cli-plugin/test/size-budget.test.ts` · `size-growth-evidence.test.ts` · `size-ruling-vol3.test.ts` | R1 体积中间登记 | 生效上限 591,969 → **594,861**、基线 / Δ / 「最新一轮 rows」/ N-05 组数 29 → 30 同编号重 pin |
-| MODIFY | `packages/web-cli-plugin/docs/v4-density-baseline.json` | R1 体积中间登记 | `volume` 段：`registeredBaselineBytes` 566,535 / `ceilingBytes` 594,861 / `effectiveCeilingRule` 与 `directionalAlert` 追补（31 格与阈值**逐字不动**） |
-| MODIFY | `packages/web-cli-plugin/docs/v4-supersession-ledger.json` | R1 体积中间登记 + 换锚 | `v3Vol3Closeout.⑤` `newBaselineBytes` 同源前移；61 条 v4 条目 `newTitle` **换锚**（断言零删减）；`specs-tree-v5-3-chrome-face` / `r4-selector-fix` 叶段 scope + 逐字登记追补 |
+| NEW | `packages/web-cli-plugin/src/background/turn-queue.ts` | TASK-V55-309 | **有界仲裁队列**（纯逻辑，落 background ⇒ 零 sidepanel 字节）：`TURN_QUEUE_MAX = 1` 单源 + `classifyChatRequest(busy, len)` 三路径 + 有界 FIFO `createTurnQueue`（溢出 = `busy-rejected`，非无界 / 非静默） |
+| NEW | `packages/web-cli-plugin/src/ui/sidepanel/next-registry/guard.ts` | TASK-V55-312/313/314 | **护栏六常量单源**：`AI_PROACTIVE_MAX_PER_WINDOW = 6` / `AI_PROACTIVE_WINDOW_MS = 600_000` / `AI_PROACTIVE_SILENCE_MS = 60_000` / `AI_PROACTIVE_COOLDOWN_MS = NEXTSTEP_MIN_INTERVAL_MS`（**re-export，零第二份 10_000**）/ `AI_CHAIN_DEPTH_MAX = 2` / `AI_TURN_BUDGET_PER_SESSION = 8` + `AI_PROACTIVE_ENABLED_DEFAULT = true` + `AI_PROACTIVE_PREF_KEY`（单源）+ `AI_PROACTIVE_SAME_CAUSE_KEY = dedupeKey`；`createProactivityGuard(now)` 工厂 + `proactivity` 单例 + `loadProactivePref` / `saveProactivePref`（既有 `chrome.storage.local`，独立键） |
+| NEW | `packages/web-cli-plugin/test/turn-arbitration.test.ts` | TASK-V55-311 | 仲裁门禁 **6 用例**：闭集 4 项穷举 / 队列恒 ≤1 单源 / 零丢失三路径 / 草稿回填源码事实 / AI 撞车 `blocked:busy` / type-only（`KIND_SET` 40）+ 跨 bundle；含注入反证 |
+| NEW | `packages/web-cli-plugin/test/proactivity-guard.test.ts` | TASK-V55-315 | 护栏门禁 **7 用例**：六常量单源扫描（含注释剥离）/ 频次 / 同因 + 静默 + 冷却 / 链深截断 / 预算非死端 / 关断 + 主题① / 载体零新增（12 kind / 零宿主 / `KIND_SET` 40）；含散落第二份注入反证 |
+| MODIFY | `packages/web-cli-plugin/src/background/service-worker.ts` | TASK-V55-309 | `runChat` 的 busy 分支重锚为**可判仲裁**（非在飞 ⇒ `executed`；在飞 ∧ 有余量 ⇒ 入队 + `queued`；在飞 ∧ 已满 ⇒ `busy-rejected` + `text`）；`try/finally` **之外** drain（`finally` 内 `return` 会吞异常）；排队条目绑定入队 session，切换 ⇒ 明确拒绝 + 留痕（二选一显式） |
+| MODIFY | `packages/web-cli-plugin/src/background/chat-events.ts` | TASK-V55-309 | `ARBITRATION_RESULTS`（**闭集 4 项**，type-only）单源声明 |
+| MODIFY | `packages/web-cli-plugin/src/background/messaging.ts` | TASK-V55-309 | `ChatResultVariant` 追加 `'queued' \| 'busy-rejected'`（payload 字段，**非** `KIND_SET` 成员）；`KIND_SET` 仍逐字 40 |
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts` | TASK-V55-310/313/314 | chat-result 新分支：`queued` ⇒ 可读留痕行；`busy-rejected` ⇒ 留痕 + **草稿回填 `#input`**（仅空输入时，不覆盖新输入）；`driveAnsweredTurn` 护栏**前置判定**（越限 ⇒ `driverSuppressedLine` 留痕，非静默）+ `guardAllowed` 纵深缝 + 成功记账；`nextAfterSettle` 的 `answered` ⇒ 链断；composer 提交 ⇒ `noteUserTurn`；`op-*` rejected/cancelled ⇒ `noteVeto`；启动读持久偏好 |
+| MODIFY | `packages/web-cli-plugin/src/ui/sidepanel/next-registry/ai-drive.ts` | TASK-V55-313 | `driverSuppressedLine(driverId, timing, evidence, reason)` —— 抑制留痕的**单源**行（`… | suppressed=<reason>`） |
+| MODIFY | `packages/web-cli-plugin/src/ui/settings/panel.ts` | TASK-V55-314 | 既有 `settings-llm` 分区内的**主动性总开关**（零新增分区 / 零新增必需 id）；键名与默认值取自 `guard.ts` 单源；切换即时生效 + 持久化；`refreshProactive()` 回读 |
+| MODIFY | `packages/web-cli-plugin/test/size-baseline.ts` · `size-budget.test.ts` · `size-growth-evidence.test.ts` · `size-ruling-vol3.test.ts` · `docs/v4-density-baseline.json` · `docs/v4-supersession-ledger.json` | R2 体积重登记 | 基线 566,535 → **573,424**；生效上限 594,861 → **602,095**（公式派生）；`v553R2Rows` + glue 46；round rows 组 30 → 31；输入模块数 91 → 92；档位 / 绝对上限 / `pending-author-line` 未动；v4 条目 `newTitle` 换锚 + 2 叶段删除行追补（断言零删减） |
 
-**红线复核**：`dist/content.js` **177,076 B**（sha `52a82620…`）与 `dist/pick-layer.js` **34,358 B** **逐字节不变**；`manifest.json` / `KIND_SET` / `src/content/**` / `ROADMAP.md` / `design/**` 零 diff。
+### 2.2 R1（W1 + W2，逐字保留）
+
+| 操作 | 文件路径 | 对应任务 | 说明 |
+|:--:|------|:--:|------|
+| NEW | `src/ui/sidepanel/next-registry/ai-drive.ts` | 305/306 | `pressCandidate` **唯一自动按下点** + `pressDecision` + `driverClass` 矩阵 + `driverTraceLine` |
+| NEW | `test/op-three-tier.test.ts` | 303/307 | 三档清分机核 10 用例 |
+| MODIFY | `src/shared/op-table.ts` | 302 | `hasConsent` + `tierOf`（派生式）+ 物化 `OP_TIER_TABLE` + `tierOfId`；零新增 op |
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` · `test/op-wiring.test.ts` · `test/capability-wiring.test.ts` · `test/sw-op-mirror.test.ts` · `test/size-baseline.ts` · `size-budget.test.ts` · `size-growth-evidence.test.ts` · `size-ruling-vol3.test.ts` · `docs/v4-density-baseline.json` · `docs/v4-supersession-ledger.json` | 304/306 | 接线 + 等价重锚 + R1 体积中间登记 |
+
+**红线复核（R2）**：`dist/content.js` **177,076 B** 与 `dist/pick-layer.js` **34,358 B** **逐字节不变**；`manifest.json` / `KIND_SET`（40） / `src/content/**` / `ROADMAP.md` / `design/**` 零 diff。
 
 ---
 
@@ -60,45 +71,60 @@
 
 | 任务 | 名称 | 复杂度 | 状态 | 对应 FR |
 |------|------|:--:|:--:|------|
-| TASK-V55-301 | **SG-V55-03** 派生式清分可得性探针 | S | ✅ completed（探针已删除，不落版本库） | FR-SELF-080/086 |
+| TASK-V55-301 | **SG-V55-03** 派生式清分可得性探针 | S | ✅ completed（探针已删除） | FR-SELF-080/086 |
 | TASK-V55-302 | `op-table.ts` `tierOf` + 物化 `OP_TIER_TABLE` | M | ✅ completed | FR-SELF-080 |
 | TASK-V55-303 | `op-three-tier.test.ts` 三档清分机核 | L | ✅ completed | FR-SELF-080/081/083/084/086 |
 | TASK-V55-304 | `capability-wiring` / `sw-op-mirror` 等价重锚 | M | ✅ completed | FR-SELF-081/086 |
 | TASK-V55-305 | `ai-drive.ts` `pressCandidate` 单源 + `driverClass` 矩阵 | M | ✅ completed | FR-SELF-063/065 |
-| TASK-V55-306 | `op.turn` 槽复用（`requestTurn` 仍恰 2）+ 分支 A 端到端 | L | ✅ completed | FR-SELF-060/064/070 |
-| TASK-V55-307 | 逐档反证（`confirm`/`gesture` 不可自动按下）+ 判定链零触碰 | M | ✅ completed | FR-SELF-067/082/085 |
-| TASK-V55-308~320 | W3 仲裁 / W4 护栏 / W5 共享面收口 | — | ⏳ **pending（R2）** | — |
+| TASK-V55-306 | `op.turn` 槽复用（`requestTurn` 仍恰 2）+ 分支 A e2e | L | ✅ completed | FR-SELF-060/064/070 |
+| TASK-V55-307 | 逐档反证 + 判定链零触碰 | M | ✅ completed | FR-SELF-067/082/085 |
+| TASK-V55-308 | **SG-V55-04** 仲裁 SW 零字节 + 草稿回填 seam 探针 | S | ✅ completed（探针已删除） | FR-SELF-061 |
+| TASK-V55-309 | `service-worker.ts` 有界仲裁队列 | M | ✅ completed | FR-SELF-061 |
+| TASK-V55-310 | 留痕 + 草稿回填 | M | ✅ completed | FR-SELF-061/063 |
+| TASK-V55-311 | `turn-arbitration.test.ts` 仲裁门禁 | L | ✅ completed | FR-SELF-061 |
+| TASK-V55-312 | `guard.ts` 护栏六常量单源 | M | ✅ completed | FR-SELF-090~093 |
+| TASK-V55-313 | 越限抑制 + 链深截断 + `driverTraceLine` 留痕 | M | ✅ completed | FR-SELF-090~092/063 |
+| TASK-V55-314 | `settings/panel.ts` 主动性开关 + 关断否决 | L | ✅ completed | FR-SELF-068/069/094 |
+| TASK-V55-315 | `proactivity-guard.test.ts` 护栏门禁 + 载体零新增 | M | ✅ completed | FR-SELF-090~097 |
+| TASK-V55-316~320 | W5：保护段 / 台账收口 / 体积终轮 / 全门禁 + e2e | — | ⏳ **pending（R3）** | — |
 
-### 3.1 SG-V55-03 结论（先验闸门）
+### 3.1 SG-V55-04 结论（R2 先验闸门）
 
-**结论 = 可得**（探针 `/tmp/opencode/v4-gate-logs/v55-3-r1/SG-V55-03.log`，五要素报告）：
+**结论 = 可得**（探针 `/tmp/opencode/v4-gate-logs/v55-3-r2/SG-V55-04.log`，五要素报告）：
 
 ```
-① 派生式可得：可得   ② 计数：{auto:5, confirm:2, gesture:2}   ④ 与 IMPL 逐字段一致：一致   ⑤ problems：（空）
-③ 成员集：auto=[op.turn,op.pick,op.describe,op.rebind,op.help] / confirm=[op.llm-config,op.revoke] / gesture=[op.authorize,op.perm.request]
+① 结论：可得
+② seam 清单：S1 chatBusy 单飞本体 / S2 chat 入口 / S3 busy 分支 / S4 finally 收口 / S5 sessionIdAtStart
+   / S6 仲裁类型宿主（type-only）/ S7 面板 chat-result 分派 / S8 #input 可写 / S9 既有系统行 / S10 KIND_SET 未新增 —— 10/10 ✔
+③ 反例（缺一即不可得）：（无）   ⑤ problems：（空）
 ```
 
-⇒ `TASK-V55-302/303` 可开工（`BLK-V55-3` 未触发）；**未引入任何手写清分清单**（R-SELF-906 未违反）。
+⇒ `TASK-V55-309/310/311` 可开工（`BLK-V55-4` 未触发）。
 
-### 3.2 三档表落点与安全边界证据
+### 3.2 护栏六常量表（ADR-V55-009 §1 单源）
 
-- **落点**：`src/shared/op-table.ts#tierOf(d) = d.layer === 'sw' ? 'gesture' : (d.hasConsent ? 'confirm' : 'auto')`；`OP_TIER_TABLE` 由 `OP_DESCRIPTORS` **物化生成**（非第二份数据，门禁逐行重构断言相等）。
-- **特权恒 `gesture` 断言**（`test/op-three-tier.test.ts` OT③ / `sw-op-mirror` SW-M⑤ / `capability-wiring`）：
-  `SW_OP_DESCRIPTORS`（恰 2）逐项 `tierOf` == `gesture` ∧ `gesture` 档成员集 == 特权集（双向相等，无隐藏档）；
-  `pressDecision('op.authorize' | 'op.perm.request', {actor:'ai'})` ⇒ `{ok:false, blocked:'tier'}`（**AI 不可发起 / 不可代按**）。
-- **「SW 永不 `.request(`」语义等价保留**：`service-worker.ts` 中 `.request(` 命中数 **0**（计数不减）；手势 helper 的请求点 ≥1。
-- **consent 不得被 AI 代答**：`confirm` 档（`op.llm-config` / `op.revoke`）`consent` 卡恒由面板收集器产出；`ai-drive.ts` 源码 **零 `consent` 通道**（`/collectConsent|consent/i` 零命中）；注入「AI 代答 ⇒ 必红」判据实跑。
-- **`auto` 档零三表写入**：写入点表（`keyStore.save` / `requestCapabilityPermissionOnGesture` / `authorizeCurrentSite` / `removeCapabilityPermission`）全部落在 `confirm` / `gesture` 档；`auto` 档出现写入点 ⇒ FAIL。
-- **判定链零触碰**：v3 台账 `zeroDiffFiles` 9 项逐项 `git diff`（未在册解冻者）；`policy.ts` / `auto-authorize.ts` **永不**可解冻（硬判据）。
-- **AI 不自造候选**：`pressDecision` 首判 `opDescriptor(opId)` 未命中 ⇒ `blocked:unknown-op`。
+| 常量 | 值 | 语义 | 落点 / 关系 |
+|---|---|------|------|
+| `AI_PROACTIVE_MAX_PER_WINDOW` | **6** | 打扰控制：滚动窗内主动发起上限 | `guard.ts` 单源；窗口 `AI_PROACTIVE_WINDOW_MS` |
+| `AI_PROACTIVE_WINDOW_MS` | **600_000**（10 min） | 频次上限的滚动窗宽 | 同处声明（全仓字面量恰 1 处） |
+| `AI_PROACTIVE_SAME_CAUSE_KEY` | `dedupeKey(driverId, ctxDigest)` | 同因不重复 | **函数单源** = `drivers.ts#dedupeKey`（零第二份拼接） |
+| `AI_PROACTIVE_SILENCE_MS` | **60_000** | 静默期（否决 / 手输后） | `guard.ts` 单源 |
+| `AI_PROACTIVE_COOLDOWN_MS` | = `NEXTSTEP_MIN_INTERVAL_MS`（**10_000**） | 两次自动发起最小间隔 | **re-export**（`guard.ts` 内**零** `10_000` 字面量；R-V55-109 防线） |
+| `AI_CHAIN_DEPTH_MAX` | **2** | 连续自动链深度上限 | 达界 ⇒ 截断 + 转用户手势（非死端） |
+| `AI_TURN_BUDGET_PER_SESSION` | **8** | 回合预算（口径 = 主动回合数，等价口径已登记） | 达界 ⇒ 停发 AI 主动、确定性面不受影响 |
+| `AI_PROACTIVE_ENABLED_DEFAULT` | **`true`** | 关断偏好默认值 | 显式登记；实现与文书同源 |
+| `AI_PROACTIVE_PREF_KEY` | `'web-cli:proactive'` | 持久偏好键名单源 | 与 `web-cli:llm`（Key）/ `web-cli:theme` 不同键；键内无 `apiKey` 形状 |
 
-### 3.3 继承义务处置（v55-1 / v55-2 移交）
+### 3.3 仲裁行为证据（草稿回填端到端）
 
-| 义务 | 处置 |
-|---|---|
-| `nextAfterSettle` 调用点数值钉死 | **已钉死**：`test/op-wiring.test.ts#OP-W⑦` 断言 **1 定义 + 10 调用点**（本轮接线**未新增调用点**，`driveAnsweredTurn()` 在 `nextAfterSettle` 体**内**触发） |
-| v55-2 N-01（零消费导出清理或登记） | **登记**（非本轮面）：`onboarding-flow.ts` 导出面零消费项由 W5 T320 收口轮统一处置；R1 未新增导出 |
-| v55-2 N-02（续接成功后清空悬置，防旧原话重放） | **已落实（同义）**：`driveAnsweredTurn()` 以 `dedupeKey(driverId:source, instruction)` **单槽**消费；**只有真正按下成功才消费**（被拒不消费 ⇒ 下个结算点可再试，且**不会**无限重放同一意图） |
+| 路径 | 触发 | 结果 | 判据 |
+|---|---|---|---|
+| ① 正常 | `chatBusy === false` | `executed`（既有单飞执行） | `classifyChatRequest(false, n) === 'executed'` |
+| ② 排队 | 在飞 ∧ 队列余量 ≥1 | 入队（FIFO，硬上限 1）⇒ `queued`；面板「已排队」可读行 | 队列 `size() === 1`；drain 取出**同一条文本** |
+| ③ 明确拒绝 | 在飞 ∧ 队列已满 | `busy-rejected`（`text` = 用户原话）⇒ 面板**回填 `#input`**（仅空输入）+ 可读行 | 源码事实：`draftInput.value = rejected` ∧ `draftInput.value.length === 0` 前置；反证：删回填 ⇒ `panelRestoreProblems` 必红 |
+| ④ AI 撞车 | AI 主动 ∧ 在飞 | `pressCandidate` ⇒ `blocked:busy` + 留痕（**不排队、不重试**） | `pressDecision('op.turn', {busy:true}) === {ok:false, blocked:'busy'}`；面板 `busy: state.pending` |
+
+**「用户输入永不静默丢失」三重保障**：① 流内 `user` 行在 `requestTurn` 内即写出（不被仲裁回滚）；② 排队条目在 drain 时以**同一起点 session** 执行（切换 ⇒ 明确拒绝，仍回填草稿）；③ 拒绝时把原话放回 `#input`。空输入**不覆盖**用户新输入（ADR-V55-010 §后果）。
 
 ---
 
@@ -106,66 +132,81 @@
 
 ### 4.1 计数（只增不减）
 
-| 门禁 | 入线 | 出线 | 结论 |
+| 门禁 | 入线 | 出线（R2） | 结论 |
 |---|--:|--:|---|
-| `npm test`（node） | 1283 | **1299** | ✅ +16 / 0 fail |
-| `test:journey` | 171 | **171** | ✅ 保段（**零 diff**，保护段未触及） |
-| `test:binding` | 192 | **192** | ✅ 保段（**零 diff**） |
-| `test:l0` | 248 | 248 | ✅ |
-| `test:density` | 242 | 242 | ✅ 阈值逐字不动 |
-| `test:s0-self-driven` | 42 | 42 | ✅ |
-| `test:dead-end` | 49 | 49 | ✅ |
-| `test:stream` / `ask-auth` / `auth-chip` / `law8` / `page-input` / `l1` / `l2` / `insight` / `hardening` / `zero-injection` / `recommendation` | — | 76 / 78 / 37 / 36 / 118 / 120 / 74 / 118 / 24 / 28 / 72 | ✅ 全部 ≥ 基线 |
-| `test:supersession` | 36 | **36** | ✅ |
-| `test:gate-integrity` | 15 | 15 | ✅ `CHROMIUM_GATES === 9` 逐字不动 |
-| `test:size-ruling-vol3` | 12 | 12 | ✅ 三值同源 + `pending-author-line` 未伪称确认 |
+| `npm test`（node） | 1299 | **1312** | ✅ +13 / 0 fail |
+| ↳ 新增 `turn-arbitration` | — | **6** | ✅ 新门禁 |
+| ↳ 新增 `proactivity-guard` | — | **7** | ✅ 新门禁 |
+| `test:journey` | 171 | **171** | ✅ 保段（零 diff） |
+| `test:binding` | 192 | **环境性 FAIL（KL-N-10）** | ⚠️ 见 §6 N-V55-3-R2-01（**基线复现同一失败**，非本轮改动） |
+| `test:l0` / `test:density` | 248 / 242 | 248 / 242 | ✅ |
+| `test:l1` / `test:l2` | 120 / 74 | 120 / 74 | ✅ |
+| `test:insight` / `test:stream` / `test:ask-auth` | 118 / 76 / 78 | 118 / 76 / 78 | ✅ |
+| `test:s0-self-driven` / `test:dead-end` | 42 / 49 | 42 / 49 | ✅ |
+| `test:auth-chip` / `test:law8` / `test:hardening` | 37 / 36 / 24 | 37 / 36 / 24 | ✅ |
+| `test:page-input` / `test:zero-injection` | 118 / 28 | 118 / 28 | ✅ |
+| `test:recommendation` / `test:ref-pick-wiring` | 72 / 11 | 72 / 11 | ✅ |
+| `test:supersession` | 36 | 36 | ✅ |
+| `test:gate-integrity` | 15 | **18** | ✅ 只增（新 node 门禁自动入受审集合）；`CHROMIUM_GATES === 9` 逐字不动 |
+| `test:size-ruling-vol3` | 12 | 12 | ✅ 三值同源 + `pending-author-line` 未伪称 |
+| `test:onboarding` / `test:design-contract` | 29 / 19 | 29 / 19 | ✅ |
+| `test:l1-reverse` / `test:l2-reverse` | 9 / 10 | 9 / 10 | ✅ |
 | `test:e2e` | PASS | **PASS** | ✅ |
 
-门禁串行复跑，日志：`/tmp/opencode/v4-gate-logs/v55-3-r1/`（27 份，逐门禁一份）。
+门禁串行复跑日志：`/tmp/opencode/v4-gate-logs/v55-3-r2/`（`test-v3.log` + 各门禁逐份）。
 
-### 4.2 体积五要素（R1 **中间登记**，TASK-V55-319 终轮在 R2）
+### 4.2 体积五要素（R2 **中间登记**，TASK-V55-319 终轮在 R3）
 
 | 要素 | 值 |
 |---|---|
-| 实测（`stat -c %s dist/sidepanel.js`） | **566,535 B**（入线 563,780，**Δ +2,755 / +0.49%**） |
-| 逐模块归因（真实 `dist/build-meta.json`） | `sidepanel.ts` 101,704 → 102,426（**+722**）· `next-registry/ai-drive.ts` **NEW 1,511** · `shared/op-table.ts` 831 → 1,304（**+473**）；Σ **+2,706** + 未归因胶水 **+49** == **+2,755**（`SIDEPANEL_GROWTH_BREAKDOWN.v553R1Rows` / `v553R1UnattributedGlueBytes`） |
-| 输入模块数 | 90 → **91**（`ai-drive.ts` 新增 1 个必需模块） |
-| 生效上限 / 档位 / 绝对上限 | 生效上限 591,969 → **594,861**（= `floor(566,535 × 1.05)`，公式派生）；**档位 614,400 与绝对上限 675,840 均未动**（566,535 < 614,400 ⇒ **未跨档位**，无需升档） |
-| 披露与占位 | `SIDEPANEL_RE_REGISTRATIONS['v55-3-r1']` 五要素齐备（direction `raised`）；`SIDEPANEL_CEILING_CAP_ROLE === 'record-only'`；`authorConfirmation` 保持 **`pending-author-line`**（**未伪称确认**） |
+| 实测（`stat -c %s dist/sidepanel.js`） | **573,424 B**（R1 566,535，**R2 Δ +6,889 / +1.22%**） |
+| 逐模块归因（真实 `dist/build-meta.json`） | `next-registry/guard.ts` **NEW 3,016** · `settings/panel.ts` 37,358 → 39,252（**+1,894**）· `sidepanel.ts` 102,426 → 104,201（**+1,775**）· `next-registry/ai-drive.ts` 1,511 → 1,669（**+158**）；Σ **+6,843** + 未归因胶水 **+46** == **+6,889**（`SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows` / `v553R2UnattributedGlueBytes`） |
+| 输入模块数 | 91 → **92**（`turn-queue.ts` 落 background 不计入；`guard.ts` 新增 1 个 sidepanel 必需模块） |
+| 生效上限 / 档位 / 绝对上限 | 生效上限 594,861 → **602,095**（= `floor(573,424 × 1.05)`，公式派生）；**档位 614,400 与绝对上限 675,840 均未动**（573,424 < 614,400 ⇒ **未跨档位**，无需升档） |
+| 披露与占位 | `SIDEPANEL_RE_REGISTRATIONS['v55-3-r2']` 五要素齐备（direction `raised`）；`docs/v4-density-baseline.json#volume` 同源；`SIDEPANEL_CEILING_CAP_ROLE === 'record-only'`；`authorConfirmation` 保持 **`pending-author-line`**（**未伪称确认**） |
 | 红线 | `content.js` 177,076 B / `pick-layer.js` 34,358 B **逐字节不变** |
 
-**口径诚实登记**：本叶预算 5,900 B / 上界 7,600 B ⇒ R1 实测 +2,755 B **未越预算**；`op-table.ts`（+473）按 `new-required-module` 桶沿用（相对 v3-1 参照树仍为新增模块），`sidepanel.ts`（+722）计入接线桶。
+**口径诚实登记（不得静默）**：
+- 本叶预算 **5,900 B** / 上界 **7,600 B**；R1 +2,755 + **R2 +6,889 = +9,644 B** ⇒ **本叶累计越叶预算（超 3,744 B）**；
+- R2 **单轮 +6,889 B < 单轮上界 7,600 B**，且产物 573,424 B 仍在**旧生效上限 594,861 B** 之内（"生效上限内优先"）；**未跨档位 / 无红线变化** ⇒ 按 ADR-V55-011 §4「登记不停机」处置，并在 `SIDEPANEL_RE_REGISTRATIONS['v55-3-r2'].reason` / `docs/v4-density-baseline.json#volume.directionalAlert` 逐条如实登记；
+- **超额根因（计划侧严重低估）**：`guard.ts` 计划 1,700 → 实测 **3,016**（×1.8）；`settings/panel.ts` 计划 350 → 实测 **1,894**（×5.4，含分区内开关渲染 + 读回）；`sidepanel.ts` 计划 2,000 → 实测 **1,775**（在预算内）。R3（TASK-V55-319）按三叶合计终态再登记并显式升档/如实登记二态。
 
 ---
 
 ## 5. 反证摘要（每条判据两段证据，禁恒真）
 
-| # | 反证形态 | 结果 |
+### 5.1 R2 注入反证（硬性纪律逐条）
+
+| # | 反证形态（本轮纪律） | 结果 |
 |---|---|---|
-| 1 | **删 `tierOf` 派生**（抹掉 `confirm` 档 `hasConsent`） | 该 op 立刻落 `auto` ⇒ 清分 6/1/2 ⇒ **FAIL**；还原 ⇒ PASS |
-| 2 | 把 `gesture` 档（`op.authorize`）归 `auto` | 特权恒 `gesture` 判据 **FAIL**；还原 ⇒ PASS |
-| 3 | **AI 按下 `confirm` 档**（`op.llm-config` / `op.revoke`） | `pressDecision` ⇒ `blocked:'tier'`；对照实现（抽掉档位闸门）会放行 ⇒ 证明闸门承重 |
-| 4 | **AI 自动执行特权 op** | `blocked:'tier'` + `capability-wiring` / `sw-op-mirror` 双判据 FAIL |
-| 5 | **AI 代答 consent** | `aiConsentAnswerProblems(['op.llm-config'])` 必红；`ai-drive.ts` 零 consent 通道 |
-| 6 | **AI 自造 opId**（`op.ghost`） | `blocked:'unknown-op'`（候选恒由注册表产出） |
-| 7 | 新 op 未归档 / 第四档 | `partitionProblems` 双向包含判据必红 |
-| 8 | **新增第三个 `requestTurn(` 调用点** / 复制自动按下点 | 计数据必红（实测 2 / 1）；还原 ⇒ PASS |
-| 9 | **`auto` 档写三表** | `writePointProblems` 必红 |
-| 10 | **AI 按 `confirm`/`gesture` 档产出可见 next 缺失** | `aiInitiateProblems` 必红 |
-| 11 | 判定链文件改动（塞进 `zeroDiffFiles`） | `zeroDiffProblems` 必红 |
+| 1 | **超频次 ⇒ 抑制必红** | 滚动窗内第 7 次主动 ⇒ `{allowed:false, reason:'frequency'}`；窗口滚动后恢复 ⇒ 判据非恒真 |
+| 2 | **链深 3 ⇒ 红** | 连续 2 次后第 3 次 ⇒ `chain-depth`；用户交互 ⇒ 重置 + 放行（可逆） |
+| 3 | **关断 ⇒ 零主动必红** | `setEnabled(false)` ⇒ `disabled`；**主题① 仍放行**（`verdict('deterministic') === allowed`）；恢复 ⇒ 放行 |
+| 4 | **仲裁丢弃用户输入 ⇒ 红** | 删掉回填 ⇒ `panelRestoreProblems` 必红；空输入不覆盖断言 |
+| 5 | **AI 撞车发起 ⇒ 红** | `pressDecision(busy)` ⇒ `blocked:busy`；对照（非在飞）⇒ 放行 |
+| 6 | **无界队列 ⇒ 红** | 上限 2 的对照实现接纳第二条（说明上限承重）；真判据上限 1 ⇒ 第二条 `busy-rejected` |
+| 7 | **常量散落第二份 ⇒ 红** | 注入 `export const AI_CHAIN_DEPTH_MAX = 9;` ⇒ 声明计数 2；`guard.ts` 内 `10_000` 零命中 |
+| 8 | **同因 / 静默 / 冷却 ⇒ 各必红** | 同 cause 第二次 ⇒ `same-cause`；手输后 <60 s ⇒ `silence`；间隔 <10 s ⇒ `cooldown`；期满均恢复 |
+| 9 | **预算耗尽 ⇒ 非死端** | 第 9 个主动回合 ⇒ `budget`；确定性面仍放行（可达 next 不被阻断） |
+| 10 | **载体新增 ⇒ 红** | `KIND_SET` 注入 `'ghost'` ⇒ 41 项；12 kind / 零宿主逐字断言 |
+
+### 5.2 R1 注入反证（逐字保留，见 R1 段）
+
+删 `tierOf` 派生 ⇒ 清分 6/1/2 红 · 特权归 `auto` ⇒ 红 · AI 按下 `confirm` 档 ⇒ `blocked:tier` · AI 代答 consent ⇒ 红 · AI 自造 `opId` ⇒ `unknown-op` · 新 op 未归档 ⇒ 红 · 第三个 `requestTurn(` ⇒ 红 · `auto` 档写三表 ⇒ 红 · 判定链改动 ⇒ `zeroDiffProblems` 必红（9 项）。
 
 ---
 
-## 6. 已知限制 / 显式登记（R1）
+## 6. 已知限制 / 显式登记（R2）
 
 | # | 项 | 处置 |
 |---|---|---|
-| N-V55-3-R1-01 | **W3~W5 未落地**（仲裁有界队列 / 护栏六常量 / 关断否决 / 共享面收口） | 显式登记为 **R2 范围**；`pressDecision` 已预留 `busy`（仲裁）与 `guardAllowed`（护栏）两缝，W3/W4 只接线、不改结构 |
-| N-V55-3-R1-02 | AI 自动成回合的**有界性**当前只由「事件作用域单槽消费」承担（`dedupeKey` 单槽 + 只有按下成功才消费） | 频次 / 冷却 / 链深度 / 回合预算的**六常量护栏**在 W4 `guard.ts` 落地后经 `guardAllowed` 缝接入（零第二阈值）；**本 R1 不新增任何护栏常量**（避免与 W4 单源冲突） |
-| N-V55-3-R1-03 | 「已配置」判据在 `sidepanel.ts` 复用既有表达式 `llmLoaded && Boolean(llmSummary?.configured)`（与 `maybeRecommend` 同源） | 未引入第二判据；v55-2 的 `isLlmConfigured`（SW bundle）保持**零 sidepanel 字节** |
-| N-V55-3-R1-04 | 体积为 **中间登记**（非三叶合计终态） | TASK-V55-319（W5）按三叶合计终态再登记；本 R1 已保证「登记值 == 实测产物」与五要素齐备 |
-| N-V55-3-R1-05 | v4 取代台账 61 条 `newTitle` **换锚** + 2 叶段 scope/逐字登记追补 | 因 R1 体积重 pin 与漂移反证锚点前移而**必然**发生；理由与历史值逐条留档（断言零删减、阈值零放宽） |
-| N-V55-3-R1-06 | `state.json.phase` 置 `builded`（**R1 中间态**，非叶终态） | W5 T320 收口时按三叶合计终态再登记 |
+| N-V55-3-R2-01 | **`test:binding` 环境性 FAIL（KL-N-10 家族）**：`阶段 1 harness error: selector not found: #confirm-allow` + CDP socket 早断 | **非本轮改动**：`git stash` 去掉 R2 全部改动后**同机复跑同样失败**（`test-binding-baseline.log`，3 项失败含同一 selector）；R1 时 binding 192 全绿。**如实登记，不伪造串行绿**；R3 收口轮按 KL-N-10 隔离复跑纪律再判（若仍红则按环境 flake 单列，不改判据） |
+| N-V55-3-R2-02 | **体积越叶预算（+9,644 > 5,900）** | 逐条如实登记于 §4.2 + `SIDEPANEL_RE_REGISTRATIONS['v55-3-r2']` + `docs/v4-density-baseline.json#volume`；**未跨档位**（573,424 < 614,400）、`pending-author-line` 保持 ⇒ 不停机；R3 T319 按三叶合计终态定稿 |
+| N-V55-3-R2-03 | **token 预算口径 = 主动回合数**（非 token 计数） | ADR-V55-009 §2 等价口径：本 Feature 不新增真值源（无 usage 回报面）；单回合 token 量不可控 = **已知限制**（已在 `guard.ts` 模块头显式登记） |
+| N-V55-3-R2-04 | **一次性否决在 `auto` 档无专用按钮** | 走「中断 + 静默期」；零新 op / 零新协议动作 / 零新 kind 的代价换取；登记为已知口径限制，列入 R3 人工面体感走查项 |
+| N-V55-3-R2-05 | **关断偏好 = 本 Feature 唯一新增持久偏好** | 落既有 `chrome.storage.local`，键 `web-cli:proactive`（**独立于** `web-cli:llm`）；持久化失败时降级默认 ON（不伪造「已关断」），失败路径如实告知 |
+| N-V55-3-R2-06 | **W5 未落地**（保护段 / 台账收口 / 体积终轮 / 全门禁） | 显式登记为 **R3 范围**（TASK-V55-316~320） |
+| N-V55-3-R2-07 | **`state.json.phase` = `builded`（R2 中间态）** | W5 T320 收口时按三叶合计终态再登记 |
 
 ---
 
@@ -173,8 +214,8 @@
 
 | 场景 | 操作 |
 |------|------|
-| 本轮（R1） | 已完成；建议先跑 `@sddu-review specs-tree-v55-3-ai-driven-orchestration`（安全边界：R-SELF-001 最高危） |
-| 后续轮次 | **R2 = W3+W4+W5**（`TASK-V55-308~320`）：仲裁有界队列 1 + 草稿回填 · 护栏六常量单源 + 越限抑制 + 关断否决 · `journey`/`binding` 保护段 · 台账收口 · 体积终轮 + 全门禁串行 + e2e |
+| 本轮（R2） | 已完成 W3+W4；建议先跑 `@sddu-review specs-tree-v55-3-ai-driven-orchestration`（重点：仲裁有界性 / 护栏真抑制 / 关断口径 / 骨架体积） |
+| 后续轮次 | **R3 = W5**（`TASK-V55-316~320`）：`journey`/`binding` 保护段 · 取代台账 X-SELF-1~7 对账 · `knownGap` · 人工面汇总 · 体积终轮（三叶合计 + 显式升档/如实登记）· 全门禁串行 + `e2e` |
 
 ---
 
@@ -182,4 +223,5 @@
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
-| v1.0 | 初始创建（R1 = W1+W2 / 7 任务 / 2 新文件 + 11 修改文件；SG-V55-03 = 可得；`npm test` 1283 → 1299 / 0；体积中间登记 563,780 → 566,535 B（+0.49%），档位与绝对上限未动、`pending-author-line` 保持；W3~W5 留 R2） | 2026-09-23 | SDDU Build Agent |
+| v1.0 | R1 = W1+W2 / 7 任务；SG-V55-03 = 可得；`npm test` 1283 → 1299 / 0；体积 563,780 → 566,535 B（+0.49%） | 2026-09-23 | SDDU Build Agent |
+| v1.1 | **R2 = W3+W4 / 8 任务**：SG-V55-04 = 可得；SW 有界仲裁（队列 1 + 溢出明确拒绝 + 草稿回填）+ 护栏六常量单源 + 越限真抑制 + 关断（主题① 不受控）+ `driverSuppressedLine`；`npm test` 1299 → **1312 / 0**；体积 566,535 → **573,424 B**（R2 +6,889，Σ+glue=6,843+46；未跨档位，生效上限 → 602,095）；`binding` 环境性 FAIL（基线复现）；W5 留 R3 | 2026-09-23 | SDDU Build Agent |

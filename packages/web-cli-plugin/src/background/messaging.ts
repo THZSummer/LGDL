@@ -110,7 +110,19 @@ export type PluginMessageKind =
  * when `isLlmConfigured()` fails — *before* any provider call (zero token). It repays
  * the same terminal vocabulary the passive observation uses (`llm.unconfigured`).
  */
-export type ChatResultVariant = 'assistant' | 'tool' | 'command' | 'error' | 'done' | 'llm-unconfigured';
+// V5.5-3 TASK-V55-309 (ADR-V55-010 §2/§4): the two arbitration variants are ADDED to the
+// payload union (type-only — a `variant` value, never a `KIND_SET` kind). `queued` = the
+// turn was buffered (hard cap 1); `busy-rejected` = the buffer was full ⇒ explicit refusal
+// whose `text` is the user's own words, which the panel puts BACK into `#input`.
+export type ChatResultVariant =
+  | 'assistant'
+  | 'tool'
+  | 'command'
+  | 'error'
+  | 'done'
+  | 'llm-unconfigured'
+  | 'queued'
+  | 'busy-rejected';
 
 export interface PluginMessage {
   kind: PluginMessageKind;

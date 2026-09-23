@@ -337,7 +337,18 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * 显式完成），`authorConfirmation` 保持 **`pending-author-line`**（不伪称已确认）。
  * `dist/content.js` 177,076 B 与 `dist/pick-layer.js` 34,358 B **逐字节不变**。
  */
-export const SIDEPANEL_BASELINE_BYTES = 566_535;
+/**
+ * ── V5.5-3 **R2（2026-09-23，leaf `specs-tree-v55-3-ai-driven-orchestration`；TASK-V55-308~315）** ──
+ * 主题② AI 驱动编排 R2（W3+W4）：SW **有界仲裁队列**（`TURN_QUEUE_MAX = 1` + 溢出明确拒绝 + 面板
+ * **草稿回填**；仲裁闭集 4 项 type-only）+ 护栏**六常量单源**（`next-registry/guard.ts`：频次 6/10min ·
+ * 同因不重复 · 静默 60 s · 冷却 **re-export** 既有 10 s · 链深 2 · 回合预算 8；关断默认 ON）+
+ * 越限**真抑制** + `driverSuppressedLine` 留痕 + 既有 `settings-llm` 分区内的主动性总开关。
+ * 真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows`（Σ +6,843 + glue +46 == +6,889）。
+ * 方向 = 提升；**档位 614,400 / 绝对上限 675,840 均不动**（573,424 < 614,400 ⇒ 未跨档位），
+ * `authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。`dist/content.js` 177,076 B 与
+ * `dist/pick-layer.js` 34,358 B **逐字节不变**。本条目为**中间登记**（W5 TASK-V55-319 按三叶合计终态再登记）。
+ */
+export const SIDEPANEL_BASELINE_BYTES = 573_424;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -422,6 +433,9 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   //   （`pressCandidate` 单源 / 档位矩阵 / 留痕三要素）+ 面板自动成回合接线 ⇒ +2,755 B；
   //   档位 614,400 / 绝对上限 675,840 / 生效上限 **591,969 均不动**（升档已在 v55-2 小修轮完成）。
   566_535,
+  // 〖V5.5-3 R2（2026-09-23，TASK-V55-308~315）〗W3 仲裁（SW 有界队列 + 草稿回填）+ W4 护栏
+  //   （六常量单源 / 越限抑制 / 关断偏好 / 留痕）一轮的登记值（档位与绝对上限均不变）。
+  573_424,
 ] as const;
 
 /**
@@ -483,7 +497,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 566_535;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 573_424;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -496,6 +510,9 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
+    'SDDU **V5.5-3 R2（2026-09-23, leaf specs-tree-v55-3-ai-driven-orchestration; W3+W4 = TASK-V55-308~315）**: re-registered on the FINAL artifact — 566,535 → **573,424 B**（+6,889 B，+1.22%）— ' +
+    '主题② R2：W3 **有界仲裁**（`background/turn-queue.ts` NEW：`TURN_QUEUE_MAX = 1` + `classifyChatRequest` 三路径 + 溢出明确拒绝；SW `runChat` 入队 / drain / 会话切换显式拒绝；面板 `queued` / `busy-rejected` 两变体 + **草稿回填 `#input`**）+ W4 **护栏**（`next-registry/guard.ts` NEW：六常量单源 + 工厂 / 单例 + `loadProactivePref` / `saveProactivePref`；`driverSuppressedLine` 抑制留痕；`settings/panel.ts` 既有 `settings-llm` 分区内总开关；越限真抑制 + 关断后主题① 仍工作）；真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows`（`guard.ts` NEW +3,016 / `settings/panel.ts` +1,894 / `sidepanel.ts` +1,775 / `ai-drive.ts` +158；Σ +6,843 + glue +46 == +6,889）；档位 614,400 / 绝对上限 675,840 均不动（573,424 < 614,400 ⇒ 未跨档位），`authorConfirmation` 保持 `pending-author-line`；`dist/content.js` 177,076 B 与 `dist/pick-layer.js` 34,358 B **逐字节不变**；本条目为**中间登记**（W5 TASK-V55-319 按三叶合计终态再登记）。' +
+    'Previous round: ' +
     'SDDU **V5.5-3 R1（2026-09-23, leaf specs-tree-v55-3-ai-driven-orchestration; W1+W2 = TASK-V55-301~307）**: re-registered on the FINAL artifact — 563,780 → **566,535 B**（+2,755 B，+0.49%）— ' +
     '主题② AI 驱动编排 R1：派生式三档清分（`shared/op-table.ts#tierOf` + `hasConsent` + 物化 `OP_TIER_TABLE`；`{auto:5,confirm:2,gesture:2}` 与 `ops.ts#IMPL` 逐字段一致、特权恒 `gesture`）+ NEW `next-registry/ai-drive.ts`（`pressCandidate` 单源：AI 只可按 `auto` 档 ∧ 候选恒由注册表产出；`confirm` / `gesture` 恒拒）+ 面板「已配置 ⇒ 答案后零按键自动成回合」（经**既有** `op.turn` 槽 ⇒ `requestTurn(` **仍恰 2**）；真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v553R1Rows`（Σ +2,706 + glue +49 == +2,755）；档位 614,400 / 绝对上限 675,840 / 生效上限 **591,969 均不动**（升档已在 v55-2 小修轮显式完成），`authorConfirmation` 保持 `pending-author-line`；`dist/content.js` 177,076 B 与 `dist/pick-layer.js` 34,358 B **逐字节不变**；本条目为**中间登记**（W5 TASK-V55-319 按三叶合计终态再登记）。' +
     'Previous round: ' +
@@ -535,7 +552,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 566_535,
+  finalArtifactBytes: 573_424,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -2063,6 +2080,38 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [563_780, 563_145, 562_273, 557_883],
     ceilingUncappedFormulaBytes: 594_861,
   },
+  /**
+   * 〖V5.5-3 R2（2026-09-23，leaf `specs-tree-v55-3-ai-driven-orchestration`；W3+W4 = TASK-V55-308~315）〗
+   * 主题② AI 驱动编排的**中间登记**（W5 TASK-V55-319 按三叶合计终态再登记）。
+   */
+  {
+    id: 'v55-3-r2',
+    direction: 'raised',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-v55-3-ai-driven-orchestration',
+    date: '2026-09-23',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU V5.5-3 R2 (2026-09-23, leaf specs-tree-v55-3-ai-driven-orchestration; W3+W4 = TASK-V55-308~315)',
+    reason:
+      '**V5.5-3 R2 显式提升重登记：566,535 → 573,424 B（+6,889 B，+1.22%）**（中间登记；W5 TASK-V55-319 按三叶合计终态再登记）。' +
+      '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows`（Σ 模块 +6,843 + glue **46** == +6,889）：' +
+      '`next-registry/guard.ts` NEW **3,016**（护栏六常量单源 + 工厂 / 单例 + 越限抑制判据 + 关断偏好读写）；' +
+      '`settings/panel.ts` 37,358 → **39,252（+1,894）**（既有 `settings-llm` 分区内主动性总开关：阅读 + 单一写点 + 持久化）；' +
+      '`sidepanel.ts` 102,426 → **104,201（+1,775）**（W3 `queued` / `busy-rejected` 两变体 + 草稿回填；W4 护栏抑制前置判定 + `proactivity` seam + `noteUserTurn` / `noteVeto` / 启动读偏好）；' +
+      '`next-registry/ai-drive.ts` 1,511 → **1,669（+158）**（`driverSuppressedLine` 抑制留痕单源）。' +
+      '**档位 614,400 / 绝对上限 675,840 不动**（本产物 573,424 B < 档位 ⇒ **无跨档位**，无需升档；生效上限随公式前移为 `floor(573,424 × 1.05) = 602,095`）。' +
+      '`authorConfirmation` 保持 **`pending-author-line`**（不伪称已确认）；`dist/content.js` 177,076 B 与 `dist/pick-layer.js` 34,358 B **逐字节不变**；' +
+      '容差 5% 未动；**断言零删减**（新增 `test/turn-arbitration.test.ts` 6 用例 + `test/proactivity-guard.test.ts` 7 用例；`requestTurn(` **仍恰 2**、`nextAfterSettle` 1 定义 + 10 调用点不变）。' +
+      '**预算口径诚实登记（不得静默）**：本叶预算 5,900 B / 上界 7,600 B；R1 +2,755 + **R2 +6,889** = **+9,644 B** ⇒ 本叶**累计越叶预算（超 3,744 B）**；R2 单轮 +6,889 B 仍 < 单轮上界 7,600 B，且产物 573,424 B 仍在旧生效上限 594,861 B 内（"生效上限内优先"）；超额根因 = 计划侧严重低估（`guard.ts` 计划 1,700 → 实测 3,016；`settings/panel.ts` 计划 350 → 实测 1,894），**逐条如实登记、不停机**（未跨档位、无红线变化）。',
+    baselineBeforeBytes: 566_535,
+    baselineAfterBytes: 573_424,
+    ceilingBeforeBytes: 594_861,
+    ceilingAfterBytes: 602_095,
+    assertionNonRemovalEntries: ['V42-E-VOL-2', 'V43-E-33', 'V551-MR-X-SELF-2'],
+    historyRetainedBytes: [566_535, 563_780, 563_145, 562_273],
+    ceilingUncappedFormulaBytes: 602_095,
+  },
 ] as const;
 
 /**
@@ -2109,7 +2158,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 累计：当前基线 − `baselineReferenceBytes`（**557,883 − 295,225 = 262,658**；
    * V5.5-1 review R1 修复轮为 557,761 − 295,225 = 262,536 再加本轮 +122）。
    */
-  deltaBytes: 271_310,
+  deltaBytes: 278_199,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 上一轮登记值`（`size-growth-evidence.test.ts` 直接机核该等式）。
    * 〖R4 缺陷修复轮（2026-09-22）〗最新一轮 = `r4-selector-fix` ⇒ 本字段 = `549,609 − 547,558 = **2,051**`
@@ -2125,8 +2174,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 2_755,
-  newRequiredModuleBytes: 187_741,
+  closeoutDeltaBytes: 6_889,
+  newRequiredModuleBytes: 190_757,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
   // 〖V5-2 R1/R2/reviewfix 修复轮 + 收口轮〗接线桶按各轮 sidepanel.ts 归因前移；
@@ -2137,7 +2186,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   // 〖V5.5-1 review R1 修复轮（2026-09-23）〗新增 +122 B 全部落在**既有模块的接线桶**
   //   （sidepanel.ts 99,566 → 99,688；glue 0，`unattributedHelperDeltaBytes` 不变）。
   // 桶和 = newRequiredModuleBytes 181,921 + wiringBytes 78,814 + 0 + 1,923 == 262,658 == `deltaBytes`。
-  wiringBytes: 81_552,
+  wiringBytes: 85_379,
   attributionShiftBytes: 0,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
@@ -2147,10 +2196,10 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 但 `view-model.ts` 的 esbuild **分摊位移** −68 B 同时被重算（19,654 → 19,586），因此本字段（= delta − Σrows）
    * 回到与 build 轮相同的 1,060 B；`attributionShiftBytes` 265 与「未解释字节 <1,500 ∧ <2%」判据不变（实测 1,325 / 1.02%）。
    */
-  unattributedHelperDeltaBytes: 2_017,
+  unattributedHelperDeltaBytes: 2_063,
   /** 模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
   duplicationCheck:
-    '输入模块数 **88**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**；**V5-1 R1 新增 5 个必需模块**（`next-registry/{definition,registry,pipeline,providers,dispatch}.ts`：Definition / Provider / 管线 / 内置 provider / 瘦分发）⇒ 78 + 5 = **83**；**V5-2 R1/R2 再新增 3 个必需模块**（`shared/op-table.ts` 双侧同源描述符表 + `next-registry/ops.ts` 9 op 执行体 + `next-registry/snapshot.ts` 三表快照）⇒ 83 + 3 = **86**；**V5-2 review R1 修复轮再新增 1 个必需模块**（`settings/op-bodies.ts`：与面无关的四类执行体，面板与 options 共用）⇒ 86 + 1 = **87**；**V5.5-1 R1 再新增 1 个必需模块**（`next-registry/drivers.ts`：驱动者声明单源 + 四元组 + `CTX_FIELD_SERVICE`）⇒ 87 + 1 = **88**；**V5.5-2 R1 再新增 2 个必需模块**（`next-registry/onboarding-flow.ts`：引导流恰 4 步单源 + `next-registry/suspension.ts`：配置悬置任务单源 + `MAX_SUSPENSIONS = 1`）⇒ 88 + 2 = **90**；**V5.5-3 R1 再新增 1 个必需模块**（`next-registry/ai-drive.ts`：`pressCandidate` 单源 + 档位矩阵 + 留痕三要素）⇒ 90 + 1 = **91**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
+    '输入模块数 **88**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**；**V5-1 R1 新增 5 个必需模块**（`next-registry/{definition,registry,pipeline,providers,dispatch}.ts`：Definition / Provider / 管线 / 内置 provider / 瘦分发）⇒ 78 + 5 = **83**；**V5-2 R1/R2 再新增 3 个必需模块**（`shared/op-table.ts` 双侧同源描述符表 + `next-registry/ops.ts` 9 op 执行体 + `next-registry/snapshot.ts` 三表快照）⇒ 83 + 3 = **86**；**V5-2 review R1 修复轮再新增 1 个必需模块**（`settings/op-bodies.ts`：与面无关的四类执行体，面板与 options 共用）⇒ 86 + 1 = **87**；**V5.5-1 R1 再新增 1 个必需模块**（`next-registry/drivers.ts`：驱动者声明单源 + 四元组 + `CTX_FIELD_SERVICE`）⇒ 87 + 1 = **88**；**V5.5-2 R1 再新增 2 个必需模块**（`next-registry/onboarding-flow.ts`：引导流恰 4 步单源 + `next-registry/suspension.ts`：配置悬置任务单源 + `MAX_SUSPENSIONS = 1`）⇒ 88 + 2 = **90**；**V5.5-3 R1 再新增 1 个必需模块**（`next-registry/ai-drive.ts`：`pressCandidate` 单源 + 档位矩阵 + 留痕三要素）⇒ 90 + 1 = **91**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows；**V5.5-3 R2 再新增 1 个必需模块**（`next-registry/guard.ts`：护栏六常量单源 / 越限抑制判据 / 关断偏好读写）⇒ 91 + 1 = **92**），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
     'src/insight/ownership-tree.ts（首次被侧栏 bundle 引用 → 共享而非复制）—— 审计/命令目录/树视图复用既有投影模块；' +
     'l2/{counts,view-host,command-catalog,audit}.ts 与 settings/sections.ts 与 ui/sidepanel/pick-input.ts 各只有**一份**实现（v3-4 的页面侧代码全部在 ' +
     '独立 artifact `dist/pick-layer.js`，不重复进本 bundle）；R1 不新增模块 —— 六处改动全部落在既有模块（ref-validity / sidepanel / pick-input / ref-store / chat-state / view-model），' +
@@ -2163,7 +2212,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `duplicationCheck` 的散文里写「输入模块数 75」；这个字段让数字可被 metafile 直接核对
    * （`size-growth-evidence.test.ts`：`Object.keys(inputs).length === duplicationCheckInputModuleCount`）。
    */
-  duplicationCheckInputModuleCount: 91,
+  duplicationCheckInputModuleCount: 92,
   /**
    * **收口后缺陷修复轮 R2 自身的逐模块增量**（R1 工作树 → R2 工作树）：366,755 → 368,529 B（+1,774 B），
    * 与 `SIDEPANEL_RE_REGISTRATIONS['v3-4-r2']` 的 `baselineAfterBytes − baselineBeforeBytes` **逐字节相等**
@@ -2428,6 +2477,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     v552R3Rows: 'v55-2-r3',
     // 〖V5.5-3 R1（2026-09-23，W1+W2 三档清分 + `pressCandidate` + AI 自动成回合）〗**最新一轮** = 本组。
     v553R1Rows: 'v55-3-r1',
+    // 〖V5.5-3 R2（2026-09-23，W3+W4 仲裁 + 护栏）〗**最新一轮** = 本组。
+    v553R2Rows: 'v55-3-r2',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -2781,6 +2832,20 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as const,
   /** 〖V5.5-3 R1〗未归因运行时胶水 = 49 B（esbuild 共享胶水；Σ 模块 +2,706 + 49 == +2,755）。 */
   v553R1UnattributedGlueBytes: 49,
+  /**
+   * 〖V5.5-3 R2（2026-09-23，TASK-V55-308~315）〗逐模块增量（真实 `dist/build-meta.json`）：
+   * `next-registry/guard.ts` NEW **3,016** / `settings/panel.ts` 37,358 → 39,252（**+1,894**）/
+   * `sidepanel.ts` 102,426 → 104,201（**+1,775**）/ `next-registry/ai-drive.ts` 1,511 → 1,669
+   * （**+158**）；Σ **+6,843** + 未归因胶水 **+46** == 登记增量 **+6,889**。
+   */
+  v553R2Rows: [
+    { module: 'src/ui/sidepanel/next-registry/guard.ts', beforeBytes: null, afterBytes: 3_016, deltaBytes: 3_016 },
+    { module: 'src/ui/settings/panel.ts', beforeBytes: 37_358, afterBytes: 39_252, deltaBytes: 1_894 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 102_426, afterBytes: 104_201, deltaBytes: 1_775 },
+    { module: 'src/ui/sidepanel/next-registry/ai-drive.ts', beforeBytes: 1_511, afterBytes: 1_669, deltaBytes: 158 },
+  ] as const,
+  /** 〖V5.5-3 R2〗未归因运行时胶水 = 46 B（Σ 模块 +6,843 + 46 == +6,889）。 */
+  v553R2UnattributedGlueBytes: 46,
   v551FixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 99_566, afterBytes: 99_688, deltaBytes: 122 },
   ] as const,
@@ -2806,7 +2871,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    */
   v44ReviewfixUnattributedGlueBytes: 40,
   rows: [
-    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 102426, deltaBytes: 57581, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033；〖V5-2 收口轮〗删去 `permRequest` 的重复 notice 写者 −86 B；〖V5.5-3 R1〗+722 B（`driveAnsweredTurn` 接线：`nextAfterSettle` 的 `answered` 分支 + 回合结束续流点 + `dedupeKey`/`pressCandidate` import）· FR-SELF-060/063/070' },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 104201, deltaBytes: 59356, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033；〖V5-2 收口轮〗删去 `permRequest` 的重复 notice 写者 −86 B；〖V5.5-3 R1〗+722 B（`driveAnsweredTurn` 接线：`nextAfterSettle` 的 `answered` 分支 + 回合结束续流点 + `dedupeKey`/`pressCandidate` import）· FR-SELF-060/063/070；〖V5.5-3 R2〗+1,775 B（W3 `queued`/`busy-rejected` 两变体 + 草稿回填 + `#input` 回填；W4 护栏抑制前置判定 + `proactivity` seam + composer `noteUserTurn` + `op-*` 结算 `noteVeto` + 启动读偏好）· FR-SELF-061/090~094/096' },
         { module: 'src/ui/sidepanel/next-registry/onboarding-flow.ts', beforeBytes: null, afterBytes: 2125, deltaBytes: 2125, kind: 'new-required-module', requiredBy: 'FR-SELF-042（确定性引导流恰 4 步单源：识别 → 引导 → 采集 → 完成；采集复用 `OP_PARAM_SEQUENCE[\'op.llm-config\']`，零新执行面）· ADR-V55-007 §1' },
     { module: 'src/ui/sidepanel/next-registry/suspension.ts', beforeBytes: null, afterBytes: 1421, deltaBytes: 1421, kind: 'new-required-module', requiredBy: 'FR-SELF-045/046（配置悬置任务：单源登记 + `MAX_SUSPENSIONS = 1` + 有效期重校验 + 续接决策）· ADR-V55-007 §2' },
 { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \'state\'`/`case \'notice\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },
@@ -2853,7 +2918,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/cards/system.ts', beforeBytes: null, afterBytes: 1219, deltaBytes: 1219, kind: 'new-required-module', requiredBy: 'FR-CHAT-032/035（系统事件行单行 + `HH:MM:SS` 只追加；命令行 `.cmd` 紧凑样式）' },
     { module: 'src/ui/sidepanel/statusbar.ts', beforeBytes: null, afterBytes: 1335, deltaBytes: 1335, kind: 'new-required-module', requiredBy: 'FR-CHAT-004/013/017（状态栏：连接状态一行 + 风险 chips 外层容器 + `#risk-detail`；J1/J2 不变量与 `riskActiveOf()` 纯函数）+ AC-CHAT-007' },
     { module: 'src/shared/op-table.ts', beforeBytes: null, afterBytes: 1304, deltaBytes: 1304, kind: 'new-required-module', requiredBy: 'FR-ALLN-068（双侧同源描述符表）；〖V5.5-3 R1〗+473 B（`hasConsent` 字段 + `tierOf` 派生 + `OP_TIERS` + 物化 `OP_TIER_TABLE` + `tierOfId`）· FR-SELF-080/086 · ADR-V55-008 §1' },
-    { module: 'src/ui/sidepanel/next-registry/ai-drive.ts', beforeBytes: null, afterBytes: 1511, deltaBytes: 1511, kind: 'new-required-module', requiredBy: 'FR-SELF-063/065（按下策略单源：`pressCandidate` 唯一自动按下点 + `driverClass` 权限矩阵 + `pressDecision` 档位判定 + `driverTraceLine` 留痕三要素）· ADR-V55-009 §3' },
+    { module: 'src/ui/sidepanel/next-registry/ai-drive.ts', beforeBytes: null, afterBytes: 1669, deltaBytes: 1669, kind: 'new-required-module', requiredBy: 'FR-SELF-063/065（按下策略单源：`pressCandidate` 唯一自动按下点 + `driverClass` 权限矩阵 + `pressDecision` 档位判定 + `driverTraceLine` 留痕三要素）· ADR-V55-009 §3；〖V5.5-3 R2〗+158 B（`driverSuppressedLine` 抑制留痕单源：`driver=… | timing=… | evidence=… | suppressed=<reason>`）· FR-SELF-096 · ADR-V55-009 §5' },
+    { module: 'src/ui/sidepanel/next-registry/guard.ts', beforeBytes: null, afterBytes: 3016, deltaBytes: 3016, kind: 'new-required-module', requiredBy: 'FR-SELF-090~094（护栏六常量单源：频次 6/10min · 同因不重复 · 静默 60 s · 冷却 re-export 既有 10 s · 链深 2 · 回合预算 8；关断默认 ON + 越限真抑制 + 主题① 不受总开关控制）· ADR-V55-009 §1/§2/§4' },
     { module: 'src/ui/sidepanel/next-registry/dispatch.ts', beforeBytes: null, afterBytes: 795, deltaBytes: 795, kind: 'new-required-module', requiredBy: 'FR-ALLN-056/057/058（`ACT_TO_OP` 6 行唯一权威 + `dispatchChipAction` 一次查表零 per-op 分支 + 集 A 协议动作常量）· ADR-V5-001' },
     { module: 'src/ui/sidepanel/next-registry/definition.ts', beforeBytes: null, afterBytes: 917, deltaBytes: 917, kind: 'new-required-module', requiredBy: 'FR-ALLN-010 / FR-ALLN-033 / FR-ALLN-035（`NEXT_SERVICES`/`NEXT_MODES`/`MOUNT_MODE`/`BLOCKED_TERMINALS`(5) 单源 + `NextCtx` 7 源）· ADR-V5-001 / ADR-V5-009 §1' },
     { module: 'src/platform/capability-permissions.ts', beforeBytes: 2_088, afterBytes: 2757, deltaBytes: 669, kind: 'wiring', requiredBy: 'FR-ALLN-043（能力权限最小集 + form 选项源）' },
@@ -2863,7 +2929,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/cards/user.ts', beforeBytes: null, afterBytes: 419, deltaBytes: 419, kind: 'new-required-module', requiredBy: 'FR-CHAT-031（用户卡对侧气泡 = 对侧 `msg-user` 样式载体）' },
     { module: 'src/ui/sidepanel/cards/notice.ts', beforeBytes: null, afterBytes: 395, deltaBytes: 395, kind: 'new-required-module', requiredBy: 'FR-CHAT-035 + ADR-V4-027 第 6 条（工具通知 `.msg-notice`，与系统事件行分离）' },
     { module: 'src/insight/ownership-tree.ts', beforeBytes: null, afterBytes: 341, deltaBytes: 341, kind: 'new-required-module', requiredBy: 'FR-V3-034（复用 v2 主归属链，首次被侧栏 bundle 引用 → 共享而非复制）' },
-    { module: 'src/ui/settings/panel.ts', beforeBytes: 37_040, afterBytes: 37358, deltaBytes: 318, kind: 'wiring', requiredBy: 'FR-ALLN-075/076（settings 面板接线：能力撤销 / LLM 表单走 op 单一执行体）' },
+    { module: 'src/ui/settings/panel.ts', beforeBytes: 37_040, afterBytes: 39252, deltaBytes: 2212, kind: 'wiring', requiredBy: 'FR-ALLN-075/076（settings 面板接线：能力撤销 / LLM 表单走 op 单一执行体）；〖V5.5-3 R2〗+1,894 B（主动性总开关：既有 `settings-llm` 分区内 checkbox + 单一 `proactivity.setEnabled` 写点 + `loadProactivePref` 回读）· FR-SELF-069/094 · ADR-V55-009 §4' },
     { module: 'src/ui/settings/sections.ts', beforeBytes: null, afterBytes: 247, deltaBytes: 247, kind: 'new-required-module', requiredBy: 'FR-V3-051 / FR-V3-046（设置分区登记表 —— 让设置入口的计数可派生而非豁免）' },
     { module: 'src/ui/tree/tree-drawer.ts', beforeBytes: 39_779, afterBytes: 40174, deltaBytes: 395, kind: 'wiring', requiredBy: 'FR-ALLN-059（复用既有连接树入口；归属迁移只改 index.html 的容器与 CSS，面板接线改走 op 触发器）' },
     { module: 'src/ui/sidepanel/markdown.ts', beforeBytes: 13_417, afterBytes: 13463, deltaBytes: 46, kind: 'wiring', requiredBy: 'FR-ALLN-059（复用既有 markdown 渲染；面板接线改走 op 触发器）' },

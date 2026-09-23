@@ -59,7 +59,10 @@ import {
 import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
 // V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/063/065）——「AI 自动成回合」的**唯一**
 // 按下入口（`op.turn` 槽；`requestTurn(` 调用点计数不变）。本文件只**接线**，判据在单源模块里。
-import { pressCandidate } from './next-registry/ai-drive.js';
+import { pressCandidate, driverSuppressedLine } from './next-registry/ai-drive.js';
+// V5.5-3 TASK-V55-312/313/314（ADR-V55-009 §1/§2/§4 · FR-SELF-090~094 · AC-SELF-006）——
+// 护栏六常量单源 + 越限抑制 + 关断偏好。本文件只**接线**（阈值全在单源模块里）。
+import { loadProactivePref, proactivity } from './next-registry/guard.js';
 export type { RecommendTrigger } from './next-registry/drivers.js';
 import { providerById } from '../../llm/providers.js';
 import { dispatchChipAction } from './next-registry/dispatch.js';
@@ -1938,6 +1941,10 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
  * 它必须受去重 + 10 s 防抖约束（EC-SELF-004，不得弹第二条）。
  */
 function nextAfterSettle(src: SettleSource = { kind: 'idle' }): void {
+  // ★ V5.5-3 TASK-V55-313（ADR-V55-009 §1「连续自动链」）：一次「已答」= 用户交互 ⇒ 自动链
+  // **断开**（重置链深），随后（若发生）的自动成回合从深度 1 重新计。用户手输回合另有
+  // `proactivity.noteUserTurn()`（重置链深 **且** 进入静默期）。
+  if (src.kind === 'answered') proactivity.noteUserInteraction();
   maybeRecommend(timingOfSettle(src), src.kind === 'answered' ? {} : { force: src.force === true });
   // V5.5-3 TASK-V55-306：「已答」结算同时也是**主题② 自动成回合**的时机（零按键）。
   if (src.kind === 'answered') driveAnsweredTurn();
@@ -1969,14 +1976,34 @@ function driveAnsweredTurn(): void {
   if (!live || !live.instruction) return;
   const key = dedupeKey(`${live.driverId}:${live.source}`, live.instruction);
   if (key === lastAutoDrivenKey) return;
+  // ★ V5.5-3 TASK-V55-313（ADR-V55-009 §1 · FR-SELF-090~092/096）—— 护栏**前置判定**：
+  // 越限（关断 / 预算 / 链深 / 静默 / 冷却 / 同因 / 频次）⇒ **抑制 + 留痕**（非静默）：
+  // 写一行 `suppressed=<reason>`（词表单源在 `guard.ts`），可达 next 仍由既有推荐器产出。
+  const verdict = proactivity.verdict('ai', key);
+  if (!verdict.allowed) {
+    dispatch({ type: 'notice', text: driverSuppressedLine(live.driverId, 'answered', live.evidence, verdict.reason) });
+    return;
+  }
   const out = pressCandidate(
     'op.turn',
     live.instruction,
-    { actor: 'ai', driverId: live.driverId, driverClass: 'ai-driven', configured, armed: true, busy: state.pending },
+    {
+      actor: 'ai',
+      driverId: live.driverId,
+      driverClass: 'ai-driven',
+      configured,
+      armed: true,
+      busy: state.pending,
+      // W4 护栏缝（单源判定；本模块零第二阈值）—— 与上方前置判定同一函数，纵深防御。
+      guardAllowed: () => proactivity.verdict('ai', key).allowed,
+    },
     live.evidence,
   );
-  // 只在**真正按下**时消费该意图：被拒（未配置 / 档位 / 在飞）时下个结算点仍可再试。
-  if (out.ok) lastAutoDrivenKey = key;
+  // 只在**真正按下**时消费该意图（被拒时下个结算点仍可再试）；并记账（频次 / 冷却 / 链深 / 预算）。
+  if (out.ok) {
+    lastAutoDrivenKey = key;
+    proactivity.noteProactive(key);
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -3444,7 +3471,13 @@ function wire(): void {
     e.preventDefault();
     const input = $('input') as HTMLInputElement;
     // V4-4 TASK-805: the composer and the recommendation chips share ONE entry.
-    if (requestTurn(input.value)) input.value = '';
+    // V5.5-3 TASK-V55-314（ADR-V55-009 §1「静默期」）：用户**手输**回合 ⇒ AI 让位（重置
+    // 自动链 + 进入静默期）。注意：这里**不是** `requestTurn` 内部 —— AI 经 `op.turn` 槽
+    // 复用 `requestTurn`，若在槽内打静默期会把「答案后续流」自己也锁住。
+    if (requestTurn(input.value)) {
+      proactivity.noteUserTurn();
+      input.value = '';
+    }
   });
 
   // TASK-023: keep the「回到底部」affordance + follow anchor in sync with the
@@ -3494,6 +3527,10 @@ function wire(): void {
     },
     /* V5.5-1 TASK-V55-113: 取消 / 拒绝 / 失败与「已答」走同一求值入口；恢复行必须立刻可达（force）。 */
     nextAfterSettle: (op, state) => {
+      // V5.5-3 TASK-V55-314（ADR-V55-009 §4「一次性否决」）：用户对一张卡的 **reject /
+      // 中断** 就是「否决」⇒ 打上**静默期**（本次不再发生）+ 重置自动链；否决**非死端** ——
+      // 下方 force 求值仍给出可达 next。
+      if (state === 'rejected' || state === 'cancelled') proactivity.noteVeto();
       // V5.5-2 TASK-V55-215 + review R1 I-03: **只有「用户主动放弃」（cancelled / rejected）**
       // 才是同因去重键的来源（`recordsDeclinedCause` 单源纯判据）。配置**失败**（failed）
       // **不是放弃** ⇒ 同因引导保持**可重试**（失败后最自然的 next 恰是重试配置这一步），
@@ -3585,6 +3622,21 @@ function wire(): void {
     if (op) void dispatchOp(op, op === 'op.revoke' ? { value: 'site-auth' } : {});
   });
 
+  /* ────────────────────────────────────────────────────────────────────────────
+   * V5.5-3 **TASK-V55-310** (ADR-V55-010 §2/§4 · FR-SELF-061/063 · AC-SELF-014 ·
+   * R-V55-107) —— 面板侧的**可见留痕 + 草稿回填**。
+   *
+   * 仲裁本体在 SW（`turnQueue`，硬上限 1）；面板不做裁决，只把结果**可读化**：
+   *   · `queued`        ⇒ 一行「已排队」（文案在内存里等待回合结束，**不是没反应**）；
+   *   · `busy-rejected` ⇒ 「正在处理上一条，未发送」+ **把被拒原话放回 `#input`**
+   *     （仅当输入框为空 —— 用户新输入**不被覆盖**；原话也仍在流内 `user` 行里，
+   *      因此任何情况下都**没有**静默丢失）。
+   * 载体 = 既有 `system`/notice 行（**零新增 kind**）。
+   * ──────────────────────────────────────────────────────────────────────────── */
+  const QUEUED_TURN_TEXT = '已排队：上一条回合结束后自动发送。';
+  const BUSY_REJECTED_RESTORED_TEXT = '正在处理上一条，未发送；已把你这句放回输入框。';
+  const BUSY_REJECTED_KEPT_TEXT = '正在处理上一条，未发送；输入框已有内容未覆盖。';
+
   chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as PluginMessage;
     // V3-4 (ADR-V3-030): the page-side layer's facts. `accept` returns `false` for every
@@ -3641,6 +3693,20 @@ function wire(): void {
         //    不依赖被动 `llm-status` 快照门（review R1 I-04：冷启动竞态窗口下双源仍各自成立）。
         noteLlmBlockedFact(false, true);
         nextAfterSettle({ kind: 'answered' });
+      }
+      else if (variant === 'queued') {
+        // V5.5-3 TASK-V55-310：排队结果**可判**（不是静默吞掉）—— 一行系统留痕。
+        dispatch({ type: 'notice', text: QUEUED_TURN_TEXT });
+      }
+      else if (variant === 'busy-rejected') {
+        // V5.5-3 TASK-V55-310（R-V55-107）：拒绝后把**被拒原话**回填 `#input` —— 仅在输入框
+        // 为空时（**不覆盖**用户新输入；非空时只留痕，原话仍在流内 `user` 行）。判据：
+        // 「拒绝后 `#input.value === 被拒文本` 且存在可读行」；删掉回填 ⇒ FAIL。
+        const draftInput = $('input') as HTMLInputElement;
+        const rejected = text;
+        const restored = rejected.length > 0 && draftInput.value.length === 0;
+        if (restored) draftInput.value = rejected;
+        dispatch({ type: 'notice', text: restored ? BUSY_REJECTED_RESTORED_TEXT : BUSY_REJECTED_KEPT_TEXT });
       }
       else if (variant === 'done') {
         dispatch({ type: 'pending', value: false });
@@ -3833,6 +3899,9 @@ if (typeof document !== 'undefined') {
     void refreshAuditView();
     void refreshState().then(() => restoreStreamDigest(sessionId));
     void refreshLlmStatus();
+    // V5.5-3 TASK-V55-314（ADR-V55-009 §4）：面板启动即读**持久关断偏好**（键名单源在
+    // `guard.ts#AI_PROACTIVE_PREF_KEY`；读取失败降级到默认 ON）。设置面切换即时生效。
+    void loadProactivePref().then((on) => proactivity.setEnabled(on));
     // TASK-028: auto-test the current model config once per panel load and render
     // the readable status (no standalone「测试连接」button anymore).
     autoTestConnectionOnce();

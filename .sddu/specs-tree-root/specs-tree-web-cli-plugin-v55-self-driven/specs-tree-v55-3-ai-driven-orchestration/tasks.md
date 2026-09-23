@@ -567,6 +567,18 @@ cd packages/web-cli-plugin && npm run test:v3
 | spikeGate | 3（SG-V55-03 / SG-V55-04 / SG-V55-05） |
 | 体积预算 | 5,900 B（上界 7,600） |
 
+### 3.1 build 完成登记（2026-09-23）
+
+| 波次 | 任务 | 状态 | 轮次 |
+|:--:|------|:--:|:--:|
+| W1 | TASK-V55-301~304 | ✅ completed（SG-V55-03 = 可得） | R1 |
+| W2 | TASK-V55-305~307 | ✅ completed | R1 |
+| W3 | TASK-V55-308~311 | ✅ completed（SG-V55-04 = 可得；`turn-arbitration` 6 用例） | R2 |
+| W4 | TASK-V55-312~315 | ✅ completed（`proactivity-guard` 7 用例；六常量单源） | R2 |
+| W5 | TASK-V55-316~320 | ⏳ pending | R3 |
+
+R2 出线：`npm test` **1312 / 0**（1299 + 13）；`dist/sidepanel.js` **573,424 B**（566,535 + 6,889）；`test:journey` 171 保段；`binding` 环境性 FAIL（KL-N-10，基线复现）。详见 `build.md` v1.1。
+
 ## 4. 执行策略
 
 | 波次 | 任务 | 策略 |

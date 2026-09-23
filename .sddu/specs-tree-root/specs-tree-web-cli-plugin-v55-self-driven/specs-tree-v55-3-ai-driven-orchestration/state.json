@@ -135,7 +135,7 @@
     "体积档位 563,200 / 绝对上限 619,520 / authorConfirmation.status = pending-author-line —— 未闭合义务，不得伪称已确认",
     "S0 人工面汇总：v5 人工面 9 项零改写（并列不覆盖），本 Feature 面逐项 ⏳ / PASS"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。末叶 / 收口叶 / P0 / 依赖 v55-1 + v55-2。权威条文见父 ../spec.md（§5.6 AIDRIVE / §5.7 OPSAFE / §5.8 GUARD / §5.9 X-SELF-1·7 / §5.10 GATE / §5.11 VOL）。无下游叶：本叶收尾 = 父 Feature 的最终验收锚（父 AC-SELF-026）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-3-ai-driven-orchestration/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（20 任务 / 5 波）。本阶段只做 tasks，零代码改动。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。末叶 / 收口叶 / P0 / 依赖 v55-1 + v55-2。权威条文见父 ../spec.md（§5.6 AIDRIVE / §5.7 OPSAFE / §5.8 GUARD / §5.9 X-SELF-1·7 / §5.10 GATE / §5.11 VOL）。无下游叶：本叶收尾 = 父 Feature 的最终验收锚（父 AC-SELF-026）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-3-ai-driven-orchestration/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（20 任务 / 5 波）。本阶段只做 tasks，零代码改动。\n\nbuild 阶段 R2 完成（2026-09-23，sddu-build）：W3 仲裁（SG-V55-04 = **可得**；SW 有界队列 `TURN_QUEUE_MAX = 1` + 溢出明确拒绝 + 面板草稿回填；仲裁闭集 4 项 type-only）+ W4 护栏（`guard.ts` 六常量单源：6/10min · 同因不重复 · 静默 60 s · 冷却 re-export 既有 10 s · 链深 2 · 回合预算 8；越限真抑制 + 关断默认 ON + 主题① 不受总控）+ 留痕（`driverSuppressedLine`）。`npm test` 1299 → **1312 / 0**；`dist/sidepanel.js` 566,535 → **573,424 B**（R2 +6,889；Σ 模块 +6,843 + glue +46；未跨档位，生效上限 → 602,095，`pending-author-line` 保持）；`content.js` 177,076 / `pick-layer.js` 34,358 逐字节不变；`test:journey` 171 保段；`test:binding` 环境性 FAIL（KL-N-10：暂存 R2 改动后基线同机复现，非本轮改动）；体积越叶预算已如实登记（见 build.md §4.2 / N-V55-3-R2-02）。W5（TASK-V55-316~320）留 R3。",
   "phaseHistory": [
     {
       "phase": "planned",
@@ -154,6 +154,12 @@
       "agent": "sddu-build",
       "at": "2026-09-23",
       "artifact": "build.md v1.0（R1 = W1+W2，TASK-V55-301~307；W3~W5 留 R2）"
+    },
+    {
+      "phase": "builded",
+      "agent": "sddu-build",
+      "at": "2026-09-23",
+      "artifact": "build.md v1.1（R2 = W3+W4，TASK-V55-308~315；W5 留 R3）"
     }
   ]
 }

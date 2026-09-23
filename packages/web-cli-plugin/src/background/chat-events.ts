@@ -23,6 +23,28 @@
 import type { ChatResultVariant } from './messaging.js';
 export type { ChatResultVariant };
 
+/**
+ * V5.5-3 **TASK-V55-309** (ADR-V55-010 §2/§4 · FR-SELF-061 · AC-SELF-014 · X-SELF-7) —
+ * the **turn-arbitration result closure**, declared ONCE here (both sides —
+ * `background/service-worker.ts` and the side panel — import this; neither writes its own
+ * string union ⇒ no drift seam).
+ *
+ * It is a **type-only vocabulary**: none of these four words is a `KIND_SET` member (the
+ * shared `KIND_SET` stays exactly 40 — `test/turn-arbitration.test.ts` asserts it), and the
+ * two panel-visible ones (`queued` / `busy-rejected`) ride the **existing** `chat-result`
+ * kind as `variant` values (a payload field, not a message kind).
+ *
+ *   · `executed`      — the turn ran immediately (the pre-existing single-flight path);
+ *   · `queued`        — in-flight turn ∧ queue had room ⇒ FIFO (hard cap 1), the user's
+ *                       words are **not lost** (a readable row + the turn runs on drain);
+ *   · `busy-rejected` — in-flight turn ∧ queue full ⇒ **explicit** refusal + the panel
+ *                       **restores the draft** into `#input` (never a silent drop);
+ *   · `ai-deferred`   — the AI path never queues: `pressCandidate` returns `blocked:busy`
+ *                       and writes a readable trace (ADR-V55-010 §3).
+ */
+export const ARBITRATION_RESULTS = Object.freeze(['executed', 'queued', 'busy-rejected', 'ai-deferred'] as const);
+export type ArbitrationResult = (typeof ARBITRATION_RESULTS)[number];
+
 export interface ChatResultEvent {
   variant: ChatResultVariant;
   text?: string;
