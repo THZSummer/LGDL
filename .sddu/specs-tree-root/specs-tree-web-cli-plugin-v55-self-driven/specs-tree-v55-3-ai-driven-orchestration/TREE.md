@@ -12,9 +12,11 @@ specs-tree-v55-3-ai-driven-orchestration/
 ├── review.md          # 审查策略：specs-tree-v55-3-ai-driven-orchestration
 ├── review-report.md          # 审查报告：specs-tree-v55-3-ai-driven-orchestration
 ├── spec.md          # Feature Specification：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
-├── state.json          # 状态文件 (🟢 tracked [reviewed])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
-└── tasks.md          # 任务分解：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
+├── tasks.md          # 任务分解：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
+├── validate.md          # 验证策略：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
+└── validate-report.md          # 验证报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
 ```
 
 ## 文件说明
@@ -25,16 +27,18 @@ specs-tree-v55-3-ai-driven-orchestration/
 | review.md | 审查策略：specs-tree-v55-3-ai-driven-orchestration — 1. ✅ `src/` 已实现（NEW `background/turn-queue.ts` / `next-registry/guard.ts` / `... | ✅ 存在 |
 | review-report.md | 审查报告：specs-tree-v55-3-ai-driven-orchestration — 1. **安全边界（R-SELF-001，最高危）四项逐项亲核未退化** —— 特权恒 `gesture`（恰 2）、consent 不得代答、`auto... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 本叶 = v5.5 的**末叶 / 收口叶**，交付作者主题② 的完整形态：**「已配置 LLM 时：让 AI 来启动整个 chat/next」**。关键... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [reviewed] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — cd packages/web-cli-plugin && node -e "/* 读 ops.ts#IMPL 9 op 的 layer/consent ... | ✅ 存在 |
+| validate.md | 验证策略：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 验证策略：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） | ✅ 存在 |
+| validate-report.md | 验证报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 1. **S0-A 端到端双面独立复刻成立** —— Chromium 真面板（自写脚本 15/15）：已配置 ⇒ 真点击作答 ⇒ **零按键**（opC... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 审查完成 (6/7) |
-| Status | 🟢 tracked [reviewed] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)
