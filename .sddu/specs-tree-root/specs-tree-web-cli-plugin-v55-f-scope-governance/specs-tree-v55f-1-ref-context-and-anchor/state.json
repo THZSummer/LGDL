@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-1-ref-context-and-anchor",
   "version": "v0.11.1",
   "name": "V5.5F-1 范围底座——引用事实进回合（chat type-only 载荷 + 系统段基座/追加段）+ 范围读数单源（法九）+ 工具面 --ref <n> 锚定（仅 dom set-text；plugin 侧包装；单节点保证；失配 fail-closed 非静默）+ 留痕扩字段 + S0′ 双向样板（含反证）",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -45,12 +45,16 @@
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
-    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md"
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/tasks.json"
   ],
   "coversFr": [
     "FR-SGO-001~006",
@@ -122,6 +126,14 @@
       "agent": "sddu-plan",
       "artifact": "specs-tree-v55f-1-ref-context-and-anchor/plan.md v1.0",
       "note": "V5.5F-1 叶 plan：承接父 plan.md + ADR-SGO-001~008；文件影响 / 执行序 / 风险 / 体积预算逐项落地；零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-tasks",
+      "artifact": "specs-tree-v55f-1-ref-context-and-anchor/tasks.md + tasks.json v1.0",
+      "note": "V5.5F-1 叶 tasks：29 任务 / 4 波（TASK-V55F-101~129；S×2 / M×21 / L×6）。W1 口径与载荷（含 SG-SGO-01 载荷链探针）→ W2 读数单源 + 法九 + 越界拦 + 留痕（含 SG-SGO-03 法九可机核探针）→ W3 --ref 锚定包装 + 失配 EC（含 SG-SGO-02 包装/live 闸探针）→ W4 S0′ 双面 + X 台账 + 门禁治理 + 体积重登记。3 新 node 门禁（ref-context-in-turn / law9-scope-reading / dom-ref-anchor）；S0′ 双面（样本单源 122 + node S0P-1~8 123 + Chromium 只加断言 124）；体积 A 列 6.0~9.0 KB 收口重登记 129（五要素 + V3-VOL-3 三值 + EC-SGO-022 二态）。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
     }
   ]
 }

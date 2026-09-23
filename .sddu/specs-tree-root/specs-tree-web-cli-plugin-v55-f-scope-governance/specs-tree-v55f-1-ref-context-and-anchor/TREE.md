@@ -9,7 +9,9 @@ specs-tree-v55f-1-ref-context-and-anchor/
 ├── TREE.md          # 本文件 - 目录导航
 ├── plan.md          # 技术计划：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定）
 ├── spec.md          # Feature Specification：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定）
-└── state.json          # 状态文件 (🟢 tracked [planned])
+├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── tasks.json          # 任务清单 (机器可读)
+└── tasks.md          # 任务分解：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定）
 ```
 
 ## 文件说明
@@ -17,14 +19,16 @@ specs-tree-v55f-1-ref-context-and-anchor/
 |------|------|------|
 | plan.md | 技术计划：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定） — 技术计划：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + r... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定） — 父规范 §2.1~§2.4 的**根因 A/B/C/D/E/F/H/I/J/K/L/N/O/P/Q/R** 全部落在本叶：回合载荷只有 `user`（`s... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [planned] |
+| state.json | 状态文件 | 🟢 tracked [tasked] |
+| tasks.json | 任务清单（机器可读） | ✅ 存在 |
+| tasks.md | 任务分解：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定） — W1 ── 口径与载荷（interval A；101 ∥ 102→103→104→105→106→107→108 串行为主） | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 设计 (3/7) |
-| Status | 🟢 tracked [planned] |
+| Phase | 任务分解 (4/7) |
+| Status | 🟢 tracked [tasked] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

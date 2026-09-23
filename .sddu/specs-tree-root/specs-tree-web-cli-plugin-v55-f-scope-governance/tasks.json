@@ -1,0 +1,366 @@
+{
+  "meta": {
+    "feature": "specs-tree-web-cli-plugin-v55-f-scope-governance",
+    "featureKey": "specs-tree-web-cli-plugin-v55-f-scope-governance",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-24",
+    "version": "1.0.0",
+    "scope": "总览（不承接执行）",
+    "sourcePlan": "父 plan.md v1.0（跨切契约 + ADR-SGO-001~008 正文索引 + §7.2 体积分列预算表 + §7.3 7 波骨架 + §7.4 体积可行性结论 + §8 PD-SGO-001~007 裁决）+ 2 叶 plan.md v1.0",
+    "sourceSpec": "父 spec.md v1.0（88 FR / 14 NFR / 22 EC / 26 AC / 22 NG / 10 US / 8 G / §12 X-SGO-1~7 / §13 N-SGO-001~030 / §9.5 门禁基线 / §14 2 叶拆分 / §14.3 FR→叶 覆盖矩阵）+ 2 叶 spec.md v1.0",
+    "totalTasks": 45,
+    "totalWaves": 7,
+    "complexity": { "S": 3, "M": 34, "L": 8 },
+    "deviation": {
+      "id": "父 spec.md §14.1（轻量规范容器）",
+      "desc": "父 Feature 定位为轻量规范容器（不承接 build/review/validate、不产出 tasks.json）；本轮按编排器任务书产出总览型 tasks.md + tasks.json（tasks[] 为空、无一条可执行任务），偏差显式登记、可整篇作废而不牵连叶",
+      "containerCore": "父不承接 build/review/validate；实施全部由 2 叶承载；父 state.json 的 depth=1 / childrens 结构不变",
+      "templateDeviation": "模板 §5.4 / §8 建议 5~15 任务；本轮 45（29/16），分落 2 叶（叶1 29 / 叶2 16），与 v5.5 父先例（61）同口径显式登记",
+      "spikeGateDeviation": "父 plan.md / ADR-SGO-001~008 未命名 spikeGate 代号；本轮按编排器任务书指定的 SG-SGO-01~03 落为先验闸门"
+    },
+    "numbering": {
+      "namespace": "TASK-V55F-1xx / TASK-V55F-2xx",
+      "leafBlocks": {
+        "v55f-1": "TASK-V55F-101~129（29）",
+        "v55f-2": "TASK-V55F-201~216（16）"
+      },
+      "conflictCheck": "两叶连续编号、零交叠；与 TASK-001~040 / TASK-2xx~3xx / TASK-4xx / TASK-5xx~8xx / TASK-V45-1xx / TASK-V5-1xx / TASK-V55-1xx~320 零冲突（本 Feature 用 V55F 命名空间）"
+    },
+    "deliveryOrder": [
+      "specs-tree-v55f-1-ref-context-and-anchor",
+      "specs-tree-v55f-2-batch-consent"
+    ],
+    "serialRule": "叶间硬串行（叶2 依赖叶1 的范围读数 + 锚定解析作为「计划内 / 计划外」唯一判据，R-SGO-920）"
+  },
+  "leaves": [
+    {
+      "leafKey": "specs-tree-v55f-1-ref-context-and-anchor",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/",
+      "position": 1,
+      "tasks": "TASK-V55F-101~129（29）",
+      "waves": "W1~W4（全局 W01~W04）",
+      "size": { "S": 2, "M": 21, "L": 6 },
+      "spikes": ["TASK-V55F-101（SG-SGO-01）", "TASK-V55F-109（SG-SGO-03）", "TASK-V55F-116（SG-SGO-02）"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3", "D": "W4（收口轮）" },
+      "volumeBudgetBytes": 7000,
+      "volumeUpperBoundBytes": 10350,
+      "volumeRegisterTask": "TASK-V55F-129",
+      "mainAdrs": ["ADR-SGO-001", "ADR-SGO-002", "ADR-SGO-003", "ADR-SGO-006", "ADR-SGO-007", "ADR-SGO-008"],
+      "newGates": ["ref-context-in-turn", "law9-scope-reading", "dom-ref-anchor"],
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "首叶 / 底座叶：引用事实进回合（chat type-only refs + 两入口同构建点 + requestTurn( 仍恰 2）+ 系统段基座/追加段 + 范围读数单源（法九 4 值 + 唯一判定）+ 越界写在 confirm 面 fail-closed 拦 + 留痕扩字段名 + --ref 锚定（plugin 侧包装 / base 零 diff / nodeCount === 1 唯一通过 / 失配 EC 七类非静默）+ S0′ 双面（样本单源 + node S0P-1~8 + Chromium 只加断言）+ X-SGO-1/2/3/5 等价重锚（X-SGO-7 未发生）+ 门禁治理 + 体积逐叶重登记。**不做**批量授权（叶2）、读命令 --ref（PD-SGO-001）。"
+    },
+    {
+      "leafKey": "specs-tree-v55f-2-batch-consent",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/",
+      "position": 2,
+      "tasks": "TASK-V55F-201~216（16）",
+      "waves": "W1~W3（全局 W05~W07）",
+      "size": { "S": 1, "M": 13, "L": 2 },
+      "spikes": [],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3（收口轮）" },
+      "volumeBudgetBytes": 5500,
+      "volumeUpperBoundBytes": 6325,
+      "volumeRegisterTask": "TASK-V55F-216（含两叶 Σ 对照）",
+      "mainAdrs": ["ADR-SGO-004", "ADR-SGO-005", "ADR-SGO-006", "ADR-SGO-007", "ADR-SGO-008"],
+      "newGates": ["batch-consent"],
+      "isCloseoutLeaf": true,
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "末叶 / 批量授权叶（承载唯一红线级风险 R-SGO-001）：边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权 op 不入批）+ 计划（系统聚合：单条 assistant 消息的 in-scope set-text）+ 指纹（逐字节入哈希、摘要出账）+ 一次真实手势 + 计划外逐条回落 + 漂移显式失败 + 计划感知桥（单条路径逐字不变）+ 零明文审计 + 计划卡渲染（非 payload + 掩码 + 8 行上限）+ 中止/部分完成如实 + WIDEN 二择（复用 askuser；authorized 只由用户点击产生）+ S0′ 批量段（S0P-B1~B3）+ X-SGO-4/6/7 台账 + 体积本叶重登记（含两叶 Σ 对照）。**硬依赖叶1（须 validated）**。"
+    }
+  ],
+  "crossLeafOrder": {
+    "structure": "2-leaf-serial",
+    "order": [
+      "specs-tree-v55f-1-ref-context-and-anchor",
+      "specs-tree-v55f-2-batch-consent"
+    ],
+    "note": "叶间不可并行；叶内波次为唯一执行序（见各叶 tasks.md §1 关键路径）"
+  },
+  "s0LayeredWiring": {
+    "adr": "ADR-SGO-006（S0′ 双面机器化）+ FR-SGO-090~094；R-SGO-909 禁假 provider",
+    "singleSourceSample": {
+      "file": "test/ui/fixtures/s0-chain.mjs",
+      "task": "TASK-V55F-122",
+      "leaf": "v55f-1",
+      "note": "扩展既有样本（node + Chromium 共用同一份；禁第二份样本）；既有 S0_CHAIN 10 环节逐字保留"
+    },
+    "rangeCore_node": {
+      "leaf": "v55f-1",
+      "tasks": ["TASK-V55F-123"],
+      "judge": "S0P-1-refs-in-turn / S0P-2-system-append / S0P-3-read-in-scope / **S0P-4-writes-le-refs（改写处数 ≤ 引用数）** / S0P-5-authorized-branch / S0P-6-trace / **S0P-7-bidirectional（去注入 ⇒ no-ref 必红）** / S0P-8-honest-report"
+    },
+    "rangeCore_chromium": {
+      "leaf": "v55f-1",
+      "tasks": ["TASK-V55F-124"],
+      "judge": "真面板：拾取引用 → 作答 → 自动成回合 → 恰 1 处 [data-wcli-ref=\"ref_1\"] 命中；留痕含范围字段名；**只加断言不加文件**（CHROMIUM_GATES === 9）"
+    },
+    "batchBranch": {
+      "leaf": "v55f-2",
+      "tasks": ["TASK-V55F-214"],
+      "judge": "S0P-B1 一次手势覆盖计划内全部；S0P-B2 计划外逐条回落；S0P-B3 二择 + 中止可判；各带反证；只加断言不加文件",
+      "numberingRuling": "plan §2.4 记「S0′-7/8 批量分支」与 ADR-SGO-006 §2 的 S0P-7/8（node 面）编号冲突 ⇒ tasks 显式裁决：S0P-1~8 保留 node 面（叶1）；批量段用 S0P-B1~B3（叶2）"
+    },
+    "countingRule": "两侧独立计数，禁互相掩盖；node 面与 Chromium 面各自可独立验证；真源切片读生产模块（禁假 provider）"
+  },
+  "waveSummary": [
+    { "global": "W01", "leaf": "v55f-1", "wave": 1, "name": "口径与载荷（type-only refs + 系统段组装 + SG-SGO-01）", "tasks": "101~108", "count": 8, "interval": "A" },
+    { "global": "W02", "leaf": "v55f-1", "wave": 2, "name": "读数单源 + 法九（SG-SGO-03）+ 越界拦 + 留痕", "tasks": "109~115", "count": 7, "interval": "B" },
+    { "global": "W03", "leaf": "v55f-1", "wave": 3, "name": "--ref 锚定包装（SG-SGO-02）+ 失配 EC + 失效可判", "tasks": "116~121", "count": 6, "interval": "C" },
+    { "global": "W04", "leaf": "v55f-1", "wave": 4, "name": "S0′ 双面 + X 台账 + 门禁治理 + 体积重登记", "tasks": "122~129", "count": 8, "interval": "D（收口轮）" },
+    { "global": "W05", "leaf": "v55f-2", "wave": 1, "name": "边界先行：RL-06 / OT-⑩ 批量变体注入必红 + 特权不入批", "tasks": "201~205", "count": 5, "interval": "A" },
+    { "global": "W06", "leaf": "v55f-2", "wave": 2, "name": "计划结构 + 指纹 + 准入/回落 + 零明文 + 中止", "tasks": "206~212", "count": 7, "interval": "B" },
+    { "global": "W07", "leaf": "v55f-2", "wave": 3, "name": "WIDEN 二择 + S0′ 批量段 + 台账 + 体积收口", "tasks": "213~216", "count": 4, "interval": "C（收口轮·终局）" }
+  ],
+  "checkpoints": [
+    {
+      "id": "CP-V55F-1",
+      "after": "W01~W04（v55f-1 收尾 TASK-V55F-129）",
+      "criteria": "载荷 type-only 单声明 + requestTurn 唯一构建点 + SW 引用唯一来源 = 载荷；系统段 = 基座（5 条逐字）+ 追加段（零引用逐字等于基座）；SCOPE_READINGS 4 值单源 + scopeReading 唯一；越界写在 confirm 面 fail-closed 拦 + 可达 next；留痕含范围读数 字段名且零值；法九 L9-1~8 + 双向反证（去注入 no-ref 必红）+ 三段控制禁恒真 + 真源切片；--ref 锚定 plugin 侧包装 + base 零 diff + nodeCount === 1 唯一通过 + 失配 EC 七类非静默；S0′ 双面（样本单源 + node S0P-1~8 + Chromium 只加断言）+ 改写处数 ≤ 引用数；X-SGO-1/2/3 已发生 + X-SGO-7 未发生；断言只增、CHROMIUM_GATES === 9、三冻结面零容差；体积 A 列重登记（五要素 + 三值同源 + EC-SGO-022 二态）；保护段双绿"
+    },
+    {
+      "id": "CP-V55F-2",
+      "after": "W05~W07（v55f-2 收尾 TASK-V55F-216）",
+      "criteria": "边界先行：RL-06 / OT-⑩ 批量变体注入必红 + 特权 op 不入批（tierOf 逐 op 不变）+ SW 永不 .request(（计数不减）；载体零新增（KIND_SET 40 / 12 kind / 零宿主 / MAX_OPEN_ASKS=2）；计划 = 单条 assistant 消息的 in-scope set-text（N≥2/N==1/N==0）+ 指纹逐字节入哈希（含文本对）+ 计划内放行 / 计划外逐条回落 / 漂移显式失败；一次真实手势（AI 代答任何变体必红）+ 计划感知桥（单条路径逐字不变）+ 零明文审计；计划正文仅 UI 渲染（非 payload）+ 掩码 + 展示上限 8 行 + 诚实计数行；中止 ⇒ cancelled + 部分完成如实；WIDEN 二择（复用 askuser）+ authorized 只由用户点击产生（AI 自填必红）+ 拒绝零死端；S0′ 批量段 S0P-B1~B3；X-SGO-4 已发生 / 6 以读数承载 / 7 未发生；law8 36 零降级；体积本叶重登记 + 两叶 Σ 对照 + EC-SGO-022 二态；CHROMIUM_GATES === 9；e2e PASS"
+    }
+  ],
+  "volumeLedger": {
+    "authority": "ADR-SGO-007（A/B/C 列分列 + 15% 缓冲 + 2.8× 最坏 + 逐叶重登记 + 升档 EC 路径）+ 父 plan.md §7.2 / §7.4",
+    "sidepanelBaselineBytes": 578623,
+    "sidepanelEffectiveCeilingBytes": 607554,
+    "headroomBytes": 28931,
+    "distanceToTierBytes": 35777,
+    "tierBytes": 614400,
+    "absoluteCeilingBytes": 675840,
+    "totalBudgetBytes": 14500,
+    "totalUpperBoundBytes": 16675,
+    "bufferFactor": 1.15,
+    "bufferedUpperBoundBytes": 16675,
+    "crossingFactor": 2.8,
+    "worstCaseBufferedBytes": "30600~46700",
+    "perLeaf": {
+      "v55f-1": {
+        "col": "A（sidepanel.js，计账）",
+        "budgetBytes": 6000,
+        "upperBoundBytes": 9000,
+        "bufferedUpperBoundBytes": 10350,
+        "colB": { "budgetBytes": 5000, "upperBoundBytes": 8000, "accounted": false },
+        "registerTask": "TASK-V55F-129",
+        "components": {
+          "l1/ref-scope.ts": "读数单源 + 快照投影 + 留痕单源",
+          "l1/ref-store.ts": "只读取用",
+          "sidepanel.ts": "载荷构建 / 范围闸 / 留痕"
+        }
+      },
+      "v55f-2": {
+        "col": "A（sidepanel.js，计账）",
+        "budgetBytes": 3500,
+        "upperBoundBytes": 5500,
+        "bufferedUpperBoundBytes": 6325,
+        "colB": { "budgetBytes": 3000, "upperBoundBytes": 5000, "accounted": false },
+        "registerTask": "TASK-V55F-216（含两叶 Σ 对照）",
+        "components": {
+          "chat-state.ts": "渲染用计划字段（非 payload）",
+          "cards/auth.ts": "计划行渲染 + 掩码 + 8 行上限",
+          "sidepanel.ts": "计划 passthrough + 二择接线 + 留痕"
+        }
+      },
+      "sum": { "budgetBytes": 9500, "upperBoundBytes": 14500, "bufferedUpperBoundBytes": 16675 }
+    },
+    "colB": {
+      "artifact": "dist/background.js（不计入 sidepanel 账本）",
+      "leaf1": ["ref-context.ts", "ref-turn.ts", "ref-observe.ts", "service-worker.ts", "turn-queue.ts", "messaging.ts（type-only）", "src/tools/dom-anchor.ts", "src/tools/browser-tools.ts"],
+      "leaf2": ["batch-plan.ts", "security/confirm.ts", "service-worker.ts（批次捕获）"],
+      "note": "系统段组装 / --ref 包装 / 批量判定 / 计划指纹 / 载荷校验优先落 SW 侧（FR-SGO-121）；不得为绕门禁搬进 / 搬出 sidepanel"
+    },
+    "colC": { "artifact": "content.js / pick-layer.js", "rule": "零触碰零容差" },
+    "crossingPlan": {
+      "normal": "A Σ 9.5~14.5 KB（+15% 16.7 KB）≤ 余量 28,931 且 ≤ 距档 35,777 ⇒ 正常口径不触发升档",
+      "worstCase": "2.8× 最坏 ≈ 26.6~40.6 KB（×1.15 ≈ 30.6~46.7 KB）⇒ 可能跨档位 614,400 ⇒ 预置 EC-SGO-022 显式升档路径 + 作者一行（本阶段不触发）",
+      "action": "越生效上限（607,554）⇒ 显式重登记基线（同源前移）；越档位（614,400）⇒ EC 显式升档 + 作者一行；越绝对上限（675,840）⇒ 停止并请示",
+      "authorConfirmation": "保持 pending-author-line，不得伪称已确认"
+    },
+    "reductionPriority": [
+      "纯记账 / 判定逻辑下移 background.js（SW 产物，不计账）",
+      "元组化声明数据（v5 ops.ts#IMPL 先例）",
+      "复用既有文案（系统行 / receipt / 静态模板），零新字符串",
+      "复用既有 auth 卡渲染面（计划行走既有渲染 + 一个渲染用字段）",
+      "显式登记未落地项为未闭合义务（绝不以删除判据 / 放宽容差 / 静默降档实现）"
+    ],
+    "note": "spec 阶段估算（非承诺）；每叶收口实测重登记（FR-SGO-125）；实测值禁预填（V55F-P-001 / 006，pending-measurement）"
+  },
+  "sharedSurfaces": {
+    "caliber": "FR-SGO-002/005：四类共享面被 ≥2 叶触碰 ⇒ 必须恰一次做完；禁止『两叶各改一次同一条目』",
+    "volume": {
+      "registerLeaf": "各叶登记自身增量；收口合计在叶2",
+      "tasks": ["TASK-V55F-129", "TASK-V55F-216"],
+      "check": "SIDEPANEL_BASELINE_BYTES_TIMELINE 只追加 + metafile 归因（Σ 逐模块 Δ + 未归因 == 登记增量）"
+    },
+    "journeyProtection": {
+      "registerLeaf": "v55f-1",
+      "tasks": ["TASK-V55F-129"],
+      "check": "保段（sha cc79f413… / startByte 43054 双不变）或八步显式取代（modifiedRanges[] + redlineRemap[] + 计数守恒 ≥171 + RP-V4-08 反证）"
+    },
+    "bindingProtection": {
+      "registerLeaf": "v55f-1",
+      "tasks": ["TASK-V55F-129"],
+      "check": "保段（decision=keep；sha be9ad0e9… / 107780..115930）+ 段外逐行登记 + test:binding ≥192"
+    },
+    "supersessionLedger": {
+      "registerLeaf": "各叶各登各的条目（台账文件只追加）；叶1 登主体，叶2 增条目",
+      "tasks": ["TASK-V55F-125", "TASK-V55F-215"],
+      "check": "test:supersession ≥37 + status ↔ knownGap 一致性 + X-SGO-6「未扩张」/ X-SGO-7「未发生」如实登记"
+    },
+    "knownGap": {
+      "registerLeaf": "v55f-1（首叶承接）",
+      "tasks": ["TASK-V55F-125"],
+      "check": "本 Feature 未发生取代 ⇒ 该字段为空或仅声明闭环"
+    },
+    "manualFaces": {
+      "registerLeaf": "各叶各登本叶项（叶1 M1/M4；叶2 M2/M3）",
+      "tasks": ["TASK-V55F-124", "TASK-V55F-214"],
+      "check": "逐项 ⏳ 未执行 / PASS；v5.5 人工面零改写（并列不覆盖）；不得冒充 PASS"
+    }
+  },
+  "crossCutRedlines": {
+    "N-SGO-001~004": { "item": "三冻结面零容差（content.js 177,076 / pick-layer.js 34,358 / KIND_SET 40）+ 体积三值", "tasks": ["TASK-V55F-126", "TASK-V55F-129", "TASK-V55F-216"] },
+    "N-SGO-005/006": { "item": "特权 op 恒 gesture / consent 不得被 AI 代答（含批量变体）", "tasks": ["TASK-V55F-201", "TASK-V55F-202", "TASK-V55F-203", "TASK-V55F-213"] },
+    "N-SGO-007/008": { "item": "base 零 diff / 判定链零触碰（zeroDiffFiles 9 项）", "tasks": ["TASK-V55F-111", "TASK-V55F-119", "TASK-V55F-126"] },
+    "N-SGO-009/010": { "item": "KIND_SET 40 / 12 kind / 零宿主", "tasks": ["TASK-V55F-102", "TASK-V55F-204"] },
+    "N-SGO-011": { "item": "法八四面零明文不退化（law8 36 零降级）", "tasks": ["TASK-V55F-127", "TASK-V55F-211", "TASK-V55F-215"] },
+    "N-SGO-012/013": { "item": "法七不退化（死端 = 0）/ 不新增终态字面量", "tasks": ["TASK-V55F-111", "TASK-V55F-212", "TASK-V55F-213", "TASK-V55F-215"] },
+    "N-SGO-014": { "item": "主流程调用点计数（requestTurn( 恰 2）", "tasks": ["TASK-V55F-104", "TASK-V55F-107", "TASK-V55F-125", "TASK-V55F-209"] },
+    "N-SGO-015": { "item": "断言零删除零降级、计数只增", "tasks": ["TASK-V55F-125", "TASK-V55F-128", "TASK-V55F-129", "TASK-V55F-215", "TASK-V55F-216"] },
+    "N-SGO-016/017": { "item": "保护 pin（journey / binding）/ 门禁串行 + CHROMIUM_GATES === 9", "tasks": ["TASK-V55F-128", "TASK-V55F-129", "TASK-V55F-216"] },
+    "N-SGO-024~029": { "item": "法九禁恒真 / 批量卡不得 AI 代答 / 计划零明文口径 / --ref 不进 base / 读数唯一声明 / 无引用零漂移", "tasks": ["TASK-V55F-110", "TASK-V55F-113", "TASK-V55F-114", "TASK-V55F-118", "TASK-V55F-121", "TASK-V55F-108", "TASK-V55F-211", "TASK-V55F-213"] },
+    "N-SGO-030": { "item": "升档须作者一行", "tasks": ["TASK-V55F-129", "TASK-V55F-216"] },
+    "T1~T13": { "item": "不动面逐项（content / KIND_SET / 判定链 / manifest / base / 12 kind / 三区 / F-29 / v5.5+R6 / design / 9 op / 既有门禁 / 保护段）", "tasks": ["TASK-V55F-102", "TASK-V55F-111", "TASK-V55F-119", "TASK-V55F-126", "TASK-V55F-128", "TASK-V55F-204", "TASK-V55F-215", "TASK-V55F-216"] }
+  },
+  "supersessionMap": {
+    "X-SGO-1": { "item": "chat 载荷恰 1 字段 → 允许携带引用上下文（type-only；两入口同口径）；requestTurn( 仍恰 2", "tasks": ["TASK-V55F-102", "TASK-V55F-104", "TASK-V55F-108", "TASK-V55F-125"], "ledger": "modifiedRanges[] 只增" },
+    "X-SGO-2": { "item": "系统段 = 静态常量 → 常量基座 + 每回合追加段（基座逐字）", "tasks": ["TASK-V55F-106", "TASK-V55F-107", "TASK-V55F-108", "TASK-V55F-125"], "ledger": "modifiedRanges[] + 新 node 门禁入受审集合" },
+    "X-SGO-3": { "item": "base 零 ref → plugin 侧包装（基线 executor 仍被调用）；base 零 diff 不解冻", "tasks": ["TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-121", "TASK-V55F-125"], "ledger": "modifiedRanges[]（src/tools/**）" },
+    "X-SGO-4": { "item": "逐条写入授权 → 任务级批量授权；RL-06 / OT-⑩ 扩批量变体注入必红", "tasks": ["TASK-V55F-201", "TASK-V55F-202", "TASK-V55F-205", "TASK-V55F-215"], "ledger": "modifiedRanges[] + redlineRemap[]（扩断言，非替换）" },
+    "X-SGO-5": { "item": "引用判定增设「作为范围锚」解析读数；valid/invalid/unknown deny 方向不动", "tasks": ["TASK-V55F-115"], "ledger": "计数对账（只增）" },
+    "X-SGO-6": { "item": "优先以「读数」承载（不新增终态字面量）⇒ 词汇未扩张", "tasks": ["TASK-V55F-215"], "ledger": "无扩张条目（如实登记「以读数承载、未扩张」）" },
+    "X-SGO-7": { "item": "主流程调用点走既有槽扩张（diff = 0）；不得新增调用点", "tasks": ["TASK-V55F-125"], "ledger": "未发生取代（如实登记 ✅）" }
+  },
+  "spikeGates": [
+    {
+      "code": "SG-SGO-01", "task": "TASK-V55F-101", "leaf": "v55f-1", "wave": "W1",
+      "topic": "type-only refs 载荷经 messaging.ts 单声明 + requestTurn 唯一构建点 + SW 零新通道 可行性",
+      "gates": ["TASK-V55F-103", "TASK-V55F-105", "TASK-V55F-107", "TASK-V55F-108"],
+      "stoppingRule": "任一不可行 ⇒ 暂停上报（禁新增引用通道 / 禁放宽 requestTurn( 计数 / 禁改动 KIND_SET）"
+    },
+    {
+      "code": "SG-SGO-02", "task": "TASK-V55F-116", "leaf": "v55f-1", "wave": "W3",
+      "topic": "plugin 侧条目包装（base 零 diff）+ observeIdentity 复用为 live 单节点闸 可行性",
+      "gates": ["TASK-V55F-117", "TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-121"],
+      "stoppingRule": "不可行 ⇒ 暂停上报（禁改 packages/web-cli-base/** / 禁放宽 risk）"
+    },
+    {
+      "code": "SG-SGO-03", "task": "TASK-V55F-109", "leaf": "v55f-1", "wave": "W2",
+      "topic": "法九读数双向反证可机核（去注入 ⇒ no-ref 必红可构造；三段控制 ok/violated/n/a 可达）",
+      "gates": ["TASK-V55F-110", "TASK-V55F-113", "TASK-V55F-114"],
+      "stoppingRule": "不可构造 ⇒ 暂停上报（禁以文档 / 提示词 / 恒真断言替代机核，DC-SGO-007）"
+    }
+  ],
+  "independentParallelGroups": [
+    { "group": "P1", "leaf": "v55f-1", "members": ["TASK-V55F-104", "TASK-V55F-105"], "note": "sidepanel.ts + ref-store.ts 与 ref-turn.ts 不相交" },
+    { "group": "P2", "leaf": "v55f-1", "members": ["TASK-V55F-112", "TASK-V55F-115"], "note": "ref-scope/sidepanel 与 l1.mjs/page-input.mjs/l1-ref-validity 不相交" },
+    { "group": "P3", "leaf": "v55f-1", "members": ["TASK-V55F-125", "TASK-V55F-126", "TASK-V55F-127"], "note": "docs/*.json + supersession/op-wiring 与 insight-no-escalation 与 law8-plaintext.mjs 不相交" },
+    { "group": "Q1", "leaf": "v55f-2", "members": ["TASK-V55F-201", "TASK-V55F-202", "TASK-V55F-203"], "note": "supersession-ledger.test.ts / op-three-tier.test.ts / capability-wiring.test.ts 不相交" },
+    { "group": "Q2", "leaf": "v55f-2", "members": ["TASK-V55F-206", "TASK-V55F-209"], "note": "batch-plan.ts 与 service-worker.ts 不相交（209 只须后于 206 定义形状）" }
+  ],
+  "gateConservation": {
+    "baselineSource": "父 spec.md §9.5 + §2.4 E9（引自 R6 记录 docs/r6-ty-experience-fix-2026-09-23.md:147-163；本轮未复跑）",
+    "npmTestBaseline": 1330,
+    "chromiumGates": "=== 9（不动）",
+    "gates": [
+      { "gate": "npm test", "baseline": 1330, "expected": ">=1330", "owners": ["TASK-V55F-129", "TASK-V55F-216"] },
+      { "gate": "test:journey", "baseline": 171, "expected": ">=171（保段优先）", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:binding", "baseline": 192, "expected": ">=192（保段）", "owners": ["TASK-V55F-129"] },
+      { "gate": "s0-self-driven", "baseline": 59, "expected": ">=59", "owners": ["TASK-V55F-124", "TASK-V55F-214"] },
+      { "gate": "test:density", "baseline": 242, "expected": ">=242", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:page-input", "baseline": 118, "expected": ">=118", "owners": ["TASK-V55F-115"] },
+      { "gate": "test:l0", "baseline": 248, "expected": ">=248", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:l1", "baseline": 120, "expected": ">=120", "owners": ["TASK-V55F-115"] },
+      { "gate": "test:l2", "baseline": 74, "expected": ">=74", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:law8", "baseline": 36, "expected": ">=36（零降级）", "owners": ["TASK-V55F-127", "TASK-V55F-211", "TASK-V55F-215"] },
+      { "gate": "test:dead-end", "baseline": 49, "expected": ">=49", "owners": ["TASK-V55F-111", "TASK-V55F-212", "TASK-V55F-213"] },
+      { "gate": "test:auth-chip", "baseline": 37, "expected": ">=37", "owners": ["TASK-V55F-212", "TASK-V55F-216"] },
+      { "gate": "test:stream", "baseline": 76, "expected": ">=76", "owners": ["TASK-V55F-215"] },
+      { "gate": "test:ask-auth", "baseline": 78, "expected": ">=78", "owners": ["TASK-V55F-212"] },
+      { "gate": "test:hardening", "baseline": 24, "expected": ">=24", "owners": ["TASK-V55F-216"] },
+      { "gate": "test:insight", "baseline": 116, "expected": ">=116", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:design-contract", "baseline": 60, "expected": ">=60", "owners": ["TASK-V55F-216"] },
+      { "gate": "test:supersession", "baseline": 37, "expected": ">=37", "owners": ["TASK-V55F-125", "TASK-V55F-201", "TASK-V55F-215"] },
+      { "gate": "test:zero-injection", "baseline": 28, "expected": ">=28", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:recommendation", "baseline": 72, "expected": ">=72", "owners": ["TASK-V55F-108"] },
+      { "gate": "test:l1-reverse", "baseline": 9, "expected": ">=9", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:l2-reverse", "baseline": 10, "expected": ">=10", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:gate-integrity", "baseline": 19, "expected": ">=19", "owners": ["TASK-V55F-128", "TASK-V55F-216"] },
+      { "gate": "test:size-ruling-vol3", "baseline": 12, "expected": ">=12", "owners": ["TASK-V55F-129", "TASK-V55F-216"] },
+      { "gate": "test:ref-pick-wiring", "baseline": 11, "expected": ">=11", "owners": ["TASK-V55F-129"] },
+      { "gate": "e2e", "baseline": "PASS", "expected": "PASS", "owners": ["TASK-V55F-216"] }
+    ],
+    "newGates": [
+      { "gate": "ref-context-in-turn", "file": "test/ref-context-in-turn.test.ts", "leaf": "v55f-1", "owners": ["TASK-V55F-108"] },
+      { "gate": "law9-scope-reading", "file": "test/law9-scope-reading.test.ts", "leaf": "v55f-1", "owners": ["TASK-V55F-113", "TASK-V55F-114"] },
+      { "gate": "dom-ref-anchor", "file": "test/dom-ref-anchor.test.ts", "leaf": "v55f-1", "owners": ["TASK-V55F-121"] },
+      { "gate": "batch-consent", "file": "test/batch-consent.test.ts", "leaf": "v55f-2", "owners": ["TASK-V55F-205", "TASK-V55F-206", "TASK-V55F-207", "TASK-V55F-208", "TASK-V55F-210"] }
+    ],
+    "upgradedGates": [
+      { "gate": "op-wiring", "upgrade": "原判据不改（requestTurn 恰 2）+ 主流程 diff=0 复合读数（maybeRecommend 1/7 · nextAfterSettle 1/10）", "owners": ["TASK-V55F-125"] },
+      { "gate": "test/ui/no-dead-end.mjs", "upgrade": "越界拦后可达 next + 中止 / 拒绝扩大后零死端（49 只增）", "owners": ["TASK-V55F-111", "TASK-V55F-212", "TASK-V55F-213"] },
+      { "gate": "test:supersession", "upgrade": "X-SGO-1~7 条目 + 未发生登记 + knownGap 一致性 + RL-06 扩批量", "owners": ["TASK-V55F-125", "TASK-V55F-201", "TASK-V55F-215"] },
+      { "gate": "test:gate-integrity", "upgrade": "+ V55F_NODE_GATE_FILES（≥3）/ V55F2_NODE_GATE_FILES（≥1）+ 受审集合只增 + CHROMIUM_GATES === 9", "owners": ["TASK-V55F-128", "TASK-V55F-216"] },
+      { "gate": "test:law8", "upgrade": "引用注入零明文 + 批量计划零明文 + 掩码（36 零降级、只增）", "owners": ["TASK-V55F-127", "TASK-V55F-211", "TASK-V55F-215"] },
+      { "gate": "l1-ref-validity / l1 / page-input", "upgrade": "X-SGO-5 等价重锚（范围锚读数双向反证；deny 方向逐字不动）", "owners": ["TASK-V55F-115"] },
+      { "gate": "s0-self-driven-chain / s0-self-driven", "upgrade": "S0′ 双面（S0P-1~8 + S0P-B1~B3）；只加断言不加文件", "owners": ["TASK-V55F-122", "TASK-V55F-123", "TASK-V55F-124", "TASK-V55F-214"] },
+      { "gate": "insight-no-escalation", "upgrade": "base 零 diff + 三冻结面 + 判定链巡检（原判据不改）", "owners": ["TASK-V55F-119", "TASK-V55F-126"] },
+      { "gate": "op-three-tier", "upgrade": "OT-⑩ 扩批量变体（tierOf 逐 op 不变）", "owners": ["TASK-V55F-202"] },
+      { "gate": "capability-wiring", "upgrade": "批量路径不触达特权 op（.request( 计数不减）", "owners": ["TASK-V55F-203"] },
+      { "gate": "host-registry", "upgrade": "零宿主不变 + 二择复用 askuser", "owners": ["TASK-V55F-204"] },
+      { "gate": "size-* / test:size-ruling-vol3", "upgrade": "五要素重登记 + V3-VOL-3 三值同源 + 两叶 Σ 对照 + 跨档位显式登记", "owners": ["TASK-V55F-129", "TASK-V55F-216"] }
+    ],
+    "sizeOnlyIncrease": "全部门禁计数 ≥ 基线（唯一例外 = 保护段显式取代 + 台账留痕）"
+  },
+  "stoppingRules": [
+    { "no": 1, "trigger": "dist/content.js ≠ 177,076 B / 52a82620… 或 dist/pick-layer.js ≠ 34,358 B / 77796bab…", "action": "立即停机（N-SGO-001/002 零容差）" },
+    { "no": 2, "trigger": "manifest.json / packages/web-cli-base/** 出现 diff", "action": "停机（N-SGO-007 / T4 / T5）" },
+    { "no": 3, "trigger": "KIND_SET 内容新增任一字符串（refs 被实现成新 kind）", "action": "停机（N-SGO-009 / R-SGO-902）" },
+    { "no": 4, "trigger": "范围读数出现第二声明 / 判定函数散落", "action": "停机（N-SGO-028）" },
+    { "no": 5, "trigger": "判定链（policy.ts / auto-authorize.ts）内容哈希变化", "action": "停机（N-SGO-008 / T3 / R-SGO-911）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）", "action": "停机；重写注入点（FR-SGO-111）" },
+    { "no": 7, "trigger": "SG-SGO-01/02/03 结论 = 不可行 / 不可构造", "action": "被闸门任务不得开工（见 blockers）" },
+    { "no": 8, "trigger": "体积越绝对上限或静默改档位 / authorConfirmation", "action": "停机（硬墙）；升档须显式登记（ADR-SGO-007）" },
+    { "no": 9, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 10, "trigger": "tierOf 档位被改 / 特权 op 被批量化 / 批量卡或二择被 AI 代答 / 计划正文入四面 / 指纹漂移仍放行", "action": "停机（红线⑥ + 法八；N-SGO-005/025/026）" }
+  ],
+  "blockers": [
+    { "id": "BLK-SGO-1", "type": "spike-gate", "task": "TASK-V55F-103 / 105 / 107 / 108", "desc": "SG-SGO-01（TASK-V55F-101）结论 = 不可行 ⇒ 不得开工（禁新增通道）" },
+    { "id": "BLK-SGO-2", "type": "spike-gate", "task": "TASK-V55F-110 / 113 / 114", "desc": "SG-SGO-03（TASK-V55F-109）结论 = 不可构造 ⇒ 不得开工（禁文档化替代机核）" },
+    { "id": "BLK-SGO-3", "type": "spike-gate", "task": "TASK-V55F-117 / 118 / 119 / 121", "desc": "SG-SGO-02（TASK-V55F-116）结论 = 不可行 ⇒ 不得开工（禁改 base / 禁放宽 risk）" },
+    { "id": "BLK-SGO-9", "type": "cross-leaf", "task": "TASK-V55F-201", "desc": "叶间硬串行：叶2 以叶1（specs-tree-v55f-1-ref-context-and-anchor）全绿（validated）为前置（R-SGO-920）" }
+  ],
+  "unfilledPoints": [
+    { "id": "V55F-P-001", "topic": "A 列（叶1）实测净增 + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-V55F-129", "rule": "禁预填；二态显式" },
+    { "id": "V55F-P-002", "topic": "journey / binding 保护段「保段 or 八步取代」实际结论", "status": "pending-measurement", "owner": "TASK-V55F-129", "rule": "禁预填；须显式二选一（保段优先）" },
+    { "id": "V55F-P-003", "topic": "人工面 M1（「原地」语义遵从观感）/ M4（SPA 锚定失败提示可理解度）", "status": "pending-human", "owner": "TASK-V55F-124", "rule": "逐项 ⏳ / PASS，不得冒充 PASS；v5.5 人工面零改写" },
+    { "id": "V55F-P-004", "topic": "V3-VOL-3 档位升档的作者一句外部确认（跨叶共享）", "status": "pending-author-line", "owner": "TASK-V55F-129 / TASK-V55F-216", "rule": "不得伪称已确认（N-SGO-023）" },
+    { "id": "V55F-P-005", "topic": "S0′ 批量分支断言编号（plan §2.4「S0P-7/8」vs ADR-SGO-006 §2 的 node 面 S0P-7/8）", "status": "resolved-tasks", "owner": "TASK-V55F-214", "rule": "tasks 显式裁决：S0P-1~8 保留 node 面（叶1）；批量段用 S0P-B1~B3（叶2）" },
+    { "id": "V55F-P-006", "topic": "A 列（叶2）实测净增 + 两叶 Σ + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-V55F-216", "rule": "禁预填；二态显式" },
+    { "id": "V55F-P-007", "topic": "人工面 M2（连点疲劳是否消失）/ M3（批量计划卡可读性 / 可否决性）", "status": "pending-human", "owner": "TASK-V55F-214", "rule": "逐项 ⏳ / PASS，不得冒充 PASS" },
+    { "id": "V55F-P-008", "topic": "读命令 --ref（read-element / structure）是否同加", "status": "resolved-plan", "owner": "—", "rule": "本阶段不做（登记后续轮）；ADR-SGO-008（PD-SGO-001）" },
+    { "id": "V55F-P-009", "topic": "每回合只读重观测（最新摘要）是否注入", "status": "resolved-plan", "owner": "—", "rule": "不做（NG-SGO-013 / PD-SGO-002）" },
+    { "id": "V55F-P-010", "topic": "引用表字段集是否扩 semanticPath / origin / navSeq", "status": "resolved-plan", "owner": "—", "rule": "保持 7 项最小集（PD-SGO-003）" },
+    { "id": "V55F-P-011", "topic": "批量计划生成路径（AI 一次产出 vs 系统聚合）", "status": "resolved-plan", "owner": "TASK-V55F-206", "rule": "系统聚合（计划与写入同源；PD-SGO-005）" },
+    { "id": "V55F-P-012", "topic": "计划指纹文本对比较口径", "status": "resolved-plan", "owner": "TASK-V55F-207", "rule": "逐字节入哈希、摘要出账（PD-SGO-006）" },
+    { "id": "V55F-P-013", "topic": "批量卡是否显示条目上限", "status": "resolved-plan", "owner": "TASK-V55F-211", "rule": "展示上限 8 行 + 诚实计数行；指纹覆盖全部 N 条（PD-SGO-007）" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "F-34 父 tasks 总览：2 叶 × 7 波 × 45 任务（TASK-V55F-101~129 / 201~216 两叶连续编号；S×3 / M×34 / L×8）。共享面「恰一次」：体积（各叶增量 + 叶2 合计含两叶 Σ 对照）/ journey + binding 保护段（叶1）/ 取代台账（各登各的条目，文件只追加）/ knownGap（叶1）/ 人工面（各叶各登本叶项）。S0′ 双面三层接线：样本单源 + node 面 S0P-1~8 + Chromium 面（叶1 W4）→ 批量段 S0P-B1~B3（叶2 W3）。3 个 spikeGate：SG-SGO-01（载荷链）/ 02（包装 + live 闸）/ 03（法九可机核）。新增 4 门禁（ref-context-in-turn / law9-scope-reading / dom-ref-anchor / batch-consent）、升级 12 门禁、门禁守恒 26 项 + e2e。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none；本阶段 intent = local_or_compute → provider = none）。"
+}

@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "version": "v5.5.1",
   "name": "web-cli-plugin「范围治理（scope governance）：引用即范围」—— ① 引用事实进回合（id / 序号 / 文本摘要 / 选择器 / data-wcli-ref 标记注入系统段）② 范围法则（引用存在 ⇒ 任务范围默认限定于引用目标；扩大范围必须先征询）③ 工具面 ref 锚定（dom set-text --ref <n>；单节点保证；失配 / 失效非静默）④ 任务级批量授权（AI 先出写入计划 ⇒ 一次 consent 覆盖整批；逐条审计保留零明文；中途可中止；非批次仍逐条）",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -15,7 +15,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/",
       "name": "V5.5F-1 范围底座：引用事实进回合 + 范围读数（法九）+ ref 锚定",
       "leaf": true,
-      "phase": "planned",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 1,
@@ -27,7 +27,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/",
       "name": "V5.5F-2 任务级批量授权",
       "leaf": true,
-      "phase": "planned",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 2,
@@ -81,7 +81,13 @@
     "ADR-SGO-007-volume-split-budget.md",
     "ADR-SGO-008-open-points-rulings.md",
     "specs-tree-v55f-1-ref-context-and-anchor/plan.md",
-    "specs-tree-v55f-2-batch-consent/plan.md"
+    "specs-tree-v55f-2-batch-consent/plan.md",
+    "tasks.md",
+    "tasks.json",
+    "specs-tree-v55f-1-ref-context-and-anchor/tasks.md",
+    "specs-tree-v55f-1-ref-context-and-anchor/tasks.json",
+    "specs-tree-v55f-2-batch-consent/tasks.md",
+    "specs-tree-v55f-2-batch-consent/tasks.json"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
@@ -102,7 +108,13 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-007-volume-split-budget.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/ADR-SGO-008-open-points-rulings.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/plan.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json"
   ],
   "coversIssues": [
     "Q-SGO-001 引用事实不进回合（母问题；反证：ty.md:550 / :566 AI 已读到 data-wcli-ref 且恰 1 命中仍未锚定）",
@@ -233,6 +245,14 @@
       "agent": "sddu-plan",
       "artifact": "plan.md v1.0（父）+ 2 叶 plan.md + ADR-SGO-001~008（8 条正文）",
       "note": "F-34 plan：父 plan.md v1.0 + 2 叶 plan.md + ADR-SGO-001~008（8 条正文，全 ACCEPTED）；八条设计任务定案（引用进回合/法九读数/--ref 锚定/批量授权/扩围征询/S0′ 双面/体积分列预算/PD 裁决）；X-SGO-1~7 逐条处置（1/2/3/5 已发生、4 已发生、6 以读数承载未扩张、7 未发生）；体积分列预算 A 列 Σ 9.5~14.5 KB（+15% 16.7 KB ≤ 余量 28,931 ⇒ 正常不触发升档）+ 2.8× 最坏预置 EC-SGO-022 升档路径；PD-SGO-001~007 全部裁决；零运行时验证、零受管 Provider 调用（routing.v1 = local_or_compute → none）"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-tasks",
+      "artifact": "tasks.md + tasks.json v1.0（父总览 + 2 叶 45 任务 / 7 波）",
+      "note": "F-34 tasks：父 tasks.md/tasks.json（总览型，0 可执行任务）+ 2 叶 tasks.md/tasks.json：v55f-1 29 任务 / 4 波（TASK-V55F-101~129；S×2 / M×21 / L×6）、v55f-2 16 任务 / 3 波（TASK-V55F-201~216；S×1 / M×13 / L×2），合计 45 / 7 波（S×3 / M×34 / L×8）。含跨切红线 N-SGO-001~030 + X-SGO-1~7 + T1~T13 → 任务映射；体积分列预算逐叶分摊（A 列 Σ 9.5~14.5 KB / +15% 16.7 KB ≤ 余量 28,931 ⇒ 正常不触发升档、B 列 Σ 8.0~13.0 KB 不计账、2.8× 最坏预置 EC-SGO-022）+ 逐叶收口重登记点；共享面「恰一次」（体积 / 保护段 / 取代台账 / knownGap / 人工面）；S0′ 双面三层落点（样本单源 + node S0P-1~8 + Chromium→批量段 S0P-B1~B3）；3 个 spikeGate（SG-SGO-01/02/03，plan 未命名、按编排器任务书登记为 tasks 阶段新增先验闸门）；新增 4 门禁（ref-context-in-turn / law9-scope-reading / dom-ref-anchor / batch-consent）、升级 12 门禁、门禁守恒 26 项 + e2e（npm test ≥1330 / CHROMIUM_GATES === 9）；停机规则 10 条；build/review/validate 二维时序；未落地/待测点 13 项（含 S0′ 批量段编号冲突显式裁决 S0P-B1~B3）。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）"
     }
   ],
   "spec": {

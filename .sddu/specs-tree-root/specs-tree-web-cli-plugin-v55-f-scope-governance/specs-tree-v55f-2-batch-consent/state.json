@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-2-batch-consent",
   "version": "v0.11.1",
   "name": "V5.5F-2 任务级批量授权——写入计划（N 处 目标+原文→译文）+ 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次用户手势 + 计划外逐条回落 + 逐条审计零明文 + 中途可中止 + 特权 op 恒不入批 + 批量变体注入必红 + WIDEN ask-user 二择",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -48,12 +48,16 @@
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
     "dependsOnSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
-    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md"
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json"
   ],
   "coversFr": [
     "FR-SGO-040~050",
@@ -114,6 +118,14 @@
       "agent": "sddu-plan",
       "artifact": "specs-tree-v55f-2-batch-consent/plan.md v1.0",
       "note": "V5.5F-2 叶 plan：承接父 plan.md + ADR-SGO-001~008；文件影响 / 执行序 / 风险 / 体积预算逐项落地；零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-tasks",
+      "artifact": "specs-tree-v55f-2-batch-consent/tasks.md + tasks.json v1.0",
+      "note": "V5.5F-2 叶 tasks：16 任务 / 3 波（TASK-V55F-201~216；S×1 / M×13 / L×2）。W1 边界先行（RL-06 / OT-⑩ 批量变体注入必红 + 特权不入批机核 + 载体零新增 + batch-consent 门禁骨架 BC-1~7）→ W2 计划结构 + 指纹 + 准入/回落 + 计划感知桥 + 零明文 + 中止 → W3 WIDEN 二择 + S0′ 批量段（S0P-B1~B3）+ 台账 + 体积收口。1 新 node 门禁（batch-consent）；S0′ 批量段编号冲突显式裁决 = S0P-B1~B3（S0P-7/8 保留 node 面）；体积 A 列 3.5~5.5 KB 收口重登记 216（含两叶 Σ 对照 + EC-SGO-022 二态）。硬依赖叶1（须 validated）。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
     }
   ]
 }

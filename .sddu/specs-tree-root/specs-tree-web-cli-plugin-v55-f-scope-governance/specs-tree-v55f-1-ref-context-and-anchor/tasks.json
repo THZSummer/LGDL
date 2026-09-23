@@ -1,0 +1,589 @@
+{
+  "meta": {
+    "feature": "V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定（父：specs-tree-web-cli-plugin-v55-f-scope-governance）",
+    "featureKey": "specs-tree-v55f-1-ref-context-and-anchor",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-24",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（4 波执行序 + §5 文件影响 ≈21 项 + §6 风险 17 条 + §8 体积 A 列 6.0~9.0 KB）+ 父 plan.md v1.0（跨切契约 + ADR-SGO-001~008 索引 + §7.2 分列预算 + §7.3 7 波骨架 + §7.4 体积可行性结论 + §8 PD-SGO-001~007 裁决）",
+    "sourceSpec": "父 spec.md v1.0（88 FR / 14 NFR / 22 EC / 26 AC / 22 NG / §12 X-SGO-1~7 / §13 N-SGO-001~030 / §9.5 门禁基线 / §14.3 FR→叶 覆盖矩阵）+ 本叶 spec.md v1.0（承载父 FR ≈62 条切片 / 12 AC 锚点）",
+    "taskCount": 29,
+    "waveCount": 4,
+    "complexity": { "S": 2, "M": 21, "L": 6 },
+    "typeBreakdown": { "implementation": 14, "gate": 8, "spike": 3, "doc": 1, "human": 0, "other": 3 },
+    "numbering": {
+      "namespace": "TASK-V55F-1xx",
+      "globalBlock": "TASK-V55F-101~129",
+      "conflictCheck": "与 TASK-001~040 / TASK-2xx~3xx / TASK-4xx / TASK-5xx~8xx / TASK-V45-1xx / TASK-V5-1xx / TASK-V55-1xx~320 / TASK-V55-2xx / TASK-V55-3xx 零冲突（本 Feature 用 V55F 命名空间）"
+    },
+    "templateDeviation": {
+      "id": "agent 模板 §5.4 / §8（建议 5~15 任务）",
+      "actual": 29,
+      "reason": "① 父 plan.md §7.3 估 ~30；② 过并破坏「每任务独立可验证」；③ 与 v5.5-1（25）/ v4.5-1（19）同量级显式登记；④ 29 = 可原子执行单元（≈1 文件内 1 项可验证改动 + 其判据），不是 LLM 调用数"
+    },
+    "spikeGateDeviation": {
+      "note": "父 plan.md / ADR-SGO-001~008 未命名 spikeGate 代号；本轮按编排器任务书指定的 SG-SGO-01~03 落为先验闸门；探针产物不落版本库（test/_spike/ 探毕删除）",
+      "codes": ["SG-SGO-01", "SG-SGO-02", "SG-SGO-03"]
+    },
+    "commitIntervals": {
+      "A": { "wave": "W1", "content": "口径与载荷 + type-only 载荷 + SW 组装 + 新门禁骨架", "atomic": true },
+      "B": { "wave": "W2", "content": "读数单源 + 法九 + 越界拦 + 留痕", "atomic": true },
+      "C": { "wave": "W3", "content": "--ref 锚定包装 + 失配 EC + 失效可判", "atomic": true },
+      "D": { "wave": "W4", "content": "S0′ 双面 + X 台账 + 门禁治理 + 体积重登记（收口轮）", "atomic": true }
+    },
+    "volumeBudgetBytes": 7000,
+    "volumeUpperBoundBytes": 10350,
+    "volumeCaliber": "A 列（sidepanel.js 净增）预算 6.0~9.0 KB（上界 +15% = 6.9~10.35 KB）；B 列（background.js）5.0~8.0 KB 不计入 sidepanel 账本；逐叶收口重登记 = TASK-V55F-129"
+  },
+  "redlineLegend": {
+    "frozen": {
+      "F1": "dist/content.js 177,076 B / 52a82620…（零容差）；dist/pick-layer.js 34,358 B / 77796bab…（零容差）",
+      "F2": "KIND_SET 40 项逐字不增；12 kind 契约不动；REGISTERED_STRUCTURAL_HOSTS === []",
+      "F3": "packages/web-cli-base/** 零 diff；判定链 policy.ts / auto-authorize.ts 零触碰（zeroDiffFiles 9 项哈希 pin）",
+      "F4": "manifest.json 零 diff；test/ui/journey.mjs 43054..58287 / cc79f413… 与 test/ui/binding.mjs 107780..115930 / be9ad0e9… 保段优先",
+      "F5": "STREAM_TERMINALS 6 / DRIVER_TERMINALS 4 / MAX_OPEN_ASKS=2 / ASK_CANCEL_REASONS 4 逐字不动；读数不新增终态字面量"
+    },
+    "thresholds": {
+      "T-a": "sidepanel.js 生效上限 607,554 = floor(578,623×1.05)；档位 614,400；绝对上限 675,840；SIDEPANEL_CEILING_CAP 保持 record-only",
+      "T-b": "authorConfirmation = pending-author-line（未闭合义务，不得伪称已确认）",
+      "T-c": "op-wiring：requestTurn( 恰 2 / maybeRecommend 1 定义 7 调用 / nextAfterSettle 1 定义 10 调用（原判据不改）",
+      "T-d": "单节点保证：nodeCount === 1 为唯一通过条件；失配 fail-closed 非静默"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-V55F-101", "TASK-V55F-102", "TASK-V55F-103", "TASK-V55F-104", "TASK-V55F-105", "TASK-V55F-106", "TASK-V55F-107", "TASK-V55F-108"], "strategy": "101 先验闸门最前；102→103→104→106→107→108 降级串行；105 ∥ 104（文件不相交）", "interval": "A" },
+    { "wave": 2, "tasks": ["TASK-V55F-109", "TASK-V55F-110", "TASK-V55F-111", "TASK-V55F-112", "TASK-V55F-113", "TASK-V55F-114", "TASK-V55F-115"], "strategy": "109 先验闸门最前；110→111→113→114 主链；112 与 111 串行；115 ∥ 112（文件不相交）", "interval": "B" },
+    { "wave": 3, "tasks": ["TASK-V55F-116", "TASK-V55F-117", "TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-120", "TASK-V55F-121"], "strategy": "116 先验闸门最前；117→118→119→120→121 严格串行（dom-anchor.ts / service-worker.ts 共享）", "interval": "C" },
+    { "wave": 4, "tasks": ["TASK-V55F-122", "TASK-V55F-123", "TASK-V55F-124", "TASK-V55F-125", "TASK-V55F-126", "TASK-V55F-127", "TASK-V55F-128", "TASK-V55F-129"], "strategy": "122→123→124 严格串行（样本单源）；125 ∥ 126 ∥ 127；128 后于全部新门禁；129 末位收口", "interval": "D（收口轮）" }
+  ],
+  "criticalPath": [
+    "TASK-V55F-101", "TASK-V55F-102", "TASK-V55F-103", "TASK-V55F-104", "TASK-V55F-106", "TASK-V55F-107",
+    "TASK-V55F-108", "TASK-V55F-109", "TASK-V55F-110", "TASK-V55F-111", "TASK-V55F-113", "TASK-V55F-114",
+    "TASK-V55F-116", "TASK-V55F-117", "TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-120", "TASK-V55F-121",
+    "TASK-V55F-122", "TASK-V55F-123", "TASK-V55F-124", "TASK-V55F-128", "TASK-V55F-129"
+  ],
+  "independentParallelGroups": [
+    { "group": "P1", "members": ["TASK-V55F-104", "TASK-V55F-105"], "note": "sidepanel.ts + ref-store.ts 与 ref-turn.ts 不相交" },
+    { "group": "P2", "members": ["TASK-V55F-112", "TASK-V55F-115"], "note": "ref-scope/sidepanel 与 l1.mjs/page-input.mjs/l1-ref-validity 不相交" },
+    { "group": "P3", "members": ["TASK-V55F-125", "TASK-V55F-126", "TASK-V55F-127"], "note": "docs/*.json + supersession/op-wiring 与 insight-no-escalation 与 law8-plaintext.mjs 不相交（Chromium 门禁复跑仍串行）" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-V55F-101", "wave": 1, "complexity": "M", "type": "spike",
+      "title": "SG-SGO-01 type-only 载荷链可行性三断言探针（先验闸门）", "spikeGate": "SG-SGO-01",
+      "deps": [],
+      "fr": ["FR-SGO-010", "FR-SGO-013", "FR-SGO-019", "FR-SGO-006"],
+      "ac": ["AC-SGO-002", "AC-SGO-006"],
+      "adr": ["ADR-SGO-001"],
+      "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-sgo-01-probe.mjs（探毕删除，不落版本库）" }],
+      "acceptance": [
+        "chat 载荷可经 messaging.ts type-only 单声明承载 refs 且 KIND_SET 40 逐字（零运行时字节）",
+        "requestTurn 内唯一构建点可达两条入口且 requestTurn( 仍恰 2",
+        "SW 引用唯一来源 = 回合载荷（零新通道 / 零每回合页面探测）",
+        "结论 ∈ {可行/不可行}；探针产物不进入提交"
+      ],
+      "gates": ["TASK-V55F-103", "TASK-V55F-105", "TASK-V55F-107", "TASK-V55F-108"],
+      "stoppingRule": "任一不可行 ⇒ 暂停上报（禁新增引用通道 / 禁放宽 requestTurn( 计数 / 禁改动 KIND_SET）"
+    },
+    {
+      "id": "TASK-V55F-102", "wave": 1, "complexity": "S", "type": "implementation",
+      "title": "messaging.ts type-only ChatRefFact / ChatRefTurnPayload",
+      "deps": ["TASK-V55F-101"],
+      "fr": ["FR-SGO-010", "FR-SGO-011"], "ac": ["AC-SGO-006"], "adr": ["ADR-SGO-001"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/messaging.ts" }],
+      "acceptance": [
+        "ChatRefFact / ChatRefTurnPayload 恰一处声明；字段集 7 项（refNum/refId/selector/refMark/textDigest/refState/nodeCount）",
+        "refState 只可能是 'valid'；KIND_SET 40 逐字不增；12 kind 不动",
+        "type-only ⇒ 零运行时字节（content.js 零容差不受影响）"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-103", "wave": 1, "complexity": "M", "type": "implementation",
+      "title": "l1/ref-scope.ts 引用快照投影 turnRefsOf + 形状 + 掩码口径",
+      "deps": ["TASK-V55F-101", "TASK-V55F-102"],
+      "fr": ["FR-SGO-011", "FR-SGO-012", "FR-SGO-018", "FR-SGO-019"],
+      "ac": ["AC-SGO-002", "AC-SGO-012"], "adr": ["ADR-SGO-001", "ADR-SGO-002"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/ref-scope.ts" }],
+      "acceptance": [
+        "turnRefsOf 恰一处；只取 verdict === 'valid' ∧ !retired；7 字段投影；refMark === refId",
+        "凭据形 textDigest 掩码（复用 maskTextPayload）；口径写死（页面文本可入上下文 / 凭据值不可 / 留痕只含字段名）",
+        "读数只消费 refState，不重判 valid/invalid/unknown（deny 方向来自 ref-validity.ts）"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-104", "wave": 1, "complexity": "L", "type": "implementation",
+      "title": "sidepanel.ts requestTurn 唯一载荷构建点 + ref-store.ts 只读取用",
+      "deps": ["TASK-V55F-101", "TASK-V55F-103"],
+      "fr": ["FR-SGO-013", "FR-SGO-014", "FR-SGO-015"], "ac": ["AC-SGO-002"], "adr": ["ADR-SGO-001"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/ref-store.ts" }
+      ],
+      "acceptance": [
+        "requestTurn 内恰一处构建 refs；两条入口（composer / op.turn 槽）同口径",
+        "requestTurn( 调用点仍恰 2（原判据不改）",
+        "零引用 ⇒ refs 字段缺席（非空数组）；ref-store 判定语义零改"
+      ],
+      "gate": "op-wiring"
+    },
+    {
+      "id": "TASK-V55F-105", "wave": 1, "complexity": "S", "type": "implementation",
+      "title": "ref-turn.ts 当前回合活跃引用单源（refs / tabId / observe 缝）",
+      "deps": ["TASK-V55F-102"],
+      "fr": ["FR-SGO-019", "FR-SGO-038"], "ac": ["AC-SGO-002"], "adr": ["ADR-SGO-001", "ADR-SGO-003"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/background/ref-turn.ts" }],
+      "acceptance": [
+        "每回合 set / finally clear；零跨回合漂移",
+        "holder 同时持有 refs + tabId + observe 缝；零新增面板→SW 通道",
+        "零每回合页面探测（NFR-SGO-008 / NG-SGO-013）"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-106", "wave": 1, "complexity": "M", "type": "implementation",
+      "title": "ref-context.ts 系统段追加段 + 回合载荷运行时校验",
+      "deps": ["TASK-V55F-102"],
+      "fr": ["FR-SGO-015", "FR-SGO-016", "FR-SGO-017"], "ac": ["AC-SGO-011"], "adr": ["ADR-SGO-001"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/background/ref-context.ts" }],
+      "acceptance": [
+        "无 refs ⇒ 返回 ''；有 refs ⇒ '\\n\\n' + 事实行（refNum/selector/textDigest/refState/refMark）+ 法则引导",
+        "运行时校验逐项剔除非法项（形状 / 正整数 refNum / 非空 selector / refState === 'valid'）",
+        "SYSTEM_PROMPT 逐字保留为基座（5 条既有条款不改）；追加段是引导，判据不读提示词"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-107", "wave": 1, "complexity": "L", "type": "implementation",
+      "title": "service-worker.ts 读 refs + runChat 签名 + 系统段工厂 + turn-queue.refs",
+      "deps": ["TASK-V55F-104", "TASK-V55F-105", "TASK-V55F-106"],
+      "fr": ["FR-SGO-015", "FR-SGO-016", "FR-SGO-017"], "ac": ["AC-SGO-002", "AC-SGO-011"], "adr": ["ADR-SGO-001"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/turn-queue.ts" }
+      ],
+      "acceptance": [
+        "system 工厂 = SYSTEM_PROMPT（基座逐字）+ refContextSegment(refs)；chat-runner.ts 零改",
+        "QueuedTurn.refs 自带快照；递归 runChat(s, drained.user, drained.refs) 零跨回合漂移",
+        "零新增主流程调用点（requestTurn( 恰 2 / maybeRecommend 1/7 / nextAfterSettle 1/10）"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-108", "wave": 1, "complexity": "M", "type": "gate",
+      "title": "test/ref-context-in-turn.test.ts 新门禁（载荷形态）",
+      "deps": ["TASK-V55F-102", "TASK-V55F-104", "TASK-V55F-106", "TASK-V55F-107"],
+      "fr": ["FR-SGO-010", "FR-SGO-012", "FR-SGO-013", "FR-SGO-016", "FR-SGO-017"],
+      "ac": ["AC-SGO-002", "AC-SGO-006", "AC-SGO-011"], "adr": ["ADR-SGO-001"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/ref-context-in-turn.test.ts" }],
+      "acceptance": [
+        "KIND_SET 40 逐字；requestTurn( 恰 2；两条入口同构建点",
+        "零引用 ⇒ system === 基座（逐字）；载荷 / 留痕 / 卡面零漂移",
+        "凭据形 textDigest 掩码（EC-SGO-019）；每条判据含 expectFailPattern（禁恒真）"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-109", "wave": 2, "complexity": "M", "type": "spike",
+      "title": "SG-SGO-03 法九读数双向反证可机核探针（先验闸门）", "spikeGate": "SG-SGO-03",
+      "deps": ["TASK-V55F-103"],
+      "fr": ["FR-SGO-070", "FR-SGO-071", "FR-SGO-092"],
+      "ac": ["AC-SGO-003", "AC-SGO-013"], "adr": ["ADR-SGO-002", "ADR-SGO-006"],
+      "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-sgo-03-probe.mjs（探毕删除）" }],
+      "acceptance": [
+        "给出注入点 + 期望 FAIL 模式 + 还原口径清单（至少两组：no-ref 改判 in-scope / 删写闸拦截）",
+        "三段控制 ok / violated / n/a 逐态可达（不是布尔）",
+        "真源切片（读生产模块）可得；结论 ∈ {可机核 / 不可构造}；探针不入库"
+      ],
+      "gates": ["TASK-V55F-110", "TASK-V55F-113", "TASK-V55F-114"],
+      "stoppingRule": "不可构造 ⇒ 暂停上报（禁以文档 / 提示词 / 恒真断言替代机核，DC-SGO-007）"
+    },
+    {
+      "id": "TASK-V55F-110", "wave": 2, "complexity": "M", "type": "implementation",
+      "title": "l1/ref-scope.ts SCOPE_READINGS 4 值 + scopeReading 唯一判定",
+      "deps": ["TASK-V55F-109", "TASK-V55F-103"],
+      "fr": ["FR-SGO-020", "FR-SGO-021", "FR-SGO-022", "FR-SGO-023", "FR-SGO-024"],
+      "ac": ["AC-SGO-003"], "adr": ["ADR-SGO-002"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/ref-scope.ts" }],
+      "acceptance": [
+        "SCOPE_READINGS 4 值（in-scope / out-of-scope-authorized / out-of-scope-unauthorized / no-ref）+ scopeReading 恰一处（第二声明 ⇒ FAIL）",
+        "判定输入两路（--ref 命中 ∨ selector 命中）vs 活跃引用集合 + authorized 事实",
+        "no-ref ≠ in-scope；authorized 只作输入事实（叶2 由真实用户点击写入）"
+      ],
+      "gate": "law9-scope-reading"
+    },
+    {
+      "id": "TASK-V55F-111", "wave": 2, "complexity": "M", "type": "implementation",
+      "title": "越界拦：sidepanel.ts confirm 面范围闸（fail-closed + 可达 next）",
+      "deps": ["TASK-V55F-110"],
+      "fr": ["FR-SGO-025", "FR-SGO-026", "FR-SGO-027", "FR-SGO-037"], "ac": ["AC-SGO-009"], "adr": ["ADR-SGO-002", "ADR-SGO-005"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }],
+      "acceptance": [
+        "out-of-scope-unauthorized 的写 fail-closed 拦下（deny）+ 可达 next",
+        "判定链零触碰（policy.ts / auto-authorize.ts 零 diff；zeroDiffFiles 9 项哈希 pin 绿）",
+        "no-dead-end 计数不减（49 起只增）；零视图切换"
+      ],
+      "gate": "no-dead-end"
+    },
+    {
+      "id": "TASK-V55F-112", "wave": 2, "complexity": "M", "type": "implementation",
+      "title": "留痕单源 + 零值纪律（SCOPE_TRACE_FIELDS / scopeReadingTrace）",
+      "deps": ["TASK-V55F-110"],
+      "fr": ["FR-SGO-080", "FR-SGO-083", "FR-SGO-084"], "ac": ["AC-SGO-010"], "adr": ["ADR-SGO-002"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l1/ref-scope.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }
+      ],
+      "acceptance": [
+        "留痕行独立成行且含范围读数 字段名（scope.reading / scope.authorized；零用户内容值）",
+        "驱动者留痕三要素逐字不动；扩围事实可读（本叶只落读数侧）",
+        "逐行可机核（零值扫描零命中）；caliber 显式登记（R-SGO-917）"
+      ],
+      "gate": "ref-context-in-turn"
+    },
+    {
+      "id": "TASK-V55F-113", "wave": 2, "complexity": "L", "type": "gate",
+      "title": "test/law9-scope-reading.test.ts 法九门禁（node）",
+      "deps": ["TASK-V55F-110", "TASK-V55F-111"],
+      "fr": ["FR-SGO-070", "FR-SGO-071", "FR-SGO-072", "FR-SGO-073", "FR-SGO-074", "FR-SGO-075", "FR-SGO-076", "FR-SGO-077"],
+      "ac": ["AC-SGO-003", "AC-SGO-020"], "adr": ["ADR-SGO-002"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/law9-scope-reading.test.ts" }],
+      "acceptance": [
+        "L9-1-four-values / L9-2-no-ref / L9-3-in-scope（两路）/ L9-4-unauthorized / L9-5-authorized / L9-6-write-gate / L9-7-not-tautology / L9-8-source-slice 逐条齐备",
+        "三段控制返回 'ok' | 'violated' | 'n/a'（非布尔），n/a 单独计数（禁恒真）",
+        "判据不读 SYSTEM_PROMPT；真源切片读生产模块；不新增 Chromium 门禁文件（CHROMIUM_GATES === 9）"
+      ],
+      "gate": "law9-scope-reading"
+    },
+    {
+      "id": "TASK-V55F-114", "wave": 2, "complexity": "M", "type": "gate",
+      "title": "法九双向反证族（去注入 no-ref 必红 + 逐字节还原）",
+      "deps": ["TASK-V55F-113"],
+      "fr": ["FR-SGO-071", "FR-SGO-092", "FR-SGO-111"], "ac": ["AC-SGO-013", "AC-SGO-018"], "adr": ["ADR-SGO-002", "ADR-SGO-006"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/law9-scope-reading.test.ts" }],
+      "acceptance": [
+        "至少两组反证实跑（① no-ref 改判 in-scope ② 删写闸越界拦截）⇒ FAIL（expectFailPattern）",
+        "逐字节还原 sha256 前后相同 ⇒ PASS；反证恒绿 ⇒ 视为缺陷",
+        "violated 态由注入触发；n/a 态由中性输入触发"
+      ],
+      "gate": "law9-scope-reading"
+    },
+    {
+      "id": "TASK-V55F-115", "wave": 2, "complexity": "M", "type": "gate",
+      "title": "X-SGO-5 等价重锚（读数「作为范围锚」双向反证；deny 方向逐字不动）",
+      "deps": ["TASK-V55F-110", "TASK-V55F-111"],
+      "fr": ["FR-SGO-100", "FR-SGO-104"], "ac": ["AC-SGO-004", "AC-SGO-012"], "adr": ["ADR-SGO-002", "ADR-SGO-008"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l1.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/page-input.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/l1-ref-validity.test.ts" }
+      ],
+      "acceptance": [
+        "valid/invalid/unknown deny 方向逐字不动（3 结果 / 6 维度 fail-closed 语义保留）",
+        "新增「范围锚」读数双向反证（旧计数断言保留为新语义的一部分）",
+        "只增不减（l1 ≥120 / page-input ≥118）；改写 ≠ 删除"
+      ],
+      "gate": "l1-ref-validity"
+    },
+    {
+      "id": "TASK-V55F-116", "wave": 3, "complexity": "M", "type": "spike",
+      "title": "SG-SGO-02 plugin 包装 base 零 diff + live 闸复用 observeIdentity 可行性探针（先验闸门）", "spikeGate": "SG-SGO-02",
+      "deps": ["TASK-V55F-105", "TASK-V55F-110"],
+      "fr": ["FR-SGO-031", "FR-SGO-033", "FR-SGO-037"],
+      "ac": ["AC-SGO-025", "AC-SGO-022"], "adr": ["ADR-SGO-003"],
+      "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-sgo-02-probe.mjs（探毕删除）" }],
+      "acceptance": [
+        "plugin 侧条目包装可达且 packages/web-cli-base/** 零 diff（insight-no-escalation:147 绿）",
+        "observeIdentity 可抽为单一实现并被 service-worker 与 tools 同源 import",
+        "live 单节点闸（nodeCount === 1 唯一通过）可行；结论 ∈ {可行/不可行}；探针不入库"
+      ],
+      "gates": ["TASK-V55F-117", "TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-121"],
+      "stoppingRule": "不可行 ⇒ 暂停上报（禁改 packages/web-cli-base/** / 禁放宽 risk）"
+    },
+    {
+      "id": "TASK-V55F-117", "wave": 3, "complexity": "M", "type": "implementation",
+      "title": "ref-observe.ts observeIdentity 抽为单一实现",
+      "deps": ["TASK-V55F-116"],
+      "fr": ["FR-SGO-033"], "ac": ["AC-SGO-022"], "adr": ["ADR-SGO-003"],
+      "files": [
+        { "op": "NEW", "path": "packages/web-cli-plugin/src/background/ref-observe.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" }
+      ],
+      "acceptance": [
+        "observeIdentity 恰一处实现；service-worker 与 tools/dom-anchor 同源 import（禁第二份副本）",
+        "闸是只读观测（零 DOM 写）；nodeCount === 1 为唯一通过条件",
+        "口径显式登记：每写一次的只读身份观测 ≠ 每回合重观测（R-SGO-913）"
+      ],
+      "gate": "dom-ref-anchor"
+    },
+    {
+      "id": "TASK-V55F-118", "wave": 3, "complexity": "M", "type": "implementation",
+      "title": "src/tools/dom-anchor.ts wrapDomEntryForAnchor",
+      "deps": ["TASK-V55F-116", "TASK-V55F-117"],
+      "fr": ["FR-SGO-030", "FR-SGO-031", "FR-SGO-032"], "ac": ["AC-SGO-007", "AC-SGO-025"], "adr": ["ADR-SGO-003"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/tools/dom-anchor.ts" }],
+      "acceptance": [
+        "schema 覆写仅增 ref 参数（仅 set-text 生效）；零新子命令（SUBCOMMANDS 不动）",
+        "解析后仍交基线 baseExecutor；risk / subcommandRisks 逐字段 spread 自 base 永不放宽",
+        "base 零 diff（packages/web-cli-base/** 零改动）"
+      ],
+      "gate": "dom-ref-anchor"
+    },
+    {
+      "id": "TASK-V55F-119", "wave": 3, "complexity": "M", "type": "implementation",
+      "title": "browser-tools.ts dom 条目接线包装层（base 零 diff）",
+      "deps": ["TASK-V55F-118"],
+      "fr": ["FR-SGO-031", "FR-SGO-037"], "ac": ["AC-SGO-025"], "adr": ["ADR-SGO-003"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/tools/browser-tools.ts" }],
+      "acceptance": [
+        "entries.push(wrapDomEntryForAnchor(createDomToolEntry(env), env))（替换裸条目）",
+        "insight-no-escalation 绿（gitDiffStatus(['../web-cli-base']) === 0）",
+        "zeroDiffFiles 9 项（含 policy.ts / auto-authorize.ts）零触碰"
+      ],
+      "gate": "insight-no-escalation"
+    },
+    {
+      "id": "TASK-V55F-120", "wave": 3, "complexity": "M", "type": "implementation",
+      "title": "失配 EC 家族 + 失效可判（解析链逐级 fail-closed 非静默）",
+      "deps": ["TASK-V55F-118"],
+      "fr": ["FR-SGO-033", "FR-SGO-034", "FR-SGO-035", "FR-SGO-036", "FR-SGO-038"],
+      "ac": ["AC-SGO-007"], "adr": ["ADR-SGO-003"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/tools/dom-anchor.ts" }],
+      "acceptance": [
+        "EC-SGO-001（0 命中）/ 002（多命中）/ 003（标记缺失）/ 004（失效）/ 015（同给）/ 016（越界）/ 017（读命令）逐条非静默（可读错误 + 指引）",
+        "绝不回退 --selector / 绝不按首元素；合成 [data-wcli-ref=\"ref_n\"] 交基线 executor",
+        "失效可判复用 R6 只读观测面，不新增每回合重观测（NFR-SGO-008）"
+      ],
+      "gate": "dom-ref-anchor"
+    },
+    {
+      "id": "TASK-V55F-121", "wave": 3, "complexity": "M", "type": "gate",
+      "title": "test/dom-ref-anchor.test.ts 新门禁（含 risk 不放宽注入必红）",
+      "deps": ["TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-120"],
+      "fr": ["FR-SGO-030", "FR-SGO-031", "FR-SGO-032", "FR-SGO-033", "FR-SGO-034", "FR-SGO-035", "FR-SGO-036", "FR-SGO-037"],
+      "ac": ["AC-SGO-007", "AC-SGO-022", "AC-SGO-025"], "adr": ["ADR-SGO-003"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/dom-ref-anchor.test.ts" }],
+      "acceptance": [
+        "词法 / 互斥 / 序号越界 / 单节点闸（0 / 多命中）/ 标记缺失 / 非 set-text / 与 --selector 同给 逐一判据 + 反证",
+        "risk 降档注入 ⇒ 必红（逐字段对照 risk 与 subcommandRisks 与 base 一致）",
+        "nodeCount === 1 唯一通过；反证逐字节还原"
+      ],
+      "gate": "dom-ref-anchor"
+    },
+    {
+      "id": "TASK-V55F-122", "wave": 4, "complexity": "L", "type": "implementation",
+      "title": "S0′ 样本单源扩展 test/ui/fixtures/s0-chain.mjs",
+      "deps": ["TASK-V55F-108", "TASK-V55F-115", "TASK-V55F-121"],
+      "fr": ["FR-SGO-090"], "ac": ["AC-SGO-001"], "adr": ["ADR-SGO-006"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs" }],
+      "acceptance": [
+        "新增 5 拍：ref-in-turn / scope-inject / read-in-scope / write-1（改写处数 = 1）/ no-injection（反证拍）",
+        "既有 S0_CHAIN 10 环节逐字保留（只增不减）",
+        "样本单源：node + Chromium 共用同一份（禁第二份样本）"
+      ],
+      "gate": "s0-self-driven-chain"
+    },
+    {
+      "id": "TASK-V55F-123", "wave": 4, "complexity": "L", "type": "gate",
+      "title": "S0′ node 面 test/s0-self-driven-chain.test.ts（S0P-1~8）",
+      "deps": ["TASK-V55F-122"],
+      "fr": ["FR-SGO-090", "FR-SGO-091", "FR-SGO-092"], "ac": ["AC-SGO-001", "AC-SGO-013", "AC-SGO-014"], "adr": ["ADR-SGO-006"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts" }],
+      "acceptance": [
+        "S0P-1-refs-in-turn / S0P-2-system-append（零引用 ⇒ system === 基座逐字）/ S0P-3-read-in-scope / S0P-4-writes-le-refs（改写处数 ≤ 引用数）/ S0P-5-authorized-branch / S0P-6-trace / S0P-7-bidirectional（去注入 ⇒ no-ref 必红）/ S0P-8-honest-report",
+        "既有 S0 环节断言逐字保留（只增不减）；每条带 expectFailPattern",
+        "真源切片读生产模块（不用假 provider 跳过真实读数 / 包装，R-SGO-909）"
+      ],
+      "gate": "s0-self-driven-chain"
+    },
+    {
+      "id": "TASK-V55F-124", "wave": 4, "complexity": "L", "type": "gate",
+      "title": "S0′ Chromium 面 test/ui/s0-self-driven.mjs（只加断言不加文件）",
+      "deps": ["TASK-V55F-123"],
+      "fr": ["FR-SGO-090", "FR-SGO-094"], "ac": ["AC-SGO-001", "AC-SGO-026"], "adr": ["ADR-SGO-006"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs" }],
+      "acceptance": [
+        "真面板驱动：绑定 → 拾取引用 → 作答 → 自动成回合 → 恰 1 处 [data-wcli-ref=\"ref_1\"] 命中；留痕含范围字段名",
+        "只加断言不加文件；CHROMIUM_GATES === 9 逐字不动；s0-self-driven 计数 ≥59 只增",
+        "人工面 M1 / M4 逐项 ⏳ 未执行，不冒充 PASS（AC-SGO-026）"
+      ],
+      "gate": "s0-self-driven"
+    },
+    {
+      "id": "TASK-V55F-125", "wave": 4, "complexity": "M", "type": "doc",
+      "title": "X-SGO-1/2/3 台账 + X-SGO-7「未发生取代」登记 + op-wiring 复合读数",
+      "deps": ["TASK-V55F-113", "TASK-V55F-114", "TASK-V55F-121"],
+      "fr": ["FR-SGO-100", "FR-SGO-101", "FR-SGO-102", "FR-SGO-106", "FR-SGO-107", "FR-SGO-112"],
+      "ac": ["AC-SGO-004", "AC-SGO-019"], "adr": ["ADR-SGO-001", "ADR-SGO-002", "ADR-SGO-003", "ADR-SGO-008"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/op-wiring.test.ts" }
+      ],
+      "acceptance": [
+        "X-SGO-1/2/3 条目 + modifiedRanges[]；X-SGO-7 未发生取代显式登记（diff = 0，不制造假条目）",
+        "op-wiring 原判据不改（requestTurn( 恰 2）+ 复合读数（maybeRecommend 1/7 · nextAfterSettle 1/10）",
+        "台账与判据重锚同轮完成；status ↔ knownGap 一致性"
+      ],
+      "gate": "supersession"
+    },
+    {
+      "id": "TASK-V55F-126", "wave": 4, "complexity": "M", "type": "gate",
+      "title": "红线巡检：base 零 diff + 三冻结面 + 判定链 / 不动面",
+      "deps": ["TASK-V55F-119"],
+      "fr": ["FR-SGO-123", "FR-SGO-037", "FR-SGO-005"], "ac": ["AC-SGO-023", "AC-SGO-025"], "adr": ["ADR-SGO-007"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/insight-no-escalation.test.ts" }],
+      "acceptance": [
+        "content.js 177,076 B / 52a82620…；pick-layer.js 34,358 B / 77796bab…（零容差）",
+        "KIND_SET 40 逐字；manifest.json 零 diff；packages/web-cli-base/** 零 diff",
+        "zeroDiffFiles 9 项哈希 pin 绿；原判据不改（只增巡检断言）"
+      ],
+      "gate": "insight-no-escalation"
+    },
+    {
+      "id": "TASK-V55F-127", "wave": 4, "complexity": "M", "type": "gate",
+      "title": "法八四面只增（引用注入零明文 + 凭据掩码）+ 留痕零值扫描",
+      "deps": ["TASK-V55F-108", "TASK-V55F-112"],
+      "fr": ["FR-SGO-046", "FR-SGO-050", "FR-SGO-083"], "ac": ["AC-SGO-010"], "adr": ["ADR-SGO-001", "ADR-SGO-002"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/law8-plaintext.mjs" }],
+      "acceptance": [
+        "36 断言零降级且必绿；计数只增",
+        "引用注入四面（流内 payload / digest / 审计面 / DOM value 与全部属性）零明文",
+        "凭据形值掩码；留痕零用户内容值扫描零命中"
+      ],
+      "gate": "test:law8"
+    },
+    {
+      "id": "TASK-V55F-128", "wave": 4, "complexity": "M", "type": "gate",
+      "title": "门禁治理收口（gate-integrity 受审集合下界只增 + 断言只增对账）",
+      "deps": ["TASK-V55F-108", "TASK-V55F-113", "TASK-V55F-121", "TASK-V55F-122", "TASK-V55F-123", "TASK-V55F-124"],
+      "fr": ["FR-SGO-115", "FR-SGO-110", "FR-SGO-114"], "ac": ["AC-SGO-020", "AC-SGO-017", "AC-SGO-021"], "adr": ["ADR-SGO-006"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" }],
+      "acceptance": [
+        "V55F_NODE_GATE_FILES 下界 ≥3（ref-context-in-turn / law9-scope-reading / dom-ref-anchor，只增不减）",
+        "既有下界（V5_* / V551_* / V552_* / V553_*）逐字保留；CHROMIUM_GATES === 9 逐字不动",
+        "断言零删除零降级（唯一例外 = 保护段显式取代 + 留痕）；门禁串行 + KL-N-10 隔离复跑 ≥2"
+      ],
+      "gate": "gate-integrity"
+    },
+    {
+      "id": "TASK-V55F-129", "wave": 4, "complexity": "M", "type": "doc",
+      "title": "体积逐叶重登记 + 本叶收口（五要素 + 三值 + EC-SGO-022 二态）",
+      "deps": ["TASK-V55F-125", "TASK-V55F-126", "TASK-V55F-127", "TASK-V55F-128"],
+      "fr": ["FR-SGO-120", "FR-SGO-121", "FR-SGO-122", "FR-SGO-123", "FR-SGO-124", "FR-SGO-125"],
+      "ac": ["AC-SGO-024"], "adr": ["ADR-SGO-007"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-budget.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-growth-evidence.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts" }
+      ],
+      "acceptance": [
+        "A 列本叶实测净增登记（预算 6.0~9.0 KB，上界 6.9~10.35 KB）+ 五要素齐备 + 时间线只追加",
+        "V3-VOL-3 三值同源前移；cap 保持 record-only；authorConfirmation = pending-author-line（不得伪称已确认）",
+        "越生效上限 / 越档位二态显式（EC-SGO-022）；本叶全门禁串行全绿 + 收口"
+      ],
+      "gate": "test:size-ruling-vol3"
+    }
+  ],
+  "spikeGates": [
+    {
+      "code": "SG-SGO-01", "task": "TASK-V55F-101", "leaf": "specs-tree-v55f-1-ref-context-and-anchor", "wave": "W1",
+      "topic": "type-only refs 载荷经 messaging.ts 单声明 + requestTurn 唯一构建点 + SW 零新通道 可行性",
+      "gates": ["TASK-V55F-103", "TASK-V55F-105", "TASK-V55F-107", "TASK-V55F-108"],
+      "stoppingRule": "任一不可行 ⇒ 暂停上报（禁新增引用通道 / 禁放宽 requestTurn( 计数 / 禁改动 KIND_SET）"
+    },
+    {
+      "code": "SG-SGO-02", "task": "TASK-V55F-116", "leaf": "specs-tree-v55f-1-ref-context-and-anchor", "wave": "W3",
+      "topic": "plugin 侧条目包装（base 零 diff）+ observeIdentity 复用为 live 单节点闸 可行性",
+      "gates": ["TASK-V55F-117", "TASK-V55F-118", "TASK-V55F-119", "TASK-V55F-121"],
+      "stoppingRule": "不可行 ⇒ 暂停上报（禁改 packages/web-cli-base/** / 禁放宽 risk）"
+    },
+    {
+      "code": "SG-SGO-03", "task": "TASK-V55F-109", "leaf": "specs-tree-v55f-1-ref-context-and-anchor", "wave": "W2",
+      "topic": "法九读数双向反证可机核（去注入 ⇒ no-ref 必红可构造；三段控制 ok/violated/n/a 可达）",
+      "gates": ["TASK-V55F-110", "TASK-V55F-113", "TASK-V55F-114"],
+      "stoppingRule": "不可构造 ⇒ 暂停上报（禁以文档 / 提示词 / 恒真断言替代机核，DC-SGO-007）"
+    }
+  ],
+  "gateConservation": {
+    "baselineSource": "父 spec.md §9.5 + §2.4 E9（引自 R6 记录 docs/r6-ty-experience-fix-2026-09-23.md:147-163，本轮未复跑）",
+    "npmTestBaseline": 1330,
+    "chromiumGates": "=== 9（不动）",
+    "gates": [
+      { "gate": "npm test", "baseline": 1330, "expected": ">=1330", "owners": ["TASK-V55F-129"] },
+      { "gate": "ref-context-in-turn", "baseline": 0, "expected": "NEW", "owners": ["TASK-V55F-108"] },
+      { "gate": "law9-scope-reading", "baseline": 0, "expected": "NEW", "owners": ["TASK-V55F-113", "TASK-V55F-114"] },
+      { "gate": "dom-ref-anchor", "baseline": 0, "expected": "NEW", "owners": ["TASK-V55F-121"] },
+      { "gate": "op-wiring", "baseline": "requestTurn 恰 2", "expected": "不变 + 复合读数", "owners": ["TASK-V55F-125"] },
+      { "gate": "insight-no-escalation", "baseline": "base 零 diff", "expected": "绿", "owners": ["TASK-V55F-119", "TASK-V55F-126"] },
+      { "gate": "test:supersession", "baseline": 37, "expected": ">=37", "owners": ["TASK-V55F-125"] },
+      { "gate": "test:gate-integrity", "baseline": 19, "expected": ">=19", "owners": ["TASK-V55F-128"] },
+      { "gate": "test:law8", "baseline": 36, "expected": ">=36（零降级）", "owners": ["TASK-V55F-127"] },
+      { "gate": "test:dead-end", "baseline": 49, "expected": ">=49", "owners": ["TASK-V55F-111"] },
+      { "gate": "test:l1", "baseline": 120, "expected": ">=120", "owners": ["TASK-V55F-115"] },
+      { "gate": "test:page-input", "baseline": 118, "expected": ">=118", "owners": ["TASK-V55F-115"] },
+      { "gate": "l1-ref-validity", "baseline": "deny 方向逐字", "expected": "不动 + 只增", "owners": ["TASK-V55F-115"] },
+      { "gate": "s0-self-driven", "baseline": 59, "expected": ">=59", "owners": ["TASK-V55F-124"] },
+      { "gate": "s0-self-driven-chain", "baseline": "S0 现有", "expected": "只增（S0P-1~8）", "owners": ["TASK-V55F-123"] },
+      { "gate": "test:journey", "baseline": 171, "expected": ">=171（保段优先）", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:binding", "baseline": 192, "expected": ">=192（保段）", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:l0", "baseline": 248, "expected": ">=248", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:density", "baseline": 242, "expected": ">=242", "owners": ["TASK-V55F-129"] },
+      { "gate": "test:size-ruling-vol3", "baseline": 12, "expected": ">=12", "owners": ["TASK-V55F-129"] },
+      { "gate": "e2e", "baseline": "PASS", "expected": "PASS", "owners": ["TASK-V55F-129"] }
+    ],
+    "newGates": [
+      { "gate": "ref-context-in-turn", "file": "test/ref-context-in-turn.test.ts", "owners": ["TASK-V55F-108"] },
+      { "gate": "law9-scope-reading", "file": "test/law9-scope-reading.test.ts", "owners": ["TASK-V55F-113", "TASK-V55F-114"] },
+      { "gate": "dom-ref-anchor", "file": "test/dom-ref-anchor.test.ts", "owners": ["TASK-V55F-121"] }
+    ],
+    "upgradedGates": [
+      { "gate": "op-wiring", "upgrade": "原判据不改（requestTurn 恰 2）+ 主流程 diff=0 复合读数（maybeRecommend 1/7 · nextAfterSettle 1/10）", "owners": ["TASK-V55F-125"] },
+      { "gate": "test:gate-integrity", "upgrade": "+ V55F_NODE_GATE_FILES（≥3）+ 受审集合只增 + CHROMIUM_GATES === 9", "owners": ["TASK-V55F-128"] },
+      { "gate": "test:supersession", "upgrade": "X-SGO-1/2/3 条目 + X-SGO-7「未发生取代」登记 + knownGap 一致性", "owners": ["TASK-V55F-125"] },
+      { "gate": "test:law8", "upgrade": "引用注入零明文 + 凭据掩码（36 零降级、只增）", "owners": ["TASK-V55F-127"] },
+      { "gate": "test/ui/no-dead-end.mjs", "upgrade": "越界拦后可达 next + 拒绝后零死端（49 只增）", "owners": ["TASK-V55F-111"] },
+      { "gate": "l1-ref-validity / l1 / page-input", "upgrade": "X-SGO-5 等价重锚（范围锚读数双向反证；deny 方向逐字不动）", "owners": ["TASK-V55F-115"] },
+      { "gate": "s0-self-driven-chain / s0-self-driven", "upgrade": "S0′ 双面（S0P-1~8 + 只加断言不加文件）", "owners": ["TASK-V55F-123", "TASK-V55F-124"] },
+      { "gate": "insight-no-escalation", "upgrade": "base 零 diff + 三冻结面 + 判定链巡检（原判据不改）", "owners": ["TASK-V55F-126"] },
+      { "gate": "size-* / test:size-ruling-vol3", "upgrade": "五要素重登记 + V3-VOL-3 三值同源 + 跨档位显式登记", "owners": ["TASK-V55F-129"] }
+    ],
+    "sizeOnlyIncrease": "全部门禁计数 ≥ 基线（唯一例外 = 保护段显式取代 + 台账留痕）"
+  },
+  "checkpoint": {
+    "id": "CP-V55F-1",
+    "after": "W1~W4（TASK-V55F-129）",
+    "criteria": "载荷 type-only 单声明 + requestTurn 唯一构建点 + SW 引用唯一来源 = 载荷；系统段 = 基座（5 条逐字）+ 追加段（零引用逐字等于基座）；SCOPE_READINGS 4 值单源 + scopeReading 唯一；越界写在 confirm 面 fail-closed 拦 + 可达 next；留痕含范围读数 字段名且零值；法九 L9-1~8 + 双向反证（去注入 no-ref 必红）+ 三段控制禁恒真 + 真源切片；--ref 锚定 plugin 侧包装 + base 零 diff + nodeCount === 1 唯一通过 + 失配 EC 七类非静默；S0′ 双面（样本单源 + node S0P-1~8 + Chromium 只加断言）+ 改写处数 ≤ 引用数；X-SGO-1/2/3 已发生 + X-SGO-7 未发生；断言只增、CHROMIUM_GATES === 9、三冻结面零容差；体积 A 列重登记（五要素 + 三值同源 + EC-SGO-022 二态）；保护段双绿"
+  },
+  "blockers": [
+    { "id": "BLK-SGO-1", "type": "spike-gate", "task": "TASK-V55F-103 / 105 / 107 / 108", "desc": "SG-SGO-01（TASK-V55F-101）结论 = 不可行 ⇒ 不得开工（禁新增通道）" },
+    { "id": "BLK-SGO-2", "type": "spike-gate", "task": "TASK-V55F-117 / 118 / 119 / 121", "desc": "SG-SGO-02（TASK-V55F-116）结论 = 不可行 ⇒ 不得开工（禁改 base / 禁放宽 risk）" },
+    { "id": "BLK-SGO-3", "type": "spike-gate", "task": "TASK-V55F-110 / 113 / 114", "desc": "SG-SGO-03（TASK-V55F-109）结论 = 不可构造 ⇒ 不得开工（禁文档化替代机核）" },
+    { "id": "BLK-SGO-9", "type": "cross-leaf", "task": "TASK-V55F-201（叶2）", "desc": "叶间硬串行：叶2 以本叶全绿（validated）为前置" }
+  ],
+  "stoppingRules": [
+    { "no": 1, "trigger": "dist/content.js ≠ 177,076 B / 52a82620… 或 dist/pick-layer.js ≠ 34,358 B / 77796bab…", "action": "立即停机（N-SGO-001/002 零容差）" },
+    { "no": 2, "trigger": "manifest.json 出现任何 diff / packages/web-cli-base/** 出现 diff", "action": "停机（N-SGO-007 / T4 / T5）" },
+    { "no": 3, "trigger": "KIND_SET 内容新增任一字符串（refs 被实现成新 kind）", "action": "停机（N-SGO-009 / R-SGO-902）" },
+    { "no": 4, "trigger": "范围读数出现第二声明 / 判定函数散落", "action": "停机（N-SGO-028）" },
+    { "no": 5, "trigger": "判定链（policy.ts / auto-authorize.ts）内容哈希变化", "action": "停机（N-SGO-008 / T3 / R-SGO-911）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）", "action": "停机；重写注入点（FR-SGO-111）" },
+    { "no": 7, "trigger": "SG-SGO-01/02/03 结论 = 不可行 / 不可构造", "action": "被闸门任务不得开工（见 blockers）" },
+    { "no": 8, "trigger": "体积越绝对上限或静默改档位 / authorConfirmation", "action": "停机（硬墙）；升档须显式登记（ADR-SGO-007）" },
+    { "no": 9, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 10, "trigger": "S0′ 用假 provider 跳过真实读数 / 包装（脚本绿而非链路可判）", "action": "停机（R-SGO-909）；真源切片重写" }
+  ],
+  "unfilledPoints": [
+    { "id": "V55F-P-001", "topic": "A 列（sidepanel.js）本叶实测净增最终值 + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-V55F-129", "rule": "禁预填；二态显式（越生效上限 ⇒ 重登记基线 / 越档位 ⇒ EC-SGO-022 + 作者一行 / 未越 ⇒ 如实登记）" },
+    { "id": "V55F-P-002", "topic": "journey / binding 保护段「保段 or 八步取代」实际结论", "status": "pending-measurement", "owner": "TASK-V55F-129", "rule": "禁预填；须显式二选一（保段优先）" },
+    { "id": "V55F-P-003", "topic": "人工面 M1（「原地」语义遵从观感）/ M4（SPA 锚定失败提示可理解度）", "status": "pending-human", "owner": "TASK-V55F-124", "rule": "逐项 ⏳ 未执行 / PASS，不得冒充 PASS；v5.5 人工面零改写" },
+    { "id": "V55F-P-004", "topic": "V3-VOL-3 档位升档的作者一句外部确认", "status": "pending-author-line", "owner": "TASK-V55F-129", "rule": "不得伪称已确认（N-SGO-023）" },
+    { "id": "V55F-P-005", "topic": "S0′ 批量分支断言编号（plan §2.4 的「S0P-7/8」与 ADR-SGO-006 §2 的 S0P-7/8 冲突）", "status": "resolved-tasks", "owner": "TASK-V55F-214（叶2）", "rule": "本 tasks 显式裁决：S0P-1~8 保留 node 面（叶1）；批量分支改用 S0P-B1~B3（叶2）" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "V5.5F-1 任务：29 任务 / 4 波（TASK-V55F-101~129；S×2 / M×21 / L×6）。执行序承「先定读数再定法则」+「先边界后正向」：W1 口径与载荷 → W2 读数单源 + 法九 + 越界拦 + 留痕 → W3 --ref 锚定 + 失配 EC → W4 S0′ 双面 + 台账 + 门禁治理 + 体积重登记。3 个 spikeGate（SG-SGO-01/02/03，plan 未命名、按编排器任务书登记）；3 个新 node 门禁（ref-context-in-turn / law9-scope-reading / dom-ref-anchor，入 gate-integrity 下界 V55F_NODE_GATE_FILES ≥3）；S0′ 双面落 W4（样本单源 122 + node 123 + Chromium 124）；体积 A 列 6.0~9.0 KB，逐叶收口重登记 129。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+}
