@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CHROME, DIST, PACKAGE_ROOT, check, evaluate, finish, launch, openSidePanel, findOurServiceWorker, sleep } from './_v3-helpers.mjs';
-import { S0_ANSWER, S0_CHAIN } from './fixtures/s0-chain.mjs';
+import { S0_ANSWER, S0_B_PARAM_KINDS, S0_B_STEPS, S0_CHAIN, s0BranchBProblems } from './fixtures/s0-chain.mjs';
 
 /** One judgement per line of the gate (`expectFailPattern` = the readable failure text). */
 export const JUDGEMENTS = [
@@ -32,6 +32,8 @@ export const JUDGEMENTS = [
   { id: 'S0C-4-branch-B', expectFailPattern: '分支 B 识别侧：未配置 ⇒ 识别为终态 + 有驱动者（零 LLM 调用）' },
   { id: 'S0C-5-no-silence', expectFailPattern: '⑤ 之后不得出现静默窗口（无归因 ∧ 无终态 ∧ 无 next）' },
   { id: 'S0C-6-shared-sample', expectFailPattern: 'S0 样本必须与 node 面共用同一份（链序 / 答案逐字）' },
+  // V5.5-2 TASK-V55-214/215（W5）：分支 B 必判项（只增不减）—— 删自动续接 ⇒ 必 FAIL。
+  { id: 'S0C-7-branch-B-mandatory', expectFailPattern: '分支 B 必判项：未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒ 完成 ⇒ 自动续接 ⇒ 留痕（删自动续接 ⇒ FAIL）' },
 ];
 
 /**
@@ -64,6 +66,21 @@ function beatCheck(beatId, label, ok, detail) {
   }
   beatHits.set(beatId, (beatHits.get(beatId) ?? 0) + 1);
   return check(`[${beatId}] ${label}`, ok, detail);
+}
+
+/**
+ * 〖V5.5-2 TASK-V55-214〗分支 B 的**必判项**（未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒ 完成 ⇒
+ * 自动续接 ⇒ 留痕）。与 `PANEL_BEATS` 同纪律：id 逐序取自共享样本 `S0_B_STEPS`
+ * （本面**不写第二份**），未登记 / 登记了却没读 ⇒ 都必红（**独立计数**，R-V55-111）。
+ */
+export const PANEL_B_BEATS = Object.freeze(S0_B_STEPS.map((s) => ({ id: s.id })));
+const bBeatHits = new Map();
+function bBeatCheck(beatId, label, ok, detail) {
+  if (!PANEL_B_BEATS.some((b) => b.id === beatId)) {
+    throw new Error(`S0 Chromium 门禁：分支 B 环节 id「${beatId}」未登记进 PANEL_B_BEATS（先登记再断言）`);
+  }
+  bBeatHits.set(beatId, (bBeatHits.get(beatId) ?? 0) + 1);
+  return check(`[B:${beatId}] ${label}`, ok, detail);
 }
 
 async function main() {
@@ -272,6 +289,237 @@ async function main() {
 
     // 人工面（不得冒充 PASS）：主动接手**体感** / 是否被突然打断 / 引导文案可读性。
     check('S0 人工面：主动接手体感 / 打断感 / 引导文案可读性 = ⏳ 未执行（headless 不可合成，不得冒充 PASS）', true, '⏳ 未执行（并列 v5 人工面 9 项，不覆盖）');
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⑰ V5.5-2 TASK-V55-214/215（ADR-V55-005 §3 · FR-SELF-131/046 · AC-SELF-001）
+    //   分支 B **必判项**（真产品路径，非 seam）：未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒
+    //   完成 ⇒ **自动续接** ⇒ 留痕；**删自动续接 ⇒ 必 FAIL**（判据本体在共享样本里）。
+    // ═════════════════════════════════════════════════════════════════════════
+    console.log('\n▶ ⑰ 分支 B 必判项：未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒ 完成 ⇒ 自动续接 ⇒ 留痕');
+
+    // ── 样本单源：本面登记的分支 B 环节 id 必须逐序等于共享样本 `S0_B_STEPS` ────
+    check(
+      'S0C-7 分支 B 环节逐序与共享样本一致（id 机序，非「数量」常量）',
+      PANEL_B_BEATS.length === S0_B_STEPS.length && PANEL_B_BEATS.every((b, i) => b.id === S0_B_STEPS[i].id),
+      JSON.stringify({ panel: PANEL_B_BEATS.map((b) => b.id), sample: S0_B_STEPS.map((s) => s.id) }),
+    );
+    // 两分支的环节集**不相交**（各自独立计数，禁互相掩盖）。
+    const overlap = PANEL_B_BEATS.filter((b) => PANEL_BEATS.some((x) => x.id === b.id)).map((b) => b.id);
+    check('S0C-7 两分支环节集不相交（A/B 各自独立计数，禁互相掩盖）', overlap.length === 0, JSON.stringify(overlap));
+
+    // 固化文案从**真源**抽出（不复制第二份）。
+    const flowSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/onboarding-flow.ts'), 'utf8');
+    const literalOf = (name) => {
+      const m = new RegExp(`export const ${name} = '([^']+)'`).exec(flowSrc);
+      return m ? m[1] : null;
+    };
+    const DETECT_TEXT = literalOf('ONBOARD_DETECT_TEXT');
+    const RESUME_TEXT = literalOf('ONBOARD_RESUME_TEXT');
+    check('S0C-7 前置：detect / resume 文案从真源抽出（判据非空转）', Boolean(DETECT_TEXT) && Boolean(RESUME_TEXT), JSON.stringify({ DETECT_TEXT, RESUME_TEXT }));
+
+    // ── 屏蔽 headless 无网络面：`llm-test`（连接测试）与**续接回合**的 `chat` 由夹具应答 ──
+    //    只拦这两个 kind（`chat` 还要等 `__s0BSwallowChat` 置位，第一条用户回合必须真的
+    //    走到 SW 换回 `chat-result{variant:'llm-unconfigured'}`），其余报文一律透传。
+    await evaluate(
+      cdp,
+      `(() => {
+        if (window.__s0BStub) return true;
+        const orig = chrome.runtime.sendMessage.bind(chrome.runtime);
+        chrome.runtime.sendMessage = (msg, ...rest) => {
+          const kind = msg && msg.kind;
+          if (kind === 'llm-test') {
+            return Promise.resolve({ ok: true, data: { ok: true, category: 'ok', message: '✓ 连接正常（headless 夹具）', elapsedMs: 1 } });
+          }
+          if (kind === 'chat' && window.__s0BSwallowChat === true) return Promise.resolve({ ok: true, data: {} });
+          return orig(msg, ...rest);
+        };
+        window.__s0BStub = true;
+        return true;
+      })()`,
+    );
+
+    await evaluate(cdp, `window.__v3.testing.reset(); true`);
+    // 真实用户回合（未配置 ⇒ SW 回 `chat-result{variant:'llm-unconfigured'}`）。
+    const bDetectRaw = await evaluate(
+      cdp,
+      `(async () => {
+        const input = document.getElementById('input');
+        input.value = ${JSON.stringify(S0_ANSWER)};
+        document.getElementById('composer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        await new Promise((r) => setTimeout(r, 900));
+        const text = document.getElementById('stream').textContent;
+        return JSON.stringify({
+          users: document.querySelectorAll('#stream [data-msg-type="user"]').length,
+          detect: ${JSON.stringify(DETECT_TEXT)} ? text.includes(${JSON.stringify(DETECT_TEXT)}) : false,
+          susp: window.__v3.testing.suspensions(),
+          chips: [...document.querySelectorAll('#stream [data-msg-type="nextstep"] [data-op="op.llm-config"]')].length,
+          rule: (window.__v3.testing.lastRecommend() || {}).rule ?? null,
+        });
+      })()`,
+    );
+    const bDetect = JSON.parse(bDetectRaw);
+    bBeatCheck('detect', '① detect：未配置被识别 ⇒ 流内固化事实行（零明文）', bDetect.detect === true, bDetectRaw);
+    bBeatCheck(
+      'detect',
+      '① detect：悬置任务登记了「用户那句话」（谁在等 / 等什么 / 依据什么）',
+      bDetect.susp.length === 1 && bDetect.susp[0].source === 'llm-config' && bDetect.susp[0].instruction.includes(S0_ANSWER),
+      JSON.stringify(bDetect.susp),
+    );
+    // ② guide：环境事实登记（headless 无夹具站点 ⇒ 探测相位可能停在等待态，`probe` 恢复类会
+    // 正确地抢走 `risk-recovery` 槽）。因此**与该门禁既有 ⑦A 同一口径**：用受控 ctx 驱动**真
+    // 生产者**（同一 `recommendNextStep` + 同一 reducer，仅环境读数受控），chip 的渲染与分发全真。
+    const guideRaw = await evaluate(
+      cdp,
+      `(() => {
+        const rec = JSON.parse(window.__v3.testing.recommend('llm'));
+        const chips = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] [data-op="op.llm-config"]')];
+        return JSON.stringify({ rec, chipCount: chips.length });
+      })()`,
+    );
+    const guide = JSON.parse(guideRaw);
+    bBeatCheck(
+      'guide',
+      '② guide：流内出现 op-direct chip（`[data-op="op.llm-config"]`，引导执行体唯一）',
+      guide.chipCount >= 1,
+      guideRaw,
+    );
+
+    // ── ③ collect：点击 op-direct chip ⇒ 既有三段 params（choice → text → **secret**）──
+    const bChipClicked = await evaluate(
+      cdp,
+      `(() => { const b = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] [data-op="op.llm-config"]')].pop(); if (!b) return false; b.click(); return true; })()`,
+    );
+    const paramLog = [];
+    // 驱动**恰 `S0_B_PARAM_KINDS.length`** 次（= 既有三段序列；引导的采集步就这么多）。
+    for (let i = 0; i < S0_B_PARAM_KINDS.length; i += 1) {
+      await sleep(300);
+      const info = JSON.parse(
+        await evaluate(
+          cdp,
+          `(() => {
+            const all = [...document.querySelectorAll('#stream [data-msg-type="askuser"]')].map((c) => ({
+              kind: c.getAttribute('data-ask-kind'),
+              answered: c.getAttribute('data-answered'),
+              open: Boolean(c.querySelector('[data-act="answer"]')) || Boolean(c.querySelector('[data-act="choose"]')),
+            }));
+            const open = [...document.querySelectorAll('#stream [data-msg-type="askuser"]')].filter((c) => c.getAttribute('data-answered') === 'false');
+            const c = open[open.length - 1];
+            if (!c) return JSON.stringify({ kind: null, open: open.length, all });
+            const el = c.querySelector('.ask-input');
+            return JSON.stringify({ kind: c.getAttribute('data-ask-kind'), choose: c.querySelectorAll('[data-act="choose"]').length, type: el ? el.getAttribute('type') : null, all });
+          })()`,
+        ),
+      );
+      paramLog.push(info);
+      if (!info.kind) break;
+      if (info.choose > 0) {
+        await evaluate(
+          cdp,
+          `(() => { const open=[...document.querySelectorAll('#stream [data-msg-type="askuser"]')].filter((c)=>c.getAttribute('data-answered')==='false'); const c=open[open.length-1]; const b=c.querySelector('[data-act="choose"]'); if (b) b.click(); return true; })()`,
+        );
+      } else {
+        const v = info.type === 'password' ? 's0-fake-key-0123456789' : 'm1';
+        await evaluate(
+          cdp,
+          `(() => { const open=[...document.querySelectorAll('#stream [data-msg-type="askuser"]')].filter((c)=>c.getAttribute('data-answered')==='false'); const c=open[open.length-1]; const el=c.querySelector('.ask-input'); if (el) el.value=${JSON.stringify(v)}; const b=c.querySelector('[data-act="answer"]'); if (b) b.click(); return true; })()`,
+        );
+      }
+    }
+    const kinds = paramLog.map((p) => p.kind).filter(Boolean);
+    const maskedTypes = paramLog.filter((p) => p.type === 'password').length;
+    bBeatCheck('guide', '② guide：chip 可点（进入既有 op 管线）', bChipClicked === true, String(bChipClicked));
+    bBeatCheck(
+      'collect',
+      '③ collect：掩码卡走**既有**三段 params（choice → text → secret）',
+      kinds.join('|') === S0_B_PARAM_KINDS.join('|'),
+      JSON.stringify(paramLog),
+    );
+    bBeatCheck('collect', '③ collect：secret 步是**掩码**输入（password，零明文）', maskedTypes >= 1, JSON.stringify(paramLog));
+
+    // ── consent 允许（设置面之外的流内确认卡）⇒ 执行体既有一份（`op.llm-config`）──
+    // 续接回合的 `chat` 就地由夹具应答（headless 无网络面），不影响「留痕」判据。
+    await evaluate(cdp, `window.__s0BSwallowChat = true; true`);
+    await sleep(200);
+    const consentApproved = await evaluate(
+      cdp,
+      `(() => {
+        const approve = document.querySelector('#stream [data-act="approve"]');
+        if (!approve) return false;
+        approve.click();
+        return true;
+      })()`,
+    );
+    await sleep(600);
+
+    // ── ④ complete + ⑤ 自动续接 + 留痕（同一批真面板读数）──────────────────────
+    const bFlowRaw = await evaluate(
+      cdp,
+      `(() => {
+        const text = document.getElementById('stream').textContent;
+        const users = [...document.querySelectorAll('#stream [data-msg-type="user"]')].map((el) => el.textContent);
+        const receipt = /已配置 LLM/.test(text);
+        const resumed = ${JSON.stringify(RESUME_TEXT)} ? text.includes(${JSON.stringify(RESUME_TEXT)}) : false;
+        return JSON.stringify({
+          receipt,
+          resumed,
+          consent: document.querySelectorAll('#stream [data-act="approve"]').length,
+          users: users.length,
+          lastUser: users[users.length - 1] ?? null,
+          susp: window.__v3.testing.suspensions(),
+        });
+      })()`,
+    );
+    const bFlow = JSON.parse(bFlowRaw);
+    bBeatCheck('complete', '④ complete：配置成功回执（✓ 已配置 LLM · 掩码 · 零明文）', consentApproved === true && bFlow.receipt === true, bFlowRaw);
+    bBeatCheck('complete', '⑤ resume：**自动续接**（无需用户重说）⇒ 流内出现续接事实行', bFlow.resumed === true, bFlowRaw);
+    bBeatCheck(
+      'complete',
+      '⑤ resume：续接后回合**留痕**（新增一条 user 条目且逐字为原话）',
+      bFlow.users >= 2 && typeof bFlow.lastUser === 'string' && bFlow.lastUser.includes(S0_ANSWER),
+      JSON.stringify({ users: bFlow.users, lastUser: bFlow.lastUser }),
+    );
+
+    // ── 判据本体（共享样本，双面同一份）：真读数必绿 ─────────────────────────
+    const bReading = {
+      steps: PANEL_B_BEATS.map((b) => b.id),
+      paramKinds: kinds,
+      masked: maskedTypes >= 1,
+      completed: bFlow.receipt === true,
+      autoResumed: bFlow.resumed === true,
+      resumedInput: bFlow.lastUser && bFlow.lastUser.includes(S0_ANSWER) ? S0_ANSWER : bFlow.lastUser,
+      trace: bFlow.users >= 2,
+    };
+    const bProblems = s0BranchBProblems(bReading);
+    check(`S0C-7 分支 B 必判项（共享样本判据）：${bProblems.length === 0 ? '全绿' : bProblems.join(' / ')}`, bProblems.length === 0, JSON.stringify(bReading));
+
+    // ── **删自动续接 ⇒ 必 FAIL**（本面也机核「判据不是恒真」）──────────────────
+    const sidepanelSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    const resumeWired = /if \(op\.opId === ONBOARD_CHIP_OP && state === 'completed'\) resumeAfterConfig\(\);/.test(sidepanelSrc);
+    check('S0C-7 产物接线：`opSettled` 的 completed 分支真的调用 `resumeAfterConfig()`', resumeWired, 'source-scan');
+    check(
+      'S0C-7 反证：删自动续接（`autoResumed=false`）⇒ 共享判据必 FAIL',
+      s0BranchBProblems({ ...bReading, autoResumed: false }).some((p) => p.includes('删自动续接')),
+      'falsification',
+    );
+    check(
+      'S0C-7 反证：续接输入不逐字 ⇒ 共享判据必 FAIL',
+      s0BranchBProblems({ ...bReading, resumedInput: '未逐字的答案' }).some((p) => p.includes('逐字')),
+      'falsification',
+    );
+
+    // 续接回合收口（`chat` 由夹具应答 ⇒ 用 SW 的真实 `done` 报文收尾，保持待答归零）。
+    await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'done' }).then(() => true).catch(() => true)`);
+    await sleep(350);
+    const bOpen = await evaluate(cdp, `window.__v3.testing.openAsks().length`);
+    bBeatCheck('complete', '⑤ resume：续接后无残留开口 ask（回合收口）', bOpen === 0, String(bOpen));
+
+    // 分支 B 逐环节覆盖机核（登记了却没读 ⇒ 必红）。
+    const bMisses = PANEL_B_BEATS.filter((b) => (bBeatHits.get(b.id) ?? 0) === 0).map((b) => b.id);
+    check(
+      `S0C-7 分支 B 逐环节可判（真面板读数）：每拍 ≥1 断言（实测 ${PANEL_B_BEATS.filter((b) => (bBeatHits.get(b.id) ?? 0) > 0).length}/${PANEL_B_BEATS.length} 拍有读数）`,
+      bMisses.length === 0 && PANEL_B_BEATS.length === S0_B_STEPS.length,
+      JSON.stringify({ misses: bMisses, hits: Object.fromEntries(bBeatHits) }),
+    );
 
     // ── S0C-1 逐环节可判（收尾覆盖机核）────────────────────────────────────
     // 每一拍都必须真的有一处**真面板读数**断言；声明了却没读 / 读了却没声明 ⇒ 都必红。

@@ -212,7 +212,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // 捕获回环校验止血）⇒ 累计增量 252,333 → **254,384**。
   // 〖V5.5-1 R1/R2（2026-09-23）〗R1 中间登记 549,609 → **554,576**（+4,967）⇒ 累计 259,351；
   // R2 收口登记 554,576 → **557,761**（+3,185：答案驱动化 + S0 双面 + 判据升级）⇒ 累计 **262,536**。
-  assert.equal(b.deltaBytes, 267_048);
+  assert.equal(b.deltaBytes, 267_920);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -324,7 +324,7 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   // 取自沙箱几何，其 Δ 自洽由上面的对账用例判定（来源不同、判据互不替代）。
   // 〖V5-3 R2（2026-09-22，末叶 / 收口叶）〗随轮次重指向 v5-2-reviewfix → v5-3-r2
   // （v5-2 各轮的历史 rows 逐字保留在 `v52*Rows` 与 `SIDEPANEL_BASELINE_META` 的历史段）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R1Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R2Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -383,7 +383,9 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
   // 〖V5.5-1 review R1 修复轮（2026-09-23，BLOCK-01/02 + I-01~03）〗最新一轮 = `v55-2-r1`
   // （557,883 → **562,073**，+4,190）⇒ 与它的登记条目同源复算（历史轮次 v55-1-r2 的 554,576 → 557,761
   // 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 `SIDEPANEL_BASELINE_BYTES_TIMELINE`）。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 557_883);
+  // 〖V5.5-2 R2〗`closeoutDeltaBytes` 语义恒为「**最新一轮**登记增量」⇒ 与本叶 R2 的登记条目同源复算
+  // （562,273 → 563,145，+872）；R1 的中间登记值 557,883 → 562,273 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 TIMELINE。
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 562_273);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -431,7 +433,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖V5-3 review R1 修复轮〗历史 = `v53FixRows`（7 行，Σ +1,188 + glue 0）；〖V5-3 R2〗历史 = `v53Rows`（9 行，Σ +4,306 + glue 0
   // == 546,370 − 542,064）；`v52CloseoutRows`（1 行 −86）的历史值逐字保留在本文件的注释与
   // `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`（其 Σ/Δ 自洽由 N-05 的组判据承担）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R1Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R2Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -657,6 +659,10 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'v551R2Rows', rows: b.v551R2Rows, glue: b.v551R2UnattributedGlueBytes },
     // 〖V5.5-1 review R1 修复轮（2026-09-23，BLOCK-01/02 + I-01~03）〗追加第 26 组（只增不减）。
     { name: 'v551FixRows', rows: b.v551FixRows, glue: b.v551FixUnattributedGlueBytes },
+    // 〖V5.5-2 R1（2026-09-23，W1~W4 中间登记）〗追加第 27 组（只增不减）。
+    { name: 'v552R1Rows', rows: b.v552R1Rows, glue: b.v552R1UnattributedGlueBytes },
+    // 〖V5.5-2 R2（2026-09-23，W5 = 本叶最终登记）〗追加第 28 组（只增不减）。
+    { name: 'v552R2Rows', rows: b.v552R2Rows, glue: b.v552R2UnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -670,8 +676,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   assert.deepEqual(problems, [], `round rows 与登记值不自洽（N-05）：\n${problems.join('\n')}`);
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组、V4.5-1 R1 第 14 组、
-  // V4.5-1 review R1 修复轮第 15 组（只增不减）。
-  assert.equal(groups.length, 26);
+  // V4.5-1 review R1 修复轮第 15 组、V5.5-2 R1 第 27 组、V5.5-2 R2 第 28 组（只增不减）。
+  assert.equal(groups.length, 28);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );
@@ -739,7 +745,7 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   // ② 逐模块：与**最新一轮**（V5.5-1 review R1 修复轮）登记的 afterBytes 逐值相等 ⇒ 真实 metafile
   //    与最新登记同源（历史各轮的 Δ 由 N-05 组判据承担；此后任何一轮都必须重新登记）。
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R1Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R2Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(

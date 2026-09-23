@@ -140,6 +140,12 @@
       "agent": "sddu-build",
       "at": "2026-09-23",
       "artifact": "specs-tree-v55-2-deterministic-onboarding/build.md v1.0（R1 = W1~W4 = TASK-V55-201~212）"
+    },
+    {
+      "phase": "builded",
+      "agent": "sddu-build",
+      "at": "2026-09-23",
+      "artifact": "specs-tree-v55-2-deterministic-onboarding/build.md v1.0（R2 = W5 = TASK-V55-213~216 收口：两场景门禁 / S0 分支 B 必判项 / 取消非死端 / 体积收口 + X-SELF-3 落账）"
     }
   ]
 }

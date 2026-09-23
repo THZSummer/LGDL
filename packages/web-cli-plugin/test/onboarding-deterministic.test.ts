@@ -43,12 +43,16 @@ import {
   BLOCKED_TERMINALS,
   NEXT_SOURCE_NAMES,
 } from '../src/ui/sidepanel/next-registry/definition.js';
-import { OPS_RECOVERY_ROWS } from '../src/ui/sidepanel/next-registry/providers.js';
+import { LLM_BLOCKED_RISK, OPS_RECOVERY_ROWS } from '../src/ui/sidepanel/next-registry/providers.js';
 import { OP_PARAM_SEQUENCE } from '../src/ui/sidepanel/next-registry/ops.js';
 import {
   ONBOARD_COLLECT_STEPS,
+  ONBOARD_SCENARIOS,
   ONBOARD_STEP_IDS,
   ONBOARD_STEPS,
+  onboardCauseKey,
+  onboardScenario,
+  suppressOnboardCause,
 } from '../src/ui/sidepanel/next-registry/onboarding-flow.js';
 import {
   CONFIG_SUSPENSION_SOURCE,
@@ -57,6 +61,7 @@ import {
   registerConfigSuspension,
   resumeSuspension,
 } from '../src/ui/sidepanel/next-registry/suspension.js';
+import { candidateRules } from '../src/ui/sidepanel/recommend.js';
 import { listSuspensions, resetSuspensions } from '../src/ui/sidepanel/next-registry/drivers.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
@@ -119,6 +124,11 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'OD-11-max-one', expectFailPattern: '悬置任务必须有界：超过 MAX=1 必须被拒（不叠加）' },
   { id: 'OD-12-validity-recheck', expectFailPattern: '续接必须先做有效期重校验（不得制造假成功）' },
   { id: 'OD-13-resume-order', expectFailPattern: '回执在前、续接在后（删自动续接 ⇒ FAIL）' },
+  // V5.5-2 W5（TASK-V55-213/215）：两场景门禁 + 取消非死端/同因不重复（只增不减）。
+  { id: 'OD-14-two-scenarios', expectFailPattern: '两场景（首装 / 已装未配）必须各自产出配置引导且不依赖 firstRun；已配置 ⇒ 零引导' },
+  { id: 'OD-15-cancel-not-dead-end', expectFailPattern: '取消引导必须非死端（悬置保留 + 可达 next）且同因不重复（取消后不再弹同一条）' },
+  // V5.5-2 W5（TASK-V55-216②）：X-SELF-3 取代台账落账（缺条目 ⇒ 必红）。
+  { id: 'OD-16-x-self-3-ledger', expectFailPattern: 'X-SELF-3 取代台账必须落账（双源并存 = 被动保留 + 主动新增；缺条目 ⇒ FAIL）' },
 ];
 
 /* ── OD-1 ──────────────────────────────────────────────────────────────────── */
@@ -388,10 +398,85 @@ export function resumeOrderProblems(rawPipelineSrc: string, rawSidepanelSrc: str
   return problems;
 }
 
+/* ── OD-14 ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * V5.5-2 **TASK-V55-213** (FR-SELF-043 · AC-SELF-013 · R-SELF-909) —— **两场景**判据。
+ *
+ *   ① 恰 2 行单源、逐序；两行的 `resultsIn` 都是 `config-guide`（同一条确定性引导）；
+ *   ② 行为真值表：未配置 ⇒ 两场景各自命中；**注入 `firstRun = false` 仍须产出**
+ *      （`installed-unconfigured`，`via: 'risk'` ⇒ **不依赖 `firstRun`**）；
+ *   ③ 已配置 ⇒ `'none'`（**零引导**：分流判据 = 确定性配置判据）。
+ * 删掉任一场景 / 让 `installed-unconfigured` 挂上 `firstRun` ⇒ 必红。
+ */
+export function scenarioProblems(
+  scenarios: readonly { readonly id: string; readonly when: string; readonly via: string; readonly resultsIn: string }[],
+  scenario: (f: { readonly firstRun: boolean; readonly configured: boolean }) => string,
+): string[] {
+  const problems: string[] = [];
+  const ids = scenarios.map((s) => s.id).join('|');
+  if (ids !== 'first-install|installed-unconfigured') {
+    problems.push(`${JUDGEMENTS[13].expectFailPattern}：场景集实测 ${ids || '<空>'}（应恰 2 行逐序）`);
+  }
+  if (scenarios.some((s) => s.resultsIn !== 'config-guide')) {
+    problems.push(`${JUDGEMENTS[13].expectFailPattern}：两场景必须都产出同一条配置引导`);
+  }
+  const b = scenarios.find((s) => s.id === 'installed-unconfigured');
+  if (!b) problems.push(`${JUDGEMENTS[13].expectFailPattern}：缺「已装未配」场景`);
+  else if (b.via === 'onboarding' || b.when.includes('firstRun')) {
+    problems.push(`${JUDGEMENTS[13].expectFailPattern}：已装未配**不得**依赖 firstRun（via=${b.via} when=${b.when}）`);
+  }
+  // 真值表（未配置两场景 + 已配置零引导）。
+  if (scenario({ firstRun: true, configured: false }) !== 'first-install') {
+    problems.push(`${JUDGEMENTS[13].expectFailPattern}：首装（未配置）未命中 first-install`);
+  }
+  if (scenario({ firstRun: false, configured: false }) !== 'installed-unconfigured') {
+    problems.push(`${JUDGEMENTS[13].expectFailPattern}：**注入 firstRun=false 仍须产出**（已装未配）`);
+  }
+  if (scenario({ firstRun: true, configured: true }) !== 'none' || scenario({ firstRun: false, configured: true }) !== 'none') {
+    problems.push(`${JUDGEMENTS[13].expectFailPattern}：已配置 ⇒ 必须零引导（不触发）`);
+  }
+  return problems;
+}
+
+/* ── OD-15 ──────────────────────────────────────────────────────────────────── */
+
+/**
+ * V5.5-2 **TASK-V55-215** (FR-SELF-046 · AC-SELF-007) —— **取消非死端 + 同因不重复**。
+ *
+ *   · 纯判据：同因 ⇒ 压掉；**新因 / 空因 / 未取消 ⇒ 不得压**（判据非恒真）；
+ *   · 源码：取消/拒绝/失败的收口钩子记录该因（`declinedOnboardCauses.push(onboardGuideCause)`）
+ *     ∧ `maybeRecommend` 经 `suppressOnboardCause(` 只压同因 ∧ per-fixture 复位；
+ *   · 取消**非死端**：同一钩子仍 `nextAfterSettle(force)`（可达 next），悬置任务**保留**。
+ */
+export function cancelProblems(
+  rawSidepanelSrc: string,
+  suppress: (cause: string | undefined, declined: readonly string[]) => boolean,
+): string[] {
+  const src = stripComments(rawSidepanelSrc);
+  const problems: string[] = [];
+  // 纯判据真值表。
+  if (suppress('同一句话', ['同一句话']) !== true) problems.push(`${JUDGEMENTS[14].expectFailPattern}：同因未被压掉（会重复弹）`);
+  if (suppress('另一句话', ['同一句话']) !== false) problems.push(`${JUDGEMENTS[14].expectFailPattern}：新因被误压（一律不再引导）`);
+  if (suppress(undefined, ['x']) !== false || suppress('', ['']) !== false) {
+    problems.push(`${JUDGEMENTS[14].expectFailPattern}：空因不占位（不得压掉一切引导）`);
+  }
+  // 源码接线。
+  if (!/nextAfterSettle: \(op, state\) => \{[\s\S]*?declinedOnboardCauses\.push\(onboardGuideCause\)[\s\S]*?nextAfterSettle\(\{ kind: `op-\$\{state\}`, force: true/.test(src)) {
+    problems.push(`${JUDGEMENTS[14].expectFailPattern}：取消收口未记录该因 ∨ 取消路径缺 force 求值（非死端）`);
+  }
+  if (!/for \(const id of observedBlocked\)[\s\S]*?suppressOnboardCause\(onboardGuideCause, declinedOnboardCauses\)/.test(src)) {
+    problems.push(`${JUDGEMENTS[14].expectFailPattern}：maybeRecommend 未按「同因」压掉引导`);
+  }
+  if (!/declinedOnboardCauses\.length = 0;/.test(src)) {
+    problems.push(`${JUDGEMENTS[14].expectFailPattern}：去重键未随 fixture 复位（会跨夹具残留）`);
+  }
+  return problems;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────────
  * 真源判据（全部绿）
  * ───────────────────────────────────────────────────────────────────────────── */
-
 test('OD-1 配置判据恰 3 字段单源（函数体只读这 3 个）', () => {
   assert.deepEqual([...LLM_CONFIGURED_FIELDS], ['hasKey', 'providerId', 'model'], JUDGEMENTS[0].expectFailPattern);
   assert.deepEqual(predicateFieldProblems(read(STATUS_REL), [...LLM_CONFIGURED_FIELDS]), [], JUDGEMENTS[0].expectFailPattern);
@@ -552,8 +637,150 @@ test('OD-13 自动续接顺序（回执在前、续接在后）+ 删续接 ⇒ F
   assert.deepEqual(resumeOrderProblems(PIPELINE_SRC, SIDEPANEL_SRC), []);
 });
 
+test('OD-14 两场景：首装 / 已装未配各自产出配置引导（注入 firstRun=false 仍须产出；已配置 ⇒ 零引导）', () => {
+  assert.deepEqual(
+    scenarioProblems([...ONBOARD_SCENARIOS], onboardScenario),
+    [],
+    JUDGEMENTS[13].expectFailPattern,
+  );
+  // 两场景的判据来源不同（互斥完备）；「已装未配」的 carrier 是既有 `risk` 源。
+  assert.deepEqual([...ONBOARD_SCENARIOS].map((s) => s.id), ['first-install', 'installed-unconfigured']);
+  assert.equal(ONBOARD_SCENARIOS[1].via, 'risk');
+  assert.equal(ONBOARD_SCENARIOS[1].resultsIn, 'config-guide');
+  // 判据不依赖 firstRun 的**机器证据**：既有 `llm.unconfigured` provider 的 `when` 只读 risk 源
+  // （其修复 op = 唯一配置执行体），而 `risk: llmBlocked` 与 `onboarding` 源无关。
+  assert.equal(OPS_RECOVERY_ROWS.find((r) => r.blocked === 'llm.unconfigured')?.op, 'op.llm-config');
+  assert.ok(
+    /when: \(ctx\) => ctx\.risk\.includes\(row\.risk\)/.test(stripComments(read(PROVIDERS_REL))),
+    'op-driven provider 的 when 必须只读 risk 源（不得挂 firstRun）',
+  );
+  const configuredOnly = candidateRules({
+    ref: { validCount: 0, staleCount: 0 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 0, subcommandCount: 0 },
+    probe: { phase: 'ready', steady: true },
+    risks: [],
+    onboarding: { firstRun: true, pendingSteps: ['授权当前站点'] },
+    now: 1_000_000,
+  } as never);
+  assert.ok(
+    !configuredOnly.some((c) => c.chips.some((x) => x.act === 'op.llm-config')),
+    '已配置（无 llmBlocked 事实）⇒ 零配置引导（不得凭 firstRun 触发配置引导）',
+  );
+});
+
+test('OD-14 反证：让「已装未配」挂上 firstRun / 删掉一个场景 ⇒ 各必红 → 还原 PASS', () => {
+  const firstRunBound = [
+    { ...ONBOARD_SCENARIOS[0] },
+    { ...ONBOARD_SCENARIOS[1], when: 'firstRun', via: 'onboarding' },
+  ];
+  assert.ok(scenarioProblems(firstRunBound, onboardScenario).length > 0, '已装未配挂 firstRun ⇒ 必红');
+  const dropped = [ONBOARD_SCENARIOS[0]];
+  assert.ok(scenarioProblems(dropped, onboardScenario).length > 0, '删掉一个场景 ⇒ 必红');
+  const firstRunOnly = (f: { firstRun: boolean; configured: boolean }): string =>
+    f.configured ? 'none' : f.firstRun ? 'first-install' : 'none';
+  assert.ok(scenarioProblems([...ONBOARD_SCENARIOS], firstRunOnly).length > 0, '只认 firstRun（已装未配丢失）⇒ 必红');
+  assert.deepEqual(scenarioProblems([...ONBOARD_SCENARIOS], onboardScenario), []);
+});
+
+test('OD-15 取消非死端 + 同因不重复（同因压掉 / 新因不压 / 悬置保留 + 可达 next）', () => {
+  assert.deepEqual(cancelProblems(SIDEPANEL_SRC, suppressOnboardCause), [], JUDGEMENTS[14].expectFailPattern);
+  assert.equal(onboardCauseKey('  原地翻译为中文 '), '原地翻译为中文', '因键 = 用户原话（trim）');
+  assert.equal(onboardCauseKey(''), '');
+  // 取消非死端的两半：① 悬置任务**保留**（取消不清空登记）；② 取消后仍有可达 next。
+  resetSuspensions();
+  assert.equal(registerConfigSuspension('原地翻译为中文', { origin: 'https://a.example', sessionId: 's1' }), 'registered');
+  assert.equal(pendingSuspension()?.instruction, '原地翻译为中文', '取消前后悬置任务保留（用户那句话不丢）');
+  const nextAfterCancel = candidateRules({
+    ref: { validCount: 0, staleCount: 0 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 0, subcommandCount: 0 },
+    probe: { phase: 'ready', steady: true },
+    // 取消后：同因的那条引导被压掉（`llmBlocked` 不入 risk），但可达 next 仍必须存在。
+    risks: [],
+    onboarding: { firstRun: false, pendingSteps: [] },
+    now: 1_000_000,
+  } as never);
+  assert.ok(nextAfterCancel.length >= 1, '取消后必须仍有可达 next（非死端）');
+  assert.ok(
+    listSuspensions().some((s) => s.source === CONFIG_SUSPENSION_SOURCE),
+    '取消不丢弃悬置登记（保留）',
+  );
+  resetSuspensions();
+});
+
+test('OD-15 反证：删掉同因去重（或取消路径的 force 求值）⇒ 必 FAIL → 还原 PASS', () => {
+  const noDedup = SIDEPANEL_SRC.replace(
+    'if (id === LLM_BLOCKED_RISK && suppressOnboardCause(onboardGuideCause, declinedOnboardCauses)) continue;',
+    'void 0;',
+  );
+  assert.notEqual(noDedup, SIDEPANEL_SRC, '前置：去重注入锚点必须存在');
+  assert.ok(
+    cancelProblems(noDedup, suppressOnboardCause).some((p) => p.includes('同因')),
+    '删同因去重 ⇒ 必红（复现「取消后立刻重复弹」）',
+  );
+  const noForce = SIDEPANEL_SRC.replace(
+    'nextAfterSettle({ kind: `op-${state}`, force: true, opId: op.opId });',
+    'nextAfterSettle({ kind: `op-${state}`, opId: op.opId });',
+  );
+  assert.notEqual(noForce, SIDEPANEL_SRC, '前置：force 注入锚点必须存在');
+  assert.ok(cancelProblems(noForce, suppressOnboardCause).length > 0, '取消路径缺 force 求值 ⇒ 必红（可达 next 会被防抖吞掉）');
+  // 恒真的「一律压掉」也必须被判红（新因被误压）。
+  const alwaysSuppress = (): boolean => true;
+  assert.ok(cancelProblems(SIDEPANEL_SRC, alwaysSuppress).length > 0, '一律压掉（新因也压）⇒ 必红');
+  assert.deepEqual(cancelProblems(SIDEPANEL_SRC, suppressOnboardCause), []);
+});
+
+/** X-SELF-3 落账判据（纯函数：同一实现供真源与反证共用）。 */
+export function xSelf3Problems(
+  entries: readonly { readonly id: string; readonly file: string; readonly modificationType: string; readonly oldTitle: string | null; readonly oldId: string | null; readonly newTitle: string; readonly reason: string }[],
+): string[] {
+  const problems: string[] = [];
+  const find = (id: string) => entries.find((e) => e.id === id);
+  const entry = find('X-SELF-3');
+  const sw = find('X-SELF-3-SW');
+  if (!entry) problems.push(`${JUDGEMENTS[15].expectFailPattern}：缺 X-SELF-3 条目（面板半）`);
+  if (!sw) problems.push(`${JUDGEMENTS[15].expectFailPattern}：缺 X-SELF-3-SW 条目（SW 半）`);
+  for (const [id, e] of [['X-SELF-3', entry], ['X-SELF-3-SW', sw]] as const) {
+    if (!e) continue;
+    // 「加源不取代」：双源并存 ⇒ 纯新增（0 删除行）⇒ oldTitle 必须为 null（副作用面零改写）。
+    if (e.modificationType !== 'pure-addition' || e.oldTitle !== null) {
+      problems.push(`${id}: 双源并存必须是**纯新增**（pure-addition ∧ oldTitle=null），实测 ${e.modificationType}/${String(e.oldTitle)}`);
+    }
+    if (e.oldId !== null) problems.push(`${id}: 旧 id 必须为 null（不得伪称某文本被取代）`);
+    if (e.reason.trim().length < 40) problems.push(`${id}: 理由必须 ≥40 字符`);
+    // 可定位性（防橡皮图章）：newTitle 必须逐字存在于目标文件。
+    const rel = e.file.replace(/^packages\/web-cli-plugin\//, '');
+    const text = readFileSync(join(PKG, rel), 'utf8');
+    if (!text.includes(e.newTitle)) problems.push(`${id}: newTitle 在 ${e.file} 中定位不到`);
+  }
+  return problems;
+}
+
+test('OD-16 X-SELF-3 取代台账落账（双源并存 = 被动保留 + 主动新增；缺条目 ⇒ 必红）', () => {
+  const v4 = JSON.parse(readFileSync(join(PKG, 'docs/v4-supersession-ledger.json'), 'utf8')) as {
+    entries: Array<{ id: string; file: string; modificationType: string; oldTitle: string | null; oldId: string | null; newTitle: string; reason: string }>;
+  };
+  assert.deepEqual(xSelf3Problems(v4.entries), [], xSelf3Problems(v4.entries).join('\n'));
+  // 恢复链零改写（逐条不变）—— 台账条目不得与「按终态键控」形态冲突。
+  assert.deepEqual(OPS_RECOVERY_ROWS.map((r) => r.blocked), ['llm.unconfigured', 'perm.missing']);
+  assert.deepEqual(Object.keys(BLOCKED_RECOVERY_TRIGGER), [...BLOCKED_TERMINALS]);
+  // 反证：台账缺 X-SELF-3（或伪称它取代了某文本）⇒ 同一判据必红（**复现「X-SELF-3 台账缺 ⇒ supersession 必红」**）。
+  assert.ok(
+    xSelf3Problems(v4.entries.filter((e) => e.id !== 'X-SELF-3')).some((p) => p.includes('缺 X-SELF-3')),
+    '缺 X-SELF-3 条目必须判红',
+  );
+  assert.ok(
+    xSelf3Problems(v4.entries.map((e) => (e.id === 'X-SELF-3' ? { ...e, modificationType: 'superseding', oldTitle: 'noteLlmBlockedFact(false);' } : e)))
+      .some((p) => p.includes('纯新增')),
+    '把「加源不取代」伪称成取代必须判红',
+  );
+});
+
 test('OD 元判据：每条 judgement 的 expectFailPattern 非占位', () => {
-  assert.ok(JUDGEMENTS.length >= 13, '判据表必须覆盖 13 条以上判据');
+  assert.ok(JUDGEMENTS.length >= 16, '判据表必须覆盖 16 条以上判据（W5 只增）');
   for (const j of JUDGEMENTS) {
     assert.ok(j.expectFailPattern.trim().length >= 8, `${j.id}: expectFailPattern 不得为空/占位`);
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);

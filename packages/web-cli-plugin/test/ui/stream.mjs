@@ -464,7 +464,7 @@ async function main() {
     );
     check(
       '⑯ guide 步为 op-direct chip（恰 4 步单源 ∧ chip = op.llm-config）',
-      /ONBOARD_STEPS = Object\.freeze\(/.test(flowSrcV552) && /chip: ONBOARD_CHIP_OP/.test(flowSrcV552) && (flowSrcV552.match(/id: '/g) ?? []).length === 4,
+      /ONBOARD_STEPS = Object\.freeze\(/.test(flowSrcV552) && /chip: ONBOARD_CHIP_OP/.test(flowSrcV552) && (flowSrcV552.match(/carrier: '/g) ?? []).length === 4,
       'four-steps',
     );
     check(

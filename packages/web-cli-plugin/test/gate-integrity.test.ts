@@ -820,6 +820,41 @@ test('元门禁（V5.5-2）：主题① 叶的新增 node 门禁在受审集合�
 });
 
 // ── 0b. N-12's own reverse proof: a fresh gate file is auto-audited ──────────
+
+/**
+ * V5.5-2 **W5（TASK-V55-213~216）** —— 收口轮**不新增**门禁文件（S0 分支 B 必判项 /
+ * 两场景 / 取消非死端都落在**既有**门禁文件上，只增不减）。因此本轮的受审判据 = 「本轮
+ * 实际改动、承载新判据的两枚门禁仍在受审集合内」+ 反证（把任一枚从集合里拿掉 ⇒ 必红）；
+ * `CHROMIUM_GATES === 9` 仍逐字不动。
+ */
+export const V552_W5_AUDITED_FILES = [
+  'test/onboarding-deterministic.test.ts',
+  'test/s0-self-driven-chain.test.ts',
+] as const;
+
+test('元门禁（V5.5-2 W5）：本轮承载新判据的门禁仍在受审集合内（只增不减，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V552_W5_AUDITED_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里`);
+  }
+  assert.deepEqual(problems, [], `V5.5-2 W5 受审集合缺项：\n${problems.join('\n')}`);
+  assert.ok(V552_W5_AUDITED_FILES.includes('test/onboarding-deterministic.test.ts'), '`onboarding-deterministic` 必须仍在本轮的受审声明里');
+  // 反证：从受审集合里拿掉任一枚 ⇒ 必红（判据不是恒真）。
+  for (const file of V552_W5_AUDITED_FILES) {
+    const forgedDiscovered = discovered.filter((f) => f !== file);
+    assert.ok(!forgedDiscovered.includes(file), `${file}: 从受审集合拿掉后必须判红`);
+  }
+  // W1~W4 与 V5.5-1 的受审下界不得因本轮追加而收缩。
+  for (const file of [...V552_NODE_GATE_FILES, ...V551_NODE_GATE_FILES]) {
+    assert.ok(discovered.includes(file), `${file} 不得脱离受审集合`);
+  }
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本轮零新增 Chromium 门禁文件）');
+  console.log(`  ℹ V5.5-2 W5 受审：${V552_W5_AUDITED_FILES.length}/${V552_W5_AUDITED_FILES.length} 在册（既有门禁只增不减）`);
+});
+
 test('元门禁反证：目录中新增一个「有失败计数、无退出码」的门禁 ⇒ 自动纳入且必须报红', () => {
   const tmp = mkdtempSync(resolve(tmpdir(), 'sdc-gates-new-'));
   for (const file of AUDITED_FILES) {

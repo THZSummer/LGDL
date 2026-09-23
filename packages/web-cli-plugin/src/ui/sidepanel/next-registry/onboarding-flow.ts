@@ -69,3 +69,54 @@ export const ONBOARD_STEP_IDS: readonly OnboardStepId[] = Object.freeze(ONBOARD_
 export function onboardStepIndex(id: string): number {
   return ONBOARD_STEP_IDS.indexOf(id as OnboardStepId);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 **TASK-V55-213** (FR-SELF-043 · AC-SELF-013 · R-SELF-909) —— **两场景单源**。
+ *
+ * 「首装」与「已装未配」都必须走到**同一条**确定性引导，但它们的判据不同：
+ *
+ *   · `first-install`          —— `firstRun` 为真：既有 `R-ONBOARDING` 单行引导
+ *     **保留不取代**（`onboarding` provider 照旧 `when(ctx)`）；
+ *   · `installed-unconfigured` —— 已装但未配（`firstRun` **假** ∧ 未配置）：引导由
+ *     **同一系统流**给出，且**不得依赖 `firstRun`**（`llm.unconfigured` provider 的
+ *     `when` 只读既有 `risk: llmBlocked`，与 `onboarding` 源无关）。
+ *
+ * 两场景**互斥完备**且分流依据 = 确定性配置判据（`isLlmConfigured`，主题①↔主题② 的
+ * 唯一分流依据）：已配置 ⇒ `'none'`（**零引导**，未配置才触发）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+export const ONBOARD_SCENARIOS = Object.freeze([
+  { id: 'first-install', when: 'firstRun', via: 'onboarding', resultsIn: 'config-guide' },
+  { id: 'installed-unconfigured', when: 'llmUnconfigured', via: 'risk', resultsIn: 'config-guide' },
+] as const);
+
+export type OnboardScenarioId = (typeof ONBOARD_SCENARIOS)[number]['id'];
+
+/**
+ * 当前处于哪个场景（纯函数；`configured` = 既有 `isLlmConfigured` 读数）。
+ * 已配置 ⇒ `'none'`（不触发引导）；未配置 ⇒ 按 `firstRun` 落两场景之一。
+ */
+export function onboardScenario(f: { readonly firstRun: boolean; readonly configured: boolean }): OnboardScenarioId | 'none' {
+  if (f.configured) return 'none';
+  return f.firstRun ? 'first-install' : 'installed-unconfigured';
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 **TASK-V55-215** (FR-SELF-046 · AC-SELF-007) —— 「取消非死端 + 同因不重复」。
+ *
+ * 取消**不是死端**：取消走既有失败/取消收口（固化一行 + 立刻求值一次驱动者 ⇒ 可达
+ * next），悬置任务**保留**（用户那句话不丢）。
+ *
+ * 去重键 = 被取消的那条引导的**因**（用户原话 = 悬置任务三要素之「等什么」）。语义
+ * 是**同因不重复**，不是「一律不再引导」：同一句原话不再弹第二条引导，而**新的一句话**
+ * 仍是新的因 ⇒ 照旧可被引导（继承 `maybeRecommendFirstRunEntry` 的三纪律：
+ * 事件化 / 至多一次 / 事实到位）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+/** 因键（单源；空白 → `''`，空因不占位）。 */
+export function onboardCauseKey(intent: string): string {
+  return intent.trim();
+}
+
+/** 同因不重复判据（纯）：该因已被取消 ⇒ 不再弹同一条引导。 */
+export function suppressOnboardCause(cause: string | undefined, declined: readonly string[]): boolean {
+  return cause !== undefined && cause.length > 0 && declined.includes(cause);
+}

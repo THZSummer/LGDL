@@ -50,6 +50,8 @@ import {
   ONBOARD_DETECT_TEXT,
   ONBOARD_INVALIDATED_TEXT,
   ONBOARD_RESUME_TEXT,
+  onboardCauseKey,
+  suppressOnboardCause,
 } from './next-registry/onboarding-flow.js';
 import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
 export type { RecommendTrigger } from './next-registry/drivers.js';
@@ -973,6 +975,9 @@ function installV3TestHooks(): void {
         lastRecommendOutcome = null;
         // V5.5-1: 悬置任务登记同样是 per-fixture 状态。
         resetSuspensions();
+        // V5.5-2 TASK-V55-215: 「取消引导」的同因去重键同样是 per-fixture 状态。
+        onboardGuideCause = undefined;
+        declinedOnboardCauses.length = 0;
         // I-09: `firstRunEntryHandled` is deliberately **NOT** cleared here —— it is a
         // panel-LIFETIME fact (「首装」happens once per panel), not fixture state. A
         // fixture that reloads the page (which is what the panel fixtures do) gets a
@@ -1316,6 +1321,18 @@ let llmSnapshot: Awaited<ReturnType<typeof keyStore.load>> | null = null;
  * and the two P0 providers (`op.llm-config` / `op.perm.request`) really repair it.
  */
 const observedBlocked = new Set<string>();
+
+/**
+ * V5.5-2 **TASK-V55-215** (FR-SELF-046 · AC-SELF-007) —— 「取消引导 ⇒ **同因不重复**」
+ * （同会话内的**事件**，不是重试循环；继承 `maybeRecommendFirstRunEntry` 的三纪律）。
+ *
+ * `onboardGuideCause` = 当前这条引导的**因**（用户原话 = 悬置任务里那句话）；取消 / 拒绝 /
+ * 失败收口时把该因记入 `declinedOnboardCauses`（至多一次）。`maybeRecommend` 据此**只**压掉
+ * **同因**的那条引导 —— 新的一句话是新的因，照旧可被引导。取消**不是死端**：取消收口照走
+ * `nextAfterSettle(force)`（固化一行 + 立刻求值 ⇒ 既有驱动者给出可达 next），悬置任务保留。
+ */
+let onboardGuideCause: string | undefined;
+const declinedOnboardCauses: string[] = [];
 
 /** `llm.unconfigured` — derived from the live LLM status (the key-store is empty). */
 function noteLlmBlockedFact(ok: boolean): void {
@@ -1844,7 +1861,12 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
   // V5-2 review R1 BLOCK-03 (FR-ALLN-013 · ADR-V5-009 §3): the two **observed** blocked
   // terminals fold into the existing `risk` source — the ctx keeps its 7 truth sources,
   // and the P0 providers (`op.llm-config` / `op.perm.request`) really offer the repair.
-  for (const id of observedBlocked) risks.push(id);
+  // V5.5-2 **TASK-V55-215** (FR-SELF-046): 「取消 ⇒ 同因不重复」—— 仅压掉**同因**
+  // 的那条引导（新因照旧可引导），且取消路径的可达 next 由既有驱动者给出（非死端）。
+  for (const id of observedBlocked) {
+    if (id === LLM_BLOCKED_RISK && suppressOnboardCause(onboardGuideCause, declinedOnboardCauses)) continue;
+    risks.push(id);
+  }
   const input: Parameters<typeof recommendNextStep>[0] = {
     ref: { validCount: counts.validCount, staleCount: counts.staleCount, ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : {}) },
     session: { openAsks: state.stream.openAsks.length, busy: state.pending },
@@ -2669,11 +2691,14 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
   // into the answer payload (法八: 值不入流).
   const settleOp = rid ? opAskResolvers.get(rid) : undefined;
   if (settleOp && rid) {
-    opAskResolvers.delete(rid);
+    // V5.5-2 **TASK-V55-214**（FR-SELF-131）：掩码 ask 的 resolver 由 `submitSecret`
+    // **自己**消费（它需要 `opAskResolvers` 里的那一个才交付值）——先删会让参数 promise
+    // 永挂 ⇒ `op.llm-config` 永远到不了 consent / complete（引导无法完成）。
     if (!isCanceled && SECRET_ASKS.delete(rid)) {
       void submitSecret(rid, value ?? '');
       return;
     }
+    opAskResolvers.delete(rid);
     SECRET_ASKS.delete(rid);
     settleOp(isCanceled ? undefined : trimmed);
     /* V5.5-1 TASK-V55-114（FR-SELF-021/022 · ADR-V55-004）：面板 op 的 params ask 已答 ⇒
@@ -3417,6 +3442,9 @@ function wire(): void {
     },
     /* V5.5-1 TASK-V55-113: 取消 / 拒绝 / 失败与「已答」走同一求值入口；恢复行必须立刻可达（force）。 */
     nextAfterSettle: (op, state) => {
+      // V5.5-2 TASK-V55-215: 取消/拒绝/失败 = 「这条引导的因被拒」—— 记入去重键（同因不重复），
+      // 悬置任务**保留**（取消不是死端：下方 force 求值仍给出可达 next）。
+      if (op.opId === ONBOARD_CHIP_OP && onboardGuideCause) declinedOnboardCauses.push(onboardGuideCause);
       nextAfterSettle({ kind: `op-${state}`, force: true, opId: op.opId });
     },
     /* V5.5-2 TASK-V55-211（ADR-V55-007 §3）：回执写出**之后**的收口回调 —— 配置成功 ⇒ 续接。 */
@@ -3542,6 +3570,8 @@ function wire(): void {
         // ④ `nextAfterSettle({kind:'answered'})`：立刻求值一次 ⇒ 既有 `llm.unconfigured`
         //    provider 产出 `op.llm-config` **op-direct chip**（`guide` 步，零视图切换）。
         const intent = [...state.entries].reverse().find((entry) => entry.role === 'user')?.text ?? '';
+        // V5.5-2 TASK-V55-215: 这条引导的**因** = 用户原话（同因不重复的去重键）。
+        onboardGuideCause = onboardCauseKey(intent);
         dispatch({ type: 'pending', value: false });
         dispatch({ type: 'notice', text: ONBOARD_DETECT_TEXT });
         registerConfigSuspension(intent, {

@@ -8,6 +8,7 @@
 > **更新人**: SDDU Tasks Agent
 > **更新时间**: 2026-09-22
 > **更新说明**: 初始创建（V5.5-2 叶 16 任务 / 5 波：配置探测判据 3 字段 + `runChat` 前置判据 + 双源并存 + 4 步引导流单源 + 悬置任务单源 + 配置完成自动续接 + 两场景 + S0 分支 B 必判项）
+> **R2 收口（2026-09-23，sddu-build）**: **W5 = TASK-V55-213~216 全部完成 ⇒ 本叶 16/16 completed**（`phase: builded` / `status: tracked`）。W5 逐条落点见 `build.md` 文末「R2 收口段」：213 两场景（`ONBOARD_SCENARIOS` + OD-14）· 214 S0 分支 B 必判项（`S0_B_STEPS` / `s0BranchBProblems` + node `S0N-7` + Chromium `S0C-7` 真面板驱动）· 215 取消非死端 + 同因不重复（`suppressOnboardCause` / `declinedOnboardCauses` + OD-15）· 216 体积五要素最终登记（**563,145 B**，未越档 563,200）+ X-SELF-3 落账 + 全门禁串行复跑 + 红线巡检。
 
 ---
 
@@ -339,7 +340,7 @@ cd packages/web-cli-plugin && npm test
 cd packages/web-cli-plugin && npm test
 ```
 
-### TASK-V55-213: 首装 / 已装未配两场景
+### TASK-V55-213: ✅ completed（R2） 首装 / 已装未配两场景
 | 属性 | 值 |
 |------|-----|
 | **复杂度** | M |
@@ -364,7 +365,7 @@ cd packages/web-cli-plugin && npm test
 cd packages/web-cli-plugin && npm test
 ```
 
-### TASK-V55-214: **S0 分支 B 必判项**（自动续接）
+### TASK-V55-214: ✅ completed（R2） **S0 分支 B 必判项**（自动续接）
 | 属性 | 值 |
 |------|-----|
 | **复杂度** | L |
@@ -389,7 +390,7 @@ cd packages/web-cli-plugin && npm test
 cd packages/web-cli-plugin && npm test && node test/ui/s0-self-driven.mjs
 ```
 
-### TASK-V55-215: 取消非死端 + 同因不重复
+### TASK-V55-215: ✅ completed（R2） 取消非死端 + 同因不重复
 | 属性 | 值 |
 |------|-----|
 | **复杂度** | M |
@@ -414,7 +415,7 @@ cd packages/web-cli-plugin && npm test && node test/ui/s0-self-driven.mjs
 cd packages/web-cli-plugin && npm test
 ```
 
-### TASK-V55-216: 体积五要素 + X-SELF-3 台账 + 本叶收尾
+### TASK-V55-216: ✅ completed（R2） 体积五要素 + X-SELF-3 台账 + 本叶收尾
 | 属性 | 值 |
 |------|-----|
 | **复杂度** | L |

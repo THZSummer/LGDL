@@ -203,3 +203,67 @@ export function s0NextChipsOf(readings) {
 export function s0DriverAttribution(deps) {
   return (deps.driversForTiming('answered') || []).slice();
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 **TASK-V55-214**（ADR-V55-005 §3 · FR-SELF-131 · AC-SELF-001 · R-V55-111）——
+ * **分支 B 必判项**：未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒ 完成 ⇒ **自动续接** ⇒ 留痕。
+ *
+ * 样本与判据都在本文件（node 面 + Chromium 面**共用同一份**，禁第二份样本）；
+ * 「删自动续接 ⇒ 必 FAIL」是判据本体（`s0BranchBProblems`），不是一句注释。
+ *
+ * 引导 4 步的 id 与产物 `onboarding-flow.ts#ONBOARD_STEP_IDS` 单源对齐（由 node 面机核）；
+ * 三段 params 的 kind 与 `ops.ts#OP_PARAM_SEQUENCE['op.llm-config']` 单源对齐。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 分支 B 的引导 4 步（逐序；`masked` 标出「掩码卡」所在步）。 */
+export const S0_B_STEPS = Object.freeze([
+  { id: 'detect', carrier: 'system-row', evidence: 'llm.unconfigured' },
+  { id: 'guide', carrier: 'nextstep-card', evidence: 'op.llm-config' },
+  { id: 'collect', carrier: 'ask-cards', evidence: 'op.llm-config:params', masked: true },
+  { id: 'complete', carrier: 'system-row + resume', evidence: 'op.llm-config:receipt(ok=true)' },
+]);
+
+/** ④ `collect` 的既有三段 params（`choice → text → secret`；第二段序列 ⇒ FAIL）。 */
+export const S0_B_PARAM_KINDS = Object.freeze(['choice', 'text', 'secret']);
+
+/** ⑤ 自动续接的留痕标记（Chromium 面用它认「续接后回合」那一行事实）。 */
+export const S0_B_RESUME_MARK = 'onboard:resume-after-config';
+
+/**
+ * **分支 B 的必判项判据**（纯函数，双面共用）。
+ *
+ * `reading` = `{ steps, paramKinds, masked, completed, autoResumed, resumedInput, trace }`。
+ * **删自动续接（`autoResumed !== true`）⇒ 必 FAIL** —— 复现「配完还要重说一遍」。
+ */
+export function s0BranchBProblems(reading = {}) {
+  const problems = [];
+  const steps = (reading.steps ?? []).map((s) => (typeof s === 'string' ? s : s.id));
+  const expected = S0_B_STEPS.map((s) => s.id);
+  if (steps.join('|') !== expected.join('|')) {
+    problems.push(`分支 B 引导必须逐序为 ${expected.join('|')}（实测 ${steps.join('|') || '<空>'}）`);
+  }
+  const kinds = reading.paramKinds ?? [];
+  if (kinds.join('|') !== S0_B_PARAM_KINDS.join('|')) {
+    problems.push(`掩码卡必须走既有三段 params（${S0_B_PARAM_KINDS.join('|')}），实测 ${kinds.join('|') || '<空>'}`);
+  }
+  if (reading.masked !== true) problems.push('掩码卡判据缺失（`secret` 步的输入必须是掩码卡，零明文）');
+  if (reading.completed !== true) problems.push('配置必须真的完成（成功回执）——否则续接无从谈起');
+  if (reading.autoResumed !== true) {
+    problems.push('**删自动续接 ⇒ FAIL**：配置完成必须自动续接悬置任务（复现「配完还要重说一遍」）');
+  }
+  if (reading.resumedInput !== S0_ANSWER) {
+    problems.push(`续接输入必须逐字为用户原话「${S0_ANSWER}」（实测 ${String(reading.resumedInput)}）`);
+  }
+  if (reading.trace !== true) problems.push('续接后必须留痕（流内出现续接事实行 ∧ 回合输入）');
+  return problems;
+}
+
+/**
+ * ⑦ 的 A/B 两分支**独立读数**（禁互相掩盖，R-V55-111）：两面用**同一处**计数口径。
+ */
+export function s0BranchBeats(beats = s0Beats()) {
+  return {
+    a: beats.filter((b) => b.branch === 'A-configured'),
+    b: beats.filter((b) => b.branch === 'B-unconfigured'),
+  };
+}

@@ -4,10 +4,10 @@
 > **前置依赖**: 本叶 `tasks.md`（16 任务 / 5 波）、`tasks.json`（波次 + blockers）、本叶 `plan.md` v1.0、父 `plan.md` + `ADR-V55-006`（配置判据 / `runChat` 前置判据落 SW）· `ADR-V55-007`（引导 4 步单源 / 悬置单源 / 自动续接）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-23
-> **版本**: v1.0（R1 = W1~W4）
+> **版本**: v1.0（R1 = W1~W4；**R2 = W5 收口段见文末**）
 > **更新人**: SDDU Build Agent
 > **更新时间**: 2026-09-23
-> **更新说明**: 初始创建 —— R1 落地：配置探测判据（3 字段）+ `runChat` 前置判据（SW bundle，零 sidepanel 字节）+ `chat-result` variant **type-only** + 双源并存 + 引导流 4 步单源 + 悬置任务单源（`MAX=1` + 有效期重校验）+ 配置完成自动续接（回执在前 / 续接在后）+ 新 node 门禁 `onboarding-deterministic` + 受审集合追加 + 体积五要素**中间登记**（档位 `563,200` 未变，**余量仅 927 B**）
+> **更新说明**: R1 落地：配置探测判据（3 字段）+ `runChat` 前置判据（SW bundle，零 sidepanel 字节）+ `chat-result` variant **type-only** + 双源并存 + 引导流 4 步单源 + 悬置任务单源（`MAX=1` + 有效期重校验）+ 配置完成自动续接（回执在前 / 续接在后）+ 新 node 门禁 `onboarding-deterministic` + 受审集合追加 + 体积五要素**中间登记**（档位 `563,200` 未变，**余量仅 927 B**）
 
 ---
 
@@ -164,3 +164,141 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1 = W1~W4 = TASK-V55-201~212：配置判据 3 字段 / `runChat` 前置判据 / variant type-only / 双源并存 / 引导 4 步单源 / 悬置单源 `MAX=1` + 有效期重校验 / 自动续接（回执在前、续接在后）；新门禁 `onboarding-deterministic` 18 用例；`npm test` 1268/0；`law8` 36/0、`stream` 76/0；体积中间登记 557,883 → **562,273**（+4,390，未越档位，余 927 B）；冻结面逐字节不变；遗留 6 项移交 R2/父收口） | 2026-09-23 | SDDU Build Agent |
+---
+
+# R2 收口段（W5 = TASK-V55-213~216；2026-09-23）
+
+> **本轮范围**：`TASK-V55-213`（首装 / 已装未配两场景门禁）→ `214`（**S0 分支 B 必判项**：自动续接）→ `215`（取消非死端 + 同因不重复）→ `216`（体积五要素收口 + X-SELF-3 台账落账 + 红线巡检）。
+> **R2 结束时本叶 16/16 任务全部完成**（`phase: builded`，`status: tracked`）。
+
+## 1b. 构建概要（R2）
+
+| 维度 | 数值 |
+|------|:--:|
+| 完成任务数 | **4 / 4**（本轮）⇒ **本叶 16 / 16 全部完成** |
+| 复杂度分布 | M×2（213 / 215） / L×2（214 / 216） |
+| 新增文件 | **0 个**（本轮全部落在既有源码 / 既有门禁上，**只增不改语义**） |
+| 修改文件 | **13 个**（源码 2：`next-registry/onboarding-flow.ts` / `ui/sidepanel/sidepanel.ts`；门禁 7：`test/onboarding-deterministic.test.ts` / `test/s0-self-driven-chain.test.ts` / `test/ui/s0-self-driven.mjs` / `test/ui/fixtures/s0-chain.mjs` / `test/ui/stream.mjs` / `test/gate-integrity.test.ts` / `test/size-budget.test.ts` / `test/size-growth-evidence.test.ts` / `test/size-ruling-vol3.test.ts`；体积面 2：`test/size-baseline.ts` / `docs/v4-density-baseline.json`；台账 1：`docs/v4-supersession-ledger.json`；链 1：`package.json`） |
+| 体积 | `dist/sidepanel.js` **563,145 B**（R2 增量 **+872 B**；Σ 模块 +872 + glue **0**） |
+| 红线冻结面 | `dist/content.js` 177,076 B / sha `52a82620…`、`dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；`KIND_SET` 40 逐字；`manifest.json` / `ROADMAP.md` / `design/**` / `docs/v3-*` 零 diff |
+| 保护段 | journey **171 PASS**；binding **192 PASS**（本机本次全绿，N-07 环境性 flake 未复现） |
+| 测试计数 | `npm test` **1268 → 1277 / 0**（+9）；`law8` 36 / 0；`stream` 76 / 0；`dead-end` **49 / 0**；`s0-self-driven` **24 → 42 / 0**；`ask-auth` 78 / 0；`recommendation` 72 / 0 |
+
+## 2b. 文件变更（R2）
+
+| 操作 | 文件路径 | 对应任务 | 说明 |
+|:--:|------|:--:|------|
+| MODIFY | `src/ui/sidepanel/next-registry/onboarding-flow.ts` | 213 / 215 | `ONBOARD_SCENARIOS`（**恰 2 行**：`first-install` / `installed-unconfigured`）+ `onboardScenario()`（已配置 ⇒ `'none'`；未配置 ⇒ 按 `firstRun` 分流）+ `onboardCauseKey()` / `suppressOnboardCause()`（同因去重纯判据）。**「已装未配」行 `via: 'risk'`**：其判据不读 `onboarding` 源 ⇒ 不依赖 `firstRun` |
+| MODIFY | `src/ui/sidepanel/sidepanel.ts` | 215 / 214 | ① 新增 `onboardGuideCause` + `declinedOnboardCauses`（同因去重键，per-fixture 复位）∧ `maybeRecommend` 只压**同因**的 `llmBlocked` ⇒「取消后不重复弹同一条」；② **掩码参数 ask 的 resolver 归属修正**（`submitAskFor` 的 op 分支不再先 `delete` resolver ⇒ `submitSecret` 才能取到它并交付值）⇒ `op.llm-config` 首次能走到 consent / complete |
+| MODIFY | `test/ui/fixtures/s0-chain.mjs` | 214 | **只增**：`S0_B_STEPS`（引导 4 步）/ `S0_B_PARAM_KINDS`（三段 params）/ `S0_B_RESUME_MARK` / `s0BranchBProblems()`（**必判项判据本体：删自动续接 ⇒ FAIL**）/ `s0BranchBeats()`（A/B 独立计数）。既有 10 拍样本逐字未动 |
+| MODIFY | `test/s0-self-driven-chain.test.ts` | 214 | **只增** S0N-7（分支 B 必判项：步与产物单源对齐 / 掩码卡 / 完成 / 自动续接 / 留痕 + 4 类反证）+ S0N-8（A/B 独立计数：改动 B 夹具不得移动 A 读数） |
+| MODIFY | `test/ui/s0-self-driven.mjs` | 214 / 215 | **只增** ⑰ 段（`S0C-7`）：真产品路径驱动 `chat-result{llm-unconfigured}` ⇒ detect 系统行 + 悬置登记 ⇒ guide op-direct chip ⇒ 三段 params（`secret` = password 掩码卡）⇒ 确认为 `op.llm-config` ⇒ 回执 ⇒ **自动续接** ⇒ 留痕（新增 user 条目 = 原话）+ 分支 B 逐环节覆盖机核 + 两份反证 |
+| MODIFY | `test/onboarding-deterministic.test.ts` | 213 / 215 | **只增** OD-14（两场景 + 真值表 + 注入 `firstRun=false` 仍须产出 + 已配置 ⇒ 零引导）+ OD-15（同因去重真值表 + 取消非死端 + 源码接线 + 反证） |
+| MODIFY | `test/ui/stream.mjs` | 209 兼容 | ⑯ 步数判据**等价重锚**：`/id: '/g` 计数 → `/carrier: '/g` 计数（新场景表也有 `id:` ⇒ 原模式过宽；语义仍是「引导流恰 4 步」） |
+| MODIFY | `test/gate-integrity.test.ts` | 216③ | **只增** `V552_W5_AUDITED_FILES` + 元门禁（本轮两枚承载新判据的门禁仍在受审集合内 + 反证 + `CHROMIUM_GATES === 9` 逐字） |
+| MODIFY | `package.json` | 216③ | 新增 `test:onboarding`（node 主题① 门禁）并追加进 `test:v3` **串行链**（无新依赖） |
+| MODIFY | `test/size-baseline.ts` + `test/size-budget` / `size-growth-evidence` / `size-ruling-vol3` + `docs/v4-density-baseline.json` + `docs/v4-supersession-ledger.json` | 216① | 体积五要素**最终登记**：`SIDEPANEL_BASELINE_BYTES` 562,273 → **563,145**；生效上限 590,386 → **591,302**；`v552R2Rows`（Σ +872 + glue 0）+ `closeoutDeltaBytes` 872 + `deltaBytes` 267,920 + 桶和；台账：51 条 v4 条目**就地换锚** + `V552-R2-SVOL-1` / 两条 `V552-R2-CHAIN-*` / **X-SELF-3 + X-SELF-3-SW** 落账 + v4 叶段逐行登记 + summary 同源复算 |
+
+> **未触碰（显式 NOOP）**：`src/content/**` / `dist/content.js` / `dist/pick-layer.js` / `manifest.json` / `KIND_SET`（40 逐字）/ `docs/v3-supersession-ledger.json`（v3 段登记集）/ `docs/v3-density-baseline.json` / `ROADMAP.md` / `design/**` / journey·binding 保护段内容 / `OPS_RECOVERY_ROWS` / `BLOCKED_RECOVERY_TRIGGER`。
+
+## 3b. 任务完成清单（补全 16/16）
+
+| 任务 | 名称 | 复杂度 | 状态 | 对应 FR |
+|------|------|:--:|:--:|------|
+| TASK-V55-213 | 首装 / 已装未配两场景 | M | ✅ completed（R2） | FR-SELF-043 |
+| TASK-V55-214 | **S0 分支 B 必判项**（自动续接） | L | ✅ completed（R2） | FR-SELF-131 |
+| TASK-V55-215 | 取消非死端 + 同因不重复 | M | ✅ completed（R2） | FR-SELF-046 |
+| TASK-V55-216 | 体积五要素（收口）+ X-SELF-3 台账 + 本叶收尾 | L | ✅ completed（R2） | FR-SELF-003 / 102 / 110 |
+
+## 4b. S0 分支 B 双面证据（TASK-V55-214）
+
+| 面 | 判据 | 读数 |
+|---|---|---|
+| **node**（`test/s0-self-driven-chain.test.ts`） | S0N-7：`S0_B_STEPS` ⇔ 产物 `ONBOARD_STEP_IDS` 逐序同源 ∧ `S0_B_PARAM_KINDS` ⇔ `OP_PARAM_SEQUENCE['op.llm-config']` 逐序同源 ∧ `s0BranchBProblems` 读**从产物源码派生**的 reading（`autoResumed` = `opSettled` completed 分支真调 `resumeAfterConfig()`；`trace` = 函数体内 `ONBOARD_RESUME_TEXT` + `dispatchOp('op.turn')`；`resumedInput` = 真源模块「登记 → 续接」原样交付） | ✅ **全绿**；S0N-7 反证（**删自动续接** ⇒ 红 / 续接通知挪到回执前 ⇒ 红 / 无掩码 ⇒ 红 / 第二份 params 序列 ⇒ 红 / 续接输入不逐字 ⇒ 红）逐条 FAIL→还原 PASS |
+| **Chromium**（`test/ui/s0-self-driven.mjs` ⑰） | 真产品路径：真实用户回合 ⇒ SW `chat-result{variant:'llm-unconfigured'}` ⇒ detect 系统行 + 悬置（`source=llm-config`，instruction 逐字）⇒ `[data-op="op.llm-config"]` chip ⇒ 三段 params（`choice → text → secret`，secret 为 `type=password` 掩码卡）⇒ 确认 ⇒ 回执 ⇒ **自动续接留痕**（`ONBOARD_RESUME_TEXT` 行 + 新增 user 条目逐字为原话）⇒ 无残留开口 ask | ✅ **42 passed / 0 failed**（`S0C-7` 全绿 + 两份反证 + 分支 B 4/4 拍有真读数 + A/B 环节集不相交） |
+
+**分支 A/B 独立计数**：`PANEL_BEATS`（10 拍）与 `PANEL_B_BEATS`（4 步）**id 集不相交**、各自独立命中登记；node 面 `s0BranchBeats()` 计数 A=5 / B=1（合计 = 6 = 有分支标记的拍数），并断言「改动 B 夹具 ⇒ A 读数逐拍不变」。
+
+## 5b. 门禁对账（R1 → R2）
+
+| 门禁 | R1 | R2 | 判定 |
+|---|---|:--:|:--:|
+| `npm test`（node 全量） | 1268 / 0 | **1277 / 0**（+9） | ✅ 只增 |
+| — 其中 `onboarding-deterministic` | 18 / 0 | **30 / 0**（OD-14 / OD-15 / OD-16） | ✅ 只增 |
+| — 其中 `s0-self-driven-chain` | 7 / 0 | **10 / 0**（S0N-7 / S0N-8） | ✅ 只增 |
+| `typecheck` | 绿 | 绿 | ✅ |
+| `test:supersession` | 36 / 0 | **36 / 0** | ✅（含保护段双绿） |
+| `test:gate-integrity` | 绿 | **18 / 0**（+1 元门禁） | ✅ 只增 |
+| `test:size-ruling-vol3` | 12 | **12 / 0** | ✅ |
+| `test:design-contract` | 19 | **19 / 0** | ✅ |
+| `test:law8`（Chromium） | 36 / 0 | **36 / 0** | ✅ |
+| `test:stream`（Chromium） | 76 / 0 | **76 / 0**（⑯ 等价重锚） | ✅ |
+| `test:dead-end`（Chromium） | 49 / 0 | **49 / 0** | ✅ |
+| `test:s0-self-driven`（Chromium） | 24 / 0 | **42 / 0** | ✅ 只增 |
+| `test:ask-auth`（Chromium） | 78 / 0 | **78 / 0** | ✅ |
+| `test:recommendation`（Chromium） | 72 / 0 | **72 / 0** | ✅ |
+| `test:auth-chip` / `zero-injection` / `page-input` / `l0` / `l1` / `l2` | — | 37 / 28 / 118 / 248 / 120 / 74 全 0 fail | ✅ |
+| `test:density` / `insight` / `hardening` / `e2e` | — | 242 / 0 · 118 PASS · 24 PASS · PASS | ✅ |
+| `test:ui`（journey 保护段） | 171 | **171 PASS** | ✅ 保段 |
+| `test:binding` | FAIL（N-07 环境性 flake） | **192 PASS** | ✅ 保段（本轮全绿） |
+| 冻结面 | content 177,076 / pick-layer 34,358 | **逐字节不变**（sha 复核） | ✅ |
+| 门禁日志 | `/tmp/opencode/v4-gate-logs/v55-2-r1/` | `/tmp/opencode/v4-gate-logs/v55-2-r2/` | ✅ |
+
+## 6b. 体积五要素（本叶**最终登记**）
+
+| 要素 | 值 |
+|---|---|
+| `B_before` | 557,883 B（v55-1 收口基线） |
+| `B_final` | **563,145 B**（`stat -c %s dist/sidepanel.js`） |
+| 本轮（R2）增量 | **+872 B**（+0.16%）；逐模块：`onboarding-flow.ts` 1,280 → **1,722（+442）** · `sidepanel.ts` 101,042 → **101,472（+430）**（Σ +872 + glue **0**） |
+| 本叶合计增量 | **+5,262 B**（R1 +4,390 + R2 +872）—— 叶预算 4,900 B ⇒ **超出 362 B**；叶**上界 6,300 B 未越**（余 1,038 B） |
+| 档位 / 绝对上限 | `ceilTo50KB(563,145) = 563,200`（**未变**，距档位 **55 B**）；绝对上限 619,520（未变）；生效上限 = `min(619,520, floor(563,145 × 1.05) = 591,302) = 591,302` |
+| **越档处理（本轮判定）** | **未越档位**（563,145 ≤ 563,200）⇒ **不触发** ADR-V55-011 §4 的显式升档；预案档位 614,400 / 绝对上限 675,840 **未被占用**；`authorConfirmation` 保持 `pending-author-line`（不伪称已确认） |
+| 时间线 / 登记册 | `SIDEPANEL_BASELINE_BYTES_TIMELINE` **追加** 563,145（只追加）；`SIDEPANEL_RE_REGISTRATIONS['v55-2-r2']` 五要素齐备（direction=raised，Δ=+872，ceiling 591,302 = 公式值） |
+
+## 7b. 注入反证摘要（R2，全部真源零触碰）
+
+| # | 反证 | 判据 | 结果 |
+|:--:|---|---|:--:|
+| 1 | **删自动续接**（`opSettled` completed 分支不调 `resumeAfterConfig`） | node `s0BranchBProblems` 必红（`autoResumed`）∧ Chromium 同判据必红 | ✅ FAIL→还原 PASS |
+| 2 | 续接通知挪到回执**之前** | `s0BranchBProblems.completed` 必红（事件序） | ✅ FAIL→还原 PASS |
+| 3 | 去掉掩码卡 / 换成两段 params | node + Chromium 必红 | ✅ FAIL→还原 PASS |
+| 4 | 续接输入不逐字 | 必红（逐字判据非恒真） | ✅ FAIL→还原 PASS |
+| 5 | **取消后立刻重复弹同一条引导**（删同因去重） | OD-15 源码判据必红 | ✅ FAIL→还原 PASS |
+| 6 | 取消路径去掉 `force` 求值 | OD-15 必红（可达 next 被防抖吞掉 = 死端） | ✅ FAIL→还原 PASS |
+| 7 | 「一律压掉」（新因也压） | OD-15 必红 | ✅ FAIL→还原 PASS |
+| 8 | 让「已装未配」挂上 `firstRun` / 只认 `firstRun` | OD-14 必红 | ✅ FAIL→还原 PASS |
+| 9 | 已配置仍凭 `firstRun` 触发配置引导 | OD-14 必红（零引导） | ✅ FAIL→还原 PASS |
+| 10 | 从受审集合拿掉本轮承载新判据的门禁 | `gate-integrity` 元门禁必红 | ✅ FAIL→还原 PASS |
+| 11 | **X-SELF-3 台账缺**（删条目）／把「加源不取代」伪称成取代 | OD-16 `xSelf3Problems` 必红 | ✅ 必红（判据非恒真） |
+
+## 8b. 与 ADR 的口径差异 / 诚实登记（R2 新增）
+
+| # | 差异 / 事实 | 处置 |
+|:--:|---|---|
+| E1 | **R1 的自动续接在运行期是断的**：`submitAskFor` 的 op 分支在掩码 ask 上先 `delete` resolver，`submitSecret` 取不到 ⇒ 参数 promise 永挂 ⇒ `op.llm-config` 到不了 consent / complete（引导永远「配不完」）。R1 只机核了源码序（OD-13），运行期这条链无人判 | **本轮修（1 处归属修正）+ 新增运行期必判项**（S0 双面）；如实登记为 R1 的**机核盲区**，不伪称「一直可用」 |
+| E2 | 本叶**预算超支**：预算 4,900 B，实际 5,262 B（超 362 B） | **显式登记**（未越叶上界 6,300、未越档位）；不静默、不放宽任何阈值 |
+| E3 | `test/ui/stream.mjs` ⑯ 的「恰 4 步」判据原用 `/id: '/g` 计数（新场景表也含 `id:` ⇒ 过宽） | **等价重锚**为 `/carrier: '/g`（仍恰 4，语义不变，非放宽）；删除行按 supersession 台账逐行登记 |
+| E4 | 台账 51 条 v4 条目 `newTitle` **就地换锚**（v4 值 → v5.5-2 最终值） | 沿用 R1 既定形态（R1 build.md §9 R2-3 已登记「两形态等价」）；本轮同时补两条 `V552-R2-CHAIN-*` **接管链条目**（更强口径） |
+| E5 | `closeoutDeltaBytes` 语义订正为「**最新一轮**登记增量」 | 断言同步为 `SIDEPANEL_BASELINE_BYTES − 562,273`；R1 的中间登记值逐字保留在 `SIDEPANEL_RE_REGISTRATIONS['v55-2-r1']` 与 TIMELINE |
+
+## 9b. 移交项（→ review / validate）
+
+| # | 项 | 归属 |
+|:--:|---|---|
+| H1 | **X-SELF-3 双源一致性**（主动识别 ∧ 被动观测折叠进同一 `risk` 源、幂等、恢复链零改写）由 review 独立复核（本轮已落账 `X-SELF-3` / `X-SELF-3-SW` 两条 + 逐行证据） | review |
+| H2 | **零 LLM 调用审计**（未配置 ⇒ 零 token / 无 LLM 错误事件）与**零视图切换**（引导全程流内）由 review 复核 | review |
+| H3 | validate：S0 分支 B **真机/真面板必判项**实跑 + 两场景实跑（`firstRun=false`）+ `law8`/`stream`/`ask-auth` 计数对账 | validate |
+| H4 | `test:recommendation` / `test:binding` 的历史环境性 flake（N-07/N-08 族）本轮**未复现**；如后续复现仍按父收口登记处理 | 父收口 |
+| H5 | 引导 chip 的**环境事实**：headless 无夹具站点 ⇒ 探测相位可能停在等待态，`probe` 恢复类会正确地抢走 `risk-recovery` 槽；因此 Chromium 面的 guide 步用受控 ctx 驱动**真生产者**（与既有 ⑦A 同一口径），已在门禁注释内登记 | review / validate |
+
+## 10b. 下一步
+
+| 场景 | 操作 |
+|------|------|
+| 本叶（R2 = W5）已完成 | 运行 `@sddu-review specs-tree-v55-2-deterministic-onboarding`（16/16 任务已完成） |
+| 审查通过后 | 进入 validate（收口）：S0 分支 B 必判项实跑 + 两场景实跑 + 计数对账 |
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.1 | R2 收口段（W5 = TASK-V55-213~216）：两场景门禁 / S0 分支 B 必判项（双面 + 反证）/ 取消非死端同因去重 / 体积最终登记 563,145（未越档 563,200）+ X-SELF-3 落账；`npm test` 1277/0；s0-self-driven 42/0；**发现并修复 R1 的「掩码 ask resolver 误删 ⇒ 引导永远配不完」运行期断链** | 2026-09-23 | SDDU Build Agent |
