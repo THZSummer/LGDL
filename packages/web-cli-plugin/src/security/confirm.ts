@@ -171,14 +171,23 @@ export function createConfirmBridge(opts: ConfirmBridgeOptions): (question: AskQ
             });
             return { action: 'deny' };
           }
-          // `plan-consent`：本次为**首次写** ⇒ 出一次计划卡（带计划渲染数据）。
-          shown = {
-            ...shown,
-            plan: { fingerprint: plan.fingerprint, entries: plan.entries },
-          } as AskQuestion;
-          planGate = consent;
-          planFingerprintDigest = plan.fingerprint;
-          planEntryTotal = plan.entries.length;
+          if (verdict.kind === 'fallback') {
+            // I-02（v55f-2 review）：计划外回落走**独立分支**，与主（单条）路径同口径 ——
+            //   ① 不挂计划渲染数据（计划外卡不再沿用「本批将写入」计划行）；
+            //   ② 不置 `planGate`（对该卡的同意 / 拒绝**不推进**整批计划的审批状态）；
+            //   ③ 把可读回落理由并入上屏文案（deny 面不再只有通用理由）。
+            // 判据本体不改：`admitEntry` 仍返回 `fallback`（计划外不自动放行）。
+            shown = { ...shown, reason: `${shown.reason}；${verdict.message}` };
+          } else {
+            // `plan-consent`：本次为**首次写** ⇒ 出一次计划卡（带计划渲染数据）。
+            shown = {
+              ...shown,
+              plan: { fingerprint: plan.fingerprint, entries: plan.entries },
+            } as AskQuestion;
+            planGate = consent;
+            planFingerprintDigest = plan.fingerprint;
+            planEntryTotal = plan.entries.length;
+          }
         }
       }
     }

@@ -37,9 +37,6 @@ export const BATCH_ACTION_TYPE = 'set-text' as const;
 /** 出计划卡的下界（`N ≥ 2`；`N == 1` 逐条、`N == 0` 不出 —— ADR-SGO-004 §1）。 */
 export const BATCH_MIN_ENTRIES = 2;
 
-/** 计划卡**展示**上限（PD-SGO-007 裁决：纯显示策略，不改变授权范围 / 不放松判据）。 */
-export const BATCH_RENDER_MAX = 8;
-
 /** 一条 `toolCall` 的计划视图（结构子集：`WebCliToolCall` / `AskQuestion` 均可赋值）。 */
 export interface PlanToolCall {
   readonly name: string;

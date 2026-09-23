@@ -206,6 +206,7 @@
 |------|---------|------|--------|
 | v1.0 | 初始创建（**R1 = W1+W2**，`TASK-V55F-201~212`）：边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权 op 不入批机核 + 载体零新增 + `batch-consent` BC-1~7）→ 计划/指纹/准入/回落/漂移/零明文/中止。`npm test` 1375 → 1386（+11）；`batch-consent` **7/0**；A 列 +3,301 B / B 列 +8,251 B；三冻结面逐字节不变；`law8` 46/0 · `dead-end` 49/0 · journey 171 · binding 192 · l0 248 · l1 131 · stream 76 · auth-chip 37 · ask-auth 78 · s0 65 · `e2e` PASS。R1 末 7 红 = 6 体积/红线 pin（重登记属 W3 `216`）+ 1 预提交 worktree 漂移（提交后自愈）；W3（`213~216`）留 R2。零受管 Provider 调用（routing.v1 = `local_or_compute → none`） | 2026-09-24 | SDDU Build Agent |
 | v2.0 | **R2 = W3（`TASK-V55F-213~216`）⇒ 16/16 全部完成**：WIDEN 二择（`ref-scope.ts` 单源 + `sidepanel.ts` 接线 + 批量留痕）→ S0′ 批量段 `S0P-B1~B3`（样本单源扩展 + node/Chromium 双面只加断言）→ X-SGO-4/6/7 台账 + 法八批量零明文只增 → 体积逐叶重登记（A 列 585,732 → **591,946 B**）+ v55f-2 叶段台账。**6 项体积/红线 pin 一次闭环：`npm test` 1394 / 0 fail**；`law8` 52/0（+6）· `dead-end` 53/0（+4）· `s0-self-driven` 70/0（+5）· `stream` 76/0 · `ask-auth` 78/0 · `auth-chip` 37/0 · `l0` 248 · `l1` 131 · `l2` 74 · journey 171 · binding 192（1 次 KL-N-10 flake ⇒ 隔离复跑 PASS）· `e2e` PASS。零受管 Provider 调用 | 2026-09-24 | SDDU Build Agent |
+| v2.1 | **review 微修（R1 审查 I-01~I-04，§10）**：I-01 `cards/index.ts:56` 两条 import 拆回单行（纯格式）· I-02 `confirm.ts` `fallback` 显式分支（不挂计划渲染数据 / 不置 `planGate` / `BATCH_FALLBACK_TEXT` 上屏，判据本体不改）· I-03 删除死导出 `BATCH_RENDER_MAX`（单源保留 `cards/auth.ts#AUTH_PLAN_RENDER_MAX`）· I-04 `build.md` §9.2 supersession 40→42 / §9.3 生效上限 615,018→621,543。**A 列 `sidepanel.js` 591,946 不变（无需重登记）**，B 列 `background.js` +175 B（不计账）；`typecheck` = 0 · `npm test` **1394/0**（不减）· `test:supersession` **42/0**；三冻结面 sha 双锚（`content` 52a82620… / `pick-layer` 77796bab…）零 diff。零受管 Provider 调用（routing.v1 = `local_or_compute → none`） | 2026-09-24 | SDDU Fast Agent |
 
 ---
 
@@ -242,7 +243,7 @@
 | `npm run build` | 绿 | **绿** | `sidepanel.js` = **591,946** / `background.js` = 1,635,675 |
 | `npm test`（全部 node 门禁） | 1386（1380/6） | **1394（1394 / 0）** | **6 项体积/红线 pin 全部闭环**；+8 用例（213/214/215/216 只增） |
 | `batch-consent`（新） | 7 / 0 | **7 / 0** | BC-1~7 全绿 |
-| `test:supersession` | 40 / 0（除体积） | **40 / 0** | RL-06 扩批量变体在册；X-SGO 台账（215）落账 |
+| `test:supersession` | 40 / 0（除体积） | **42 / 0** | RL-06 扩批量变体在册；X-SGO 台账（215）落账（R2 新增叶2 台账 + `modifiedRanges` 两用例 ⇒ 40→42） |
 | `op-three-tier` | 12 / 0 | **12 / 0** | `tierOf` 逐 op 不变；特权恒 gesture |
 | `capability-wiring` | 10 / 0 | **10 / 0** | `.request(` 计数不减；批量不触达特权 op |
 | `host-registry` | 绿 | **绿** | 零宿主 / 12 kind / `KIND_SET` 40 |
@@ -272,7 +273,7 @@
 | **⑤ 历史保留** | `SIDEPANEL_BASELINE_BYTES_TIMELINE` / `SIDEPANEL_RE_REGISTRATIONS` **只追加**（新增 `v55f-2-r2` 条目；历史值逐字保留） |
 | **预算对照（诚实登记）** | 本叶 A 列预算 **3.5~5.5 KB**（上界 +15% **4.0~6.3 KB**）⇒ 实测 **+6,214 B**：**越预算基线上界（5.5 KB）但未越 +15% 上界（6.3 KB）**，显式超出并登记（不删判据 / 不放宽容差） |
 | **三值同源（V3-VOL-3）** | baseline **591,946** ∧ 档位 `ceilTo50KB(591,946)` = **614,400**（未动）∧ 绝对上限 **675,840**（未动）；生效上限 = `min(675,840, floor(591,946 × 1.05) = 621,543)`；`cap` 保持 `record-only` |
-| **EC-SGO-022 二态（显式）** | 越生效上限（615,018）= **否**（591,946 < 615,018）· 越档位（614,400）= **否** · 越绝对上限（675,840）= **否** ⇒ 三分支均未触发 |
+| **EC-SGO-022 二态（显式）** | 越生效上限（621,543）= **否**（591,946 < 621,543）· 越档位（614,400）= **否** · 越绝对上限（675,840）= **否** ⇒ 三分支均未触发 |
 | **`authorConfirmation`** | 保持 **`pending-author-line`**（不伪称已确认） |
 | **两叶 Σ 对照** | 叶1 **+7,109 B** + 本叶 **+6,214 B** = **+13,323 B ≈ 13.0 KiB**，落在正常口径 **9.5~14.5 KB**（+15% 16.7 KB）内；对照余量 **22,454 B**（614,400 − 591,946）⇒ **不触发升档** |
 
@@ -313,4 +314,37 @@
 | **16 / 16 全部完成** | `npm test` 1394 / 0 · `e2e` PASS · 6 项 pin 闭环 · 三冻结面/base 零 diff |
 | 审阅 | 运行 `@sddu-review specs-tree-v55f-2-batch-consent`（红线⑥ + 法八 + 授权语义） |
 | 父收口 | 父 `specs-tree-web-cli-plugin-v55-f-scope-governance` 待两叶均收口后登记 ROADMAP |
+
+---
+
+## 10. review 微修（R1 审查 I-01~I-04）
+
+> 触发：`review-report.md` R1 的 4 个**非阻塞**改进项（I-01 import 格式回归 / I-02 fallback 未显式分支 / I-03 死常量双声明 / I-04 终值登记精度）。**判据本体零改动、红线零触碰**：A 列（`sidepanel.js`）逐字节不变，改动仅落 B 列（`background.js`，不计账）+ 报告登记。
+
+### 10.1 逐项处置
+
+| # | 位置 | 处置 | 验证 |
+|---|---|---|---|
+| **I-01** | `src/ui/sidepanel/cards/index.ts:56` | 两条 import 由**并到一行**拆回**单行单语句**（`auth.js` / `ref.js` 各一行）——纯格式，零行为变更，与文件其余导入风格一致 | `tsc` 绿；重建后 `sidepanel.js` **591,946 不变**（esbuild 擦除语句分隔 ⇒ 零字节） |
+| **I-02** | `src/security/confirm.ts:174` | `admitEntry` 的 `fallback` 走**独立分支**（与 `plan-consent` 解耦）：① 不挂计划渲染数据（计划外卡不再沿用「本批将写入」计划行）；② **不置 `planGate`** ⇒ 对该卡的同意 / 拒绝**不推进**整批计划审批状态（与主单条路径同口径）；③ 把 `verdict.message`（`BATCH_FALLBACK_TEXT`）并入上屏文案（deny 面不再只有通用理由）。**判据本体不改**：`admitEntry` 仍返回 `fallback`（计划外不自动放行，`BC-3` 承重不变） | `npm test` 1394/0；`supersession` 对 `planGate.markApproved()/markRejected()` 的唯一写入面断言仍绿；`batch-consent` 7/0 |
+| **I-03** | `src/background/batch-plan.ts:40-41` | 删除**死导出** `BATCH_RENDER_MAX = 8`（全仓无引用），展示上限**单源**保留于 `cards/auth.ts` 的 `AUTH_PLAN_RENDER_MAX = 8`（PD-SGO-007 8 行上限语义**保留一处**）；`batch-plan.ts` 落 B 列 ⇒ A 列零字节 | 全仓 `grep BATCH_RENDER_MAX` = **0**；`tsc` 绿；`size-*` 全绿（A 列不变） |
+| **I-04** | `build.md` §9.2 / §9.3 | (a) §9.2 `test:supersession` R2 终值 **40/0 → 42/0**（补注 R2 新增叶2 台账 + `modifiedRanges` 两用例 40→42）；(b) §9.3「EC-SGO-022 二态」行生效上限 **615,018 → 621,543**（与同表公式 `min(675,840, floor(591,946×1.05))` 及 §9.3 生效上限行统一）。**零代码 / 零门禁改动** | `grep -c '^test(' supersession-ledger.test.ts` = **42**；`npm run test:supersession` = **42/0** |
+
+### 10.2 复跑与体积
+
+| 项 | 结果 |
+|---|---|
+| `npm run typecheck` | **0**（绿） |
+| `npm test`（node 全量） | **1394 / 0**（= R2 基线，**只增不减**；无新增 / 无删除用例） |
+| `test:supersession` | **42 / 0**（与 I-04 订正一致） |
+| A 列 `sidepanel.js` | **591,946 B — 不变**（I-01 纯格式 / I-03 落 B 列 ⇒ A 列零字节）⇒ **五要素无需重登记**（生效上限 621,543 / 档位 614,400 / 绝对上限 675,840 / `pending-author-line` 均不动） |
+| B 列 `background.js` | **1,635,675 → 1,635,850 B**（**+175 B**，I-02 显式分支；不计账） |
+| 三冻结面 | `content.js` **177,076 / sha `52a82620…`** · `pick-layer.js` **34,358 / sha `77796bab…`** 逐字节不变 |
+
+日志：`/tmp/opencode/v4-gate-logs/v55f-2-fix/`（`typecheck.log` / `build.log` / `npm-test.log` / `supersession.log`）。
+
+### 10.3 下一步
+
+I-01~I-04 已在 review → validate 之间闭环，均为**非阻塞**项；A 列零字节、判据本体零改动 ⇒ 不触发新轮次，直接交 validate。
+
 
