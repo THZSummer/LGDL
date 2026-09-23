@@ -217,7 +217,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // 捕获回环校验止血）⇒ 累计增量 252,333 → **254,384**。
   // 〖V5.5-1 R1/R2（2026-09-23）〗R1 中间登记 549,609 → **554,576**（+4,967）⇒ 累计 259,351；
   // R2 收口登记 554,576 → **557,761**（+3,185：答案驱动化 + S0 双面 + 判据升级）⇒ 累计 **262,536**。
-  assert.equal(b.deltaBytes, 278_199);
+  assert.equal(b.deltaBytes, 283_398);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -330,7 +330,7 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   // 〖V5-3 R2（2026-09-22，末叶 / 收口叶）〗随轮次重指向 v5-2-reviewfix → v5-3-r2
   // 〖V5.5-3 R1（2026-09-23，TASK-V55-301~307）〗再重指向 v552R3 → **v553R1Rows**
   // （v5-2 各轮的历史 rows 逐字保留在 `v52*Rows` / `v552*Rows` 与 `SIDEPANEL_BASELINE_META` 的历史段）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -391,7 +391,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
   // 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 `SIDEPANEL_BASELINE_BYTES_TIMELINE`）。
   // 〖V5.5-2 R2〗`closeoutDeltaBytes` 语义恒为「**最新一轮**登记增量」⇒ 与本叶 R2 的登记条目同源复算
   // （563,145 → 563,780，+635）；R1 的中间登记值 557,883 → 562,273 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 TIMELINE。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 566_535);
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 573_424);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -439,7 +439,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖V5-3 review R1 修复轮〗历史 = `v53FixRows`（7 行，Σ +1,188 + glue 0）；〖V5-3 R2〗历史 = `v53Rows`（9 行，Σ +4,306 + glue 0
   // == 546,370 − 542,064）；`v52CloseoutRows`（1 行 −86）的历史值逐字保留在本文件的注释与
   // `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`（其 Σ/Δ 自洽由 N-05 的组判据承担）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -675,6 +675,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'v553R1Rows', rows: b.v553R1Rows, glue: b.v553R1UnattributedGlueBytes },
     // 〖V5.5-3 R2（2026-09-23，W3 仲裁 + W4 护栏）〗追加第 31 组（只增不减）。
     { name: 'v553R2Rows', rows: b.v553R2Rows, glue: b.v553R2UnattributedGlueBytes },
+    // 〖R6 缺陷快修轮（2026-09-23，真机体验 ty.md）〗追加第 32 组（只增不减）。
+    { name: 'r6TyFixRows', rows: b.r6TyFixRows, glue: b.r6TyFixUnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -689,7 +691,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组、V4.5-1 R1 第 14 组、
   // V4.5-1 review R1 修复轮第 15 组、V5.5-2 R1 第 27 组、V5.5-2 R2 第 28 组（只增不减）。
-  assert.equal(groups.length, 31);
+  assert.equal(groups.length, 32);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );
@@ -757,7 +759,7 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   // ② 逐模块：与**最新一轮**（V5.5-1 review R1 修复轮）登记的 afterBytes 逐值相等 ⇒ 真实 metafile
   //    与最新登记同源（历史各轮的 Δ 由 N-05 组判据承担；此后任何一轮都必须重新登记）。
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixRows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -788,17 +790,21 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
  * 本叶（末叶）**终轮**：R3 `src/**` **零字节改动** ⇒ Δ = **0**。零字节轮也要**留痕**
  * （否则「登记滞后」与「真的没变」无法区分）；「未跨档位」是**二态显式**结论之一。
  * ──────────────────────────────────────────────────────────────────────────── */
-test('V5.5-3 R3 终轮（Δ=0）体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三值同源 ∧ pending-author-line 未伪称', (t) => {
-  const fr = SIDEPANEL_V553_FINAL_ROUND;
-  // ① 零字节轮：方向 `unchanged` ∧ Δ == 0（不得伪装成提升/净减）。
-  assert.equal(fr.direction, 'unchanged', '本叶终轮必须是零字节轮（`unchanged`）');
-  assert.equal(fr.baselineAfterBytes - fr.baselineBeforeBytes, 0, '本叶终轮必须是 Δ = 0');
-  assert.deepEqual(reRegistrationDirectionProblems([...SIDEPANEL_RE_REGISTRATIONS, fr]), [], '方向 ↔ Δ 必须双向一致（含终轮）');
+test('R6 缺陷快修轮体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三值同源 ∧ pending-author-line 未伪称', (t) => {
+  // 〖R6 缺陷快修轮（2026-09-23）〗随轮次重指向：最新一轮 = `r6-ty-fix`（V5.5-3 R3 的历史
+  // 零字节事实逐字保留在 ③b，不得删改；「终轮 after == 当前基线」的语义不降级，只是末轮前移）。
+  const fr = SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1];
+  assert.ok(fr, '登记册不得为空');
+  assert.equal(fr.id, 'r6-ty-fix', '末条登记必须是 R6（最新一轮）');
+  // ① 提升轮：方向 `raised` ∧ Δ == after − before（不得伪装成零字节/净减）。
+  assert.equal(fr.direction, 'raised', 'R6 必须登记为提升轮（`raised`）');
+  assert.ok(fr.baselineAfterBytes - fr.baselineBeforeBytes > 0, 'R6 必须是正增量');
+  assert.deepEqual(reRegistrationDirectionProblems([...SIDEPANEL_RE_REGISTRATIONS]), [], '方向 ↔ Δ 必须双向一致（含 R6）');
   // ② 五要素终值同源。
-  assert.equal(fr.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '终轮 after 必须 == 当前基线');
-  assert.equal(fr.ceilingAfterBytes, SIDEPANEL_CEILING, '终轮 ceiling 必须 == 当前生效上限（公式派生）');
+  assert.equal(fr.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '最新一轮 after 必须 == 当前基线');
+  assert.equal(fr.ceilingAfterBytes, SIDEPANEL_CEILING, '最新一轮 ceiling 必须 == 当前生效上限（公式派生）');
   assert.equal(fr.ceilingUncappedFormulaBytes, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));
-  assert.equal(fr.ceilingUncappedFormulaBytes, 602_095);
+  assert.equal(fr.ceilingUncappedFormulaBytes, 607_554);
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 必须仍是纯记录字段');
   assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '三值同源：newBaselineBytes');
   assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, SIDEPANEL_TIER_BYTES * 1.1, '三值同源：absoluteCeilingBytes');
@@ -811,14 +817,19 @@ test('V5.5-3 R3 终轮（Δ=0）体积定稿：五要素齐备 ∧ 未跨档位 
   assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_TIER_BYTES, '基线必须仍在档位内（未跨档位）');
   assert.equal(SIDEPANEL_TIER_BYTES, 614_400);
   assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 675_840);
-  // ④ 逐模块归因 = 空集（登记事实）+ 未归因胶水 0 == Δ 0。
-  const rows = SIDEPANEL_GROWTH_BREAKDOWN.v553R3Rows;
-  assert.equal(rows.length, 0, '零字节轮的逐模块 rows 必须为空（非空即说明有未登记的产物变化）');
+  // ③b **V5.5-3 R3 历史零字节轮**：Δ=0 / `unchanged` / ceiling 602,095 / rows 空集逐字保留。
+  assert.equal(SIDEPANEL_V553_FINAL_ROUND.direction, 'unchanged', 'V5.5-3 R3 历史零字节轮方向逐字保留');
+  assert.equal(SIDEPANEL_V553_FINAL_ROUND.baselineAfterBytes - SIDEPANEL_V553_FINAL_ROUND.baselineBeforeBytes, 0, 'V5.5-3 R3 Δ=0 历史事实保留');
+  assert.equal(SIDEPANEL_V553_FINAL_ROUND.ceilingUncappedFormulaBytes, 602_095, 'V5.5-3 R3 ceiling 历史值保留');
+  assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.v553R3Rows.length, 0, 'V5.5-3 R3 零字节轮的逐模块 rows 为空（历史事实）');
   assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.v553R3UnattributedGlueBytes, 0);
+  // ④ R6 逐模块归因：Σ + glue == 登记增量（提升轮）。
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixRows;
+  assert.ok(rows.length > 0, 'R6 逐模块 rows 必须非空（提升轮）');
   assert.equal(
-    (rows as readonly { deltaBytes: number }[]).reduce((n, r) => n + r.deltaBytes, 0) +
-      SIDEPANEL_GROWTH_BREAKDOWN.v553R3UnattributedGlueBytes,
-    0,
+    rows.reduce((n, r) => n + r.deltaBytes, 0) + SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixUnattributedGlueBytes,
+    fr.baselineAfterBytes - fr.baselineBeforeBytes,
+    'R6 Σ 逐模块 + glue 必须 == 登记增量',
   );
   // ⑤ 真实 metafile 与**最新一轮**（R2）逐模块逐值相等 ⇒ 「真的没变」是机器事实。
   const metaPath = distArtifact('build-meta.json');
@@ -840,7 +851,7 @@ test('V5.5-3 R3 终轮（Δ=0）体积定稿：五要素齐备 ∧ 未跨档位 
   const out = meta.outputs[outKey as string];
   assert.equal(out.bytes, SIDEPANEL_BASELINE_BYTES, '真实产物字节必须等于登记基线（Δ=0 仍与产物同源）');
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixRows) {
     const key = Object.keys(out.inputs).find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(out.inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 终轮不得有任何模块移动`);

@@ -33,7 +33,7 @@ import {
 } from './stream-digest.js';
 import type { CardDeps } from './cards/index.js';
 import { syncNextstepPending } from './cards/nextstep.js';
-import { recommendCtx, recommendNextStep } from './recommend.js';
+import { refActionDigest, refActionTextKey, recommendCtx, recommendNextStep } from './recommend.js';
 import { bindPanelOps, dispatchOp, PARAMS_REJECTED } from './next-registry/pipeline.js';
 import { OP_PARAM_SEQUENCE } from './next-registry/ops.js';
 import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definition.js';
@@ -41,7 +41,7 @@ import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definiti
 // `next-registry/drivers.ts`。本文件**只** re-export 类型（零第二声明）——`import type`
 // 会被擦除，因此本行对 `sidepanel.js` 体积贡献为 0；时机值的扩缩只发生在单源处。
 import type { RecommendTrigger } from './next-registry/drivers.js';
-import { dedupeKey, listSuspensions, registerSuspension, resetSuspensions, timingOfSettle, type SettleSource } from './next-registry/drivers.js';
+import { dedupeKey, drivableSuspension, listSuspensions, registerSuspension, resetSuspensions, timingOfSettle, type SettleSource } from './next-registry/drivers.js';
 // V5.5-2 TASK-V55-205/210/211（ADR-V55-006 §4 · ADR-V55-007 §1~§3）——主题① 的引导流声明
 // 单源（4 步）+ 配置悬置任务（单源登记 / 有效期重校验 / 续接决策）。本文件只**消费**它们，
 // 不写第二份步骤表 / 不写第二个登记点。
@@ -304,12 +304,19 @@ function newestRefChip(): HTMLElement | null {
 function requestTurn(text: string): boolean {
   const trimmed = text.trim();
   if (!trimmed) return false;
-  if (buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending }).sendDisabled) {
-    return false;
-  }
+  // ★ R6（2026-09-23）—— 用户输入路径与 AI 路径**同一仲裁**（真机 21:29:19 硬拒缺陷）：
+  // 在飞回合时**不再**在本地面板提前拒绝（旧 `buttonStates(...).sendDisabled` 把
+  // 「上一条仍在处理中」当成硬禁用），而是照常下发 —— SW 的 `runChat` 是有界队列的唯一
+  // 裁决者（硬上限 1：在飞且有余量 ⇒ `queued`；在飞且已满 ⇒ `busy-rejected` + 草稿回填）。
+  // 本地面板只保留**异常态**硬拒：没有活跃站点时消息到不了任何工具（真发不出去）。
+  // 防双发由 SW 的 `chatBusy` 单飞 + 同一 `chat` 消息体保证（零第二份仲裁）。
+  if (!state.activeOrigin) return false;
   // Explicit user intent: the next render must pin to the newest message even if the
   // user had scrolled up before sending.
   scrollFollow.userSent();
+  // ★ R6：若这句话就是一条引用动作推荐（`用引用 <n> 做…`），记下去重键 —— 回合完成时提交。
+  const refKey = refActionTextKey(trimmed);
+  if (refKey) pendingCompletedRefAction = refKey;
   dispatch({ type: 'user', text: trimmed });
   // V3-4 P5 (FR-V3-060 / design baseline P5):「回合进行中」与页面侧的执行可视化是同一个
   // 信号 —— 回合开始时把最后一个引用目标闪动一下并标记 chip 状态。
@@ -984,6 +991,8 @@ function installV3TestHooks(): void {
         lastRecommendOutcome = null;
         // V5.5-1: 悬置任务登记同样是 per-fixture 状态。
         resetSuspensions();
+        // R6：已完成引用动作台账同样是 per-fixture 状态。
+        resetCompletedRefActions();
         // V5.5-2 TASK-V55-215: 「取消引导」的同因去重键同样是 per-fixture 状态。
         onboardGuideCause = undefined;
         declinedOnboardCauses.length = 0;
@@ -1855,6 +1864,35 @@ let lastRecommendOutcome: { trigger: RecommendTrigger; rule: string | null; supp
 /** V5-2 (FR-ALLN-047): the last recommendation context `op.help` derives the op list from. */
 let lastRecommendCtx: NextCtx | null = null;
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * R6（2026-09-23）—— **完成后同动作去重**（真机 `ty.md` 21:32:26：一次「原地翻译」完成后
+ * 下一步推荐又推了同一件事）。
+ *
+ * 机制：一次引用动作被驱动时记下它的去重键（`refId#意图摘要`，`recommend.ts` 单源）；
+ * 该回合完成（`done`）时把键**提交**进 `completedRefActions` ⇒ 生产器压掉同 digest 的
+ * `ref-action` 候选（见 `recommendNextStep` 的 `completedActions` 过滤）。其他规则照旧可达。
+ * 有界：只保留最近 8 个键（一次会话的引用动作数远小于此）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+let pendingCompletedRefAction: string | undefined;
+const completedRefActions = new Set<string>();
+const COMPLETED_REF_ACTIONS_MAX = 8;
+/** 提交「刚完成的引用动作」键（回合完成点调用；无在途键 ⇒ no-op）。 */
+function commitCompletedRefAction(): void {
+  if (!pendingCompletedRefAction) return;
+  completedRefActions.add(pendingCompletedRefAction);
+  while (completedRefActions.size > COMPLETED_REF_ACTIONS_MAX) {
+    const oldest = completedRefActions.values().next().value;
+    if (oldest === undefined) break;
+    completedRefActions.delete(oldest);
+  }
+  pendingCompletedRefAction = undefined;
+}
+/** 夹具 / 会话切换：清空「刚完成」台账（与悬置登记同寿命）。 */
+function resetCompletedRefActions(): void {
+  pendingCompletedRefAction = undefined;
+  completedRefActions.clear();
+}
+
 /**
  * Run the REAL producer against the live panel facts and mint the card when a
  * candidate survives. Returns the produced rule (or `null` for a suppression), which
@@ -1898,6 +1936,8 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
     // V5-2 TASK-V5-143: a refusal / failure must reach a next step **immediately** —
     // the anti-flicker interval is for idle repetition, never for a recovery row.
     ...(!opts.force && lastNextstepProducedAt !== undefined ? { lastProducedAt: lastNextstepProducedAt } : {}),
+    // R6：完成后同动作去重（refId + 意图摘要）。
+    ...(completedRefActions.size > 0 ? { completedActions: [...completedRefActions] } : {}),
     now: Date.now(),
   };
   lastRecommendCtx = recommendCtx(input);
@@ -1972,7 +2012,10 @@ function driveAnsweredTurn(): void {
   // 主题② 前提 = **已配置**（配置判据 = v55-2 的唯一分流依据；未配置 ⇒ 零 AI 主动发起）。
   const configured = llmLoaded && Boolean(llmSummary?.configured);
   if (!configured) return;
-  const live = listSuspensions().slice(-1)[0];
+  // ★ R6（2026-09-23）—— **答案 once 语义**（`ty.md` 21:32:18/21:32:26 双回合缺陷）：
+  // 被在飞回合经 `askBridge.settle` 消费过的后台答案（`askId ∈ consumedAskIds`）不再被
+  // 自动接手 ⇒ 不再组合新回合。判据在 `drivers.ts#drivableSuspension`（纯函数，门禁可判）。
+  const live = drivableSuspension(listSuspensions(), consumedAskIds);
   if (!live || !live.instruction) return;
   const key = dedupeKey(`${live.driverId}:${live.source}`, live.instruction);
   if (key === lastAutoDrivenKey) return;
@@ -2038,6 +2081,25 @@ function resumeAfterConfig(): void {
 
 /** 后台 ask（由 SW 的 `ask-user-request` 投递）的 requestId 集 —— 迟到口径只对它成立。 */
 const bgAskIds = new Set<string>();
+/**
+ * R6（2026-09-23）—— 已被**在飞回合**经 `askBridge.settle` 消费的后台答案 requestId 集。
+ *
+ * 「消费」的判据 = SW 回 `settled: true`（`settle` 真的接住了这次提问，答案已进入
+ * 那个正在跑的回合）。这类答案**不得**在回合收口后被「答案后自动成回合」再消费一次
+ * （`driveAnsweredTurn` 经 `drivers.ts#drivableSuspension` 读本集，requestId 级去重）。
+ * 有界：只保留最近 32 个 requestId（一次会话的提问数远小于此）。
+ */
+const consumedAskIds = new Set<string>();
+const CONSUMED_ASK_IDS_MAX = 32;
+function markConsumedAsk(rid: string): void {
+  if (!rid) return;
+  consumedAskIds.add(rid);
+  while (consumedAskIds.size > CONSUMED_ASK_IDS_MAX) {
+    const oldest = consumedAskIds.values().next().value;
+    if (oldest === undefined) break;
+    consumedAskIds.delete(oldest);
+  }
+}
 /** 迟到作答的**固化文案**（零明文：不含答案文本本身，法八不破）。 */
 const LATE_ASK_TEXT = '回合已结束，未接住这条答案（它没有被丢弃：下方给出可走的一步）。';
 
@@ -2376,6 +2438,8 @@ function applyRefAction(refId: string, action: string): { allowed: boolean; reas
     instruction: action,
     evidence: REF_SUSPENSION_EVIDENCE,
   });
+  // ★ R6：记下这次引用动作的去重键（`refId#意图摘要`）—— 回合完成时提交，避免完成后复推同一件事。
+  pendingCompletedRefAction = refActionDigest(refId, action);
   nextAfterSettle({ kind: 'answered' });
   return outcome;
 }
@@ -2434,6 +2498,41 @@ function maybeRescue(): void {
       // the recommendation producer is wired to.
       maybeRecommend('stale');
     });
+}
+
+/**
+ * R6（2026-09-23）—— **引用被改写后重评**（`ty.md` 真机：AI 用 `dom set-text` 原地改文本）。
+ *
+ * 触发：一次**成功的** `dom set-text` 结果带回了目标选择器（`targetSelector`）。若该选择器
+ * 命中一个**活引用**（选择器与捕获一致，或命中节点带 `data-wcli-ref` ⇒ `resolution.refMark`），
+ * 就对该引用做一次**只读**重观测（`pickInput.observe` → SW `observeIdentity`，不写页面），
+ * 把新鲜观测交给判定层重判：
+ *   · 元素已不在（子节点被清空）⇒ `dom-gone` + 既有救援口径；
+ *   · 元素仍在但文本摘要失配 ⇒ `text-changed`（R6 新维度）+ 既有失效口径；
+ *   · 摘要一致 ⇒ 仍 `valid`（无副作用）。
+ * 不命中活引用 / 页面不可达 ⇒ 不改判定（fail-closed 事实照旧）。
+ */
+function reobserveAfterWrite(selector: string): void {
+  if (!selector || !pickInput || !l1) return;
+  const refs = l1.store().all().filter((r) => !r.retired);
+  if (refs.length === 0) return;
+  void (async () => {
+    const resolution = await pickInput?.observe(selector);
+    if (!resolution || resolution.status === 'unreachable') return;
+    const bySelector = refs.filter((r) => r.facts.selector === selector).slice(-1)[0];
+    const byMark = resolution.refMark ? refs.find((r) => r.facts.refId === resolution.refMark) : undefined;
+    const target = byMark ?? bySelector;
+    if (!target) return;
+    l1?.setResolution(resolution);
+    l1?.judge();
+    render();
+    // 重判后若该引用不再可用 ⇒ 既有「引用失效」留痕（ref 卡 + 风险条 + 重新拾取 chip
+    // = 既有失效口径的可达 next；不新增推荐器调用点，主流程 diff 恒 0）。
+    const judged = l1?.store().get(target.facts.refId);
+    if (judged && judged.verdict !== 'valid') {
+      projectRef(target.facts.refId, refStaleText(parseRefOrdinal(target.facts.refId), judged.readableReason ?? '引用不可用'));
+    }
+  })();
 }
 
 /**
@@ -2793,7 +2892,7 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
        只对 SW 真实投递过的 requestId 成立（bgAskIds，夹具造的卡不在内 ⇒ 既有闸门行为不变）。
        SW 回 late ⇒ 固化事实（零明文）+ 可达 next（稳态驱动集）；回合内接住 ⇒ 记终态 + 驱动。 */
     const bgAsk = bgAskIds.has(rid);
-    void send<{ late?: boolean }>(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false })).then(
+    void send<{ late?: boolean; settled?: boolean }>(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false })).then(
       (res) => {
         if (!bgAsk) return;
         /* V5.5-1 review R1 **BLOCK-01**（FR-SELF-023 口径② / EC-SELF-005）：后台 ask 被**取消**
@@ -2805,6 +2904,10 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
           return;
         }
         const late = res?.data?.late === true;
+        /* ★ R6（2026-09-23）—— **答案 once 语义**（`ty.md` 21:32:18/21:32:26 双回合）：
+           `settled: true` ⇒ 这次提问真的被**在飞回合**经 `askBridge.settle` 接住，答案
+           已经是那个回合的输入 ⇒ requestId 级标记；回合收口后的自动成回合不再消费它。 */
+        if (res?.data?.settled === true) markConsumedAsk(rid);
         if (late) dispatch({ type: 'system', kind: 'turn', text: LATE_ASK_TEXT });
         registerSuspension({
           driverId: 'ref-action',
@@ -2812,6 +2915,7 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
           late,
           kind: late ? 'answered-late' : 'answered',
           instruction: trimmed ?? '',
+          askId: rid,
           evidence: ['session.openAsks'],
         });
         nextAfterSettle({ kind: late ? 'answered-late' : 'answered', ...(late ? { force: true } : {}) });
@@ -3665,6 +3769,10 @@ function wire(): void {
           ...(typeof msg.ok === 'boolean' ? { ok: msg.ok } : {}),
           ...(typeof msg.ms === 'number' ? { ms: msg.ms } : {}),
         });
+        // ★ R6（2026-09-23）—— 一次成功的 `dom set-text` 命中了活引用 ⇒ 只读重观测 + 重判
+        // （`text-changed` / `dom-gone` ⇒ 既有失效/救援口径）。SW 已把「仅成功的 dom set-text」
+        // 的选择器放进 `targetSelector`（其余工具不带）。
+        if (msg.ok === true && typeof msg.targetSelector === 'string') reobserveAfterWrite(msg.targetSelector);
       } else if (variant === 'command') dispatch({ type: 'command', text });
       else if (variant === 'llm-unconfigured') {
         // ★ V5.5-2 **TASK-V55-205 / 210** (ADR-V55-006 §4/§5 · ADR-V55-007 §2) —
@@ -3712,6 +3820,9 @@ function wire(): void {
         dispatch({ type: 'pending', value: false });
         // P5: the page-side flash has finished being the「进行中」signal.
         newestRefChip()?.setAttribute('data-turn', 'done');
+        // ★ R6（2026-09-23）—— 回合完成即**提交**「刚完成的引用动作」去重键：紧随其后的
+        // 下一步推荐（`maybeRecommend('idle')`）因此不会再推同一件事（同 digest）。
+        commitCompletedRefAction();
         // BLOCK-01 (v4-4 review):「空闲 = 回合结束且无 open ask」is the third
         // production timing. The producer itself refuses to mint while `pending`, so
         // this runs after the settle above.
@@ -3761,6 +3872,8 @@ function wire(): void {
       // decision ② / FR-048: the background moved to another session (tab switch /
       // auto-bind) → re-read state + replace the conversation with that session's.
       sessionId = null;
+      // R6：会话切换 ⇒ 「刚完成」台账清空（与悬置登记同寿命）。
+      resetCompletedRefActions();
       void refreshState();
       return undefined;
     }

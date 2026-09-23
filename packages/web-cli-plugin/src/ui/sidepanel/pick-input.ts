@@ -76,6 +76,13 @@ export interface PickInputHandle {
    */
   highlight(refId: string, selector: string, mode: 'flash' | 'mark' | 'outline'): Promise<RefResolution | undefined>;
   /**
+   * R6（2026-09-23）— 对某个选择器做一次**只读重观测**（身份标记 + 当前文本摘要），
+   * **不写页面**。用于「引用目标被原地改写后重评」：AI `dom set-text` 命中活引用时，
+   * 面板据此拿到新鲜观测并重判（文本摘要失配 ⇒ `text-changed` ⇒ 既有失效/救援口径）。
+   * `undefined` = 页面侧不可达（判定保持既有 fail-closed 事实）。
+   */
+  observe(selector: string): Promise<RefResolution | undefined>;
+  /**
    * R3: one **read-only** text-candidate probe for an unusable reference. Returns the
    * observation (`candidates` / `unique` / `urlChanged`) or `undefined` when the page
    * side is unreachable — it never mints or mutates anything.
@@ -211,6 +218,17 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     // R1: only the identity-marking round-trip returns a fresh observation; every other
     // mode stays a pure side effect (the surface is unchanged for the hover/flash paths).
     if (mode !== 'mark' || !res.ok) return undefined;
+    return (res.data as { resolution?: RefResolution } | undefined)?.resolution;
+  };
+
+  /**
+   * R6（2026-09-23）— 只读重观测（`mode: 'observe'`）。SW 只读身份 + 当前文本摘要，
+   * **不写页面**；返回的观测交给判定层（`text-changed` 由 `ref-validity.ts` 判）。
+   */
+  const observe = async (selector: string): Promise<RefResolution | undefined> => {
+    if (!selector) return undefined;
+    const res = await deps.send({ kind: 'ref-highlight', selector, mode: 'observe' });
+    if (!res.ok) return undefined;
     return (res.data as { resolution?: RefResolution } | undefined)?.resolution;
   };
 
@@ -369,6 +387,7 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
     },
     judgeEnv,
     highlight,
+    observe,
     async rescue(input) {
       return (await probeRescue(input, false))?.observation;
     },

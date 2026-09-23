@@ -56,6 +56,13 @@ export interface ChatResultEvent {
   ok?: boolean;
   /** TASK-023: tool card duration in ms (measured around dispatch). */
   ms?: number;
+  /**
+   * R6（2026-09-23）—— the **target selector** of a successful page write (`dom set-text`).
+   * Additive metadata: the side panel re-observes the live reference hit by the write
+   * (selector match or `data-wcli-ref`) so a rewritten reference is re-judged. Absent for
+   * every other tool result (never a fabricated value).
+   */
+  targetSelector?: string;
 }
 
 /** Map one `onLLMError(message, willRetry)` callback to a side-panel event. */
@@ -83,6 +90,7 @@ export function toolResultEvent(
   ok: boolean | undefined,
   ms: number | undefined,
   text: string,
+  targetSelector?: string,
 ): ChatResultEvent {
   return {
     variant: 'tool',
@@ -90,5 +98,6 @@ export function toolResultEvent(
     ...(tool !== undefined ? { tool } : {}),
     ...(ok !== undefined ? { ok } : {}),
     ...(ms !== undefined ? { ms } : {}),
+    ...(targetSelector !== undefined ? { targetSelector } : {}),
   };
 }

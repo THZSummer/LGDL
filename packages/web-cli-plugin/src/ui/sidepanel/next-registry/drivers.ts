@@ -258,6 +258,15 @@ export interface Suspension {
   readonly instruction: string;
   /** 支撑该次的 ctx 字段（⊆ `CTX_FIELD_SERVICE` 登记面，与驱动者声明同一面）。 */
   readonly evidence: readonly string[];
+  /**
+   * R6（2026-09-23）— 后台 ask 的 **requestId**（仅 `source: 'bg'` / `'late'` 携带）。
+   *
+   * 为什么需要它：一次后台提问的答案会被**在飞回合**经 `askBridge.settle` 消费
+   * （`settled: true`）；若把同一句原话留在悬置里，回合收口后的「答案后自动成回合」
+   * 会把它**再消费一次**（真机 21:32:18 → 21:32:26 的双回合缺陷）。
+   * requestId 是「这一次提问」的稳定身份 ⇒ 消费标记可做 requestId 级去重。
+   */
+  readonly askId?: string;
   readonly at: number;
 }
 
@@ -279,6 +288,34 @@ export function registerSuspension(s: Omit<Suspension, 'at'> & { readonly at?: n
 /** 当前悬置任务快照（数组顺序 = 登记顺序）。 */
 export function listSuspensions(): readonly Suspension[] {
   return SUSPENSIONS.slice();
+}
+
+/**
+ * R6（2026-09-23）— **答案 once 语义**（真机 `ty.md` 21:32:18/21:32:26 双回合缺陷的机核）。
+ *
+ * 一次后台 ask 的答案若已被**在飞回合**经 `askBridge.settle` 消费（`settled: true`），
+ * 它**已经**是该回合的输入；回合收口后的「答案后自动成回合」**不得**再拿同一句原话
+ * 组合新回合。判据 = 悬置条目的 `askId` ∈ 已消费 requestId 集（requestId 级去重）。
+ *
+ * 迟到答案（`late`）**不**在此列：它从未被任何回合接住（`settled: false`），正是
+ * 「未接住 ⇒ 给出可走的一步」这条口径的对象。
+ */
+export function isConsumedAskAnswer(suspension: Suspension, consumedAskIds: ReadonlySet<string>): boolean {
+  return suspension.askId !== undefined && consumedAskIds.has(suspension.askId);
+}
+
+/**
+ * R6 — 从悬置登记里取**可被自动接手**的那一条（单槽：只有**最新**那条需要判重）。
+ * 被在飞回合消费过的后台答案 ⇒ `undefined`（`driveAnsweredTurn` 直接返回，不再成回合）。
+ */
+export function drivableSuspension(
+  suspensions: readonly Suspension[],
+  consumedAskIds: ReadonlySet<string>,
+): Suspension | undefined {
+  const live = suspensions[suspensions.length - 1];
+  if (!live || !live.instruction) return undefined;
+  if (isConsumedAskAnswer(live, consumedAskIds)) return undefined;
+  return live;
 }
 
 /** 测试 seam：清空悬置登记（生产零调用）。 */

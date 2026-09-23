@@ -304,10 +304,10 @@ export function sendDisabledReason(input: {
 }): string {
   const pending = input.flow ? input.flow.sendDisabled : input.pending;
   if (pending) {
-    if (input.flow?.canSubmitOpenAsk) {
-      return '发送已禁用：上一条指令仍在处理中；屏幕上的提问卡仍可提交。';
-    }
-    return '发送已禁用：上一条指令仍在处理中，请稍候。';
+    // ★ R6（2026-09-23）—— 排队语义（不再是硬拒「发送已禁用」）。在飞时的提交会进入 SW 的
+    // 有界仲裁（队列硬上限 1），回合结束后自动发送；满则明确拒绝 + 草稿回填。
+    const base = '上一条指令仍在处理中：现在发送会排队（最多 1 条，回合结束后自动发送）。';
+    return input.flow?.canSubmitOpenAsk ? `${base}屏幕上的提问卡仍可提交。` : base;
   }
   if (input.activeOrigin) return '';
   const notice = activeSiteNotice({ hasOrigin: false, tab: input.tab });
@@ -390,7 +390,12 @@ export function buttonStates(input: SidepanelButtonInput): SidepanelButtonState 
     // active, authorized origin.
     revokeDisabled: !hasOrigin || !input.authorized,
     // Sending without a bound site cannot reach any tool — keep it honest.
-    sendDisabled: input.pending || !hasOrigin,
+    //
+    // ★ R6（2026-09-23）—— 在飞**不再禁用** composer（`pending` 从这里移除）：
+    // 用户提交改走与 AI 路径**同一仲裁**（SW 有界队列，硬上限 1）；若仍按 `pending` 硬禁用，
+    // 队列永远收不到用户输入（真机 21:29:19「发送已禁用：上一条指令仍在处理中」硬拒）。
+    // 禁用**仅保留给异常态**（无活跃站点 / 未绑定）——这不是回合语义，是真发不出去。
+    sendDisabled: !hasOrigin,
   };
 }
 

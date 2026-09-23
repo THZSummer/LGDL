@@ -76,7 +76,10 @@ export type RefDimension =
   | 'origin-changed'
   | 'navigated'
   | 'declaration-changed'
-  | 'authorization-revoked';
+  | 'authorization-revoked'
+  // R6（2026-09-23）：同身份元素仍在（`data-wcli-ref` 匹配），但其**文本摘要**已被改写
+  // （AI `dom set-text` 等原地写文本）⇒ 捕获时那条证据已失真，按失效/救援口径处理。
+  | 'text-changed';
 
 /** Why a verdict is `'unknown'` — machine-readable companion of the readable text. */
 export type RefUnknownCause = 'missing-fact' | 'env-unavailable' | 'page-unreachable' | 'ambiguous' | 'replaced';
@@ -137,6 +140,11 @@ export interface RefResolution {
   refMark?: string;
   /** How many nodes the selector matched (`!== 1` ⇒ ambiguous ⇒ unknown). */
   nodeCount?: number;
+  /**
+   * R6（2026-09-23）—— 解析到的**当前文本摘要**（与捕获口径同源：flatten + 80 字截断）。
+   * 只有 SW 的只读重观测（`observeIdentity`）会带它；缺省 ⇒ 不比较（既有行为逐字不变）。
+   */
+  textDigest?: string;
 }
 
 /**
@@ -212,6 +220,8 @@ export const REASON_TEMPLATES: Readonly<Record<RefDimension | 'unknown', string>
   // `{what}` 由 {@link reasonFor} 按**真正变化的那一项**渲染（hash 优先，其次 version）。
   'declaration-changed': '引用 {n} 捕获后站点声明已变化（{what}），目标语义可能已改变',
   'authorization-revoked': '引用 {n} 所在站点已被撤销授权',
+  // R6（2026-09-23）：元素身份仍在（标记匹配），但文本已被原地改写 —— 捕获的证据失真。
+  'text-changed': '引用 {n} 的目标文本在捕获后被改写（元素仍在，但内容已变）',
   unknown: '无法确认引用 {n} 的目标是否仍然有效（{reason}）—— 按失效处理',
 });
 
@@ -329,7 +339,7 @@ export function reasonFor(ref: RefFacts, dimension: RefDimension, env: RefEnv): 
   // R3（2026-09-17）：selector 断链、但文本摘要仍在页面上有候选 ⇒ 失效原因带只读救援
   // 元数据（0 候选维持原文案 —— 「真没了」）。判定结论不受影响（仍是 invalid/dom-gone）。
   // R4：挂载面 = D1 的两个面（`dom-gone` / `invalid-selector`）。
-  const rescue = dimension === 'dom-gone' || dimension === 'invalid-selector' ? refRescueFor(ref, env) : undefined;
+  const rescue = dimension === 'dom-gone' || dimension === 'invalid-selector' || dimension === 'text-changed' ? refRescueFor(ref, env) : undefined;
   if (rescue && rescue.candidates > 0) {
     const suffix =
       (rescue.unique ? RESCUE_REASON.unique : fill(RESCUE_REASON.multiple, { n: String(rescue.candidates) })) +
@@ -370,6 +380,7 @@ function invalid(ref: RefFacts, dimension: RefDimension, env: RefEnv): RefVerdic
  *   6. D4 declaration changed      → `invalid` / `unknown`
  *   7. D1 dom-gone / resolution    → `invalid` / `unknown`
  *   7b. D1b invalid-selector       → `invalid`（捕获缺陷；与「元素不存在」分开报）
+ *   7c. R6 text-changed            → `invalid`（身份匹配但文本摘要已被改写）
  *   8. otherwise                   → `valid`
  */
 export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView {
@@ -433,6 +444,14 @@ export function evaluateRefValidity(ref: RefFacts, env: RefEnv): RefVerdictView 
   // 语义漂移（会把「标记匹配但未报计数」误判为不可用）。
   if (res.nodeCount !== undefined && res.nodeCount !== 1) return unknown(ref, 'ambiguous', { n: String(res.nodeCount) });
   if (res.refMark !== ref.refId) return unknown(ref, 'replaced');
+  // ★ R6（2026-09-23）—— **被改写后重评**：身份标记仍匹配（元素是同一枚），但只读重观测带回了
+  // 当前文本摘要；若与捕获摘要不同 ⇒ 捕获的证据已失真，按失效处理（并挂既有救援元数据）。
+  // `textDigest` 缺省（老 wiring / 普通 mark 观测未带）⇒ 不比较，既有判据逐字不变。
+  if (res.textDigest !== undefined && has(ref.textDigest) && res.textDigest !== ref.textDigest) {
+    const view = invalid(ref, 'text-changed', env);
+    const rescue = refRescueFor(ref, env);
+    return rescue ? { ...view, rescue } : view;
+  }
   return { verdict: 'valid' };
 }
 

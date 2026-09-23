@@ -937,7 +937,7 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     // (hooks.onToolDone, fired immediately before onToolOutput) so the side
     // panel can render a tool card with name + status + duration.
     let toolStartedAt = 0;
-    let lastTool: { name: string; ok: boolean; ms: number } | null = null;
+    let lastTool: { name: string; ok: boolean; ms: number; selector?: string } | null = null;
     await runChatTurn(user, {
       session: s.chatSession,
       system: SYSTEM_PROMPT,
@@ -960,7 +960,11 @@ async function runChat(s: Singletons, user: string): Promise<void> {
           const meta = lastTool;
           lastTool = null;
           void chrome.runtime
-            .sendMessage(makeMessage('chat-result', { ...toolResultEvent(meta?.name, meta?.ok, meta?.ms, text) }))
+            .sendMessage(
+              makeMessage('chat-result', {
+                ...toolResultEvent(meta?.name, meta?.ok, meta?.ms, text, meta?.selector),
+              }),
+            )
             .catch(() => {});
         },
         onLLMError: (message, willRetry) =>
@@ -969,10 +973,18 @@ async function runChat(s: Singletons, user: string): Promise<void> {
       },
       hooks: {
         onToolDone: (tc, result) => {
+          // R6（2026-09-23）—— 一次**成功的** `dom set-text` 携带其目标选择器，供面板在
+          // 工具结果到达时对「被该写入命中的活引用」做一次只读重观测（仅此一种工具；
+          // 其余工具不带 `selector` ⇒ 面板不改行为）。
+          const writeSelector =
+            result.ok && tc.name === 'dom' && tc.subcommand === 'set-text' && typeof tc.args.selector === 'string'
+              ? tc.args.selector
+              : undefined;
           lastTool = {
             name: tc.name,
             ok: result.ok,
             ms: Math.max(0, Date.now() - (toolStartedAt || Date.now())),
+            ...(writeSelector !== undefined ? { selector: writeSelector } : {}),
           };
         },
       },
@@ -1103,7 +1115,7 @@ async function observeIdentity(
   tabId: number,
   selector: string,
 ): Promise<
-  { status: 'resolved' | 'missing' | 'ambiguous' | 'invalid-selector'; refMark?: string; nodeCount?: number } | undefined
+  { status: 'resolved' | 'missing' | 'ambiguous' | 'invalid-selector'; refMark?: string; nodeCount?: number; textDigest?: string } | undefined
 > {
   const results = await chrome.scripting
     .executeScript({
@@ -1117,8 +1129,16 @@ async function observeIdentity(
         }
         if (nodes.length === 0) return { status: 'missing' as const };
         if (nodes.length !== 1) return { status: 'ambiguous' as const, nodeCount: nodes.length };
-        const mark = nodes[0].getAttribute('data-wcli-ref');
-        return { status: 'resolved' as const, nodeCount: 1, ...(mark ? { refMark: mark } : {}) };
+        const node = nodes[0];
+        const mark = node.getAttribute('data-wcli-ref');
+        // R6（2026-09-23）—— 只读重观测同时带回**当前文本摘要**（与 `content/ref-capture.ts`
+        // 同一口径的等价副本：flatten + 80 字截断 + 被截断补 `…`）。判定侧据此判
+        // `text-changed`（身份仍在但内容被改写）；本函数仍**不写页面**。
+        const TEXT_DIGEST_MAX = 80;
+        const flatten = (text: string | null | undefined): string => String(text ?? '').replace(/\s+/g, '');
+        const truncated = flatten(node.textContent);
+        const textDigest = truncated.length > TEXT_DIGEST_MAX ? `${truncated.slice(0, TEXT_DIGEST_MAX)}…` : truncated;
+        return { status: 'resolved' as const, nodeCount: 1, ...(mark ? { refMark: mark } : {}), textDigest };
       },
       args: [selector],
     })
@@ -2350,7 +2370,10 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
       // yet (the panel mints the id), so D1 would judge every fresh pick as「目标元素已被
       // 同类新元素替换」→ unknown → the reference stays unusable on real sites. The
       // observation is still page-produced (never the panel asserting `resolved`).
-      const resolution = mode === 'mark' && selector ? await observeIdentity(target.tabId, selector) : undefined;
+      const markResolution = mode === 'mark' && selector ? await observeIdentity(target.tabId, selector) : undefined;
+      // R6（2026-09-23）—— 只读重观测面：`mode: 'observe'` 只读取身份 + 当前文本摘要，
+      // **不写页面**（用于「引用目标被原地改写后重评」）。判据与 `mark` 同一个 observeIdentity。
+      const resolution = markResolution ?? (mode === 'observe' && selector ? await observeIdentity(target.tabId, selector) : undefined);
       // R3: remember where (which path) this reference was marked — the capture path.
       if (mode === 'mark' && typeof message.refId === 'string') {
         const info = await chrome.tabs.get(target.tabId).catch(() => null);

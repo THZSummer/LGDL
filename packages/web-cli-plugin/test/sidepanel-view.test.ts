@@ -112,7 +112,13 @@ test('button states: authorize/revoke/send are consistent with the bound-origin 
     buttonStates({ activeOrigin: 'https://a.test', authorized: true, pending: false }),
     { authorizeDisabled: true, revokeDisabled: false, sendDisabled: false },
   );
-  assert.equal(buttonStates({ activeOrigin: 'https://a.test', authorized: true, pending: true }).sendDisabled, true);
+  // ★ R6（2026-09-23）：在飞**不再**禁用 composer —— 用户提交改走 SW 有界仲裁（排队），
+  // 禁用仅保留给异常态（无活跃站点）。恢复 `pending` 进 `sendDisabled` ⇒ 本断言必红。
+  assert.equal(
+    buttonStates({ activeOrigin: 'https://a.test', authorized: true, pending: true }).sendDisabled,
+    false,
+    'R6：在飞时 composer 必须仍可提交（排队），不得硬禁用',
+  );
 });
 
 // ── F-5 / F-4 ─────────────────────────────────────────────────────────────

@@ -63,6 +63,60 @@ export type NextstepRuleId = (typeof NEXTSTEP_PRIORITY)[number];
 /** The idle-state minimum interval (anti-flicker; also enforced while `pending`). */
 export const NEXTSTEP_MIN_INTERVAL_MS = 10_000;
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * R6（2026-09-23）—— 「**完成后同动作去重**」的摘要口径（真机 `ty.md` 21:32:26 复推缺陷）。
+ *
+ * 缺陷：一次「原地翻译」回合完成后，下一步推荐又推了同一件事（「用引用 1 做原地翻译」）。
+ * 去重键 = `refId + 意图摘要`。意图摘要把**同一意图的两种表述**归一到一句话：
+ *   · 推荐 chip：「用引用 1 做原地翻译」  →  去掉引用模板前缀 → `原地翻译`
+ *   · 用户/AI 动作：「原地翻译为中文」    →  去掉语言后缀     → `原地翻译`
+ * 两侧由**同一函数**产出（见 `intentDigest`），因此「同 digest ⟺ 同意图」是可判事实，
+ * 而不是两处各自近似。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 推荐 chip 的引用模板前缀（`用引用 <n> 做…`）—— 摘要时剥掉，只留「意图」。**单源**。 */
+const REF_ACTION_TEXT = /^用引用\s*(\d+)\s*做/;
+/** 语言修饰后缀（`…为中文` / `…成中文` / `…至中文`）—— 同一意图的不同表述。 */
+const LANG_SUFFIX = /[为成至]中文$/;
+
+/**
+ * R6 —— **意图摘要**（单源）。归一化 = 去空白 + 去引用模板前缀 + 去语言后缀。
+ *
+ * 两处（推荐 chip 文本 / 已执行动作原话）都经本函数 ⇒ 「同 digest」两侧可对拍。
+ */
+export function intentDigest(text: string): string {
+  return (text ?? '').replace(/\s+/g, '').replace(REF_ACTION_TEXT, '').replace(LANG_SUFFIX, '');
+}
+
+/** R6 —— 去重键 = `refId#意图摘要`（`refId` 形如 `ref_3` / `ref_${latestRefNum}`）。 */
+export function refActionDigest(refId: string, text: string): string {
+  return `${refId}#${intentDigest(text)}`;
+}
+
+/** R6 —— 引用动作的**文本模板**（`用引用 <n> 做…`）→ 去重键；非该模板 ⇒ `undefined`。 */
+export function refActionTextKey(text: string): string | undefined {
+  const m = REF_ACTION_TEXT.exec((text ?? '').trim());
+  return m ? refActionDigest(`ref_${m[1]}`, text) : undefined;
+}
+
+/** The chips copy the ref-action provider proposes (matching {@link REF_ACTION_TEMPLATE}). */
+function isRefActionRule(rule: string): boolean {
+  return rule === 'ref-action';
+}
+
+/**
+ * R6 —— 该候选是否是「刚被完成的同 digest 动作」。判据 = 其 chip 文本经**同一**
+ * `refActionDigest` 后的键 ∈ 已完成集（`input.completedActions`）。
+ */
+export function completedActionKey(
+  rule: string,
+  chips: readonly NextstepChip[],
+  latestRefNum: number | undefined,
+): string | undefined {
+  if (!isRefActionRule(rule) || latestRefNum === undefined) return undefined;
+  return refActionDigest(`ref_${latestRefNum}`, chips[0]?.text ?? '');
+}
+
 /** The 7 allowed truth sources (asserted verbatim by the source gate). */
 export const NEXTSTEP_SOURCE_WHITELIST = Object.freeze([
   'ref',
@@ -182,6 +236,14 @@ export interface RecommendInput {
   readonly deniedCommands?: readonly string[];
   /** When the previous card was produced (the idle interval is measured against it). */
   readonly lastProducedAt?: number;
+  /**
+   * R6（2026-09-23）—— **刚被完成的同 digest 动作**去重集（键 = `refId#意图摘要`）。
+   *
+   * 一次任务完成后，下一步推荐不得再推同一件事。本集由面板在「回合完成」时登记
+   * （`refActionDigest(...)` 产出同一键），生产器据此**压掉**同 digest 的 `ref-action`
+   * 候选；其他规则（如 `capability-discovery`）照旧可达 ⇒ 不是死端。
+   */
+  readonly completedActions?: readonly string[];
   /** The one clock the caller injects (the producer never reads `Date.now()`). */
   readonly now: number;
 }
@@ -381,7 +443,14 @@ export function recommendNextStep(input: RecommendInput): RecommendResult {
     return Object.freeze({ cards: Object.freeze([]), suppression: 'interval' });
   }
   const denied = new Set(input.deniedCommands ?? []);
-  const rules = candidateRules(input).filter((c) => passesSafety(c, denied));
+  const completed = new Set(input.completedActions ?? []);
+  const rules = candidateRules(input)
+    .filter((c) => passesSafety(c, denied))
+    // ★ R6：完成后不得再推「刚被完成的同 digest 动作」（refId + 意图摘要）。
+    .filter((c) => {
+      const key = completedActionKey(c.rule, c.chips, input.ref.latestRefNum);
+      return key === undefined || !completed.has(key);
+    });
   if (rules.length === 0) {
     const raw = candidateRules(input);
     return Object.freeze({ cards: Object.freeze([]), suppression: raw.length === 0 ? 'empty' : 'safety' });

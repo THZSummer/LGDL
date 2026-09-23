@@ -241,8 +241,8 @@
   },
   "volume": {
     "artifact": "dist/sidepanel.js",
-    "registeredBaselineBytes": 573424,
-    "ceilingBytes": 602095,
+    "registeredBaselineBytes": 578623,
+    "ceilingBytes": 607554,
     "tolerance": 0.05,
     "ceilingCapRole": "record-only",
     "ceilingCapRecordBytes": 306099,
