@@ -7,7 +7,7 @@
 ```
 specs-tree-v55-3-ai-driven-orchestration/
 ├── TREE.md          # 本文件 - 目录导航
-├── build.md          # 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2**）
+├── build.md          # 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2 · R2 = W3+W4 · R3 = W5 收口**）
 ├── plan.md          # 技术计划：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
 ├── spec.md          # Feature Specification：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口）
 ├── state.json          # 状态文件 (🟢 tracked [builded])
@@ -18,7 +18,7 @@ specs-tree-v55-3-ai-driven-orchestration/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2**） — ① 派生式可得：可得   ② 计数：{auto:5, confirm:2, gesture:2}   ④ 与 IMPL 逐字段一致：一致   ⑤ prob... | ✅ 存在 |
+| build.md | 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2 · R2 = W3+W4 · R3 = W5 收口**） — ② seam 清单：S1 chatBusy 单飞本体 / S2 chat 入口 / S3 busy 分支 / S4 finally 收口 / S5 ses... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 技术计划：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 + 治理收口） — 本叶 = v5.5 的**末叶 / 收口叶**，交付作者主题② 的完整形态：**「已配置 LLM 时：让 AI 来启动整个 chat/next」**。关键... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [builded] |

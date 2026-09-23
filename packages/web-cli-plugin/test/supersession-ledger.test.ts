@@ -69,6 +69,22 @@ const HERE = dirname(fileURLToPath(import.meta.url));
  */
 const V4_LEDGER_PATH = resolve(packageRoot(), 'docs/v4-supersession-ledger.json');
 
+/* ── V5.5-3 TASK-V55-318（红线终核）—— 只读既有**单源**（零第二份定义）────────── */
+import { OP_TIER_TABLE, tierOfId } from '../src/shared/op-table.js';
+import { pressDecision } from '../src/ui/sidepanel/next-registry/ai-drive.js';
+import {
+  REGISTERED_STRUCTURAL_HOSTS,
+  RETIRED_CONTAINER_IDS,
+  RETIRED_HOST_ATTRS,
+} from '../src/ui/sidepanel/host-registry.js';
+import {
+  SIDEPANEL_BASELINE_BYTES,
+  SIDEPANEL_CEILING_CAP_ROLE,
+  SIDEPANEL_FINAL_ARTIFACT_BYTES,
+  SIDEPANEL_TIER_BYTES,
+  ceilTo50KB,
+} from './size-baseline.js';
+
 /**
  * 〖v4-3 收口轮 N-01〗`leafBases[].summary` —— 叶段的**自描述读数**。
  *
@@ -2221,3 +2237,165 @@ test('ledger(V4 段)反证: truncationRules 判据必须能红（漏登记 / kep
     '字段整体缺失必须判红（不得用「没有字段 ⇒ 没有截断」蒙混）',
   );
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-3 **TASK-V55-318**（共享面收口 · **红线终核**）—— FR-SELF-113/114/115/116 ·
+ * AC-SELF-025/026 · R-SELF-001 / R-V55-104
+ *
+ * 本叶（末叶）的**终核**：把「不可越的红线」逐项落成 12 条机核事实。**判据不新增第二份定义**
+ * —— 每条都从既有**单源**取数（`src/shared/op-table.ts#tierOf` / `ai-drive.ts#pressDecision` /
+ * `host-registry.ts` 注册表 / `size-baseline.ts` 五要素 / 台账 `zeroDiffFiles` / 真实 `dist` 产物），
+ * 因此「终核」不是再抄一遍常量，而是**在末叶按当前产物重新判定一次**。
+ *
+ * 三冻结面 = `dist/content.js` 177,076 B · `dist/pick-layer.js` 34,358 B ·
+ * `dist/sidepanel.js` = 登记基线（`SIDEPANEL_FINAL_ARTIFACT_BYTES`）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 红线终核 12 项（id + 一审据；`problems` 为空即该条通过）。 */
+export interface RedlineItem {
+  readonly id: string;
+  readonly expectFailPattern: string;
+}
+
+export const V553_REDLINE_ITEMS: readonly RedlineItem[] = Object.freeze([
+  { id: 'RL-01-content-frozen', expectFailPattern: '红线①：`dist/content.js` 必须逐字节冻结在 177,076 B' },
+  { id: 'RL-02-picklayer-frozen', expectFailPattern: '红线②：`dist/pick-layer.js` 必须逐字节冻结在 34,358 B' },
+  { id: 'RL-03-sidepanel-baseline', expectFailPattern: '红线③：`dist/sidepanel.js` 必须等于登记基线（三冻结面之一）' },
+  { id: 'RL-04-kindset-40', expectFailPattern: '红线④：`KIND_SET` 必须逐字 40 项（新变体一律 type-only）' },
+  { id: 'RL-05-privileged-gesture', expectFailPattern: '红线⑤：特权 op 恒 `gesture` 档（不得被 AI 自动按下）' },
+  { id: 'RL-06-consent-no-proxy', expectFailPattern: '红线⑥：consent 档（confirm / gesture）不得被 AI 代答' },
+  { id: 'RL-07-requestturn-2', expectFailPattern: '红线⑦：`requestTurn(` 调用点仍恰 2（AI 经既有 `op.turn` 槽）' },
+  { id: 'RL-08-law8', expectFailPattern: '红线⑧：法八零明文门禁必须在册（`law8-plaintext.mjs`）' },
+  { id: 'RL-09-twelve-kind-zero-host', expectFailPattern: '红线⑨：12 kind 零宿主（0 注册宿主 ∧ 退役句柄非空）' },
+  { id: 'RL-10-judging-chain-zero-diff', expectFailPattern: '红线⑩：判定链 `zeroDiffFiles` 9 项逐项在册（含 policy / auto-authorize）' },
+  { id: 'RL-11-manifest-zero-diff', expectFailPattern: '红线⑪：`manifest.json` 必须在零 diff 冻结面内' },
+  { id: 'RL-12-pending-author-line', expectFailPattern: '红线⑫：`pending-author-line` 不得伪称已确认 ∧ 档位 = `ceilTo50KB(基线)`（未跨档位）' },
+]);
+
+/** 读源码文本（终核只读，零写入）。 */
+function readRedlineSrc(rel: string): string {
+  return readFileSync(resolve(PKG, rel), 'utf8');
+}
+
+/** `KIND_SET` 块内的字面量（从唯一声明处抽取，不是第二份清单）。 */
+function kindSetLiterals(src: string): string[] {
+  const start = src.indexOf('const KIND_SET');
+  if (start < 0) return [];
+  const open = src.indexOf('[', start);
+  const close = src.indexOf(']', open);
+  if (open < 0 || close < 0) return [];
+  return [...src.slice(open + 1, close).matchAll(/'([^']+)'/g)].map((m) => m[1]);
+}
+
+/** `symbol(` 的**调用点**数（去注释 / 去声明 / 去 import；与 op-wiring 同口径）。 */
+function redlineCallSites(src: string, symbol: string): number {
+  let n = 0;
+  for (const raw of src.split('\n')) {
+    const t = raw.trim();
+    if (t.startsWith('*') || t.startsWith('//') || t.startsWith('/*')) continue;
+    if (/^\s*import\b/.test(raw)) continue;
+    if (new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${symbol}\\s*\\(`).test(raw)) continue;
+    if (new RegExp(`^\\s*(?:export\\s+)?const\\s+${symbol}\\s*=`).test(raw)) continue;
+    if (new RegExp(`${symbol}\\s*\\(`).test(raw)) n += 1;
+  }
+  return n;
+}
+
+test('V5.5-3 红线终核 12 项（末叶终核：从既有单源按当前产物重判，不新增第二份定义）', () => {
+  const ledger = JSON.parse(readFileSync(V4_LEDGER_PATH, 'utf8')) as {
+    zeroDiffFiles: string[];
+    v3Vol3Closeout?: { authorConfirmation?: { status?: string } };
+  };
+  const sidepanelSrc = readRedlineSrc('src/ui/sidepanel/sidepanel.ts');
+  const messagingSrc = readRedlineSrc('src/background/messaging.ts');
+  const items: Record<string, string[]> = {};
+
+  // ①②③ 三冻结面（真实产物，逐字节）。
+  const contentBytes = readFileSync(resolve(PKG, 'dist/content.js')).byteLength;
+  const pickBytes = readFileSync(resolve(PKG, 'dist/pick-layer.js')).byteLength;
+  const panelBytes = readFileSync(resolve(PKG, 'dist/sidepanel.js')).byteLength;
+  items['RL-01-content-frozen'] = contentBytes === 177_076 ? [] : [`content.js 实测 ${contentBytes} B ≠ 177,076 B`];
+  items['RL-02-picklayer-frozen'] = pickBytes === 34_358 ? [] : [`pick-layer.js 实测 ${pickBytes} B ≠ 34,358 B`];
+  items['RL-03-sidepanel-baseline'] =
+    panelBytes === SIDEPANEL_FINAL_ARTIFACT_BYTES
+      ? []
+      : [`sidepanel.js 实测 ${panelBytes} B ≠ 登记基线 ${SIDEPANEL_FINAL_ARTIFACT_BYTES} B`];
+
+  // ④ `KIND_SET` 40 逐字（三个新变体一律 type-only）。
+  const kinds = kindSetLiterals(messagingSrc);
+  const ghost = ['llm-unconfigured', 'queued', 'busy-rejected'].filter((k) => kinds.includes(k));
+  items['RL-04-kindset-40'] =
+    kinds.length === 40 && ghost.length === 0
+      ? []
+      : [`KIND_SET 实测 ${kinds.length} 项（须 40）∧ 越界成员 ${JSON.stringify(ghost)}（须空）`];
+
+  // ⑤⑥ 特权 / consent：`tierOf` 单源 + `pressDecision` 真判据（AI 一律拒）。
+  // 物化表同样必须在册（单源口径：派生式 ∧ 物化表一致由 `op-three-tier` 机核，这里只查在册）。
+  assert.ok(Object.keys(OP_TIER_TABLE).length >= 9, '`OP_TIER_TABLE` 必须物化在册');
+  // 特权（`layer === 'sw'` ⇒ 恒 `gesture`）：浏览器侧手势**不可代**。
+  const privileged = ['op.authorize', 'op.perm.request'];
+  const wrongTier = privileged.filter((id) => tierOfId(id) !== 'gesture');
+  items['RL-05-privileged-gesture'] = wrongTier.length === 0 ? [] : [`${wrongTier.join(',')} 不得离开 gesture 档`];
+  // consent 档（confirm）：`op.llm-config` / `op.revoke` —— AI 一律不得代答。
+  const consentOps = ['op.llm-config', 'op.revoke'];
+  const wrongConsent = consentOps.filter((id) => tierOfId(id) !== 'confirm');
+  const aiCtx = { actor: 'ai' as const, driverId: 'ref-action', driverClass: 'ai-driven' as const, configured: true, armed: true };
+  const proxy = [...consentOps, ...privileged].filter((id) => pressDecision(id, aiCtx).ok);
+  items['RL-06-consent-no-proxy'] =
+    proxy.length === 0 && wrongConsent.length === 0
+      ? []
+      : [`consent 档必须恒 confirm（越界 ${JSON.stringify(wrongConsent)}）∧ AI 不得代答：${proxy.join(',')}`];
+
+  // ⑦ `requestTurn(` 仍恰 2。
+  const askTurn = redlineCallSites(sidepanelSrc, 'requestTurn');
+  items['RL-07-requestturn-2'] = askTurn === 2 ? [] : [`requestTurn( 实测 ${askTurn} 处 ≠ 2`];
+
+  // ⑧ 法八零明文门禁在册（可复核指针；判据本体在 `law8-plaintext.mjs`）。
+  const law8 = existsSync(resolve(PKG, 'test/ui/law8-plaintext.mjs'));
+  items['RL-08-law8'] = law8 ? [] : ['法八门禁 `test/ui/law8-plaintext.mjs` 缺失'];
+
+  // ⑨ 12 kind 零宿主（注册表单源：0 个在册宿主 ∧ 退役句柄非空）。
+  items['RL-09-twelve-kind-zero-host'] =
+    REGISTERED_STRUCTURAL_HOSTS.length === 0 && RETIRED_HOST_ATTRS.length > 0 && RETIRED_CONTAINER_IDS.length > 0
+      ? []
+      : [
+          `注册宿主 ${REGISTERED_STRUCTURAL_HOSTS.length}（须 0）∧ 退役句柄 ${RETIRED_HOST_ATTRS.length}/${RETIRED_CONTAINER_IDS.length}（须非空）`,
+        ];
+
+  // ⑩ 判定链零触碰（台账 zeroDiffFiles 9 项，含 policy / auto-authorize）。
+  const chain = ['src/security/policy.ts', 'src/security/auto-authorize.ts'];
+  const missingChain = chain.filter((f) => !ledger.zeroDiffFiles.some((z) => z.endsWith(f)));
+  items['RL-10-judging-chain-zero-diff'] =
+    ledger.zeroDiffFiles.length === 9 && missingChain.length === 0
+      ? []
+      : [`zeroDiffFiles 实测 ${ledger.zeroDiffFiles.length} 项（须 9）∧ 缺 ${JSON.stringify(missingChain)}`];
+
+  // ⑪ `manifest.json` 零 diff。
+  items['RL-11-manifest-zero-diff'] = ledger.zeroDiffFiles.some((z) => z.endsWith('manifest.json'))
+    ? []
+    : ['manifest.json 不在 zeroDiffFiles 内'];
+
+  // ⑫ `pending-author-line` 未伪称 ∧ 档位 = `ceilTo50KB(基线)`（未跨档位，无需升档）。
+  const ac = ledger.v3Vol3Closeout?.authorConfirmation?.status;
+  const tierOk = SIDEPANEL_TIER_BYTES === ceilTo50KB(SIDEPANEL_BASELINE_BYTES) && SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_TIER_BYTES;
+  items['RL-12-pending-author-line'] =
+    ac === 'pending-author-line' && SIDEPANEL_CEILING_CAP_ROLE === 'record-only' && tierOk
+      ? []
+      : [`authorConfirmation=${String(ac)} ∧ capRole=${SIDEPANEL_CEILING_CAP_ROLE} ∧ 档位同源=${String(tierOk)}`];
+
+  const problems: string[] = [];
+  for (const item of V553_REDLINE_ITEMS) {
+    const p = items[item.id] ?? ['未判定（终核表与判定不一致）'];
+    for (const one of p) problems.push(`${item.expectFailPattern}：${one}`);
+  }
+  assert.deepEqual(problems, [], `红线终核未全绿：\n${problems.join('\n')}`);
+  assert.equal(V553_REDLINE_ITEMS.length, 12, '红线终核必须恰 12 项（不得悄悄减少）');
+  for (const item of V553_REDLINE_ITEMS) assert.ok(item.expectFailPattern.trim().length >= 8);
+  // 反证（判据非恒真）：任一条读数被改坏 ⇒ 必红。
+  assert.equal(items['RL-01-content-frozen']!.length, 0, 'RL-01 的真实读数必须为空问题（对照下面的人造坏值）');
+  const forged: Record<string, string[]> = { ...items, 'RL-01-content-frozen': ['content.js 实测 1 B ≠ 177,076 B'] };
+  const forgedProblems = V553_REDLINE_ITEMS.flatMap((i) => (forged[i.id] ?? []).map((one: string) => `${i.expectFailPattern}：${one}`));
+  assert.ok(forgedProblems.length === 1, '只改坏一项 ⇒ 恰好一条问题（判据逐项可判）');
+  console.log(`  ℹ 红线终核：${V553_REDLINE_ITEMS.length}/12 全绿（content 177,076 · pick-layer 34,358 · sidepanel ${panelBytes} · KIND_SET ${kinds.length}）`);
+});
+

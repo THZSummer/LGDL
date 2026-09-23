@@ -7,7 +7,7 @@
  * | 分支 | 本门禁断言 | 交付叶 |
  * |---|---|---|
  * | **A（已配置 LLM）机制侧** | ⑤ 之后 **答案 ⇒ 驱动**：悬置里答案可判命中 + 流内出现可行动候选（`[data-act="next"][data-op]`） | **v55-1**（本门禁） |
- * | A（续） | 「**无需用户再敲任何键** ⇒ 自动成回合」+ 留痕三要素 | **v55-3**（**不在本门禁**） |
+ * | A（续） | 「**无需用户再敲任何键** ⇒ 自动成回合」+ 留痕三要素 + **护栏在链路上可判** + 关断复核 | **v55-3**（本门禁 **⑱**：`S0C-8` / `S0C-9`） |
  * | **B（未配置 LLM）识别侧** | ⑤ 之后**未配置能被识别为终态 + 有驱动者**（`op.llm-config` 候选，零 LLM 调用） | **v55-1**（本门禁）+ v55-2（引导内容） |
  *
  * 两侧**独立计数**（`branchA` / `branchB`），**禁互相掩盖**（R-V55-111）。
@@ -23,6 +23,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CHROME, DIST, PACKAGE_ROOT, check, evaluate, finish, launch, openSidePanel, findOurServiceWorker, sleep } from './_v3-helpers.mjs';
 import { S0_ANSWER, S0_B_PARAM_KINDS, S0_B_STEPS, S0_CHAIN, s0BranchBProblems } from './fixtures/s0-chain.mjs';
+// V5.5-3 TASK-V55-316/317（W5，纯追加）：分支 A 端到端 + 护栏在链路上可判（**同一份样本**）。
+import {
+  S0_A_BEATS,
+  S0_A_ON_CHAIN_REASONS,
+  S0_A_SLOT,
+  s0BranchABeats,
+  s0BranchAProblems,
+} from './fixtures/s0-chain.mjs';
 
 /** One judgement per line of the gate (`expectFailPattern` = the readable failure text). */
 export const JUDGEMENTS = [
@@ -34,6 +42,9 @@ export const JUDGEMENTS = [
   { id: 'S0C-6-shared-sample', expectFailPattern: 'S0 样本必须与 node 面共用同一份（链序 / 答案逐字）' },
   // V5.5-2 TASK-V55-214/215（W5）：分支 B 必判项（只增不减）—— 删自动续接 ⇒ 必 FAIL。
   { id: 'S0C-7-branch-B-mandatory', expectFailPattern: '分支 B 必判项：未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒ 完成 ⇒ 自动续接 ⇒ 留痕（删自动续接 ⇒ FAIL）' },
+  // V5.5-3 TASK-V55-316/317（W5）：分支 A 端到端（零按键）+ 护栏在链路上可判（只增不减）。
+  { id: 'S0C-8-branch-A-end-to-end', expectFailPattern: '分支 A 端到端：已配置 ⇒ 答案后**零按键** ⇒ 经 op.turn 槽自动成回合 + 三要素留痕（删 pressCandidate 门 ⇒ FAIL）' },
+  { id: 'S0C-9-guard-on-chain', expectFailPattern: '护栏在链路上真实可判：越限 ⇒ 可读抑制行 ∧ 真的没发起 ∧ 关断 ⇒ 主题① 仍放行（删护栏缝 ⇒ FAIL）' },
 ];
 
 /**
@@ -81,6 +92,20 @@ function bBeatCheck(beatId, label, ok, detail) {
   }
   bBeatHits.set(beatId, (bBeatHits.get(beatId) ?? 0) + 1);
   return check(`[B:${beatId}] ${label}`, ok, detail);
+}
+
+/**
+ * 〖V5.5-3 TASK-V55-316〗分支 A 端到端的六拍 —— id 逐序取自共享样本 `S0_A_BEATS`（本面
+ * **不写第二份**），与 `PANEL_B_BEATS` 同纪律：未登记 / 登记了却没读 ⇒ 都必红。
+ */
+export const PANEL_A_BEATS = Object.freeze(s0BranchABeats());
+const aBeatHits = new Map();
+function aBeatCheck(beatId, label, ok, detail) {
+  if (!PANEL_A_BEATS.some((b) => b.id === beatId)) {
+    throw new Error(`S0 Chromium 门禁：分支 A 环节 id「${beatId}」未登记进 PANEL_A_BEATS（先登记再断言）`);
+  }
+  aBeatHits.set(beatId, (aBeatHits.get(beatId) ?? 0) + 1);
+  return check(`[A:${beatId}] ${label}`, ok, detail);
 }
 
 async function main() {
@@ -289,6 +314,303 @@ async function main() {
 
     // 人工面（不得冒充 PASS）：主动接手**体感** / 是否被突然打断 / 引导文案可读性。
     check('S0 人工面：主动接手体感 / 打断感 / 引导文案可读性 = ⏳ 未执行（headless 不可合成，不得冒充 PASS）', true, '⏳ 未执行（并列 v5 人工面 9 项，不覆盖）');
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⑱ V5.5-3 TASK-V55-316/317（ADR-V55-005 §3 · ADR-V55-009 §1/§3/§4 · FR-SELF-060/064/
+    //    070/090~094 · **AC-SELF-001/008** · R-V55-111）—— 分支 A **端到端收口**：
+    //    已配置 ⇒ 答案后**零按键** ⇒ `pressCandidate` 经**既有** `op.turn` 槽成回合 ⇒
+    //    思考/命令行 ⇒ 续流；并且**护栏在链路上真实可判**（越限 ⇒ 可读抑制行 ∧ 真的没发起；
+    //    关断 ⇒ 主题① 仍放行）。样本与判据取自共享 `./fixtures/s0-chain.mjs`（禁第二份）。
+    // ═════════════════════════════════════════════════════════════════════════
+    console.log('\n▶ ⑱ 分支 A 端到端（零按键自动成回合）+ 护栏在链路上可判 + 关断复核');
+
+    // ── 样本单源：本面登记的分支 A 六拍必须逐序等于共享样本；两分支环节集不相交 ──
+    check(
+      'S0C-8 分支 A 六拍逐序与共享样本一致（id 机序，非「数量」常量）',
+      PANEL_A_BEATS.length === S0_A_BEATS.length && PANEL_A_BEATS.every((b, i) => b.id === S0_A_BEATS[i].id),
+      JSON.stringify({ panel: PANEL_A_BEATS.map((b) => b.id), sample: S0_A_BEATS.map((b) => b.id) }),
+    );
+    const aOverlap = PANEL_A_BEATS.filter((b) => PANEL_B_BEATS.some((x) => x.id === b.id)).map((b) => b.id);
+    check('S0C-8 A / B 两分支环节集不相交（各自独立计数，禁互相掩盖）', aOverlap.length === 0, JSON.stringify(aOverlap));
+
+    // ── ① 已配置：`llm-status` 由夹具应答（真面板读回 `LLM：Key ✅`）；`chat` 记录 + 应答 ──
+    //    本段的 `chat` 只在 `__s0ASwallowChat` 置位时被接住（headless 无网络面）；标志在
+    //    本段结束时复位，后续分支 B 的第一条真人回合仍走**真实 SW**（`llm-unconfigured`）。
+    await evaluate(
+      cdp,
+      `(() => {
+        if (window.__s0AStub) return true;
+        const orig = chrome.runtime.sendMessage.bind(chrome.runtime);
+        window.__s0AChat = [];
+        window.__s0ASwallowChat = false;
+        chrome.runtime.sendMessage = (msg, ...rest) => {
+          const kind = msg && msg.kind;
+          if (kind === 'llm-status') {
+            return Promise.resolve({ ok: true, data: { configured: true, providerId: 'deepseek', providerName: 'DeepSeek', model: 'deepseek-chat' } });
+          }
+          if (kind === 'chat') {
+            window.__s0AChat.push(msg);
+            if (window.__s0ASwallowChat === true) return Promise.resolve({ ok: true, data: {} });
+          }
+          return orig(msg, ...rest);
+        };
+        window.__s0AStub = true;
+        return true;
+      })()`,
+    );
+    await evaluate(cdp, `window.__s0ASwallowChat = true; true`);
+    await evaluate(cdp, `window.__v3.testing.refresh().then(() => true)`);
+    // `llm-status` 只在「面板加载 / 窗口获焦 / 连接测试」三处回读（`refreshState` 不含它）——
+    // 因此这里用**产品自己的**获焦回读路径（`window focus` 监听）把夹具摘要喂进面板。
+    await evaluate(cdp, `window.dispatchEvent(new Event('focus')); true`);
+    await sleep(400);
+    const aConfigured = JSON.parse(
+      await evaluate(cdp, `JSON.stringify({ llm: (document.getElementById('llm-status') || {}).textContent || '' })`),
+    );
+    aBeatCheck('configured', '① 已配置：面板读到「LLM：Key ✅」（主题② 前提：配置判据 = 唯一分流依据）', /LLM：Key ✅/.test(aConfigured.llm), JSON.stringify(aConfigured));
+
+    // ── 真面板：绑定 / 授权 / 拾取引用 / ask 卡 / 作答（与上文同一真路径，零旁路）──
+    await evaluate(cdp, `window.__v3.testing.reset(); true`);
+    await evaluate(
+      cdp,
+      `(async () => {
+        await chrome.runtime.sendMessage({ kind: 'discover', origin: ${JSON.stringify(S0_ORIGIN)}, state: 'supported' });
+        await chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(S0_ORIGIN)}, hostPermissionGranted: false });
+        await window.__v3.testing.refresh();
+        return true;
+      })()`,
+    );
+    const aPick = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const origin = ${JSON.stringify(S0_ORIGIN)};
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin,
+            documentId: 'doc-s0a', navSeq: 1,
+            declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: origin, authorized: true, documentId: 'doc-s0a', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          return JSON.stringify({ refId: rec.facts.refId });
+        })()`,
+      ),
+    );
+    const aAskId = `ref-round-${aPick.refId}`;
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamSeed([{ kind: 'askuser', cardId: 's0a-ask', payload: { askKind: 'choice', prompt: '已捕获引用：要用它做什么？', requestId: ${JSON.stringify(aAskId)}, options: [${JSON.stringify(S0_ANSWER)}, '纳入下一步（作为上下文）'] } }]); true`,
+    );
+    // 「零按键」量具：作答之后对**候选 chip**（`[data-op]`）的任何点击都算一次按键。
+    await evaluate(
+      cdp,
+      `(() => {
+        window.__s0AOpClicks = 0;
+        if (window.__s0AOpClickBound) return true;
+        document.addEventListener('click', (e) => {
+          const t = e.target && e.target.closest ? e.target.closest('#stream [data-op]') : null;
+          if (t) window.__s0AOpClicks += 1;
+        }, true);
+        window.__s0AOpClickBound = true;
+        return true;
+      })()`,
+    );
+    const aChatBefore = await evaluate(cdp, `window.__s0AChat.length`);
+    // 真点击作答（唯一的一处「用户动作」；之后**不再按任何键**）。
+    await evaluate(cdp, `document.querySelector('[data-msg-type="askuser"] [data-act="choose"]').click(); true`);
+    await sleep(500);
+    const aFlow = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const text = document.getElementById('stream').textContent;
+          const users = [...document.querySelectorAll('#stream [data-msg-type="user"]')].map((el) => el.textContent);
+          // 三要素留痕必须**独立成行**（不得把「抑制行」误读成「按下行」——抑制行是它的超集）。
+          const rows = [...document.querySelectorAll('#stream > li')].map((el) => el.textContent || '');
+          const TRACE = 'driver=ref-action | timing=answered | evidence=ref.validCount,ref.latestRefNum';
+          return JSON.stringify({
+            chats: window.__s0AChat.slice(),
+            opClicks: window.__s0AOpClicks,
+            trace: rows.some((t) => t.includes(TRACE) && !t.includes('suppressed=')),
+            users,
+            suppressed: (text.match(/suppressed=[a-z-]+/g) || []),
+          });
+        })()`,
+      ),
+    );
+    const aChats = aFlow.chats.slice(aChatBefore);
+    // ② 自动按下（恰 1 次；判据本体在共享样本，这里给真读数）。
+    aBeatCheck('pressed', '② 答案 ⇒ `pressCandidate` 自动按下（留痕 `driver=ref-action | timing=answered`）', aFlow.trace === true, JSON.stringify({ trace: aFlow.trace, chats: aChats.length }));
+    // ③ 经既有 `op.turn` 槽成回合 ∧ **零按键**（作答之后没有点过任何候选 chip）。
+    aBeatCheck(
+      'slot',
+      '③ 经**既有** `op.turn` 槽自动成回合 ∧ **零按键**（作答后候选 chip 点击 = 0）',
+      aChats.length === 1 && aFlow.opClicks === 0 && String(aChats[0]?.chat?.user ?? aChats[0]?.user ?? '').includes(S0_ANSWER),
+      JSON.stringify({ chats: aChats.length, opClicks: aFlow.opClicks, msg: aChats[0] }),
+    );
+    // ④ 答案原文进入流内（`user` 行）——「答案不被丢弃」在真面板上的形态。
+    aBeatCheck(
+      'stream',
+      '④ 思考/命令进入流内：答案原文成为一条 `user` 行（不再要求用户重说）',
+      aFlow.users.some((t) => String(t).includes(S0_ANSWER)),
+      JSON.stringify({ users: aFlow.users }),
+    );
+
+    // ── ④ 思考 / 命令：SW 侧投递 `command` → 面板出现命令行（真 `chat-result` 分派）──
+    await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'command', text: '正在按「${S0_ANSWER}」继续…' }).then(() => true).catch(() => true)`);
+    await sleep(300);
+    const aCommand = JSON.parse(
+      await evaluate(cdp, `JSON.stringify({ commands: document.querySelectorAll('#stream [data-msg-type="command"]').length })`),
+    );
+    aBeatCheck('stream', '④ 思考/命令：`chat-result{command}` ⇒ 流内出现命令行（续流进流内）', aCommand.commands >= 1, JSON.stringify(aCommand));
+
+    // ── ⑥ 续流收口：`chat-result{done}` ⇒ 回合结束（pending=false ∧ 无死端 ∧ 无开口 ask）──
+    await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'done' }).then(() => true).catch(() => true)`);
+    await sleep(350);
+    const aDone = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const hosts = [...document.querySelectorAll('#stream > li')];
+          const carriers = hosts.filter((l) => l.getAttribute('data-msg-type') === 'error' || (l.getAttribute('data-msg-type') === 'system' && (l.textContent || '').trim().indexOf('✖') === 0));
+          return JSON.stringify({ pending: window.__v3.testing.askFlow(), asks: window.__v3.testing.openAsks().length, carriers: carriers.length, pageErrors: document.querySelectorAll('#stream [data-msg-type="error"]').length });
+        })()`,
+      ),
+    );
+    aBeatCheck(
+      'continuation',
+      '⑥ 续流收口：回合结束（无开口 ask ∧ 无阻塞裸奔）',
+      aDone.asks === 0 && aDone.carriers === 0 && aDone.pageErrors === 0,
+      JSON.stringify(aDone),
+    );
+
+    // ── ⑤ 护栏在链路上可判（真面板）：新一轮意图（不同因）立刻被**冷却**挡下 ──────
+    //    `proactivity` 单例的时钟是真 `Date.now` ⇒ 首拍之后 10 s 内的下一次自动发起必被
+    //    `cooldown` 抑制；抑制**:不是静默**——写一行 `suppressed=<reason>`（可读），且
+    //    **真的没有第二次发起**（`chat` 计数不增）。
+    const aChatsBefore2 = await evaluate(cdp, `window.__s0AChat.length`);
+    await evaluate(cdp, `window.__v3.testing.l1('act', ${JSON.stringify(aPick.refId)}, '另一个动作'); true`);
+    await sleep(400);
+    const aGuard = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const text = document.getElementById('stream').textContent;
+          return JSON.stringify({ suppressed: (text.match(/suppressed=[a-z-]+/g) || []), chats: window.__s0AChat.length });
+        })()`,
+      ),
+    );
+    const aSuppressed = aGuard.suppressed.slice(-1)[0] ?? null;
+    const aReason = aSuppressed ? aSuppressed.split('=')[1] : null;
+    aBeatCheck(
+      'guarded',
+      '⑤ 护栏真抑制：越限 ⇒ `suppressed=<reason>` 可读行 ∧ **真的没有第二次发起**',
+      aReason !== null && aGuard.chats === aChatsBefore2,
+      JSON.stringify({ suppressed: aGuard.suppressed, chats: aGuard.chats, before: aChatsBefore2 }),
+    );
+
+    // ── ⑤ 关断（TASK-V55-317）：设置面唯一新增持久偏好 ⇒ 关断后 `suppressed=disabled`，
+    //    且**主题① 仍放行**（设置面切换走真 `change` 事件 + 真持久化）。 ──
+    await evaluate(cdp, `window.__v3.testing.openStatusDetails(); true`);
+    await sleep(250);
+    const aToggle = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const cb = document.getElementById('settings-proactive-enabled');
+          if (!cb) return JSON.stringify({ found: false });
+          cb.checked = false;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+          const st = document.getElementById('settings-proactive-status');
+          return JSON.stringify({ found: true, status: st ? st.textContent : null });
+        })()`,
+      ),
+    );
+    await sleep(300);
+    const aChatsBefore3 = await evaluate(cdp, `window.__s0AChat.length`);
+    await evaluate(cdp, `window.__v3.testing.l1('act', ${JSON.stringify(aPick.refId)}, '再一个动作'); true`);
+    await sleep(400);
+    const aOff = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const text = document.getElementById('stream').textContent;
+          const rec = JSON.parse(window.__v3.testing.recommend('idle'));
+          return JSON.stringify({
+            suppressed: (text.match(/suppressed=[a-z-]+/g) || []),
+            chats: window.__s0AChat.length,
+            deterministic: rec.produced,
+          });
+        })()`,
+      ),
+    );
+    aBeatCheck(
+      'guarded',
+      '⑤ 关断复核(T317)：关断 ⇒ `suppressed=disabled` ∧ 真不发 ∧ **主题① 仍放行**（推荐照常产出）',
+      aToggle.found === true &&
+        aOff.suppressed.includes('suppressed=disabled') &&
+        aOff.chats === aChatsBefore3 &&
+        aOff.deterministic >= 1,
+      JSON.stringify({ toggle: aToggle, off: aOff, before: aChatsBefore3 }),
+    );
+    // 恢复开（不留副作用：后续收尾判据与人工面读数不被本段污染）。
+    await evaluate(
+      cdp,
+      `(() => { const cb = document.getElementById('settings-proactive-enabled'); if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); } window.__v3.testing.closeL2View(); window.__s0ASwallowChat = false; return true; })()`,
+    );
+    await sleep(200);
+
+    // ── 判据本体（共享样本，双面同一份）：真读数必绿 + 反证必红 ────────────────
+    const aReading = {
+      configured: /LLM：Key ✅/.test(aConfigured.llm),
+      slot: aChats.length >= 1 ? S0_A_SLOT : null,
+      keypresses: aFlow.opClicks,
+      presses: aChats.length >= 1 ? 1 : 0,
+      answer: aChats.length >= 1 ? S0_ANSWER : null,
+      chatTurns: aChats.length,
+      trace: aFlow.trace === true,
+      guardReasons: [...S0_A_ON_CHAIN_REASONS],
+      suppressedReadable: aReason !== null,
+      continuation: aDone.asks === 0 && aDone.carriers === 0,
+    };
+    const aProblems = s0BranchAProblems(aReading);
+    check(`S0C-8 分支 A 必判项（共享样本判据）：${aProblems.length === 0 ? '全绿' : aProblems.join(' / ')}`, aProblems.length === 0, JSON.stringify(aReading));
+    // 反证（本面也机核「判据不是恒真」）：删按下门 / 敲键 / 静默抑制 ⇒ 必 FAIL。
+    check(
+      'S0C-8 反证：删 `pressCandidate` 门（`presses=0`）⇒ 共享判据必 FAIL（复现 S0-A 静默）',
+      s0BranchAProblems({ ...aReading, presses: 0, chatTurns: 0, answer: null }).some((p) => p.includes('删 pressCandidate 门')),
+      'falsification',
+    );
+    check(
+      'S0C-8 反证：作答后又敲键（`keypresses=1`）⇒ 共享判据必 FAIL（零按键是本判据本体）',
+      s0BranchAProblems({ ...aReading, keypresses: 1 }).some((p) => p.includes('零按键')),
+      'falsification',
+    );
+    check(
+      'S0C-9 反证：越限静默（`suppressedReadable=false`）⇒ 共享判据必 FAIL（抑制必须可读）',
+      s0BranchAProblems({ ...aReading, suppressedReadable: false }).some((p) => p.includes('静默')),
+      'falsification',
+    );
+    check(
+      'S0C-9 反证：删护栏缝（链上护栏项缺失）⇒ 共享判据必 FAIL（频次/链深/预算必须沿链可判）',
+      s0BranchAProblems({ ...aReading, guardReasons: [] }).some((p) => p.includes('删护栏缝')),
+      'falsification',
+    );
+    // 关断后主题① 放行的**判据侧**复核（与真面板读数同一条断言的两半）。
+    check(
+      'S0C-9 关断语义：`deterministic` 恒放行 ∧ `ai` 恒拒（主题① 不受总开关控制）',
+      aOff.deterministic >= 1,
+      JSON.stringify({ produced: aOff.deterministic }),
+    );
+
+    // 分支 A 逐拍覆盖机核（登记了却没读 ⇒ 必红）。
+    const aMisses = PANEL_A_BEATS.filter((b) => (aBeatHits.get(b.id) ?? 0) === 0).map((b) => b.id);
+    check(
+      `S0C-8 分支 A 逐环节可判（真面板读数）：每拍 ≥1 断言（实测 ${PANEL_A_BEATS.filter((b) => (aBeatHits.get(b.id) ?? 0) > 0).length}/${PANEL_A_BEATS.length} 拍有读数）`,
+      aMisses.length === 0 && PANEL_A_BEATS.length === S0_A_BEATS.length,
+      JSON.stringify({ misses: aMisses, hits: Object.fromEntries(aBeatHits) }),
+    );
 
     // ═════════════════════════════════════════════════════════════════════════
     // ⑰ V5.5-2 TASK-V55-214/215（ADR-V55-005 §3 · FR-SELF-131/046 · AC-SELF-001）

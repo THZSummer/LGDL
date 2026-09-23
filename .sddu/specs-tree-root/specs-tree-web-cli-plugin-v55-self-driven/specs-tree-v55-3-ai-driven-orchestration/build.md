@@ -1,13 +1,15 @@
-# 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2 · R2 = W3+W4**）
+# 构建报告：specs-tree-v55-3-ai-driven-orchestration（V5.5-3 主题② AI 驱动编排 · **R1 = W1+W2 · R2 = W3+W4 · R3 = W5 收口**）
 
 > **文档定位**: SDDU 构建报告 — 记录全部任务的文件变更和实现结果，作为 review / validate 阶段的输入  
 > **前置依赖**: `tasks.md`（20 任务 / 5 波）、`tasks.json`、本叶 `plan.md` v1.0、父 `../plan.md` + `ADR-V55-008/009/010/011/012`、前置叶 `v55-1` / `v55-2`（全绿）  
 > **创建人**: SDDU Build Agent  
 > **创建时间**: 2026-09-23  
-> **版本**: v1.1（**R1 = W1+W2**（TASK-V55-301~307）+ **R2 = W3+W4**（TASK-V55-308~315）；W5 = TASK-V55-316~320 留 R3）  
+> **版本**: v1.2（**R1 = W1+W2** + **R2 = W3+W4** + **R3 = W5 收口**（TASK-V55-316~320：S0 分支 A 端到端 + 关断复核 + 红线终核 + 体积定稿 + 父移交））  
 > **更新人**: SDDU Build Agent  
 > **更新时间**: 2026-09-23  
 > **更新说明**: R2 增量——SW 有界仲裁（`TURN_QUEUE_MAX = 1`）+ 溢出明确拒绝 + 草稿回填 · 护栏六常量单源（`guard.ts`）+ 越限真抑制 + 关断偏好 · 不可达用户输入为零（三路径）· 载体零新增保持 · 体积重登记 566,535 → **573,424 B**（R2 单轮 +6,889，仍 < 单轮上界 7,600，产物在旧生效上限内）
+>
+> **R3 增量（W5 收口轮）**——① **S0 分支 A 端到端收口**（已配置 ⇒ 答案后**零按键** ⇒ `pressCandidate` 经**既有** `op.turn` 槽成回合 ⇒ 思考/命令 ⇒ 续流）：样本单源扩展（`s0-chain.mjs#S0_A_BEATS/s0BranchAProblems`，**node + Chromium 双面共用一份**）+ node 面 4 用例 + Chromium 面 **59 check**；② **护栏在链路上真实可判**（频次 / 链深 / 预算沿链穷举 + 真面板抑制可读 ∧ 真不发）；③ **关断偏好设置面接线复核**（唯一新增持久偏好 · 默认 ON · 关断 ⇒ `suppressed=disabled` ∧ **主题① 仍放行**）；④ **红线终核 12 项**（`test:supersession` 新增判据，按当前产物重判）；⑤ **体积收口定稿**（Δ **0**，五要素 = **573,424 / 602,095 / 614,400 / 675,840 / `pending-author-line`**，**未跨档位**）；⑥ **SG-V55-05 = 保段可得**（journey `43054..58287` / binding `107780..115930` sha 双命中，两文件零 diff）；⑦ 本叶 3 枚 node 门禁正式纳入 `EXPECTED_AUDITED_FILES`。
 
 ---
 
@@ -219,9 +221,200 @@
 
 ---
 
+## 8. R3（W5 收口轮）—— S0 分支 A 端到端 / 关断复核 / 红线终核 / 体积定稿 / 父移交
+
+> **范围**：`TASK-V55-316~320`。**`src/**` 零字节改动**（全部落在 `test/**` / `docs/**` / `.sddu/**`）⇒ 体积 Δ = **0**。
+
+### 8.1 W5 任务 ↔ 交付映射（**含范围口径的诚实登记**）
+
+| W5 任务（tasks.md 原文） | R3 实际交付 | 说明 |
+|---|---|---|
+| **TASK-V55-316** SG-V55-05 保护段探针（先验闸门） | **SG-V55-05 = 保段可得**（见 §8.5） | 只读探针；结论 = 两保护段 sha 双命中 ∧ 两文件零 diff ⇒ **无需八步取代** |
+| **TASK-V55-317** `journey.mjs` 保段优先 + 段外登记 | **保段成立 ⇒ 零改动**（段内零字节 ∧ 段外零改写） | 保段优先路径下**无段外改写**，逐行登记为空集（如实登记「未改写」） |
+| **TASK-V55-318** `binding.mjs` 保段 + 段外登记 | **保段成立 ⇒ 零改动**（`decision = keep`） | 同上；`binding` 的运行时 FAIL 为**环境性 flake**（见 §8.8） |
+| **TASK-V55-319** 体积终轮（三叶合计）+ 跨档位显式升档登记 | ✅ **体积收口定稿**（Δ 0 / **未跨档位** / 五要素终值） | 二态显式：**未跨档位** ⇒ 如实登记「无需升档」 |
+| **TASK-V55-320** 共享面收口（台账 / `knownGap` / 人工面 / 全门禁 + e2e） | ✅ 收口（§8.6 / §8.7 / §8.8） | 三叶恰一次收口 + 父移交清单 |
+| **R3 追加（编排器指令）**：316′ S0 分支 A **端到端收口** | ✅ **node + Chromium 双面**（§8.2） | 补上 v55-1 门禁显式留白（`s0-self-driven.mjs` 原注「A 续 = v55-3，不在本门禁」） |
+| **R3 追加**：317′ **关断偏好设置面接线复核** | ✅ node + Chromium 双面（§8.3） | settings 唯一新增持久偏好 · 默认 ON · 关断 ⇒ 主题① 仍放行 |
+| **R3 追加**：318′ **红线终核 12 项** | ✅ `test:supersession` 新判据（§8.4） | 按**当前产物**重判（不是再抄常量） |
+
+> **口径诚实登记（不得静默）**：R3 的启动指令把 W5 表述为「316 S0-A 端到端 / 317 关断复核 / 318 红线终核 / 319 体积定稿 / 320 父移交」；仓库内 `tasks.md` / `tasks.json` 的 W5 原文为「316 SG-V55-05 探针 / 317 journey 保段 / 318 binding 保段 / 319 体积终轮 / 320 收口」。
+> 两者**并不冲突**而是**互补**：SG-V55-05 探针的结论是「保段可得 ⇒ 317/318 零改动」（因此 317/318 的产出就是**保段证据**而非文件改写），而 S0-A 端到端 / 关断复核 / 红线终核 属 **320「共享面收口」的追加交付**（`tasks.md` §5 的共享面义务 ②④ + AC-SELF-001/026）。
+> 本表逐项并列两者，**既未静默改规范，也未漏交指令**。
+
+### 8.2 S0 分支 A 端到端（零按键自动成回合）—— **双面证据**
+
+**样本单源**（`test/ui/fixtures/s0-chain.mjs`，`node` 与 `Chromium` **同一份文件**）：
+- `S0_A_BEATS`（六拍：`configured → pressed → slot → stream → guarded → continuation`）；
+- `S0_A_SLOT = 'op.turn'`（唯一允许的槽）；`S0_A_GUARD_REASONS`（护栏原因闭集）；
+  `S0_A_ON_CHAIN_REASONS = ['frequency','chain-depth','budget']`（**必须在链路上可判**的三项）；
+- `s0BranchAProblems(reading)`（**判据本体**：`presses ≠ 1` ⇒ 必红「删 pressCandidate 门」；`keypresses ≠ 0` ⇒ 必红；`guardReasons` 缺项 ⇒ 必红「删护栏缝」；`suppressedReadable === false` ⇒ 必红）。
+
+| 面 | 门禁 | 读数 | 证据 |
+|---|---|---|---|
+| **node** | `test/s0-self-driven-chain.test.ts`（`S0N-9` / `S0N-9 反证` / `S0N-10` / 元判据，11 → **15 用例**） | ✅ 15/15 | 真管线：`bindPanelOps` + `pressCandidate` ⇒ 答案原样交到面板回合入口（**零按键**，node 面无按键概念 ⇒ `keypresses: 0` 为构造事实）；三要素留痕逐字 ∧ **零明文**（不回显答案全文）；护栏三项沿**链序**穷举（`frequency` @ 第 7 次 / `chain-depth` @ 第 3 次无交互 / `budget` @ 第 9 次） |
+| **Chromium** | `test/ui/s0-self-driven.mjs` §⑱（`S0C-8` / `S0C-9`；总 check **45 → 59**） | ✅ **59 passed / 0 failed** | 真面板真路径：`llm-status` 夹具（真获焦回读路径）⇒ `LLM：Key ✅`；真点击作答 ⇒ **恰 1 条 `chat`**（`user = 原地翻译为中文`）∧ **作答后候选 chip 点击 = 0（零按键量具）**；三要素留痕**独立成行**；`chat-result{command}` ⇒ 命令行进流；`chat-result{done}` ⇒ 回合收口（无开口 ask ∧ 无阻塞裸奔） |
+
+**「零按键」量具**：`document.addEventListener('click', …, true)` 统计作答之后落在 `#stream [data-op]` 上的点击 ⇒ 实测 **0**（AI 的按下**不经 DOM 点击**，是 `pressCandidate → dispatchChipAction('op.turn')` 的程序化路径）。
+
+### 8.3 护栏在链路上真实可判 + 关断偏好复核（`TASK-V55-317`）
+
+| 面 | 判据 | 结果 |
+|---|---|---|
+| node | 六常量单源（`guard.ts`）∧ 频次 / 链深 / 预算沿**链序**穷举 ⇒ 各得 `'frequency'` / `'chain-depth'` / `'budget'`，且**窗口滚动 / 用户交互后可恢复**（非恒真） | ✅ |
+| node | 关断复核：`AI_PROACTIVE_ENABLED_DEFAULT === true`；`AI_PROACTIVE_PREF_KEY === 'web-cli:proactive'`（**≠** `web-cli:llm`）；无 storage ⇒ 降级默认 ON；**关断 ⇒ `ai` 恒拒 ∧ `deterministic` 恒放行**；假 `chrome.storage.local` 读写同键 ∧ 非布尔残留 ⇒ 降级默认（不伪造「已关断」） | ✅ |
+| Chromium | 越限 ⇒ 流内出现 `suppressed=<reason>`（可读）∧ **`chat` 计数不增**（真抑制）；设置面切 `#settings-proactive-enabled` ⇒ `suppressed=disabled` ∧ 真不发 ∧ **`recommend()` 照常产出**（主题① 不受总开关控制） | ✅ |
+
+> **口径拆分（诚实登记）**：Chromium 面可达的链上抑制是**代表性**的一项（`cooldown` / `disabled` —— 真 `Date.now` 时钟下 `frequency` 需 6 次 × 10 s 冷却窗口，headless 不可压缩）；**频次 / 链深 / 预算**三项由 node 面用**可注入时钟的护栏工厂**沿同一链序穷举证明。两面**判据同源**（同一 `s0BranchAProblems` + 同一 `guard.ts`）。
+
+### 8.4 红线终核 12 项（`TASK-V55-318`）
+
+新增于 `test/supersession-ledger.test.ts`（`test:supersession` 36 → **37**，只增）：`V553_REDLINE_ITEMS` 12 条 + 逐项判定 + 逐项反证（坏一项 ⇒ 恰一条问题）。
+
+| # | 红线 | 终值（按当前产物重判） |
+|---|---|---|
+| RL-01 | `dist/content.js` 冻结 | **177,076 B** ✅ |
+| RL-02 | `dist/pick-layer.js` 冻结 | **34,358 B** ✅ |
+| RL-03 | `dist/sidepanel.js` = 登记基线（三冻结面之三） | **573,424 B** ✅ |
+| RL-04 | `KIND_SET` 逐字 40 ∧ 三个新变体（`llm-unconfigured` / `queued` / `busy-rejected`）**均不在**其中（type-only） | **40** ✅ |
+| RL-05 | 特权恒手势（`op.authorize` / `op.perm.request` ⇒ `tierOfId === 'gesture'`；物化表在册） | ✅ |
+| RL-06 | consent 不代答（`op.llm-config` / `op.revoke` 恒 `confirm` ∧ AI 对 confirm+gesture 一律 `blocked:tier`） | ✅ |
+| RL-07 | `requestTurn(` 调用点 **恰 2**（AI 经既有 `op.turn` 槽） | **2** ✅ |
+| RL-08 | 法八零明文门禁在册 | ✅ |
+| RL-09 | 12 kind **零宿主**（`REGISTERED_STRUCTURAL_HOSTS.length === 0` ∧ 退役容器 / 句柄非空） | ✅ |
+| RL-10 | 判定链 `zeroDiffFiles` **9 项**（含 `policy.ts` / `auto-authorize.ts`） | ✅ |
+| RL-11 | `manifest.json` 在零 diff 冻结面内 | ✅ |
+| RL-12 | `pending-author-line` **未伪称已确认** ∧ `CEILING_CAP_ROLE === 'record-only'` ∧ 档位 = `ceilTo50KB(基线)` | ✅ |
+
+### 8.5 **SG-V55-05** 结论（先验闸门 · `TASK-V55-316`）
+
+**结论 = 保段可得**（只读探针；日志 `/tmp/opencode/v4-gate-logs/v55-3-r3/SG-V55-05.log`，五要素报告）：
+
+```
+① 结论：保段可得（两保护段 sha 双命中 + 两文件零 diff ⇒ 无需八步取代）
+② 片段清单：journey.mjs 43054..58287  sha cc79f413fa289ad6de3124602c21640edd36c6af51e8f12f0ebe4ce39d620da7（= 登记 pin）
+             binding.mjs 107780..115930 sha be9ad0e983670137d4233349aede1cae0f0b6fdf26a050083761d30d52c6b936（= 登记 pin，decision = keep）
+③ 反证（缺一即不可得）：（无）  ④ 取代路径：不需要（journey 保段成立 / binding keep 成立）
+⑤ problems：（空）  ⑥ 等长补偿预算：0 B（两文件本轮零改动）
+```
+
+⇒ `TASK-V55-317/318` 走**保段优先**路径（**零文件改写**），`BLK-V55-5` **未触发**。保护段凭据另有 `test:supersession`（37/0，含保护段判据）独立机核。
+
+### 8.6 体积收口定稿（`TASK-V55-319`）—— 五要素终值
+
+| 要素 | 终值 |
+|---|---|
+| 实测（`stat -c %s dist/sidepanel.js`） | **573,424 B**（R2 终值；R3 Δ **0**） |
+| 逐模块归因 | `SIDEPANEL_GROWTH_BREAKDOWN.v553R3Rows` = **[]**（空集）+ 未归因胶水 **0** == Δ **0**；真实 metafile 与 R2 轮**逐模块逐值相等** |
+| 输入模块数 | 92（未动） |
+| 生效上限 / 档位 / 绝对上限 | **602,095**（= `floor(573,424 × 1.05)`）/ **614,400** / **675,840**；基线 573,424 **<** 档位 614,400 ⇒ **未跨档位**（二态显式：**无需升档**） |
+| 披露 / 占位 | `SIDEPANEL_V553_FINAL_ROUND`（`direction: 'unchanged'`）+ `docs/v4-density-baseline.json#volume.v553FinalRound` 五要素齐备；`SIDEPANEL_CEILING_CAP_ROLE === 'record-only'`；`authorConfirmation` 保持 **`pending-author-line`**（**未伪称已确认**） |
+| 红线 | `content.js` **177,076 B** / `pick-layer.js` **34,358 B** 逐字节不变 |
+
+**叶预算口径诚实登记**：叶预算 **5,900 B** / 上界 **7,600 B**；R1 +2,755 + R2 +6,889 + **R3 +0** = **+9,644 B** ⇒ **本叶累计越叶预算（超 3,744 B）**（超额全部在 R1/R2，根因 = 计划侧低估 `guard.ts` ×1.8 / `settings/panel.ts` ×5.4）；未跨档位、无红线变化 ⇒ 按 ADR-V55-011 §4「登记不停机」；R3 零增重。新增判据 `test/size-growth-evidence.test.ts`（+1，18 用例）+ `size-ruling-vol3`（12 未动）。
+
+### 8.7 共享面收口与父移交清单（`TASK-V55-320`）
+
+**① 取代台账 X-SELF-1~7 逐项对账终态**（新增 `docs/v4-supersession-ledger.json#xSelfLedgerCloseout`，三叶逐项 + owner + 可机核证据）：
+
+| id | 终态 | owner（落地叶） | 可机核证据 |
+|---|---|---|---|
+| X-SELF-1 | **未发生取代**（如实登记） | 末叶终核 | `op-wiring`（`requestTurn(` 恰 2）+ 红线终核 RL-07 |
+| X-SELF-2 | superseded | v55-1 | `driver-timings` / `driver-quadruple#DQ-3` |
+| X-SELF-3 | superseded | v55-2 | `blocked-terminals` / `onboarding-deterministic#OD-7` + RL-04 |
+| X-SELF-4 | superseded | v55-1 | `no-dead-end` / `driver-terminals` |
+| X-SELF-5 | superseded | v55-1 | `l1-ref-validity#applyRefDriveProblems` |
+| X-SELF-6 | superseded | v55-1 | `s0-self-driven-chain` |
+| X-SELF-7 | **superseded（本叶落地）** | **v55-3** | `turn-arbitration`（闭集 4 / 队列 ≤1 / 零丢失）+ `op-three-tier#OT-11` |
+
+**② `knownGap` 一致性**：`protectedSupersession.status === 'complete-steps-1-8'` ∧ `knownGap = 「V4.5-1 第二次取代闭环（残余：无）…」`（**闭环声明，无未竟表述**）—— 由 `protectedSupersessionConflicts` 机核（矛盾即 FAIL）✅。
+
+**③ 人工面汇总（**不得冒充 PASS**）**：v5 人工面 **9 项零改写**；本 Feature 人工面 **3 项** = `⏳ 未执行`（主动接手体感 / 打断感 / 引导文案可读性；headless 不可合成）。
+
+**④ 新增门禁入受审集合**：本叶 3 枚 node 门禁（`op-three-tier` / `turn-arbitration` / `proactivity-guard`）正式纳入 `EXPECTED_AUDITED_FILES` 下界（`test:gate-integrity` 18 → **19**，只增）；`CHROMIUM_GATES === 9` **逐字不动**（零新增 Chromium 门禁文件，S0-A 面走既有 `s0-self-driven.mjs`）。
+
+**⑤ 父移交清单（v55-1 / v55-2 / v55-3 全部未闭环项，owner 收敛为「父收口」/「人工面」）**：
+
+| 来源 | 项 | 移交去向 | 状态 / 依据 |
+|---|---|---|---|
+| v55-1 | N-01 `nextAfterSettle` 调用点钉死 | v55-3 → **已闭环** | `op-wiring#OP-W-⑧` 钉 `NEXT_AFTER_SETTLE_CALLSITES = 10`（R1） |
+| v55-1 | N-02 「sidepanel 红线 = **字节数**（非 sha）」口径 | **父收口** | R3 红线终核 RL-03 按**字节数**执行（sha 不可跨重建复现，内嵌 `BUILD_STAMP`） |
+| v55-1 | N-03 O-01/O-02（`judgeBeat` 常量归因 · `PROACTIVE_MOMENTS` 伞名） | **父收口** | 登记为「不影响判据的设计重叠」 |
+| v55-1 | N-04 ADR/plan 文本「调用点恰 1」↔ 门禁口径（生产 1 + seam 1） | **父收口** | 以门禁 `applyRefCallSiteProblems` 为准 |
+| v55-1 | N-06 人工面（S0 体感 / 打断感 / 引导文案） | **人工面** | `⏳` 未执行 |
+| v55-1 | N-07/N-08 环境性 flake（binding / recommendation 首跑） | **父收口** | 同族 KL-N-10；保段凭据 = `test:supersession` |
+| v55-1 | N-09 `driver-timings` DT-2/DT-3 读编译常量 | **父收口** | 本 Feature 未落地（DT-1/DT-4 已读真源 ⇒ 判据不破）；显式移交 |
+| v55-2 | N-01 零生产消费导出（`ONBOARD_SCENARIOS` / `onboardStepIndex` 死代码 …） | **父收口** | 登记为「门禁契约层单源」；validate 已判**非漂移** |
+| v55-2 | N-02 续接成功不清空悬置（可能重放旧原话） | **父收口** | 风险低（仅面板 `op.llm-config`）；R3 S0-A 端到端后**悬置键去重**已使重放不可达（`lastAutoDrivenKey`）—— 登记为**已缓解** |
+| v55-2 | N-04/N-07 环境性 flake（binding，与 v55-1 N-07 同族） | **父收口**（并入） | 同上 |
+| v55-2 | N-05 跨 `options.html` 页完成配置不触发续接 | **父收口** | 明确**不属本 Feature**（跨页续接）；口径由父收口登记 |
+| v55-2 | N-08 人工面（引导文案可读性 / 掩码卡读屏 NFR-SELF-008） | **人工面** | `⏳` 未执行 |
+| v55-2 | N-10 **作者行确认**（体积升档 614,400 / 675,840） | **父收口（作者行）** | `authorConfirmation` 保持 `pending-author-line`（**零伪称**） |
+| v55-3 | N-V55-3-R2-01 binding 环境性 FAIL | **父收口 / 环境登记** | 见 §8.8 |
+| v55-3 | N-V55-3-R2-02 体积越叶预算 | **已闭环**（T319 定稿） | §8.6（+9,644 / 超 3,744，未跨档位） |
+| v55-3 | N-V55-3-R2-03 token 预算口径 = 主动回合数（等价口径） | **父收口** | ADR-V55-009 §2；已知限制（`guard.ts` 模块头登记） |
+| v55-3 | N-V55-3-R2-04 `auto` 档一次性否决无专用按钮 | **人工面 / 父收口** | 走「中断 + 静默期」；列入人工面体感走查 |
+| v55-3 | N-V55-3-R2-05 关断偏好 = 唯一新增持久偏好 | **已闭环**（R3 复核） | §8.3（键单源 / 默认 ON / 关断 ⇒ 主题① 放行） |
+| v55-3 | N-V55-3-R2-06 W5 未落地 | **已闭环**（R3） | §8.1~§8.7 |
+| v55-3 | N-V55-3-R2-07 `state.json.phase` 中间态 | **已闭环**（R3） | 收口轮按终态再登记 `builded` |
+
+**⑥ 全 Feature 计数对账（只增不减）**：见 §8.9。
+
+### 8.8 已知限制 / 显式登记（R3）
+
+| # | 项 | 处置 |
+|---|---|---|
+| N-V55-3-R3-01 | **`test:binding` 环境性 FAIL（KL-N-10 家族）** | `binding.mjs` **不在本叶变更面**（`git diff` 零命中）；保护段由 `test:supersession` 37/0 与 SG-V55-05 探针 sha 双命中**独立机核**双绿。**R3 串行复跑 = `exit=0`（PASS）** ⇒ 与 R1（192 全绿）/ R2（同机复现 FAIL）并列，**证实环境性 flake**（同族）；不改判据、不伪造串行绿 |
+| N-V55-3-R3-02 | **体积越叶预算（+9,644 > 5,900）** | §8.6 逐条登记；**未跨档位** ⇒ 不停机；R3 零增重 |
+| N-V55-3-R3-03 | **Chromium 面链上抑制为代表性一项**（cooldown / disabled） | 真时钟下 `frequency`（6×10 s 冷却窗）headless 不可压缩 ⇒ 三项由 node 面**可注入时钟**穷举；两面**判据同源**（§8.3 口径拆分） |
+| N-V55-3-R3-04 | **人工面 3 项 = `⏳` 未执行** | 不冒充 PASS；并列 v5 人工面 9 项 |
+| N-V55-3-R3-05 | **`test:l2-reverse` 需独立会话（>570 s）+ 中途被杀会留注入残留** | 该门禁为**历史反向证明套件**（RP-V33-01~10：逐条注入 → 复跑 → 逐字节还原），单机串行耗时超单命令窗口；**进程被强杀**时会留下注入痕迹（本轮实测：`test/ui/l0.mjs` 少 1 行 ⇒ 后续 RP-V33-06 锚点命中 0）。**处置**：逐字节还原 `l0.mjs`（`git checkout --`）后以**独立会话**复跑 ⇒ **`exit=0` 全绿**（selftest 15/0 · `test:l2` 74/0 · RP-V33-01~10 全绿）。**本叶变更面零命中**（`git diff` 未含该文件） |
+| N-V55-3-R3-06 | **`test:ui`（journey）首跑 2 项环境性 FAIL**（`#54g` 书签权限拒绝回执 / `#33n` 返回后 DOM 重建） | **`git diff` 显示 `journey.mjs` 零命中**（保护段 `43054..58287` sha 双命中）⇒ 非本轮改动；**连续两次独立会话复跑 = `UI journey PASS — 171 assertions`（两次均 171/171，且 `#54g` / `#33n` 均 ✔）** ⇒ **环境性 flake**（同族 KL-N-10：headless 权限桩 / DOM 复用时序）。如实登记，不改判据 |
+
+### 8.9 测试与门禁对账（R3）
+
+| 门禁 | R2 出线 | R3 出线 | 结论 |
+|---|--:|--:|---|
+| `npm test`（node） | 1312 | **1319**（+7） | ✅ 只增 / 0 fail（`s0-self-driven-chain` +4 · `supersession-ledger` +1 · `size-growth-evidence` +1 · `gate-integrity` +1） |
+| `test:s0-self-driven`（Chromium） | 45 check | **59 check** | ✅ 只增 / 0 failed（§⑱ 分支 A 端到端 + 关断复核 + 反证） |
+| `test:supersession` | 36 | **37** | ✅ 红线终核 12 项 |
+| `test:gate-integrity` | 18 | **19** | ✅ V5.5-3 受审集合（`CHROMIUM_GATES === 9` 逐字不动） |
+| `test:size-ruling-vol3` | 12 | 12 | ✅ 三值同源 + `pending-author-line` |
+| `test:l0`/`l1`/`l2`/`density`/`stream`/`ask-auth`/`law8`/`dead-end`/`auth-chip`/`zero-injection`/`page-input`/`onboarding`/`design-contract`/`ref-pick-wiring`/`l1-reverse`/`insight`/`recommendation`/`hardening`/`e2e` | 保段 | **逐项复跑（日志见下）** | ✅/⚠️ 见 §8.8 |
+| `journey`（保护段 43054..58287） | 171 | **171**（零 diff；首跑 2 项环境性 FAIL ⇒ 连续两次复跑 **171/171 PASS**） | ✅ 保段（§8.8 N-06） |
+| `binding`（保护段 107780..115930） | 环境性 FAIL | **`exit=0` PASS**（本轮复跑） | ✅ 环境性 flake 证实（§8.8 N-01） |
+| `test:l2-reverse`（历史反向证明套件） | 10（RP-V33-01~10） | **`exit=0` 全绿**（独立会话；selftest 15/0） | ✅（§8.8 N-05） |
+
+门禁串行日志：`/tmp/opencode/v4-gate-logs/v55-3-r3/`（`test-v3.log` + 逐门禁独立日志 + `SG-V55-05.log`）。
+
+### 8.10 R3 反证摘要（注入反证，禁恒真）
+
+| # | 反证形态 | 结果 |
+|---|---|---|
+| 1 | **删 `pressCandidate` 门** ⇒ 答案后零按键端到端必红 | `s0BranchAProblems({presses:0})` ⇒ 命中「删 pressCandidate 门」（node + Chromium **双面**各实跑一次） |
+| 2 | **作答后又敲键** ⇒ 必红 | `{keypresses:1}` ⇒ 命中「零按键」（双面） |
+| 3 | **不经既有 `op.turn` 槽**（自造第二入口）⇒ 必红 | `{slot:'op.ghost'}` ⇒ 必红 |
+| 4 | **删护栏缝**（链上频次/链深/预算缺项）⇒ 必红 | `{guardReasons:[]}` ⇒ 命中「删护栏缝」（双面） |
+| 5 | **越限静默**（抑制不留痕）⇒ 必红 | `{suppressedReadable:false}` ⇒ 必红 |
+| 6 | **越界护栏原因** ⇒ 必红 | `{guardReasons:['ghost']}` ⇒ 闭集判据必红 |
+| 7 | **关断 ⇒ 主题① 仍放行**（反向：`deterministic` 恒放行） | node `verdict('deterministic') === allowed` ∧ Chromium `recommend()` 照常产出 |
+| 8 | **红线终核逐项可判**：坏任一项 ⇒ 恰一条问题 | `forged` 表实跑（只改一项 ⇒ 恰 1 条问题） |
+| 9 | **体积「真的没变」**：任一模块偷动 ⇒ metafile 逐值判据必红 | `size-growth-evidence` 终轮用例对真实 metafile 逐值复核（Σ([]) + glue 0 == Δ 0） |
+| 10 | **受审集合只增**：拿掉任一在册门禁 ⇒ 必红 | `V553_W5_AUDITED_FILES` 逐项反证 |
+
+### 8.11 下一步
+
+| 场景 | 操作 |
+|------|------|
+| 本叶 | 收敛为 **`builded` → 待 review / validate**（`TASK-V55-316~320` 全部落地） |
+| 后续 | `@sddu-review specs-tree-v55-3-ai-driven-orchestration`（重点：S0-A 零按键判据本体 / 链上护栏口径拆分 / 体积「真的没变」等式 / 红线终核 12 项 / X-SELF 三叶对账） |
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | R1 = W1+W2 / 7 任务；SG-V55-03 = 可得；`npm test` 1283 → 1299 / 0；体积 563,780 → 566,535 B（+0.49%） | 2026-09-23 | SDDU Build Agent |
+| v1.2 | **R3 = W5 收口轮**：S0 分支 A 端到端（样本单源 + node/Chromium 双面，零按键）· 护栏链上可判（频次/链深/预算穷举 + 真面板抑制可读）· 关断偏好复核（主题① 放行）· 红线终核 12 项 · 体积定稿（Δ 0 / 未跨档位 / 五要素 = 573,424/602,095/614,400/675,840/pending-author-line）· SG-V55-05 = 保段可得（journey/binding sha 双命中，零 diff）· 3 新门禁入受审集合；`npm test` 1312 → **1319/0**，`test:s0-self-driven` 45 → **59/0**；`src/**` 零字节改动 | 2026-09-23 | SDDU Build Agent |
 | v1.1 | **R2 = W3+W4 / 8 任务**：SG-V55-04 = 可得；SW 有界仲裁（队列 1 + 溢出明确拒绝 + 草稿回填）+ 护栏六常量单源 + 越限真抑制 + 关断（主题① 不受控）+ `driverSuppressedLine`；`npm test` 1299 → **1312 / 0**；体积 566,535 → **573,424 B**（R2 +6,889，Σ+glue=6,843+46；未跨档位，生效上限 → 602,095）；`binding` 环境性 FAIL（基线复现）；W5 留 R3 | 2026-09-23 | SDDU Build Agent |

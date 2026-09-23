@@ -42,6 +42,17 @@ import {
 } from '../src/ui/sidepanel/next-registry/drivers.js';
 import { terminalOfSource } from '../src/ui/sidepanel/next-registry/terminals.js';
 import { candidateRules } from '../src/ui/sidepanel/recommend.js';
+// ── V5.5-3 TASK-V55-316/317（W5，纯追加 import）──────────────────────────────
+// 分支 A 端到端读数的**产物**来源（真模块，非第二份实现）：按下策略单源 + 面板 seam +
+// 护栏工厂（时钟可注入 ⇒ 六项上限沿链可穷举，无需真等待）+ 关断偏好单源。
+import { pressCandidate } from '../src/ui/sidepanel/next-registry/ai-drive.js';
+import {
+  AI_PROACTIVE_ENABLED_DEFAULT,
+  AI_PROACTIVE_PREF_KEY,
+  createProactivityGuard,
+  loadProactivePref,
+} from '../src/ui/sidepanel/next-registry/guard.js';
+import { bindPanelOps } from '../src/ui/sidepanel/next-registry/ops.js';
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const SIDEPANEL_REL = 'src/ui/sidepanel/sidepanel.ts';
 const PIPELINE_REL = 'src/ui/sidepanel/next-registry/pipeline.ts';
@@ -90,11 +101,20 @@ interface S0Module {
   readonly S0_B_RESUME_MARK: string;
   readonly s0BranchBProblems: (reading?: Record<string, unknown>) => readonly string[];
   readonly s0BranchBeats: (beats?: readonly S0Beat[]) => { readonly a: readonly S0Beat[]; readonly b: readonly S0Beat[] };
+  /** V5.5-3 TASK-V55-316/317：分支 A 端到端 + 护栏在链路上可判（样本 + 判据，双面共用）。 */
+  readonly S0_A_SLOT: string;
+  readonly S0_A_GUARD_REASONS: readonly string[];
+  readonly S0_A_ON_CHAIN_REASONS: readonly string[];
+  readonly S0_A_BEATS: readonly { readonly id: string; readonly label: string }[];
+  readonly s0BranchAProblems: (reading?: Record<string, unknown>) => readonly string[];
+  readonly s0BranchABeats: () => readonly { readonly id: string; readonly label: string }[];
 }
 const s0 = (await import(S0_FIXTURE)) as unknown as S0Module;
 const s2 = (await import(S2_FIXTURE)) as unknown as { readonly S2_CHAIN: readonly { readonly id: string }[] };
 const { S0_ANSWER, S0_BRANCHES, S0_B_PARAM_KINDS, S0_B_RESUME_MARK, S0_B_STEPS, S0_CHAIN, S0_LLM_BLOCKED_RISK, S0_REF_ID, aggregateChain, judgeBeat, judgeChain, s0AskId, s0Beats, s0BranchBProblems, s0BranchBeats, s0SilentWindow } = s0;
 const { S2_CHAIN } = s2;
+/** V5.5-3 TASK-V55-316/317（纯追加解构；不动既有两行）。 */
+const { S0_A_BEATS, S0_A_GUARD_REASONS, S0_A_ON_CHAIN_REASONS, S0_A_SLOT, s0BranchABeats, s0BranchAProblems } = s0;
 
 export interface Judgement {
   readonly id: string;
@@ -110,6 +130,9 @@ export const JUDGEMENTS: readonly Judgement[] = [
   // V5.5-2 TASK-V55-214/215（W5）：分支 B 必判项 + 两分支独立计数（只增不减）。
   { id: 'S0N-7-branch-B-mandatory', expectFailPattern: '分支 B 必判项：未配置 ⇒ 引导 4 步 ⇒ 掩码卡 ⇒ 完成 ⇒ **自动续接** ⇒ 留痕（删自动续接 ⇒ FAIL）' },
   { id: 'S0N-8-branch-independence', expectFailPattern: '分支 A / B 必须两侧独立计数（禁互相掩盖，R-V55-111）' },
+  // V5.5-3 TASK-V55-316/317（W5）：分支 A 端到端（零按键）+ 护栏在链路上可判（只增不减）。
+  { id: 'S0N-9-branch-A-end-to-end', expectFailPattern: '分支 A 端到端：已配置 ⇒ 答案后**零按键** ⇒ 经 `op.turn` 槽自动成回合 + 三要素留痕（删 pressCandidate 门 ⇒ FAIL）' },
+  { id: 'S0N-10-guard-on-chain', expectFailPattern: '护栏必须在链路上**真实可判**：频次 / 链深 / 预算三项沿链可判 ∧ 关断后主题① 仍放行（删护栏缝 ⇒ FAIL）' },
 ];
 
 /** The injected capabilities (the REAL production modules — no fake provider, SG-V55-02). */
@@ -423,4 +446,207 @@ test('S0N-8 分支 A / B 两侧独立计数：互不掩盖（改动一侧不移�
 test('S0N 元判据：每条 judgement 声明非占位 expectFailPattern', () => {
   assert.ok(JUDGEMENTS.length >= 8, 'V5.5-2 W5 后判据下界只增（8）');
   for (const j of JUDGEMENTS) assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 的 expectFailPattern 不得占位`);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-3 **TASK-V55-316 / 317**（ADR-V55-005 §3 · ADR-V55-009 §1/§3/§4 ·
+ * FR-SELF-060/064/070/090~094 · **AC-SELF-001/008** · R-V55-111）
+ *
+ * 分支 A 端到端（**零按键自动成回合**）+ **护栏在链路上真实可判**的 node 面判官。
+ *
+ * 两面共用同一份样本与判据（`s0-chain.mjs`）：本面注入**产物模块**读数，Chromium 面注入真面板
+ * 读数。**删 `pressCandidate` 门 ⇒ 零按键端到端必红；删护栏缝 ⇒ 超频不抑制必红。**
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 链上「一次结算 → 一次自动发起」的判据序列（与面板 `nextAfterSettle → driveAnsweredTurn` 同形）。 */
+interface ChainStep {
+  readonly cause: string;
+  readonly at: number;
+  /** 结算即用户交互 ⇒ 面板重置自动链（`proactivity.noteUserInteraction()`）。 */
+  readonly userInteraction: boolean;
+}
+
+/** 沿链跑一组步骤，返回每次判定（记录 `allowed:false` 的原因）——真判据，不是注释。 */
+function runChain(
+  guard: ReturnType<typeof createProactivityGuard>,
+  steps: readonly ChainStep[],
+): { readonly reasons: string[]; readonly allowed: number } {
+  const reasons: string[] = [];
+  let allowed = 0;
+  for (const s of steps) {
+    if (s.userInteraction) guard.noteUserInteraction();
+    const verdict = guard.verdict('ai', s.cause, s.at);
+    if (verdict.allowed) {
+      allowed += 1;
+      guard.noteProactive(s.cause, s.at);
+    } else reasons.push(verdict.reason);
+  }
+  return { reasons, allowed };
+}
+
+/** 分支 A 端到端读数的**产物驱动构建**（`bindPanelOps` + `pressCandidate` 真管线）。 */
+function branchAReading(guard: ReturnType<typeof createProactivityGuard>): {
+  reading: Record<string, unknown>;
+  notices: string[];
+  turned: () => string | undefined;
+} {
+  const notices: string[] = [];
+  let turned: string | undefined;
+  bindPanelOps({ notice: (text) => notices.push(text), turn: (text) => void (turned = text) });
+  resetSuspensions();
+  assert.equal(
+    registerSuspension({
+      driverId: 'ref-action',
+      source: 'ref',
+      late: false,
+      kind: 'answered',
+      instruction: S0_ANSWER,
+      evidence: ['ref.validCount', 'ref.latestRefNum'],
+    }),
+    true,
+  );
+  const key = `ref-action:ref|${S0_ANSWER}`;
+  guard.noteUserInteraction();
+  const verdict = guard.verdict('ai', key);
+  assert.deepEqual(verdict, { allowed: true }, '链上首拍必须放行（否则端到端无从谈起）');
+  const out = pressCandidate(S0_A_SLOT, S0_ANSWER, {
+    actor: 'ai',
+    driverId: 'ref-action',
+    driverClass: 'ai-driven',
+    configured: true,
+    armed: true,
+    busy: false,
+    guardAllowed: () => guard.verdict('ai', key).allowed,
+  }, ['ref.validCount', 'ref.latestRefNum']);
+  if (out.ok) guard.noteProactive(key);
+  return {
+    notices,
+    turned: () => turned,
+    reading: {
+      configured: true,
+      slot: S0_A_SLOT,
+      keypresses: 0,
+      presses: out.ok ? 1 : 0,
+      // `chatTurns`：真管线把原话交到面板回合入口 ⇔ 一次真实回合（`requestTurn` → `chat`）。
+      answer: turned ?? null,
+      chatTurns: turned ? 1 : 0,
+      trace: notices.some((t) => /^driver=ref-action \| timing=answered \| evidence=ref\.validCount,ref\.latestRefNum$/.test(t)),
+      guardReasons: [],
+      suppressedReadable: true,
+      continuation: true,
+    },
+  };
+}
+
+test('S0N-9 分支 A 端到端：已配置 ⇒ 答案后**零按键** ⇒ 经 op.turn 槽自动成回合 + 三要素留痕', async () => {
+  const guard = createProactivityGuard(() => 1_000_000, true);
+  const { reading, notices, turned } = branchAReading(guard);
+  await new Promise((r) => setTimeout(r, 0));
+  // ① 样本单源：六拍逐序（本面登记 ⇔ 共享样本）。
+  assert.deepEqual(s0BranchABeats().map((b) => b.id), S0_A_BEATS.map((b) => b.id), '分支 A 六拍必须与共享样本逐序一致');
+  assert.equal(S0_A_BEATS.length, 6, '分支 A 端到端六拍（样本是唯一来源）');
+  // ② 真管线：答案原样交到面板回合入口（零按键）。
+  assert.equal(turned(), S0_ANSWER, `${JUDGEMENTS[8].expectFailPattern}：自动成回合必须把原话交出去`);
+  // ③ 判据本体：全绿（六拍 + 零按键 + 护栏项在链上可判）。
+  const chainReasons = runChain(createProactivityGuard(() => 2_000_000, true), [
+    // 频次：6 次链上发起（各按 10 s 间隔、各带结算重置链深、各不同因）⇒ 第 7 次越频次。
+    { cause: 'c1', at: 2_000_000, userInteraction: true },
+    { cause: 'c2', at: 2_010_000, userInteraction: true },
+    { cause: 'c3', at: 2_020_000, userInteraction: true },
+    { cause: 'c4', at: 2_030_000, userInteraction: true },
+    { cause: 'c5', at: 2_040_000, userInteraction: true },
+    { cause: 'c6', at: 2_050_000, userInteraction: true },
+    { cause: 'c7', at: 2_060_000, userInteraction: true },
+  ]);
+  const depthReasons = runChain(createProactivityGuard(() => 3_000_000, true), [
+    { cause: 'd1', at: 3_000_000, userInteraction: false },
+    { cause: 'd2', at: 3_010_000, userInteraction: false },
+    { cause: 'd3', at: 3_020_000, userInteraction: false },
+  ]);
+  const budgetReasons = runChain(createProactivityGuard(() => 4_000_000, true), [
+    // 预算：8 次链上发起（**按整窗间隔** ⇒ 不先撞频次上限；各带结算重置链深）⇒ 第 9 次越预算。
+    ...Array.from({ length: 8 }, (_, i) => ({ cause: `b${i}`, at: 4_000_000 + i * 600_000, userInteraction: true })),
+    { cause: 'b9', at: 4_000_000 + 8 * 600_000, userInteraction: true },
+  ]);
+  assert.ok(chainReasons.reasons.includes('frequency'), `频次必须在链路上可判（实测 ${JSON.stringify(chainReasons)}）`);
+  assert.ok(depthReasons.reasons.includes('chain-depth'), `链深必须在链路上可判（实测 ${JSON.stringify(depthReasons)}）`);
+  assert.ok(budgetReasons.reasons.includes('budget'), `预算必须在链路上可判（实测 ${JSON.stringify(budgetReasons)}）`);
+  const guardReasons = [...S0_A_ON_CHAIN_REASONS];
+  const clean = { ...reading, guardReasons };
+  assert.deepEqual(s0BranchAProblems(clean), [], JUDGEMENTS[8].expectFailPattern);
+  // ④ 留痕三要素（零明文：不含答案全文）。
+  const trace = notices.find((t) => t.startsWith('driver='));
+  assert.ok(trace, '自动发起必须留痕');
+  assert.equal((trace as string).includes(S0_ANSWER), false, '留痕必须零明文（不得回显答案全文）');
+});
+
+test('S0N-9 反证：删 pressCandidate 门 / 敲了键 / 不经 op.turn 槽 / 抽掉留痕 ⇒ 必 FAIL → 还原 PASS', () => {
+  const guard = createProactivityGuard(() => 1_000_000, true);
+  const { reading } = branchAReading(guard);
+  const clean = { ...reading, guardReasons: [...S0_A_ON_CHAIN_REASONS] };
+  assert.deepEqual(s0BranchAProblems(clean), []);
+  // ① 删自动按下门（复现 S0-A：答案之后彻底静默）⇒ 必红。
+  assert.ok(
+    s0BranchAProblems({ ...clean, presses: 0 }).some((p) => p.includes('删 pressCandidate 门')),
+    '删 pressCandidate 门 ⇒ 必红',
+  );
+  // ② 零按键被判据本体（用户不得再敲键）。
+  assert.ok(s0BranchAProblems({ ...clean, keypresses: 1 }).some((p) => p.includes('零按键')), '敲了键 ⇒ 必红');
+  // ③ 经第二入口（自造槽）⇒ 必红。
+  assert.ok(s0BranchAProblems({ ...clean, slot: 'op.ghost' }).some((p) => p.includes('op.turn')), '不经既有槽 ⇒ 必红');
+  // ④ 答案不逐字 / 未成回合 / 无留痕 ⇒ 各必红。
+  assert.ok(s0BranchAProblems({ ...clean, answer: '未逐字' }).some((p) => p.includes('逐字')), '答案不逐字 ⇒ 必红');
+  assert.ok(s0BranchAProblems({ ...clean, chatTurns: 0 }).some((p) => p.includes('真的成为回合')), '未成回合 ⇒ 必红');
+  assert.ok(s0BranchAProblems({ ...clean, trace: false }).some((p) => p.includes('三要素')), '无留痕 ⇒ 必红');
+  // ⑤ 删护栏缝（链上缺项 / 越界原因 / 静默抑制）⇒ 必红。
+  assert.ok(
+    s0BranchAProblems({ ...clean, guardReasons: ['cooldown'] }).some((p) => p.includes('删护栏缝')),
+    '链上护栏缺项 ⇒ 必红',
+  );
+  assert.ok(s0BranchAProblems({ ...clean, guardReasons: ['ghost'] }).some((p) => p.includes('闭集')), '越界原因 ⇒ 必红');
+  assert.ok(s0BranchAProblems({ ...clean, suppressedReadable: false }).some((p) => p.includes('静默')), '静默抑制 ⇒ 必红');
+  assert.ok(s0BranchAProblems({ ...clean, continuation: false }).some((p) => p.includes('续流')), '续流缺失 ⇒ 必红');
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(s0BranchAProblems(clean), []);
+});
+
+test('S0N-10 关断偏好复核：唯一新增持久偏好 + 默认 ON + 关断后主题① 仍放行（FR-SELF-069/094）', async () => {
+  // ① 单源：键名与默认值来自 `guard.ts`（本 Feature **唯一**新增持久偏好，独立于 `web-cli:llm`）。
+  assert.equal(AI_PROACTIVE_ENABLED_DEFAULT, true, '关断偏好默认值必须显式登记为 ON');
+  assert.equal(AI_PROACTIVE_PREF_KEY, 'web-cli:proactive');
+  assert.notEqual(AI_PROACTIVE_PREF_KEY, 'web-cli:llm', '不得与 LLM Key 同键');
+  // ② 无 storage 面 ⇒ 降级到单源默认值（**不伪造「已关断」**）。
+  const g = globalThis as unknown as { chrome?: unknown };
+  const saved = g.chrome;
+  delete g.chrome;
+  assert.equal(await loadProactivePref(), AI_PROACTIVE_ENABLED_DEFAULT, '读失败必须降级默认 ON');
+  // ③ 关断 ⇒ `ai` 恒拒（disabled）而 **`deterministic` 恒放行**（主题① 不受总开关控制）。
+  const off = createProactivityGuard(() => 5_000_000, false);
+  assert.deepEqual(off.verdict('ai', 'k'), { allowed: false, reason: 'disabled' });
+  assert.deepEqual(off.verdict('deterministic'), { allowed: true }, '关断后主题① 必须仍放行（FR-SELF-069）');
+  // ④ 恢复 ON ⇒ 放行（双向，判据非恒真）。
+  off.setEnabled(true);
+  assert.deepEqual(off.verdict('ai', 'k'), { allowed: true });
+  // ⑤ 持久化面（假 chrome.storage.local）：写读同键、仅布尔。
+  const area = { store: {} as Record<string, unknown>, async get(k: string) { return { [k]: this.store[k] }; }, async set(i: Record<string, unknown>) { Object.assign(this.store, i); } };
+  (g as { chrome?: unknown }).chrome = { storage: { local: area } };
+  try {
+    await (await import('../src/ui/sidepanel/next-registry/guard.js')).saveProactivePref(false);
+    assert.equal(area.store['web-cli:proactive'], false, '关断必须写单源键');
+    assert.equal(await loadProactivePref(), false, '读回必须与写入一致');
+    // 反证：非布尔残留 ⇒ 降级默认 ON（不得把垃圾当真值）。
+    area.store['web-cli:proactive'] = 'yes';
+    assert.equal(await loadProactivePref(), true, '非布尔值必须降级默认 ON（判据非恒真）');
+  } finally {
+    if (saved === undefined) delete g.chrome;
+    else (g as { chrome?: unknown }).chrome = saved;
+  }
+});
+
+test('S0N 元判据 V5.5-3：W5 两条新 judgement 的下界只增（≥10）', () => {
+  assert.ok(JUDGEMENTS.length >= 10, 'V5.5-3 W5 后判据下界只增（10）');
+  assert.ok(JUDGEMENTS.some((j) => j.id === 'S0N-9-branch-A-end-to-end'));
+  assert.ok(JUDGEMENTS.some((j) => j.id === 'S0N-10-guard-on-chain'));
+  for (const r of S0_A_GUARD_REASONS) assert.ok(typeof r === 'string' && r.length > 0);
+  assert.deepEqual([...S0_A_ON_CHAIN_REASONS], ['frequency', 'chain-depth', 'budget'], '链上三项护栏口径逐字');
 });

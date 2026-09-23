@@ -11426,5 +11426,71 @@
         "evidence": "属 v55-3 叶（并发仲裁）；本叶未触碰 `service-worker.ts` 的丢弃/队列面，登记为 handed-over。"
       }
     ]
+  },
+  "xSelfLedgerCloseout": {
+    "leaf": "specs-tree-v55-3-ai-driven-orchestration",
+    "scopeLeaves": [
+      "specs-tree-v55-1-driver-layer",
+      "specs-tree-v55-2-deterministic-onboarding",
+      "specs-tree-v55-3-ai-driven-orchestration"
+    ],
+    "adr": "ADR-V55-012 §1",
+    "registeredOn": "2026-09-23",
+    "registeredBy": "SDDU build（v55-3 R3 / W5 = TASK-V55-320 共享面收口）",
+    "note": "X-SELF-1~7 **三叶逐项对账终态**：本 Feature 的三叶恰一次收口。X-SELF-1 = **未发生取代**（如实登记 + 可复核基线），X-SELF-2/4/5/6 由 v55-1 落地，X-SELF-3 由 v55-2 落地，X-SELF-7 由 v55-3（本叶，并发仲裁）落地。**逐项均有可机核证据**（见 rows[].counterCheck 指向的门禁），无一项悬空。",
+    "rows": [
+      {
+        "id": "X-SELF-1",
+        "decision": "no-supersession",
+        "owner": "specs-tree-v55-3-ai-driven-orchestration（末叶终核）",
+        "counterCheck": "`test/op-wiring.test.ts`（`requestTurn(` 仍恰 2 ∧ `nextAfterSettle` 1 定义 / 10 调用点）∧ `test/supersession-ledger.test.ts#RL-07`（红线终核第 7 条按当前产物重判）",
+        "evidence": "**未发生取代（终核如实登记，不得留空、不得伪称已取代）**：AI 自动成回合经**既有** `op.turn` 槽（`pressCandidate` 的唯一 `dispatchChipAction(`），`requestTurn(` **调用点仍恰 2**（composer 提交 + op 槽）；R3 红线终核第 7 条在当前产物上重判为零改动。"
+      },
+      {
+        "id": "X-SELF-2",
+        "decision": "superseded",
+        "owner": "specs-tree-v55-1-driver-layer",
+        "counterCheck": "`test/driver-timings.test.ts`（时机集含 `'answered'` ∧ 求值入口恰 1）∧ `test/driver-quadruple.test.ts#DQ-3`（`ref-action.when` 零改）",
+        "evidence": "`RecommendTrigger` 定义外移单源（`next-registry/drivers.ts`）；v55-3 只在既有 `'answered'` 时机上接 `driveAnsweredTurn`（**加时机 = 改映射**，调用点不增）。"
+      },
+      {
+        "id": "X-SELF-3",
+        "decision": "superseded",
+        "owner": "specs-tree-v55-2-deterministic-onboarding",
+        "counterCheck": "`test/blocked-terminals.test.ts` / `test/onboarding-deterministic.test.ts#OD-7`（双源并存 + `KIND_SET` 40 逐字）",
+        "evidence": "配置判据双源并存（SW `runChat` 前置判据 + 面板主动识别折叠进既有 `risk` 源）；v55-3 R3 红线终核第 4 条按当前产物重判 `KIND_SET` 仍 40（三个新变体 type-only）。"
+      },
+      {
+        "id": "X-SELF-4",
+        "decision": "superseded",
+        "owner": "specs-tree-v55-1-driver-layer",
+        "counterCheck": "`test/ui/no-dead-end.mjs`（ND-8/ND-9 ∧ 5 类阻塞判据不减）∧ `test/driver-terminals.test.ts`（新词汇 4 正交）",
+        "evidence": "死端守护判据升级；v55-3 R3 的 S0 分支 A 端到端判据**只增**（`test:dead-end` 49 保持）。"
+      },
+      {
+        "id": "X-SELF-5",
+        "decision": "superseded",
+        "owner": "specs-tree-v55-1-driver-layer",
+        "counterCheck": "`test/l1-ref-validity.test.ts#applyRefDriveProblems`（「有效 ⇒ 驱动」∧ 驱动在放行之后）",
+        "evidence": "`applyRefAction` 语义重定义（裁决 + 驱动）；v55-3 的 A 段端到端复用同一悬置登记（零第二入口）。"
+      },
+      {
+        "id": "X-SELF-6",
+        "decision": "superseded",
+        "owner": "specs-tree-v55-1-driver-layer",
+        "counterCheck": "`test/s0-self-driven-chain.test.ts`（空描述零副作用 + 非空 ⇒ 驱动）",
+        "evidence": "「改用描述」补齐驱动；v55-3 只在其后的 `'answered'` 时机上追加自动成回合（不改早退）。"
+      },
+      {
+        "id": "X-SELF-7",
+        "decision": "superseded",
+        "owner": "specs-tree-v55-3-ai-driven-orchestration（本叶落地）",
+        "counterCheck": "`test/turn-arbitration.test.ts`（闭集 4 项穷举 ∧ 队列恒 ≤1 ∧ 零丢失三路径 ∧ 草稿回填）∧ `test/op-three-tier.test.ts#OT-11`（判定链 `zeroDiffFiles` 9 项零 diff）",
+        "evidence": "**SW 并发仲裁**：`runChat` 的 busy 分支重锚为可判仲裁（非在飞 ⇒ `executed`；在飞 ∧ 有余量 ⇒ 入队 + `queued`；在飞 ∧ 已满 ⇒ `busy-rejected` + 原文回填 `#input`），`TURN_QUEUE_MAX = 1` 单源；「用户输入永不静默丢失」三重保障。**单飞保留**（`chatBusy` 单飞本体零改），用户输入零丢失（原创面零删减）。"
+      }
+    ],
+    "knownGapAgreement": "`protectedSupersession.status === 'complete-steps-1-8'` ∧ `knownGap = 「V4.5-1 第二次取代闭环（残余：无）。…」`（**闭环声明，无未竟表述**）—— 由 `test/supersession-ledger.test.ts#protectedSupersessionConflicts` 机核（矛盾即 FAIL）。",
+    "manualFaces": "v5 人工面 9 项 **零改写、不得冒充 PASS**；本叶人工面 3 项（主动接手体感 / 打断感 / 引导文案可读性）登记为 `⏳ 未执行`（headless 不可合成）。",
+    "gateAudit": "本叶 3 枚新 node 门禁（`op-three-tier` / `turn-arbitration` / `proactivity-guard`）R3 正式纳入 `EXPECTED_AUDITED_FILES` 下界；`CHROMIUM_GATES === 9` 逐字不动（零新增 Chromium 门禁文件）。"
   }
 }

@@ -575,9 +575,11 @@ cd packages/web-cli-plugin && npm run test:v3
 | W2 | TASK-V55-305~307 | ✅ completed | R1 |
 | W3 | TASK-V55-308~311 | ✅ completed（SG-V55-04 = 可得；`turn-arbitration` 6 用例） | R2 |
 | W4 | TASK-V55-312~315 | ✅ completed（`proactivity-guard` 7 用例；六常量单源） | R2 |
-| W5 | TASK-V55-316~320 | ⏳ pending | R3 |
+| W5 | TASK-V55-316~320 | ✅ completed（SG-V55-05 = 保段可得 ⇒ 317/318 零文件改写；S0-A 端到端双面 59/0；红线终核 12 项；体积定稿 Δ0 未跨档位） | R3 |
 
 R2 出线：`npm test` **1312 / 0**（1299 + 13）；`dist/sidepanel.js` **573,424 B**（566,535 + 6,889）；`test:journey` 171 保段；`binding` 环境性 FAIL（KL-N-10，基线复现）。详见 `build.md` v1.1。
+
+**R3 出线（W5 收口轮，2026-09-23）**：`npm test` **1319 / 0**（1312 + 7 只增）；`test:s0-self-driven` **59 / 0**（45 + 14 只增）；`test:supersession` **37**（+1：红线终核 12 项）；`test:gate-integrity` **19**（+1：V5.5-3 受审集合，`CHROMIUM_GATES === 9` 逐字不动）；**体积 Δ = 0**（`src/**` 零字节改动）⇒ 五要素终值 **573,424 / 602,095 / 614,400 / 675,840 / `pending-author-line`**，**未跨档位**（无需升档）；**SG-V55-05 = 保段可得**（journey `43054..58287` / binding `107780..115930` sha 双命中，两文件零 diff）；取代台账 X-SELF-1~7 三叶对账终态落 `docs/v4-supersession-ledger.json#xSelfLedgerCloseout`。详见 `build.md` v1.2 §8。
 
 ## 4. 执行策略
 
@@ -601,7 +603,7 @@ R2 出线：`npm test` **1312 / 0**（1299 + 13）；`dist/sidepanel.js` **573,4
 |---|--:|--:|
 | `guard.ts` 1,700 · `ai-drive.ts` 1,400 · `shared/op-table.ts` 300 · `sidepanel.ts` 2,000 · `settings/panel.ts` 350 · 其余 150 | **5,900** | **7,600** |
 
-累计投影：561,509 → **567,409** ⇒ **越已登记档位 563,200（+4,209 B）** ⇒ 收口轮按 ADR-V55-011 §4 走**显式升档**（档位 → `ceilTo50KB(567,409)` = **614,400**；绝对上限 → **675,840**；`newBaselineBytes` 同源前移；`authorConfirmation` 保持 **`pending-author-line`**，**不得伪称已确认**）。若实测**未**越档位 ⇒ **如实登记「未跨档位」**（二态显式）。登记任务 = `TASK-V55-319`。
+**R3 终值（`TASK-V55-319` 定稿，二态显式）**：三叶合计实测 **573,424 B**（R1 +2,755 + R2 +6,889 + R3 **+0** = 本叶 **+9,644 B** ⇒ **超叶预算 5,900（超 3,744 B）∧ 亦越上界 7,600（超 2,044 B）**，逐条如实登记；超额全部发生在 R1/R2，根因 = 计划侧低估，R3 零增重）；**573,424 < 档位 614,400 ⇒ 「未跨档位」**（**无需升档**，档位 / 绝对上限 / 生效上限 602,095 三值同源未动）；`authorConfirmation` 保持 **`pending-author-line`**（**未伪称已确认**）。登记载体 = `test/size-baseline.ts#SIDEPANEL_V553_FINAL_ROUND`（`direction: 'unchanged'`，Δ 0）+ `docs/v4-density-baseline.json#volume.v553FinalRound`。
 
 ## 7. review / validate 策略（build 前已设计）
 

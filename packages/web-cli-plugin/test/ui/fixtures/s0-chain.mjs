@@ -267,3 +267,124 @@ export function s0BranchBeats(beats = s0Beats()) {
     b: beats.filter((b) => b.branch === 'B-unconfigured'),
   };
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-3 **TASK-V55-316 / 317**（ADR-V55-005 §3 · ADR-V55-009 §1/§3 · FR-SELF-060 /
+ * 064 / 070 / 090~094 · **AC-SELF-001/008** · R-V55-111）
+ *
+ * **分支 A 端到端（零按键自动成回合）+ 护栏在链路上真实可判** 的样本与判据。
+ *
+ * 与 `s0BranchBProblems` 对称：样本 + 判据都在本文件，node 面与 Chromium 面**共用同一份**
+ * （禁第二份样本、禁第二份判据）。区别只在读数来源：node 面注入**产物模块**（`pressCandidate` /
+ * `createProactivityGuard` / `bindPanelOps`），Chromium 面注入**真面板读数**（DOM + 消息探针）。
+ *
+ * ── 三条判据的力（删任一条 ⇒ 必 FAIL，不是注释）────────────────────────────
+ *
+ *   · **零按键**：`keypresses === 0`（用户作答之后**不再敲任何键**）——删掉 `pressCandidate`
+ *     那一次按下（`presses !== 1`）⇒ 必红（复现 S0-A 静默）；
+ *   · **经既有槽**：`slot === 'op.turn'` —— AI 不得自造第二回合入口（`requestTurn(` 仍恰 2）；
+ *   · **护栏生效**：`guardReasons` 必须覆盖 `S0_A_ON_CHAIN_REASONS`（**频次 / 链深 / 预算**
+ *     三项在链路上真实可判）+ `suppressedReadable`（抑制走**可读留痕**，不是静默 return）。
+ *     删掉护栏缝 ⇒ 超频不抑制 ⇒ 必红（复现"越限无感"）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 分支 A 自动成回合**唯一**允许的槽（既有 op，`auto` 档；AI 不得自造第二入口）。 */
+export const S0_A_SLOT = 'op.turn';
+
+/** 护栏原因的**闭集**（`guard.ts#GuardBlockReason` 单源同形；本样本不新增第二份词汇）。 */
+export const S0_A_GUARD_REASONS = Object.freeze([
+  'disabled',
+  'frequency',
+  'same-cause',
+  'silence',
+  'cooldown',
+  'chain-depth',
+  'budget',
+]);
+
+/**
+ * 必须在**链路上**真实可判的三项护栏（用户可感的越限面：打扰频次 / 自触发环 / 成本预算）。
+ * 其余四项（关断 / 同因 / 静默 / 冷却）由 `S0_A_GUARD_REASONS` 覆盖、按面分别举证。
+ */
+export const S0_A_ON_CHAIN_REASONS = Object.freeze(['frequency', 'chain-depth', 'budget']);
+
+/** 分支 A 端到端的六拍（id + 人读标签；顺序即真机时序）。 */
+export const S0_A_BEATS = Object.freeze([
+  { id: 'configured', label: '① 已配置（主题② 前提，v55-2 唯一分流依据）' },
+  { id: 'pressed', label: '② 答案 ⇒ `pressCandidate` 自动按下（恰 1 次）' },
+  { id: 'slot', label: '③ 经**既有** `op.turn` 槽成回合（**零按键**）' },
+  { id: 'stream', label: '④ 思考 / 命令行进入流内（答案原文成回合输入）' },
+  { id: 'guarded', label: '⑤ 护栏在链路上可判（频次 / 链深 / 预算 + 抑制留痕可读）' },
+  { id: 'continuation', label: '⑥ 续流收口（回合结束：无死端 ∧ 无开口 ask）' },
+]);
+
+/**
+ * **分支 A 端到端的必判项判据**（纯函数，双面共用）。
+ *
+ * `reading`（注入读数）:
+ * ```
+ * {
+ *   configured: boolean,          // 已配置（前提）
+ *   slot: string | null,          // 实际使用的槽（必须 === S0_A_SLOT）
+ *   keypresses: number,           // 作答之后用户敲键数（必须 0）
+ *   presses: number,              // pressCandidate 成功按下次数（必须 1）
+ *   answer: string | null,        // 成为回合输入的原文（必须逐字 = S0_ANSWER）
+ *   chatTurns: number,            // 真实回合（`chat`）发出次数（≥1）
+ *   trace: boolean,               // 三要素留痕行（driver / timing / evidence，零明文）
+ *   guardReasons: string[],       // **链路上**真实可判的护栏原因集
+ *   suppressedReadable: boolean,  // 被抑制时走可读留痕（非静默 return）
+ *   continuation: boolean,        // 思考 / 命令 ⇒ 续流 ⇒ 收口
+ * }
+ * ```
+ * **删 `pressCandidate` 门 ⇒ `presses:0` ⇒ 必 FAIL；删护栏缝 ⇒ `guardReasons` 缺项 ⇒ 必 FAIL。**
+ */
+export function s0BranchAProblems(reading = {}) {
+  const problems = [];
+  if (reading.configured !== true) {
+    problems.push('分支 A 前提不成立：必须**已配置**（未配置 ⇒ 零 AI 主动发起，应走分支 B）');
+  }
+  if (reading.presses !== 1) {
+    problems.push(
+      `**删 pressCandidate 门 ⇒ FAIL**：答案后的自动按下必须恰 1 次（实测 ${String(reading.presses)}）`,
+    );
+  }
+  if (reading.keypresses !== 0) {
+    problems.push(`自动成回合必须是**零按键**（实测用户作答后又敲了 ${String(reading.keypresses)} 次）`);
+  }
+  if (reading.slot !== S0_A_SLOT) {
+    problems.push(`自动成回合必须经**既有** \`${S0_A_SLOT}\` 槽（实测 ${String(reading.slot)}；AI 不得自造第二回合入口）`);
+  }
+  if (reading.answer !== S0_ANSWER) {
+    problems.push(`回合输入必须是用户原话逐字「${S0_ANSWER}」（实测 ${String(reading.answer)}）`);
+  }
+  if (!(typeof reading.chatTurns === 'number' && reading.chatTurns >= 1)) {
+    problems.push(`答案必须真的成为回合（\`chat\` 至少发出 1 次，实测 ${String(reading.chatTurns)}）`);
+  }
+  if (reading.trace !== true) {
+    problems.push('自动发起必须留下三要素（driver / timing / evidence）可读行，且零明文');
+  }
+  const reasons = Array.isArray(reading.guardReasons) ? reading.guardReasons : [];
+  const unknown = reasons.filter((r) => !S0_A_GUARD_REASONS.includes(r));
+  if (unknown.length > 0) problems.push(`护栏原因必须取自闭集（实测越界：${unknown.join(',')}）`);
+  const missing = S0_A_ON_CHAIN_REASONS.filter((r) => !reasons.includes(r));
+  if (missing.length > 0) {
+    problems.push(
+      `**删护栏缝 ⇒ FAIL**：频次 / 链深 / 预算必须**在链路上**真实可判（缺 ${missing.join(',')}）`,
+    );
+  }
+  if (reading.suppressedReadable !== true) {
+    problems.push('越限必须**留痕**（`suppressed=<reason>` 可读行）——静默 return 即 FAIL');
+  }
+  if (reading.continuation !== true) {
+    problems.push('续流缺失：思考 / 命令行之后的回合结束必须可达（无死端 ∧ 无开口 ask）');
+  }
+  return problems;
+}
+
+/**
+ * **分支 A 的逐拍读数**（本面登记 + 收尾覆盖机核用；与 `S0_A_BEATS` 逐序对齐）。
+ * 两面各自登记自己**真的**驱动的拍，收尾断言「登记了却没读 / 读了却没登记」都必红。
+ */
+export function s0BranchABeats() {
+  return S0_A_BEATS.map((b) => ({ id: b.id, label: b.label }));
+}

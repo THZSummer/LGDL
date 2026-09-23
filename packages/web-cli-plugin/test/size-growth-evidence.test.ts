@@ -39,8 +39,13 @@ import {
   SIDEPANEL_FINAL_ARTIFACT_BYTES,
   SIDEPANEL_GROWTH_BREAKDOWN,
   SIDEPANEL_RE_REGISTRATIONS,
+  SIDEPANEL_V553_FINAL_ROUND,
   SIDEPANEL_W4W5_FINAL_ROUND,
+  PENDING_ABSOLUTE_CAP,
+  SIDEPANEL_TIER_BYTES,
+  ceilTo50KB,
   distArtifact,
+  reRegistrationDirectionProblems,
   evaluateConsecutiveReRegistrationGrowth,
   readArtifactSize,
   type SizeReRegistration,
@@ -775,4 +780,76 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
     'Σ 逐模块 Δ（空集 = 0）+ 未归因胶水（0）必须 == 登记增量（0）',
   );
   assert.equal(registeredDelta, 0);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-3 **TASK-V55-319**（体积收口定稿）· FR-SELF-120~124 · AC-SELF-023/024 · ADR-V55-011
+ *
+ * 本叶（末叶）**终轮**：R3 `src/**` **零字节改动** ⇒ Δ = **0**。零字节轮也要**留痕**
+ * （否则「登记滞后」与「真的没变」无法区分）；「未跨档位」是**二态显式**结论之一。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('V5.5-3 R3 终轮（Δ=0）体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三值同源 ∧ pending-author-line 未伪称', (t) => {
+  const fr = SIDEPANEL_V553_FINAL_ROUND;
+  // ① 零字节轮：方向 `unchanged` ∧ Δ == 0（不得伪装成提升/净减）。
+  assert.equal(fr.direction, 'unchanged', '本叶终轮必须是零字节轮（`unchanged`）');
+  assert.equal(fr.baselineAfterBytes - fr.baselineBeforeBytes, 0, '本叶终轮必须是 Δ = 0');
+  assert.deepEqual(reRegistrationDirectionProblems([...SIDEPANEL_RE_REGISTRATIONS, fr]), [], '方向 ↔ Δ 必须双向一致（含终轮）');
+  // ② 五要素终值同源。
+  assert.equal(fr.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '终轮 after 必须 == 当前基线');
+  assert.equal(fr.ceilingAfterBytes, SIDEPANEL_CEILING, '终轮 ceiling 必须 == 当前生效上限（公式派生）');
+  assert.equal(fr.ceilingUncappedFormulaBytes, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));
+  assert.equal(fr.ceilingUncappedFormulaBytes, 602_095);
+  assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 必须仍是纯记录字段');
+  assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '三值同源：newBaselineBytes');
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, SIDEPANEL_TIER_BYTES * 1.1, '三值同源：absoluteCeilingBytes');
+  const closeout = JSON.parse(
+    readFileSync(new URL('../../docs/v4-supersession-ledger.json', import.meta.url), 'utf8'),
+  ) as { v3Vol3Closeout?: { authorConfirmation?: { status?: string } } };
+  assert.equal(closeout.v3Vol3Closeout?.authorConfirmation?.status, 'pending-author-line', '作者确认保持占位（不得伪称已确认）');
+  // ③ **未跨档位**（二态显式）：档位 == ceilTo50KB(基线) ∧ 基线 ≤ 档位 ⇒ 无需升档。
+  assert.equal(SIDEPANEL_TIER_BYTES, ceilTo50KB(SIDEPANEL_BASELINE_BYTES), '档位必须与 ceilTo50KB(基线) 同源');
+  assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_TIER_BYTES, '基线必须仍在档位内（未跨档位）');
+  assert.equal(SIDEPANEL_TIER_BYTES, 614_400);
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 675_840);
+  // ④ 逐模块归因 = 空集（登记事实）+ 未归因胶水 0 == Δ 0。
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.v553R3Rows;
+  assert.equal(rows.length, 0, '零字节轮的逐模块 rows 必须为空（非空即说明有未登记的产物变化）');
+  assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.v553R3UnattributedGlueBytes, 0);
+  assert.equal(
+    (rows as readonly { deltaBytes: number }[]).reduce((n, r) => n + r.deltaBytes, 0) +
+      SIDEPANEL_GROWTH_BREAKDOWN.v553R3UnattributedGlueBytes,
+    0,
+  );
+  // ⑤ 真实 metafile 与**最新一轮**（R2）逐模块逐值相等 ⇒ 「真的没变」是机器事实。
+  const metaPath = distArtifact('build-meta.json');
+  let exists = false;
+  try {
+    exists = existsSync(metaPath);
+  } catch {
+    exists = false;
+  }
+  if (!exists) {
+    t.skip('dist/build-meta.json not present — run `npm run build` to emit the esbuild metafile');
+    return;
+  }
+  const meta = JSON.parse(readFileSync(metaPath, 'utf8')) as {
+    outputs: Record<string, { bytes: number; inputs: Record<string, { bytesInOutput: number }> }>;
+  };
+  const outKey = Object.keys(meta.outputs).find((k) => k.endsWith('sidepanel.js'));
+  assert.ok(outKey, 'metafile 必须含 sidepanel.js 输出');
+  const out = meta.outputs[outKey as string];
+  assert.equal(out.bytes, SIDEPANEL_BASELINE_BYTES, '真实产物字节必须等于登记基线（Δ=0 仍与产物同源）');
+  let judged = 0;
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v553R2Rows) {
+    const key = Object.keys(out.inputs).find((p) => p.endsWith(row.module));
+    assert.ok(key, `metafile 缺少模块 ${row.module}`);
+    assert.equal(out.inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 终轮不得有任何模块移动`);
+    judged += 1;
+  }
+  assert.ok(judged > 0, '零字节轮的归因必须真的判到模块（否则是空转）');
+  // ⑥ 三冻结面（真实产物字节）。
+  assert.equal(readArtifactSize(distArtifact('content.js')), 177_076);
+  assert.equal(readArtifactSize(distArtifact('pick-layer.js')), 34_358);
+  assert.equal(readArtifactSize(distArtifact('sidepanel.js')), SIDEPANEL_BASELINE_BYTES);
+  console.log(`  ℹ V5.5-3 终轮：Δ=0 · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（未跨档位）`);
 });

@@ -791,6 +791,56 @@ export const SIDEPANEL_W4W5_FINAL_ROUND: SizeReRegistration = {
 };
 
 /**
+ * 〖V5.5-3 R3（2026-09-23，W5 = TASK-V55-316~320）〗**本叶终轮登记**（Δ = **0**）。
+ *
+ * R3 是收口轮：S0 分支 A 端到端判据（样本单源扩展 + node/Chromium 双面）/ 关断偏好接线复核 /
+ * 红线终核 12 项 / 体积终轮 / 共享面收口 —— **`src/**` 零字节改动**（全部落在 `test/**` /
+ * `docs/**` / `.sddu/**`）⇒ 真实 esbuild metafile 与 R2 轮**逐模块逐值相等**：
+ * Σ 逐模块 Δ = 0 + 未归因胶水 0 == 登记增量 0（由 `size-growth-evidence.test.ts` 对真实
+ * metafile 实跑；`v553R3Rows` 为空集是**登记事实**，不是省略）。
+ *
+ * ── 五要素终值（末叶定稿）──────────────────────────────────────────────────────
+ *
+ * | 要素 | 终值 |
+ * |---|---|
+ * | 实测（`stat -c %s dist/sidepanel.js`） | **573,424 B**（= R2 终值，R3 Δ **0**） |
+ * | 逐模块归因 | `v553R3Rows` = **[]**（空集）+ 未归因胶水 **0** == Δ **0** |
+ * | 生效上限 | **602,095 B** = `floor(573,424 × 1.05)`（公式派生，未动） |
+ * | 档位 / 绝对上限 | **614,400 / 675,840 均未动** —— 573,424 < 614,400 ⇒ **未跨档位**（二态显式：无需升档） |
+ * | 披露 / 占位 | `SIDEPANEL_CEILING_CAP_ROLE === 'record-only'`；`authorConfirmation` 保持 **`pending-author-line`**（**未伪称已确认**） |
+ *
+ * **本叶预算口径（诚实登记，不得静默）**：叶预算 **5,900 B** / 上界 **7,600 B**；
+ * R1 +2,755 + R2 +6,889 + **R3 +0** = **+9,644 B** ⇒ **本叶累计越叶预算（超 3,744 B）**，
+ * 超额**全部**发生在 R1/R2（根因 = 计划侧严重低估，见 `v55-3-r2.reason`）；R3 本身零增重。
+ * 未跨档位、无红线变化 ⇒ 按 ADR-V55-011 §4「登记不停机」处置。
+ */
+export const SIDEPANEL_V553_FINAL_ROUND: SizeReRegistration = {
+  id: 'v55-3-r3',
+  direction: 'unchanged',
+  roundKind: 'registry-fidelity-round',
+  feature: 'specs-tree-v55-3-ai-driven-orchestration',
+  date: '2026-09-23',
+  source: 'packages/web-cli-plugin/dist/sidepanel.js',
+  buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+  measuredBy: 'SDDU V5.5-3 R3 (2026-09-23, leaf specs-tree-v55-3-ai-driven-orchestration; W5 = TASK-V55-316~320)',
+  reason:
+    '**V5.5-3 R3 终轮零字节留痕：573,424 → 573,424 B（Δ 0）**（本叶**最终登记**：五要素终值 = 573,424 / 602,095 / 614,400 / 675,840 / pending-author-line）。' +
+    'R3 全部改动落在 `test/**`（`s0-chain.mjs` 样本单源扩展 + `s0-self-driven-chain.test.ts` node 面 + `s0-self-driven.mjs` Chromium 面 + `supersession-ledger.test.ts` 红线终核 + `gate-integrity.test.ts` 受审集合）、' +
+    '`docs/**`（台账 / 密度基线）与 `.sddu/**` —— **`src/**` 零字节改动** ⇒ 真实 metafile 与 R2 轮逐模块逐值相等：Σ([]) + glue(0) == Δ 0。' +
+    '**未跨档位**（573,424 B < 档位 614,400 B ⇒ 二态显式登记「无跨档位、无需升档」）；绝对上限 675,840 / 档位 614,400 / 生效上限 602,095 三值同源未动；' +
+    '`SIDEPANEL_CEILING_CAP_ROLE === \'record-only\'`；`authorConfirmation` 保持 **`pending-author-line`**（不伪称已确认）；' +
+    '`dist/content.js` 177,076 B 与 `dist/pick-layer.js` 34,358 B **逐字节不变**（三冻结面零 diff）；容差 5% 未动；**断言零删减**（本叶 3 新门禁入受审集合 + `test:supersession` 36→37 + S0 双面只增）。' +
+    '**叶预算诚实登记**：叶预算 5,900 / 上界 7,600；R1 +2,755 + R2 +6,889 + R3 **+0** = **+9,644 B** ⇒ 累计越叶预算（超 3,744 B），超额全部在 R1/R2（计划侧低估），R3 零增重。',
+  baselineBeforeBytes: 573_424,
+  baselineAfterBytes: 573_424,
+  ceilingBeforeBytes: 602_095,
+  ceilingAfterBytes: 602_095,
+  assertionNonRemovalEntries: ['V42-E-VOL-2', 'V43-E-33', 'V551-MR-X-SELF-2'],
+  historyRetainedBytes: [573_424],
+  ceilingUncappedFormulaBytes: 602_095,
+};
+
+/**
  * 〖V4.5-1 R3（TASK-V45-118 / ADR-V45-011 §6）〗**档位不下移硬边界**（算术，前置）：
  * `ceilTo50KB(b) = 512_000 ⟺ 460_801 ≤ b ≤ 512_000`。净减超过
  * `480_026 − 460_801 = 19_225 B`（相对 V3-VOL-3 档位起点）即越界 ⇒ **停下上报编排器**。
@@ -2578,6 +2628,15 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   v45W4W5Rows: [] as const,
   /** 终轮的未归因胶水（无模块移动，实测 0）。 */
   v45W4W5UnattributedGlueBytes: 0,
+  /**
+   * 〖V5.5-3 R3（2026-09-23，W5 = TASK-V55-316~320）〗本叶**终轮**的逐模块归因集 = **空集**：
+   * R3 `src/**` **零字节改动** ⇒ 真实 metafile 与 R2 轮逐模块逐值相等（Σ([]) + glue(0) == Δ 0）。
+   * 空集是登记事实（不是省略），由 `size-growth-evidence.test.ts` 的「V5.5-3 终轮 Δ=0 归因」判据
+   * 对真实 metafile 实跑；五要素终值见 {@link SIDEPANEL_V553_FINAL_ROUND}。
+   */
+  v553R3Rows: [] as const,
+  /** 本叶终轮的未归因胶水（无模块移动，实测 0）。 */
+  v553R3UnattributedGlueBytes: 0,
   v45W1W2Rows: [
     { module: 'src/ui/sidepanel/host-registry.ts', beforeBytes: 4_760, afterBytes: 5_865, deltaBytes: 1_105 },
     { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 16_917, afterBytes: 17_200, deltaBytes: 283 },
