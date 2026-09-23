@@ -3,13 +3,40 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "version": "v5.5.1",
   "name": "web-cli-plugin「范围治理（scope governance）：引用即范围」—— ① 引用事实进回合（id / 序号 / 文本摘要 / 选择器 / data-wcli-ref 标记注入系统段）② 范围法则（引用存在 ⇒ 任务范围默认限定于引用目标；扩大范围必须先征询）③ 工具面 ref 锚定（dom set-text --ref <n>；单节点保证；失配 / 失效非静默）④ 任务级批量授权（AI 先出写入计划 ⇒ 一次 consent 覆盖整批；逐条审计保留零明文；中途可中止；非批次仍逐条）",
-  "phase": "discovered",
+  "phase": "specified",
   "status": "tracked",
-  "workflow": "0.discovery",
-  "agent": "sddu-discovery",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
   "depth": 1,
   "parent": null,
-  "childrens": [],
+  "childrens": [
+    {
+      "featureKey": "specs-tree-v55f-1-ref-context-and-anchor",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/",
+      "name": "V5.5F-1 范围底座：引用事实进回合 + 范围读数（法九）+ ref 锚定",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 1,
+      "dependsOn": [],
+      "note": "首叶 / 底座叶（P0）。交付：chat type-only 引用事实载荷（KIND_SET 40 不动）+ 系统段基座/追加段 + 范围读数单源（in-scope / out-of-scope-authorized / out-of-scope-unauthorized / no-ref）+ 法九机核门禁（双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片）+ dom set-text --ref <n> → [data-wcli-ref=\"ref_n\"]（plugin 侧包装；base 零 diff 不解冻；单节点保证；失配 fail-closed 非静默）+ 留痕扩范围读数字段名 + S0′ 全链机器化（含双向反证）+ X-SGO-1/2/3/5 等价重锚（X-SGO-7 未发生）+ 门禁治理 + 体积分列预算逐叶重登记。承载父 FR ≈62 条切片。不做批量授权（叶2）、不做读命令 --ref（PD-SGO-001）。"
+    },
+    {
+      "featureKey": "specs-tree-v55f-2-batch-consent",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/",
+      "name": "V5.5F-2 任务级批量授权",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 2,
+      "dependsOn": [
+        "specs-tree-v55f-1-ref-context-and-anchor"
+      ],
+      "note": "末叶（P0，承载唯一红线级风险 R-SGO-001）。交付：写入计划 → 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次真实用户手势 + 计划外逐条回落 + 特权 op 恒不入批 + 批量卡复用 auth kind（type-only 载荷）+ 逐条审计零明文（正文仅 UI 渲染面 + 掩码）+ 中途可中止 + WIDEN ask-user 二择 + 批量变体注入必红（RL-06 / OT-⑩ 扩）+ S0′ 批量分支断言 + X-SGO-4/6 等价重锚。承载父 FR ≈21 条切片。硬依赖叶1（范围读数 + 锚定解析）。"
+    }
+  ],
   "leaf": false,
   "createdAt": "2026-09-23",
   "updatedAt": "2026-09-23",
@@ -38,11 +65,21 @@
   },
   "artifacts": [
     "discovery.md",
-    "state.json"
+    "spec.md",
+    "state.json",
+    "specs-tree-v55f-1-ref-context-and-anchor/spec.md",
+    "specs-tree-v55f-1-ref-context-and-anchor/state.json",
+    "specs-tree-v55f-2-batch-consent/spec.md",
+    "specs-tree-v55f-2-batch-consent/state.json"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ty.md"
   ],
   "coversIssues": [
@@ -150,7 +187,7 @@
     "门禁计数引自 R6 记录（本轮未复跑）",
     "编排约数与实测差异已登记（§0.2）"
   ],
-  "notes": "本轮 discovery 零产品运行时验证（未跑 npm test / Chromium / build）。ty.md 原地提交入库（不移动；R6 记录与 size-baseline 按该路径引用它）。叶拆分建议 2 叶：v55f-1 范围底座（引用事实进回合 + 范围法则 + 工具面 ref 锚定 + 范围读数 + 端到端样板）→ v55f-2 批量授权；若两叶共享底座不可分割可退化为单叶 + 内部分组。完成协议：phase → discovered / status → tracked；ROADMAP 零 diff（登记留给收口）。",
+  "notes": "本轮 discovery 零产品运行时验证（未跑 npm test / Chromium / build）。ty.md 原地提交入库（不移动；R6 记录与 size-baseline 按该路径引用它）。叶拆分建议 2 叶：v55f-1 范围底座（引用事实进回合 + 范围法则 + 工具面 ref 锚定 + 范围读数 + 端到端样板）→ v55f-2 批量授权；若两叶共享底座不可分割可退化为单叶 + 内部分组。完成协议：phase → discovered / status → tracked；ROADMAP 零 diff（登记留给收口）。 | spec 阶段（2026-09-23）：产出 spec.md（父级完整规范）+ 2 叶（specs-tree-v55f-1-ref-context-and-anchor / specs-tree-v55f-2-batch-consent，各含 spec.md + state.json）；O-SGO-001~009 全部裁决；父 Feature = 轻量规范容器（不承接 build/review/validate，phase 将走 planned → tasked）；每叶承接 build/review/validate。spec 阶段零产品运行时验证，.sddu 外零触碰，ROADMAP 零 diff。",
   "phaseHistory": [
     {
       "phase": "discovered",
@@ -158,6 +195,89 @@
       "at": "2026-09-23",
       "agent": "sddu-discovery",
       "note": "初始创建（F-34 立项 discovery）：ty.md 入库为第一证据 + 问题清单 Q-SGO-001~015 + 红线继承 N-SGO-001~023 + 取代候选 X-SGO-1~7 + 开放问题 O-SGO-001~009（附推荐）+ 叶拆分草案"
+    },
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-23",
+      "agent": "sddu-spec",
+      "artifact": "spec.md v1.0 + 2 叶（specs-tree-v55f-1-ref-context-and-anchor / specs-tree-v55f-2-batch-consent）spec.md v1.0 + 三份 state.json",
+      "note": "F-34 需求规范：FR 87 / NFR 14 / EC 22 / NG 22 / AC 26 / US 10 / G 8；O-SGO-001~009 全部裁决（DC-SGO-001~009）；X-SGO-1~7 等价重锚映射表；N-SGO-001~023 继承 + N-SGO-024~030 新增；R-SGO-901~910 新增；体积分列预算；S0′（ty.md 原案重放）机器化口径；2 叶拆分（依存序，已论证不退化单叶）"
     }
+  ],
+  "spec": {
+    "version": "v1.0",
+    "createdAt": "2026-09-23",
+    "author": "SDDU Spec Agent",
+    "counting": {
+      "FR": 87,
+      "NFR": 14,
+      "EC": 22,
+      "NG": 22,
+      "US": 10,
+      "G": 8,
+      "AC": 26,
+      "DC": 9,
+      "N新增": "N-SGO-024~030（7 条）",
+      "R新增": "R-SGO-901~910（10 条）",
+      "GAP": "GAP-SGO-01~09",
+      "PD": "PD-SGO-001~007",
+      "COR": "COR-SGO-1~5"
+    },
+    "frGroups": {
+      "GOV": "FR-SGO-001~006",
+      "REFCTX": "FR-SGO-010~019",
+      "SCOPE": "FR-SGO-020~028",
+      "ANCHOR": "FR-SGO-030~038",
+      "BATCH": "FR-SGO-040~050",
+      "WIDEN": "FR-SGO-060~063",
+      "LAW9": "FR-SGO-070~077",
+      "TRACE": "FR-SGO-080~084",
+      "S0p": "FR-SGO-090~094",
+      "SUPERSEDE": "FR-SGO-100~107",
+      "GATE": "FR-SGO-110~116",
+      "VOL": "FR-SGO-120~125"
+    },
+    "rulings": "O-SGO-001~009 全部按 discovery 推荐裁决（status 一律 ruled；DC-SGO-001~009）",
+    "keyCalibers": [
+      "法则双轨：机制范围读数（四值）= 唯一判据（机核）；提示词表述 = 引导（门禁不读提示词）",
+      "引用载荷 = chat type-only 结构化字段；口径写死：页面文本可入 LLM 上下文 / 凭据值不可（法八）/ 留痕仍只含字段名",
+      "--ref <n> → [data-wcli-ref=\"ref_n\"]；plugin 侧包装（chrome-host.ts:206 先例；base 零 diff 不解冻）；单节点保证 + 失配 fail-closed 非静默；先落写命令 set-text（读命令 PD-SGO-001）",
+      "批量授权 = 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次真实用户手势 + 计划外逐条回落 + 特权 op 恒不入批 + 批量变体注入必红",
+      "扩大范围 = ask-user 二择 + 用户确认 = 可判事实（入留痕）",
+      "立法「法九：范围读数」（law9；node 门禁 test/law9-scope-reading.test.ts；双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片；CHROMIUM_GATES === 9 不动）",
+      "批量卡复用 auth kind；KIND_SET 40 / 12 kind / 零宿主逐字不动",
+      "体积分列预算（A 列 sidepanel 9.5~14.5 KB、+15% 缓冲 10.9~16.7 KB ⇒ 距档 35,777 B 正常口径不触发升档；2.8× 最坏 ≈46.7 KB ⇒ 预置升档 EC 路径 + 作者一行）",
+      "冻结面 content.js 177,076 B / pick-layer.js 34,358 B / KIND_SET 40 零容差",
+      "S0′ = ty.md 原案重放机器化；核心机核断言「改写处数 ≤ 引用数（除非用户批准扩大）」；双向反证「去注入 ⇒ 读数为空必红」"
+    ],
+    "leafSplit": {
+      "mode": "2 叶（依存序串行，已论证不退化单叶）",
+      "order": [
+        "specs-tree-v55f-1-ref-context-and-anchor",
+        "specs-tree-v55f-2-batch-consent"
+      ],
+      "rationale": "风险面不同（载荷/判据 vs 红线⑥/法八/授权语义）+ 体积必须分列 + 验收锚层次不同"
+    }
+  },
+  "openPointsRuled": [
+    "O-SGO-001 命名与版本位 = v55-f-scope-governance + v0.11.1（DC-SGO-001）",
+    "O-SGO-002 范围法则载体 = 双轨（机制读数 = 判据 + 提示词 = 引导）（DC-SGO-002）",
+    "O-SGO-003 引用载荷 = chat type-only 结构化字段 + 零明文口径写死（DC-SGO-003）",
+    "O-SGO-004 工具面锚定 = plugin 侧包装 + --ref <n> + 单节点 + 失配 fail-closed；先落写命令（DC-SGO-004）",
+    "O-SGO-005 批量授权 = 计划指纹 + 一次手势 + 计划外回落 + 特权不入批 + 注入必红（DC-SGO-005）",
+    "O-SGO-006 扩大范围 = ask-user 二择 + 入留痕（DC-SGO-006）",
+    "O-SGO-007 立法法九（范围读数机核；law7x-ext 形态）（DC-SGO-007）",
+    "O-SGO-008 体积分列预算 + 2 叶（依存序）+ 升档走 EC 显式路径 + 作者一行（DC-SGO-008）",
+    "O-SGO-009 不外部调研（DC-SGO-009）"
+  ],
+  "openPointsDeferred": [
+    "PD-SGO-001 读命令 --ref（read-element / structure）是否同加",
+    "PD-SGO-002 是否每回合注入只读重观测",
+    "PD-SGO-003 引用表字段集是否扩 semanticPath / origin / navSeq",
+    "PD-SGO-004 范围读数是否入流内可见面",
+    "PD-SGO-005 批量计划生成路径",
+    "PD-SGO-006 计划指纹文本对比较口径",
+    "PD-SGO-007 批量卡条目上限展示策略"
   ]
 }

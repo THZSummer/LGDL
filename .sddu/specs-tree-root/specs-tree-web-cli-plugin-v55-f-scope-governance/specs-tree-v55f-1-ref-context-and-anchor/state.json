@@ -1,0 +1,117 @@
+{
+  "feature": "V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定（父：specs-tree-web-cli-plugin-v55-f-scope-governance）",
+  "featureKey": "specs-tree-v55f-1-ref-context-and-anchor",
+  "version": "v0.11.1",
+  "name": "V5.5F-1 范围底座——引用事实进回合（chat type-only 载荷 + 系统段基座/追加段）+ 范围读数单源（法九）+ 工具面 --ref <n> 锚定（仅 dom set-text；plugin 侧包装；单节点保证；失配 fail-closed 非静默）+ 留痕扩字段 + S0′ 双向样板（含反证）",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 1,
+  "dependsOn": [],
+  "createdAt": "2026-09-23",
+  "updatedAt": "2026-09-23",
+  "description": "本叶 = F-34 的首叶 / 底座叶，交付「让引用事实到达模型 + 让范围可判 + 让写动作可锚定」的那一层：回合载荷携带 type-only 引用事实（两条入口同一构建点，requestTurn( 仍恰 2）、系统段 = 常量基座 + 每回合追加段（零引用逐字不变）、范围读数单源（in-scope / out-of-scope-authorized / out-of-scope-unauthorized / no-ref）、立法「法九」机核门禁（双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片）、dom set-text --ref <n> → [data-wcli-ref=\"ref_n\"]（plugin 侧包装，base 零 diff 不解冻；单节点保证；失配非静默）、留痕扩范围读数字段名（不含值）、S0′ 全链机器化 + 双向反证（去注入 ⇒ 读数为空必红）。本叶不做任务级批量授权（叶2）、不做读命令 --ref（PD-SGO-001）。",
+  "scope": {
+    "in": [
+      "回合载荷 type-only 引用事实字段（字段集 refNum/refId/selector/refMark/textDigest/refState/nodeCount；KIND_SET 40 不动）",
+      "口径写死：页面文本可入 LLM 上下文 / 凭据值不可（法八）/ 留痕仍只含字段名",
+      "两条回合入口同一构建点（驱动者自动成回合 + 手动回合）；requestTurn( 仍恰 2",
+      "SW 侧 runChat 结构化载荷 + 系统段 = 基座 + 追加段；无引用回合逐字不变",
+      "范围读数单源（4 值）+ 唯一声明（第二声明 ⇒ FAIL）",
+      "法九机核门禁 test/law9-scope-reading.test.ts（双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片）",
+      "dom set-text --ref <n> → [data-wcli-ref=\"ref_n\"]（plugin 侧包装 chrome-host.ts:206 先例；base 零 diff；risk 不放宽）",
+      "单节点保证（nodeCount === 1）+ 失配/失效 fail-closed 非静默（EC 家族）",
+      "留痕扩范围读数（字段名，不含值）+ 扩围事实可读",
+      "S0′ 全链机器化（S0′-1~10）+ 双向反证",
+      "X-SGO-1/2/3/5 等价重锚 + X-SGO-7 未发生取代登记",
+      "门禁等价重锚 + 台账 + 体积分列预算逐叶重登记"
+    ],
+    "out": [
+      "任务级批量授权（叶2）",
+      "WIDEN 二择的批量侧接线（叶2；本叶只交付读数与转值基础）",
+      "读命令 --ref（read-element / structure）——PD-SGO-001",
+      "每回合只读重观测——PD-SGO-002",
+      "新增终态字面量（优先以读数承载）",
+      "新驱动时机 / 驱动者 / 调用点",
+      "base / content / pick-layer / 判定链 / v5.5 / R6 产物"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/state.json"
+  ],
+  "coversFr": [
+    "FR-SGO-001~006",
+    "FR-SGO-010~019",
+    "FR-SGO-020~028",
+    "FR-SGO-030~038",
+    "FR-SGO-070~077",
+    "FR-SGO-080",
+    "FR-SGO-083",
+    "FR-SGO-084",
+    "FR-SGO-090",
+    "FR-SGO-091",
+    "FR-SGO-092",
+    "FR-SGO-094",
+    "FR-SGO-100~102",
+    "FR-SGO-104",
+    "FR-SGO-106",
+    "FR-SGO-107",
+    "FR-SGO-110~116",
+    "FR-SGO-120~125"
+  ],
+  "coversAc": [
+    "AC-SGO-001",
+    "AC-SGO-002",
+    "AC-SGO-003",
+    "AC-SGO-004",
+    "AC-SGO-006",
+    "AC-SGO-007",
+    "AC-SGO-010",
+    "AC-SGO-011",
+    "AC-SGO-012",
+    "AC-SGO-013",
+    "AC-SGO-014",
+    "AC-SGO-017~025",
+    "AC-SGO-026"
+  ],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md（父规范 v1.0）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md（问题清单 Q-SGO-001~015 / N-SGO-001~023 / X-SGO-1~7）",
+      "v5.5 三叶 validated 产物（驱动者层 / 悬置单源 / 法七扩展终态 / 三档清分 / 12 kind / 零宿主）",
+      "R6 74d76c1（只读观测面 reobserveAfterWrite 可复用；产物零改写）"
+    ],
+    "downstream": [
+      "specs-tree-v55f-2-batch-consent（依赖本叶范围读数与锚定解析底座）"
+    ]
+  },
+  "openPoints": [
+    "PD-SGO-001 读命令 --ref 是否同加",
+    "PD-SGO-002 是否每回合注入只读重观测",
+    "PD-SGO-003 引用表字段集是否扩 semanticPath/origin/navSeq",
+    "PD-SGO-004 范围读数是否入流内可见面",
+    "PD-SGO-005 批量计划生成路径（影响本叶读数接口形态）"
+  ],
+  "notes": "本叶 = F-34 首叶 / 底座叶，P0；执行序：先定读数（法九）再定法则，锚定包装先落写命令 set-text。父 FR 承载 ≈62 条切片。父 FR-SGO-002/005/024/014/019 为「共享面」，在本叶一次做完（体积 / 保护段 / 取代台账 / knownGap）。",
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-23",
+      "agent": "sddu-spec",
+      "artifact": "specs-tree-v55f-1-ref-context-and-anchor/spec.md v1.0",
+      "note": "初始创建（叶规范）：承载父 FR ≈62 条切片（GOV/REFCTX/SCOPE/ANCHOR/LAW9/TRACE 部分/S0′ 部分/SUPERSEDE 部分/GATE/VOL）；交付 8 项；执行序 8 步（先读数后法则）"
+    }
+  ]
+}

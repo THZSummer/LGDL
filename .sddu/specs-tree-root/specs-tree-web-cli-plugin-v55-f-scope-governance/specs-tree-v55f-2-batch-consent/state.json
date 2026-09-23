@@ -1,0 +1,109 @@
+{
+  "feature": "V5.5F-2 任务级批量授权（父：specs-tree-web-cli-plugin-v55-f-scope-governance）",
+  "featureKey": "specs-tree-v55f-2-batch-consent",
+  "version": "v0.11.1",
+  "name": "V5.5F-2 任务级批量授权——写入计划（N 处 目标+原文→译文）+ 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次用户手势 + 计划外逐条回落 + 逐条审计零明文 + 中途可中止 + 特权 op 恒不入批 + 批量变体注入必红 + WIDEN ask-user 二择",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 2,
+  "dependsOn": [
+    "specs-tree-v55f-1-ref-context-and-anchor"
+  ],
+  "createdAt": "2026-09-23",
+  "updatedAt": "2026-09-23",
+  "description": "本叶 = F-34 的末叶，承载唯一红线级风险 R-SGO-001：授权从「连点」（ty.md 实测 42 调用 / 42 卡 / 42 批准 / 理由串逐字相同）回到「判断」—— AI 先出写入计划，一次真实用户手势覆盖计划指纹（目标集合 ∧ 动作类型 ∧ 文本对），计划外第 N+1 条回落逐条确认，特权 op（op.authorize / op.perm.request）恒不入批；批量卡复用既有 auth kind（零新增 kind / 12 kind / KIND_SET 40 不动）；逐条审计保留零明文（正文仅 UI 渲染面；凭据形值掩码；法八四面不破）；中途可中止 + 部分完成如实留痕；WIDEN ask-user 二择 + 扩围入留痕 + 拒绝后零死端；RL-06 / OT-⑩ 扩批量变体注入必红。硬依赖叶1 的范围读数与锚定解析。",
+  "scope": {
+    "in": [
+      "写入计划（N 处 目标 + 原文 → 译文）→ 一次 consent 覆盖整批；非批次仍逐条",
+      "批量卡复用 auth kind；计划数据经既有 kind 的 type-only payload 字段（KIND_SET 40 / 12 kind / 零宿主不动）",
+      "计划指纹 = 目标集合 ∧ 动作类型 ∧ 文本对；放行仅限指纹内",
+      "一次真实用户手势；不得 AI 代答 / 代填 / 自动放行 / 自动展开",
+      "计划外第 N+1 条回落逐条确认",
+      "特权 op 恒不入批（恒 gesture；SW 永不 .request(）",
+      "逐条审计保留零明文（正文/译文不进 payload 值 / digest / 审计值 / DOM 属性）",
+      "中途可中止 + 部分完成留痕 + cancelled 终态语义保持",
+      "WIDEN ask-user 二择 + 扩围可判事实入留痕 + 拒绝后零死端",
+      "批量变体注入必红（RL-06 / OT-⑩ 扩批量变体）",
+      "批量留痕（指纹摘要 + 条目数 + 手势事实 + 逐条结果计数，零明文）",
+      "S0′-7 / S0′-8 批量分支断言（一次手势覆盖 + 计划外回落 + 二择）",
+      "X-SGO-4 / 6 等价重锚 + X-SGO-7 未发生取代登记"
+    ],
+    "out": [
+      "引用事实载荷 / 系统段组装 / 范围读数模块 / --ref 解析（叶1）",
+      "读命令 --ref（PD-SGO-001）",
+      "新增卡类型（第 13 种）/ 新增消息 kind / 新增流内固定宿主",
+      "特权 op 发起方式变更 / consent 档位裁决变更（tierOf 单源不改）",
+      "时间窗内同范围自动放行",
+      "改写 v5.5 / R6 产物与体积登记"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
+    "dependsOnSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/spec.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/state.json"
+  ],
+  "coversFr": [
+    "FR-SGO-040~050",
+    "FR-SGO-060~063",
+    "FR-SGO-081",
+    "FR-SGO-082",
+    "FR-SGO-093",
+    "FR-SGO-103",
+    "FR-SGO-105",
+    "FR-SGO-107"
+  ],
+  "coversAc": [
+    "AC-SGO-004",
+    "AC-SGO-005",
+    "AC-SGO-006",
+    "AC-SGO-008",
+    "AC-SGO-009",
+    "AC-SGO-010",
+    "AC-SGO-014",
+    "AC-SGO-015",
+    "AC-SGO-016",
+    "AC-SGO-017~022",
+    "AC-SGO-024",
+    "AC-SGO-026"
+  ],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/（硬依赖：范围读数 + 锚定解析；须 validated）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/spec.md（父规范 v1.0）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md（问题清单 Q-SGO-004/005 / R-SGO-001 / X-SGO-4）",
+      "v5.5 三叶 validated 产物（tierOf 单源 / op 三档 / auth 卡 6 终态 / 12 kind / 零宿主）",
+      "test/supersession-ledger.test.ts（RL-06）+ test/op-three-tier.test.ts（OT-⑩）现判据（扩批量变体，非替换）"
+    ],
+    "downstream": [
+      "父收口（ROADMAP 登记 / 总账）"
+    ]
+  },
+  "openPoints": [
+    "PD-SGO-005 批量计划生成路径（AI 一次产出完整计划 vs 系统聚合计）",
+    "PD-SGO-006 计划指纹的文本对比较口径（逐字节 vs 归一化摘要）",
+    "PD-SGO-007 批量卡是否显示条目上限",
+    "PD-SGO-001 读命令 --ref（属叶1 后置项）"
+  ],
+  "notes": "本叶 = F-34 末叶，P0，承载唯一红线级风险 R-SGO-001；硬依赖叶1。执行序：边界先行（RL-06 / OT-⑩ 批量变体注入必红 + 特权不入批先落）→ 计划载体 → 指纹与回落 → 零明文 → 中止 → WIDEN → S0′ 批量分支 → 台账/门禁/体积。父 FR 承载 ≈21 条切片。",
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-23",
+      "agent": "sddu-spec",
+      "artifact": "specs-tree-v55f-2-batch-consent/spec.md v1.0",
+      "note": "初始创建（叶规范）：承载父 FR ≈21 条切片（BATCH/WIDEN/TRACE 部分/S0′ 093/SUPERSEDE 103·105·107）；交付 9 项；执行序 8 步（边界先行：注入反证先落）"
+    }
+  ]
+}
