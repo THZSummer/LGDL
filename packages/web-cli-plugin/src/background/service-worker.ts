@@ -78,6 +78,10 @@ import { commandEvent, llmErrorEvent, toolResultEvent } from './chat-events.js';
 // V5.5-3 TASK-V55-309 (ADR-V55-010 §2/§4): the bounded turn-arbitration queue — pure logic
 // in `background/` ⇒ **零 sidepanel 字节**（队列与 `chatBusy` 同居 SW）。
 import { classifyChatRequest, createTurnQueue, type QueuedTurn } from './turn-queue.js';
+// V5.5F-1 TASK-V55F-106/107 (ADR-SGO-001 §3/§4): 系统段追加段 + 载荷运行时校验 + 回合引用单源。
+import { refContextSegment, validateRefPayload } from './ref-context.js';
+import { createRefTurnHolder } from './ref-turn.js';
+import type { ChatRefFact } from './messaging.js';
 import {
   errorResponse,
   isPluginMessage,
@@ -169,6 +173,11 @@ let chatBusy = false;
  * pays **zero bytes** for it; the panel only renders the readable row + restores the draft.
  */
 const turnQueue = createTurnQueue();
+/**
+ * V5.5F-1 **TASK-V55F-105/107** (ADR-SGO-001 §3 · FR-SGO-019) — 当前回合活跃引用单源。
+ * SW 的引用事实**唯一来源 = 回合载荷**（零新通道）；每回合 `set` / `finally` `clear`。
+ */
+const refTurnHolder = createRefTurnHolder();
 
 /**
  * One-shot readable notice surfaced through the next `state` reply (D-064).
@@ -884,7 +893,7 @@ async function resetChatSession(s: Singletons): Promise<void> {
   await persistChatHistory(s);
 }
 
-async function runChat(s: Singletons, user: string): Promise<void> {
+async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[]): Promise<void> {
   // ★ V5.5-2 **TASK-V55-203** (ADR-V55-006 §3 · FR-SELF-040/041 · AC-SELF-007) —
   // the **pre-flight configuration predicate**: it runs *before* `providerChat(` and,
   // decisively, *before* the arbitration slot is taken (`chatBusy = true`). An
@@ -907,7 +916,13 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     //      **放回 `#input`** —— 最坏情况下「永不静默丢失」也成立）。
     const verdict = classifyChatRequest(true, turnQueue.size());
     if (verdict === 'queued') {
-      const queued: QueuedTurn = { user, sessionId: s.currentSessionId, at: Date.now() };
+      // V5.5F-1 TASK-V55F-107：排队回合**自带引用快照**（drain 出的回合用入队时的事实）。
+      const queued: QueuedTurn = {
+        user,
+        sessionId: s.currentSessionId,
+        at: Date.now(),
+        ...(refs && refs.length ? { refs } : {}),
+      };
       turnQueue.enqueue(queued);
       await chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'queued' })).catch(() => {});
       return;
@@ -931,6 +946,14 @@ async function runChat(s: Singletons, user: string): Promise<void> {
   // decision ② / FR-048: pin the run to the session it started in, so a session
   // switch mid-run can never misattribute the completed turns.
   const sessionIdAtStart = s.currentSessionId;
+  // ★ V5.5F-1 **TASK-V55F-105/107** (ADR-SGO-001 §3/§4 · FR-SGO-019) —— 回合开始即定格本回合
+  // 的引用快照（`refs`）+ `tabId` + 只读观测缝；`finally` 清空 ⇒ **零跨回合漂移**。
+  // `observeIdentity` 是**每写一次**的只读单节点闸（R-SGO-913），**不是**每回合页面探测。
+  refTurnHolder.set({
+    refs: refs ?? [],
+    ...(s.controller.get()?.tabId !== undefined ? { tabId: s.controller.get()?.tabId } : {}),
+    observe: observeIdentity,
+  });
   try {
     const provider = providerById(settings.providerId);
     // TASK-023: pair each tool's start (onCommandLine) with its result
@@ -940,7 +963,11 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     let lastTool: { name: string; ok: boolean; ms: number; selector?: string } | null = null;
     await runChatTurn(user, {
       session: s.chatSession,
-      system: SYSTEM_PROMPT,
+      // ★ V5.5F-1 TASK-V55F-106/107（ADR-SGO-001 §4 · FR-SGO-016/017）：系统段 = **基座**
+      // （`SYSTEM_PROMPT` 常量，5 条既有条款逐字）+ **每回合追加段**（引用事实 + 法则引导）。
+      // 无引用 ⇒ `refContextSegment` 返回 `''` ⇒ `system === SYSTEM_PROMPT` **逐字**。
+      // `chat-runner.ts` 已支持 `system: string | (() => string)` ⇒ **零改**。
+      system: () => SYSTEM_PROMPT + refContextSegment(refs),
       maxRounds: settings.maxRounds,
       chat: async (turns, system) =>
         providerChat(
@@ -991,6 +1018,8 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     });
     void provider.name;
   } finally {
+    // V5.5F-1 TASK-V55F-105：回合结束即清空引用快照（下一回合绝不见到上一回合的引用）。
+    refTurnHolder.clear();
     chatBusy = false;
     await persistChatHistory(s, sessionIdAtStart);
   }
@@ -1003,7 +1032,8 @@ async function runChat(s: Singletons, user: string): Promise<void> {
     if (drained.sessionId !== s.currentSessionId) {
       await chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'busy-rejected', text: drained.user })).catch(() => {});
     } else {
-      await runChat(s, drained.user);
+      // V5.5F-1 TASK-V55F-107：drain 出的回合用**它自己**（入队时）的引用快照。
+      await runChat(s, drained.user, drained.refs);
     }
   }
 }
@@ -2635,7 +2665,11 @@ async function handleMessage(message: PluginMessage, sender?: chrome.runtime.Mes
     case 'chat': {
       const user = typeof message.user === 'string' ? message.user : '';
       if (!user.trim()) return errorResponse('chat 需要 user');
-      void runChat(s, user);
+      // ★ V5.5F-1 TASK-V55F-107（ADR-SGO-001 §3/§4 · FR-SGO-015）：引用事实**唯一来源 =
+      // 回合载荷**（零新通道）；运行时**逐项剔除**非法项（形状 / 正整数 refNum / 非空
+      // selector / `refState === 'valid'`），不静默污染上下文。
+      const refs = validateRefPayload(message.refs);
+      void runChat(s, user, refs);
       return okResponse({ started: true });
     }
     case 'risk-control': {

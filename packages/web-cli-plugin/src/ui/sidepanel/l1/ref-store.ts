@@ -168,10 +168,28 @@ export type RawRefFacts = Omit<RefFacts, 'refId' | 'textDigest' | 'semanticPath'
   semanticPath?: string;
 };
 
+/**
+ * V5.5F-1 **TASK-V55F-104** (ADR-SGO-002 §1 · FR-SGO-011/019 · R-SGO-901) — the
+ * **active-reference predicate**（活跃有效引用 = `verdict === 'valid'` ∧ 未退役）。
+ *
+ * **单源**：引用快照投影（`l1/ref-scope.ts#turnRefsOf`）与范围读数都从这里取，
+ * 不再各写一份过滤。它**只读**该记录已有的 `verdict`（判定者的输出）—— **不重判**
+ * `valid / invalid / unknown`（3 结果 + 6 维度的 deny 方向在 `ref-validity.ts`，零触碰）。
+ */
+export function isActiveRef(record: RefRecord): boolean {
+  return record.verdict === 'valid' && !record.retired;
+}
+
 export interface RefStore {
   create(raw: RawRefFacts): RefRecord;
   all(): RefRecord[];
   get(refId: string): RefRecord | undefined;
+  /**
+   * V5.5F-1 TASK-V55F-104 — the **read-only** active-reference accessor
+   * (`verdict === 'valid'` ∧ 未退役). Pure read: it never re-judges and never mutates
+   * the registry (判定语义零改).
+   */
+  activeValid(): RefRecord[];
   /** Re-judge every reference against `env` (never an incremental "still valid"). */
   judge(env: RefEnv): RefRecord[];
   /** References that are NOT usable right now — the risk rail's source. */
@@ -258,6 +276,7 @@ export function createRefStore(): RefStore {
     },
     all: () => [...records],
     get: find,
+    activeValid: () => records.filter(isActiveRef),
     judge(env) {
       for (let i = 0; i < records.length; i += 1) {
         const id = records[i].facts.refId;

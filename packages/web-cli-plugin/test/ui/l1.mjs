@@ -828,6 +828,54 @@ async function main() {
     const after = await evaluate(cdp, `JSON.stringify(window.__v3.disclosure.snapshot())`);
     check('⑫ 往返后折叠态复原（展开态记忆未被破坏）', before === after, `${before} vs ${after}`);
 
+    // ══ ⑭ 范围锚读数（V5.5F-1 TASK-V55F-115 · X-SGO-5 等价重锚）══════════════
+    // 「引用即范围」把判定结果**再加一种读法**：valid 引用 = 范围锚（可判命中）；
+    // 失效引用 = 非锚（读数退化为 no-ref，**绝不**冒充 in-scope）。门禁驱动**生产读数**
+    // （`sidepanel.testing.l1('scope')` → 唯一判定函数 `scopeReading`），不复制实现。
+    console.log('\n▶ ⑭ 范围锚读数：valid ⇒ 锚（可判命中）；失效 ⇒ 非锚（deny 方向不动）');
+    const scopeProbe = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.reset();
+        const env = ${JSON.stringify(GOOD_ENV)};
+        const ref = window.__v3.testing.l1('ref', ${JSON.stringify(REF_FACTS)});
+        window.__v3.testing.l1('env', env);
+        window.__v3.testing.l1('res', { status: 'resolved', refMark: ref.facts.refId, nodeCount: 1 });
+        const sel = ref.facts.selector;
+        const n = Number(String(ref.facts.refId).replace('ref_', ''));
+        const sendsBefore = window.__v3.testing.l1('report').commandSends;
+        const out = {
+          refId: ref.facts.refId,
+          sendsBefore,
+          hitStored: window.__v3.testing.l1('scope', { targets: [{ selector: sel }] }),
+          hitSynth: window.__v3.testing.l1('scope', { targets: [{ selector: '[data-wcli-ref="' + ref.facts.refId + '"]' }] }),
+          hitNum: window.__v3.testing.l1('scope', { targets: [{ selector: '', refNum: n }] }),
+          miss: window.__v3.testing.l1('scope', { targets: [{ selector: '#__outside__' }] }),
+          missAuthorized: window.__v3.testing.l1('scope', { targets: [{ selector: '#__outside__' }], authorized: true }),
+        };
+        out.sendsAfter = window.__v3.testing.l1('report').commandSends;
+        // 失效（dom-gone）⇒ 锚集合为空 ⇒ 读数 no-ref（deny 方向逐字不动）。
+        window.__v3.testing.l1('res', { status: 'missing' });
+        out.staleHit = window.__v3.testing.l1('scope', { targets: [{ selector: sel }] });
+        // 零引用 ⇒ no-ref（无引用回合不得冒充 in-scope）。
+        window.__v3.testing.reset();
+        out.noRefs = window.__v3.testing.l1('scope', { targets: [{ selector: sel }] });
+        return JSON.stringify(out);
+      })()`,
+    );
+    const sc = JSON.parse(scopeProbe);
+    check('⑭ 有效引用 ∧ 目标命中存储选择器 ⇒ in-scope（作为范围锚可判命中）', sc.hitStored === 'in-scope', scopeProbe);
+    check('⑭ …命中合成锚 [data-wcli-ref="…"] ⇒ in-scope（路 B′）', sc.hitSynth === 'in-scope', scopeProbe);
+    check('⑭ …`--ref` 序号命中 ⇒ in-scope（路 A）', sc.hitNum === 'in-scope', scopeProbe);
+    check('⑭ 陌生目标 ∧ 未征询 ⇒ out-of-scope-unauthorized（fail-closed）', sc.miss === 'out-of-scope-unauthorized', scopeProbe);
+    check('⑭ 陌生目标 ∧ 已批准 ⇒ out-of-scope-authorized（authorized 是输入事实）', sc.missAuthorized === 'out-of-scope-authorized', scopeProbe);
+    check('⑭ 失效引用 ⇒ 锚集合为空 ⇒ no-ref（**绝非** in-scope；deny 方向逐字不动）', sc.staleHit === 'no-ref', scopeProbe);
+    check('⑭ 零引用 ⇒ no-ref（无引用回合不得冒充命中）', sc.noRefs === 'no-ref', scopeProbe);
+    check('⑭ 双向反证①：命中 / 未命中给出**互异**读数（判据承重，非恒真）', sc.hitStored !== sc.miss, scopeProbe);
+    check('⑭ 双向反证②：未征询 / 已批准给出**互异**读数（authorized 输入真的影响读数）', sc.miss !== sc.missAuthorized, scopeProbe);
+    check('⑭ 读数零副作用（只读判定，不推进命令发送计数）', sc.sendsAfter === sc.sendsBefore, `${sc.sendsBefore} → ${sc.sendsAfter}`);
+    check('⑭ 范围锚读数与既有放行态同源（valid 引用才成为锚）', /^ref_\d+$/.test(String(sc.refId)) && sc.staleHit !== sc.hitStored, scopeProbe);
+
     check('无未捕获页面异常（L1 渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
 

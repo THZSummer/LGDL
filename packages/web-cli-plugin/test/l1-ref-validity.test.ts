@@ -24,6 +24,11 @@ import {
 } from '../src/ui/sidepanel/l1/ref-validity.js';
 import type { RefEnv, RefFacts } from '../src/ui/sidepanel/l1/ref-validity.js';
 import { SEMANTIC_PATH_MAX, TEXT_DIGEST_MAX, createRefStore, ordinalGlyph, truncate } from '../src/ui/sidepanel/l1/ref-store.js';
+// V5.5F-1 TASK-V55F-115（X-SGO-5 等价重锚）：纯追加 import（不动既有行）——
+// 活跃谓词 + 数值序号 + 范围锚读数（生产单源，门禁不复制实现）。
+import { isActiveRef, refOrdinal as refNumOf } from '../src/ui/sidepanel/l1/ref-store.js';
+import type { RefRecord } from '../src/ui/sidepanel/l1/ref-store.js';
+import { scopeReading, scopeRefsOf } from '../src/ui/sidepanel/l1/ref-scope.js';
 import { buildLocalTree, LOCAL_TREE_MAX_NODES } from '../src/ui/sidepanel/l1/local-tree.js';
 import { buildL1Receipt, assertNoPlaintext, receiptPiecesPresent, targetDigest } from '../src/ui/sidepanel/l1/receipt.js';
 import { L1_PANEL_IDS, L1_GESTURE_COUNT, isDestructiveOption, decisionHistoryLabel } from '../src/ui/sidepanel/view-model.js';
@@ -615,4 +620,52 @@ test('V5.5-1 唯一入口：裁决 + 驱动（有效 ⇒ 驱动；无效 ⇒ 阻
   const panels = readFileSync(join(PKG, 'src/ui/sidepanel/l1/panels.ts'), 'utf8');
   assert.match(panels, /commandSends/, 'commandSends 只读投影消费面保留');
   assert.ok(!/commandSends[\s\S]{0,40}nextAfterSettle/.test(panels), 'commandSends 不得取得驱动语义');
+});
+
+/* ── V5.5F-1 **TASK-V55F-115**（X-SGO-5 等价重锚 · ADR-SGO-002 §1/§2 · FR-SGO-100/104 · NFR-SGO-006）──
+ *
+ * 「引用即范围」把判定结果**再加一种读法**：`valid` 引用 = **范围锚**（可判命中），
+ * `invalid` / `unknown` = **不是范围锚**。这是**加法**：`ref-validity` 的 3 结果 / 6 维度
+ * 的 **deny 方向逐字不动**（旧断言全部保留，作为新语义的一部分）。
+ * ─────────────────────────────────────────────────────────────────────────── */
+
+test('X-SGO-5 等价重锚：valid ⇒ 范围锚（可判命中）；deny 方向逐字不动', () => {
+  const store = createRefStore();
+  const rec = store.create({ ...FACTS, selector: '#anchor', textDigest: '锚文本', semanticPath: 'p' });
+  const env = good({ resolution: { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 } });
+  store.judge(env);
+  const judged = store.get(rec.facts.refId) as RefRecord;
+  // ① valid ⇒ 活跃有效 ⇒ 范围锚（投影出 refNum / refId / selector）。
+  assert.equal(judged.verdict, 'valid', '前置：事实齐备 ⇒ valid（既有放行态）');
+  assert.equal(isActiveRef(judged), true, 'valid 必须算活跃有效');
+  const anchors = scopeRefsOf([judged]);
+  assert.equal(anchors.length, 1, 'valid 引用必须成为范围锚');
+  assert.equal(anchors[0].refId, rec.facts.refId);
+  assert.equal(anchors[0].refNum, refNumOf(rec.facts.refId));
+  // ② 读数：命中（存储选择器 / 合成锚 / --ref 序号）⇒ in-scope。
+  assert.equal(scopeReading({ targets: [{ selector: '#anchor' }], refs: anchors, authorized: false }), 'in-scope');
+  assert.equal(scopeReading({ targets: [{ selector: `[data-wcli-ref="${rec.facts.refId}"]` }], refs: anchors, authorized: false }), 'in-scope');
+  assert.equal(scopeReading({ targets: [{ selector: '', refNum: anchors[0].refNum }], refs: anchors, authorized: false }), 'in-scope');
+  // ③ 越界两态：未征询 ⇒ unauthorized；已批准 ⇒ authorized（authorized 是**输入事实**）。
+  assert.equal(scopeReading({ targets: [{ selector: '#elsewhere' }], refs: anchors, authorized: false }), 'out-of-scope-unauthorized');
+  assert.equal(scopeReading({ targets: [{ selector: '#elsewhere' }], refs: anchors, authorized: true }), 'out-of-scope-authorized');
+  // ④ 无活跃引用 ⇒ no-ref（≠ in-scope；deny 方向不动：不确定不冒充命中）。
+  assert.equal(scopeReading({ targets: [{ selector: '#anchor' }], refs: [], authorized: false }), 'no-ref');
+
+  // ⑤ deny 方向逐字不动：失效引用**不是**范围锚，且原因 / 维度逐字保留。
+  const staleStore = createRefStore();
+  const stale = staleStore.create({ ...FACTS, selector: '#anchor', textDigest: '锚文本', semanticPath: 'p' });
+  staleStore.judge(good({ resolution: { status: 'missing' } }));
+  const gone = staleStore.get(stale.facts.refId) as RefRecord;
+  assert.equal(gone.verdict, 'invalid', 'dom-gone 仍判 invalid（逐字不动）');
+  assert.equal(gone.dimension, 'dom-gone');
+  assert.equal(isRefUsable(gone.facts, good({ resolution: { status: 'missing' } })), false, '唯一放行点仍只接受 valid');
+  assert.equal(isActiveRef(gone), false, '失效引用不得成为范围锚');
+  assert.deepEqual(scopeRefsOf([gone]), [], '失效引用的锚集合必须为空 ⇒ 读数退化为 no-ref，绝不冒充 in-scope');
+  assert.equal(scopeReading({ targets: [{ selector: '#anchor' }], refs: scopeRefsOf([gone]), authorized: false }), 'no-ref');
+  // ⑥ 双向反证：把「只取 valid」换成「一律取」（伪造谓词）⇒ 失效引用会被当成锚 ⇒ 判据非恒真。
+  const forgedAnchors = scopeRefsOf([gone]); // 真实：空
+  const forgedAll = [{ refNum: refNumOf(gone.facts.refId), refId: gone.facts.refId, selector: gone.facts.selector }]; // 伪造：一律取
+  assert.equal(forgedAnchors.length, 0, '真判据：失效 ⇒ 零锚');
+  assert.equal(scopeReading({ targets: [{ selector: '#anchor' }], refs: forgedAll, authorized: false }), 'in-scope', '对照：若失效引用被当锚，读数会误判 in-scope（证明判据承重）');
 });

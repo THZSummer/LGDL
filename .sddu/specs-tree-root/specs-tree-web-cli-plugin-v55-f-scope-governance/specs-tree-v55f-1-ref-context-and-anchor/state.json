@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-1-ref-context-and-anchor",
   "version": "v0.11.1",
   "name": "V5.5F-1 范围底座——引用事实进回合（chat type-only 载荷 + 系统段基座/追加段）+ 范围读数单源（法九）+ 工具面 --ref <n> 锚定（仅 dom set-text；plugin 侧包装；单节点保证；失配 fail-closed 非静默）+ 留痕扩字段 + S0′ 双向样板（含反证）",
-  "phase": "tasked",
+  "phase": "builded",
   "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -134,6 +134,14 @@
       "agent": "sddu-tasks",
       "artifact": "specs-tree-v55f-1-ref-context-and-anchor/tasks.md + tasks.json v1.0",
       "note": "V5.5F-1 叶 tasks：29 任务 / 4 波（TASK-V55F-101~129；S×2 / M×21 / L×6）。W1 口径与载荷（含 SG-SGO-01 载荷链探针）→ W2 读数单源 + 法九 + 越界拦 + 留痕（含 SG-SGO-03 法九可机核探针）→ W3 --ref 锚定包装 + 失配 EC（含 SG-SGO-02 包装/live 闸探针）→ W4 S0′ 双面 + X 台账 + 门禁治理 + 体积重登记。3 新 node 门禁（ref-context-in-turn / law9-scope-reading / dom-ref-anchor）；S0′ 双面（样本单源 122 + node S0P-1~8 123 + Chromium 只加断言 124）；体积 A 列 6.0~9.0 KB 收口重登记 129（五要素 + V3-VOL-3 三值 + EC-SGO-022 二态）。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-build",
+      "artifact": "specs-tree-v55f-1-ref-context-and-anchor/build.md v1.0（R1 = W1+W2）",
+      "note": "R1（W1+W2，TASK-V55F-101~115）构建完成：SG-SGO-01 可行（9/9）· SG-SGO-03 可机核（3/3）；chat type-only refs 载荷 + 回合发起快照 + SW 系统段基座/追加段 + 法九读数单源（四值唯一声明 + 唯一判定 + confirm 面越界拦 + 留痕单源）；2 枚新 node 门禁（ref-context-in-turn 9/0 · law9-scope-reading 12/0）；X-SGO-5 等价重锚（l1 131/0 · page-input 125/0 只增）。npm test 1330 → 1352（1345 pass / 7 fail：7 红全部为体积收口 + X 台账家族，按任务书留 R2 的 TASK-V55F-125/129）；A 列 +7,109 B（预算 6.0~9.0 KB 内，重登记留 R2）/ B 列 +3,044 B（不计账）；红线：content.js 177,076 / pick-layer.js 34,358 / base 零 diff / KIND_SET 40 / requestTurn( 恰 2。W3（116~121）/ W4（122~129）未开工。"
     }
   ]
 }

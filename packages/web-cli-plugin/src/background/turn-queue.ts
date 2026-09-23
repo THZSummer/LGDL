@@ -17,6 +17,7 @@
  * @module background/turn-queue
  */
 import { ARBITRATION_RESULTS, type ArbitrationResult } from './chat-events.js';
+import type { ChatRefFact } from './messaging.js';
 
 /**
  * 队列**硬上限**（ADR-V55-010 §2 判据：队列长度恒 ≤ 1）。**单源** ——
@@ -35,6 +36,12 @@ export interface QueuedTurn {
   readonly user: string;
   readonly sessionId: string | null;
   readonly at: number;
+  /**
+   * V5.5F-1 **TASK-V55F-107** (ADR-SGO-001 §3 · FR-SGO-019) — 入队时的**引用快照**。
+   * 排队回合**自带快照** ⇒ drain 出的回合用**入队时**的事实，**零跨回合漂移**。
+   * 缺省（零引用）⇒ 字段缺席 ⇒ 行为与现状逐字相同。
+   */
+  readonly refs?: readonly ChatRefFact[];
 }
 
 /**

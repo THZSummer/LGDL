@@ -251,6 +251,38 @@ async function main() {
     const badge = await op(siteTab, 'snapshot');
     check('⑧ 页面角标序号与侧栏 chip 同序号', (badge?.badges ?? []).includes(String(snap?.l1?.refs?.[0]?.glyph ?? '')), JSON.stringify(badge?.badges));
 
+    // ── ⑰ 范围锚读数（V5.5F-1 TASK-V55F-115 · X-SGO-5 等价重锚）───────────────
+    // 真实拾取（真手势）产生的 valid 引用必须**作为范围锚**：命中 ⇒ `in-scope`；
+    // 陌生目标 ⇒ `out-of-scope-unauthorized`；已批准 ⇒ `out-of-scope-authorized`。
+    // 读数由面板的**唯一判定函数**产出（`window.__v3.testing.l1('scope')`），门禁不复制实现。
+    const scopeProbe = await evaluate(
+      pCdp,
+      `(() => {
+        const report = window.__v3.testing.l1('report');
+        const last = report.refs.slice(-1)[0];
+        const refNum = Number(String(last.refId).replace('ref_', '')) || 1;
+        const sendsBefore = report.commandSends;
+        const out = {
+          refId: last.refId,
+          sendsBefore,
+          hitNum: window.__v3.testing.l1('scope', { targets: [{ selector: '', refNum }] }),
+          hitSynth: window.__v3.testing.l1('scope', { targets: [{ selector: '[data-wcli-ref="' + last.refId + '"]' }] }),
+          miss: window.__v3.testing.l1('scope', { targets: [{ selector: '#__outside__' }] }),
+          missAuthorized: window.__v3.testing.l1('scope', { targets: [{ selector: '#__outside__' }], authorized: true }),
+        };
+        out.sendsAfter = window.__v3.testing.l1('report').commandSends;
+        return JSON.stringify(out);
+      })()`,
+    );
+    const sc = JSON.parse(scopeProbe);
+    check('⑰ 真实拾取的 valid 引用 ⇒ 范围锚：`--ref` 序号命中 ⇒ in-scope', sc.hitNum === 'in-scope', scopeProbe);
+    check('⑰ …合成锚 [data-wcli-ref] 命中 ⇒ in-scope（路 B′）', sc.hitSynth === 'in-scope', scopeProbe);
+    check('⑰ 陌生目标 ∧ 未征询 ⇒ out-of-scope-unauthorized（fail-closed）', sc.miss === 'out-of-scope-unauthorized', scopeProbe);
+    check('⑰ 陌生目标 ∧ 已批准 ⇒ out-of-scope-authorized（authorized 是输入事实）', sc.missAuthorized === 'out-of-scope-authorized', scopeProbe);
+    check('⑰ 双向反证：命中 / 未命中给出**互异**读数（判据承重，非恒真）', sc.hitNum !== sc.miss, scopeProbe);
+    check('⑰ 双向反证：未征询 / 已批准给出**互异**读数（authorized 输入真的影响读数）', sc.miss !== sc.missAuthorized, scopeProbe);
+    check('⑰ 读数零副作用（只读判定，不推进命令发送计数）', sc.sendsAfter === sc.sendsBefore, `${sc.sendsBefore} → ${sc.sendsAfter}`);
+
     // ── ⑤ Alt drag: both paths ───────────────────────────────────────────────
     const payload = await op(siteTab, 'dragPayload', '#box');
     check('⑤ 拖动载荷可生成（application/x-wcli-ref 的 JSON 事实）', typeof payload === 'string' && payload.includes('"selector"'), String(payload).slice(0, 80));

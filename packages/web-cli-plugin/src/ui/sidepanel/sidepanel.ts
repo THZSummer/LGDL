@@ -115,6 +115,8 @@ import { makeMessage, type PluginMessage, type PluginResponse } from '../../back
 import { cancelReasonText } from './stream-plaintext.js';
 import { refReanchoredText, refStaleText } from './system-events.js';
 import { displaySelector, refOrdinal as parseRefOrdinal } from './l1/ref-store.js';
+// V5.5F-1 TASK-V55F-104/110/111/112: 引用快照投影 + 范围读数 / 写闸 / 留痕单源（A 列）。
+import { scopeReading, scopeReadingTrace, scopeRefsOf, scopeWriteGate, turnRefsOf } from './l1/ref-scope.js';
 import { requestOriginPermissionDetailed, createChromeAsyncKv } from '../../platform/extension-env.js';
 import {
   OPTIONAL_CAPABILITIES,
@@ -326,7 +328,12 @@ function requestTurn(text: string): boolean {
     void pickInput?.highlight(active.facts.refId, active.facts.selector, 'flash');
     chip?.setAttribute('data-turn', 'running');
   }
-  void send(makeMessage('chat', { user: trimmed }));
+  // ★ V5.5F-1 **TASK-V55F-104** (ADR-SGO-001 §2/§3 · FR-SGO-013/014/019) ——
+  // **唯一构建点**：回合发起时的引用快照（`turnRefsOf` 单源，只取 `valid ∧ !retired`）。
+  // 两条回合入口（composer 提交 / 驱动者自动成回合经 `op.turn` 槽）都经本函数 ⇒ 同口径。
+  // **零引用 ⇒ `refs` 字段缺席**（不是空数组）⇒ 与现状**逐字相同**的载荷。
+  const refs = turnRefsOf(l1?.store().all() ?? []);
+  void send(makeMessage('chat', { user: trimmed, ...(refs.length ? { refs } : {}) }));
   return true;
 }
 
@@ -1207,6 +1214,20 @@ function installV3TestHooks(): void {
             return handle.setSnapshot(args[0] as OwnershipTree | null, args[1] as string | null);
             case 'history':
               return handle.history();
+            case 'scope':
+              // ★ V5.5F-1 **TASK-V55F-115**（X-SGO-5 等价重锚 · FR-SGO-100/104）——把
+              // **生产读数**（唯一判定函数 `scopeReading`）暴露给运行时门禁：门禁驱动的是
+              // 同一函数（不复制实现），对「作为范围锚」的解析读数做双向反证。
+              return scopeReading({
+                targets: ((args[0] as { targets?: Array<{ selector?: string; refNum?: number }> } | undefined)?.targets ?? []).map(
+                  (t) => ({
+                    selector: String(t?.selector ?? ''),
+                    ...(typeof t?.refNum === 'number' ? { refNum: t.refNum } : {}),
+                  }),
+                ),
+                refs: scopeRefsOf(handle.store().activeValid()),
+                authorized: Boolean((args[0] as { authorized?: boolean } | undefined)?.authorized),
+              });
             default:
               return handle.report();
           }
@@ -3835,10 +3856,41 @@ function wire(): void {
       return undefined;
     }
     if (msg.kind === 'confirm-request') {
-      const question = msg.question as { tool?: string; reason?: string; risk?: string } | undefined;
+      const question = msg.question as
+        | { tool?: string; subcommand?: string; args?: Record<string, string>; reason?: string; risk?: string }
+        | undefined;
+      const requestId = String(msg.requestId ?? '');
+      // ★ V5.5F-1 **TASK-V55F-111/112** (ADR-SGO-002 §4/§5 · FR-SGO-025/027/080/084) ——
+      // **越界写的机制拦截（confirm 面）**：`dom set-text` 的写，若目标 ∉ 活跃引用集合且
+      // **未征询**（`out-of-scope-unauthorized`）⇒ **fail-closed 拦下**（deny）+ 可读理由 +
+      // **可达 next**（回到引用范围内 / 重新拾取）。`in-scope` / `no-ref` ⇒ 既有 confirm
+      // 路径**逐字不变**（无引用回合不得因此阻断，EC-SGO-008）。**判定链零触碰**
+      // （`policy.ts` / `auto-authorize.ts` 零 diff）；本闸是**面板侧**判定 + 既有 confirm 应答面。
+      if (question?.tool === 'dom' && question.subcommand === 'set-text') {
+        const rawArgs = question.args ?? {};
+        const selector = (rawArgs.selector ?? '').trim();
+        const refRaw = (rawArgs.ref ?? '').trim();
+        const refNum = /^\d+$/.test(refRaw) ? Number(refRaw) : undefined;
+        // 只有**真的带目标**的写才进闸（无目标的写走既有路径）。
+        if (selector || refNum !== undefined) {
+          const gate = scopeWriteGate({
+            targets: [{ selector, ...(refNum !== undefined ? { refNum } : {}) }],
+            refs: scopeRefsOf(l1?.store().activeValid() ?? []),
+            // 本叶无扩围确认路径（WIDEN 二择卡为叶2）；故 authorized 恒 false ⇒ fail-closed。
+            authorized: false,
+          });
+          if (gate.blocked) {
+            if (requestId) void send(makeMessage('confirm-response', { requestId, allow: false }));
+            dispatch({ type: 'confirm-resolved', allow: false, ...(requestId ? { requestId } : {}) });
+            dispatch({ type: 'notice', text: gate.message });           // 可读理由 + 可达 next
+            dispatch({ type: 'notice', text: scopeReadingTrace(gate.reading, false) }); // 范围留痕行（独立成行）
+            return undefined;
+          }
+        }
+      }
       dispatch({
         type: 'confirm',
-        requestId: String(msg.requestId ?? ''),
+        requestId,
         summary: `${question?.tool ?? '工具'}：${question?.reason ?? '敏感操作'}`,
         ...(question?.risk ? { risk: question.risk } : {}),
       });

@@ -124,6 +124,43 @@ export type ChatResultVariant =
   | 'queued'
   | 'busy-rejected';
 
+/**
+ * V5.5F-1 **TASK-V55F-102** (ADR-SGO-001 §1 · FR-SGO-010/011) — 引用事实进回合的
+ * **唯一 wire 形状**（`chat` 载荷的 type-only 字段）。
+ *
+ * **Type-only**：`refs` 是既有 `chat` kind 的 *payload 字段*，**不是** kind，永不加入
+ * `KIND_SET`（该集合被 bundle 进注入的 `content.js`，177,076 B 零余量；新增一个字符串即
+ * 红线越界）。类型联合由编译器**擦除** ⇒ 每个面零运行时字节（`content.js` / `pick-layer.js`
+ * 零容差不受影响）。
+ *
+ * 口径（ADR-SGO-001 §1/§5）：
+ *   · `refState` **只可能是 `'valid'`** —— `invalid` / `unknown` 不入表（fail-closed）；
+ *   · `refMark` = `refId`（单点铸造，见 `content/ref-capture.ts`）；
+ *   · `textDigest` = 页面文本摘要（≤80 字，捕获口径）—— **页面文本可入 LLM 上下文**，
+ *     但**凭据形**摘要必须先掩码（EC-SGO-019）；凭据值绝不入任何面（法八）。
+ */
+export interface ChatRefFact {
+  /** 稳定业务序号（`ref_7` → `7`）。 */
+  readonly refNum: number;
+  /** = `data-wcli-ref` 值（单点铸造）。 */
+  readonly refId: string;
+  /** 捕获时的稳定选择器（全量，非展示截断）。 */
+  readonly selector: string;
+  /** `[data-wcli-ref]` 值（= `refId`，单点铸造）。 */
+  readonly refMark: string;
+  /** 页面文本摘要（≤80 字，捕获口径；凭据形已掩码）。 */
+  readonly textDigest: string;
+  /** **只可能是 `valid`**（invalid/unknown 不入表，fail-closed）。 */
+  readonly refState: 'valid';
+  /** 已知时的节点数（`--ref` live 闸另判）。 */
+  readonly nodeCount?: number;
+}
+
+/** `chat` 载荷的引用事实扩展（缺省 ⇒ 字段**缺席**，不是空数组 —— 与现状逐字相同）。 */
+export interface ChatRefTurnPayload {
+  readonly refs?: readonly ChatRefFact[];
+}
+
 export interface PluginMessage {
   kind: PluginMessageKind;
   requestId?: string;
