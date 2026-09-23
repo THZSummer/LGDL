@@ -11880,7 +11880,7 @@
     "adr": "ADR-SGO-001 / ADR-SGO-002 / ADR-SGO-003（范围治理「引用即范围」等价重锚）",
     "registeredOn": "2026-09-24",
     "registeredBy": "SDDU build（V5.5F-1 R1+R2 / W1~W4 = TASK-V55F-101~129）",
-    "note": "X-SGO-1~7 **逐条登记**：3 条**已发生取代**（1/2/3，判据等价重锚，非放宽）+ 4 条**未发生取代**（4/6/7 与 5 的 deny 方向）。每条都有可定位 counterCheck（指向真实门禁文件）与逐条解释；X-SGO-7 的「未发生」是**如实登记**（主流程 diff = 0），不得留空、不得伪造「已取代」。",
+    "note": "X-SGO-1~7 **逐条登记**：**4 条 superseded（X-SGO-1/2/3/5）**（判据等价重锚，非放宽）+ **3 条 no-supersession（X-SGO-4/6/7）**。其中 X-SGO-5 的 `decision: superseded` 仅指**条目级**（只增范围锚解析读数），其 **deny 方向零触碰**，勿与「未发生」混读。每条都有可定位 counterCheck（指向真实门禁文件）与逐条解释；X-SGO-4/6/7 的「未发生取代」是**如实登记**（主流程 diff = 0），不得留空、不得伪造「已取代」。",
     "rows": [
       {
         "id": "X-SGO-1",
