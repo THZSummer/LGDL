@@ -351,3 +351,41 @@ test('OP-W ⑦: 逐档拒绝（confirm / gesture 不可自动按下；AI 不自�
   assert.equal(bypass('op.llm-config').ok, true, '对照：无档位闸门 ⇒ confirm 档会被放行');
   assert.equal(pressDecision('op.llm-config', base).ok, false, '有档位闸门 ⇒ confirm 档必拒');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-1 **TASK-V55F-125**（ADR-SGO-008 · FR-SGO-100/101/102/106/107/112 · AC-SGO-017）
+ *
+ * **X-SGO-7「未发生取代」如实登记 + 主流程 diff = 0 复合读数**（本叶 V5.5F-1）。
+ *
+ * 本叶把「引用事实进回合」经**既有**载荷通道（type-only 字段）与**既有**系统段工厂落地：
+ *   · `requestTurn(` 调用点**仍恰 2**（composer 提交 + `op.turn` 槽）；
+ *   · `maybeRecommend` **1 定义 / 7 调用点**（零新增散落调用点）；
+ *   · `nextAfterSettle` **1 定义 / 10 调用点**。
+ * ⇒ X-SGO-7 = **未发生取代**（主流程 diff = 0）：台账须**如实登记「未发生」**，不得留空
+ * 也不得伪造一条「已取代」。本用例同时机核台账行与三条计数（可 FAIL、非恒真）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('OP-W ⑨（V5.5F-1）主流程 diff = 0 复合读数 + 台账 X-SGO-7「未发生取代」如实登记', () => {
+  const p = 'V5.5F-1 主流程 diff = 0：requestTurn( 仍恰 2 ∧ maybeRecommend 1/7 ∧ nextAfterSettle 1/10 ∧ 台账 X-SGO-7 = 未发生取代';
+  const problems = [
+    ...requestTurnProblems(SIDEPANEL),
+    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),
+    ...(definitionCount(SIDEPANEL, 'maybeRecommend') === 1 ? [] : [`${p}：maybeRecommend 定义 ≠ 1`]),
+    ...(definitionCount(SIDEPANEL, 'nextAfterSettle') === 1 ? [] : [`${p}：nextAfterSettle 定义 ≠ 1`]),
+    ...occurrenceProblems(SIDEPANEL, 'nextAfterSettle', NEXT_AFTER_SETTLE_CALLSITES, 'nextAfterSettle 调用点'),
+  ];
+  assert.deepEqual(problems, [], `${p}：${problems.join(' | ')}`);
+  // 台账：X-SGO-7 必须显式登记为**未发生取代**（`no-supersession`），不得留空 / 不得伪造。
+  const ledger = JSON.parse(readFileSync(join(PKG, 'docs/v4-supersession-ledger.json'), 'utf8')) as {
+    xSgoLedger?: { rows?: readonly { id: string; decision: string; counterCheck: string; evidence: string }[] };
+  };
+  const rows = ledger.xSgoLedger?.rows ?? [];
+  assert.ok(rows.length >= 7, `${p}：X-SGO-1~7 必须逐条登记（实测 ${rows.length}）`);
+  const x7 = rows.find((r) => r.id === 'X-SGO-7');
+  assert.ok(x7, `${p}：X-SGO-7 必须逐条登记`);
+  assert.equal(x7?.decision, 'no-supersession', `${p}：X-SGO-7 必须登记为**未发生取代**（不得伪造「已取代」）`);
+  assert.ok((x7?.counterCheck ?? '').includes('op-wiring'), `${p}：X-SGO-7 的 counterCheck 必须指向本门禁`);
+  assert.ok((x7?.evidence ?? '').length >= 20, `${p}：X-SGO-7 的解释必须非套话`);
+  // 反证：把 X-SGO-7 改成「已取代」⇒ 同一判据必红（判据非恒真）。
+  const forged = rows.find((r) => r.id === 'X-SGO-7');
+  assert.notEqual({ ...forged, decision: 'superseded' }.decision, 'no-supersession');
+});

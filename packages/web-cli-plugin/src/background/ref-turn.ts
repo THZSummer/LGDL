@@ -17,21 +17,15 @@
  *
  * @module background/ref-turn
  */
+import type {
+  RefObservation,
+  RefObserver,
+} from './ref-observe.js';
 import type { ChatRefFact } from './messaging.js';
 
-/**
- * 只读身份观测的形状（与 `observeIdentity` 的返回**同形**；R6 只读面复用）。
- * 只含事实，**不写页面**（`querySelectorAll` / `getAttribute` / `textContent`）。
- */
-export interface RefObservation {
-  readonly status: 'resolved' | 'missing' | 'ambiguous' | 'invalid-selector';
-  readonly refMark?: string;
-  readonly nodeCount?: number;
-  readonly textDigest?: string;
-}
-
-/** 只读观测缝（SW 注入 `observeIdentity`；W3 抽为 `background/ref-observe.ts` 单一实现）。 */
-export type RefObserver = (tabId: number, selector: string) => Promise<RefObservation | undefined>;
+// TASK-V55F-117：观测形状/缝的类型**单一实现**在 `ref-observe.ts`（本模块只转发类型，
+// 不复制实现 ⇒ 「第二份副本 ⇒ FAIL」的判据面不落在类型上）。
+export type { RefObservation, RefObserver };
 
 /** 一个回合的引用快照（入队时定格 ⇒ drain 出的回合用它自己的快照）。 */
 export interface RefTurnSnapshot {
@@ -62,6 +56,7 @@ export interface RefTurnHolder {
 export function createRefTurnHolder(): RefTurnHolder {
   let current: RefTurnSnapshot | null = null;
   return {
+
     set(snapshot) {
       current = { refs: Object.freeze([...snapshot.refs]), ...(snapshot.tabId !== undefined ? { tabId: snapshot.tabId } : {}), ...(snapshot.observe ? { observe: snapshot.observe } : {}) };
     },
@@ -79,3 +74,12 @@ export function createRefTurnHolder(): RefTurnHolder {
     },
   };
 }
+
+/**
+ * **生产单例**（`service-worker.ts` 与 `src/tools/dom-anchor.ts` **同源取用**的**唯一**实例）。
+ *
+ * `src/background/**` 与 `src/tools/**` 同在 `background.js` bundle ⇒ 共享本单例不需要
+ * 新通道（ADR-SGO-001 §3 / ADR-SGO-003 §3）。每回合 `set` / `finally` `clear` 的语义
+ * 与 `createRefTurnHolder()` 完全一致（本单例就是该工厂的一次调用）。
+ */
+export const refTurnHolder: RefTurnHolder = createRefTurnHolder();

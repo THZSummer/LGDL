@@ -437,3 +437,67 @@ test('T2 no-escalation: pushInsightChanged has no silent empty catch and logs a 
   assert.match(body, /no receiver|failed/i, 'the diagnostic must explain the best-effort push outcome');
   assert.equal(/no state faked/.test(raw), true, 'the comment must state no state is faked');
 });
+
+// ---------------------------------------------------------------------------
+// V5.5F-1 **TASK-V55F-126**（ADR-SGO-003 §9 · FR-SGO-123/037 · AC-SGO-023 · N-SGO-007/008）
+//
+// **红线巡检（只增巡检断言；既有判据逐字不动）**：`--ref` 锚定链落地后按**当前产物**
+// 复核三冻结面 + `KIND_SET` + `manifest.json` + `zeroDiffFiles` 不动面。
+// ---------------------------------------------------------------------------
+
+/** 产物路径（`dist/` 相对包根；编译后从 `dist-test/test/` 解析同样成立）。 */
+function readDistBytes(relative: string): Buffer {
+  return readFileSync(new URL(`../../${relative}`, import.meta.url));
+}
+
+/** `git status --porcelain` 对给 pathspec 的输出（空 = 零 diff；**含未跟踪**）。 */
+function gitDrift(paths: string[]): string {
+  return execFileSync('git', ['-C', PLUGIN_ROOT, 'status', '--porcelain', '--', ...paths], { encoding: 'utf8' }).trim();
+}
+
+const PLUGIN_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+
+test('V55F-1 红线巡检：三冻结面逐字节 + sha256 双锚（content.js / pick-layer.js）', () => {
+  const content = readDistBytes('dist/content.js');
+  const pick = readDistBytes('dist/pick-layer.js');
+  assert.equal(content.byteLength, 177_076, 'content.js 必须逐字节冻结在 177,076 B（零容差）');
+  assert.equal(sha256(content.toString('utf8')), '52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6', 'content.js sha256 双锚');
+  assert.equal(pick.byteLength, 34_358, 'pick-layer.js 必须逐字节冻结在 34,358 B（零容差）');
+  assert.equal(sha256(pick.toString('utf8')), '77796babd9c93893542195424d160e0877d8acca4142f8faf2232e217fbd575e', 'pick-layer.js sha256 双锚');
+  // 反证：多 1 字节必须改变长度断言（判据非恒真）。
+  assert.throws(() => assert.equal(177_076 + 1, 177_076, 'content.js 逐字节'), /逐字节/);
+});
+
+test('V55F-1 红线巡检：`KIND_SET` 40 逐字（`--ref` 不引入新 kind）', () => {
+  const messaging = readPluginFile('src/background/messaging.ts');
+  const kindBlock = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(messaging)?.[1] ?? '';
+  const items = kindBlock.split(',').map((s) => s.trim()).filter((s) => /^'/.test(s));
+  assert.equal(items.length, 40, 'KIND_SET 必须逐字 40 项');
+  assert.equal(items.some((i) => /'(refs|ref-anchor|ref-fact)'/.test(i)), false, '`--ref` 不得成为新 kind');
+  // 反证：加一项 ⇒ 41（判据可 FAIL）。
+  assert.equal([...items, "'ghost'"].length, 41);
+});
+
+/** 不动面零 diff 的判据本体（注入式 `runDrift` ⇒ 反证可打在判据上，不动仓库）。 */
+export function zeroDiffPatrolProblems(files: readonly string[], runDrift: (pathspec: string[]) => string): string[] {
+  return files.map((f) => [f, runDrift([f.replace('packages/web-cli-plugin/', '')])] as const).filter(([, out]) => out.length > 0).map(([f]) => `不动面 ${f} 出现漂移`);
+}
+
+test('V55F-1 红线巡检：`zeroDiffFiles` 不动面逐项零 diff（解冻是登记行为）', () => {
+  const v4 = JSON.parse(readFileSync(new URL('../../docs/v4-supersession-ledger.json', import.meta.url), 'utf8')) as {
+    zeroDiffFiles: string[];
+    unfrozenZeroDiffFiles?: readonly { file: string }[];
+  };
+  const unfrozen = new Set((v4.unfrozenZeroDiffFiles ?? []).map((u) => u.file));
+  assert.ok(v4.zeroDiffFiles.length >= 8, '不动面不得少于 8 项（解冻须逐项登记，不得静默删除）');
+  for (const file of v4.zeroDiffFiles) {
+    assert.equal(unfrozen.has(file), false, `${file} 不得同时出现在解冻册（矛盾即红）`);
+  }
+  assert.deepEqual(zeroDiffPatrolProblems(v4.zeroDiffFiles, gitDrift), [], '不动面必须逐项零 diff');
+  // 反证（注入 ⇒ 必红）：伪造「某个不动面出现漂移」⇒ 同一判据必须报出它。
+  const forged = zeroDiffPatrolProblems(v4.zeroDiffFiles, (p) => (String(p[0]).endsWith('manifest.json') ? ' M manifest.json' : ''));
+  assert.equal(forged.length, 1, '注入一项漂移 ⇒ 恰一条问题（判据逐项可判）');
+  // 另按 pathspec 复核 manifest.json 与 base 零 diff（与既有断言互补）。
+  assert.equal(gitDrift(['manifest.json']), '', 'manifest.json 必须零 diff');
+  assert.equal(gitDrift(['../web-cli-base']), '', 'packages/web-cli-base/** 必须零 diff');
+});

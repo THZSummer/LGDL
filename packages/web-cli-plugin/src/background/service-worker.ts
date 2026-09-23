@@ -80,7 +80,10 @@ import { commandEvent, llmErrorEvent, toolResultEvent } from './chat-events.js';
 import { classifyChatRequest, createTurnQueue, type QueuedTurn } from './turn-queue.js';
 // V5.5F-1 TASK-V55F-106/107 (ADR-SGO-001 §3/§4): 系统段追加段 + 载荷运行时校验 + 回合引用单源。
 import { refContextSegment, validateRefPayload } from './ref-context.js';
-import { createRefTurnHolder } from './ref-turn.js';
+// V5.5F-1 TASK-V55F-117：`observeIdentity` 抽为**单一实现**（本文件与 `tools/dom-anchor.ts`
+// 同源 import ⇒ 禁第二份副本；`nodeCount === 1` 为唯一通过条件，AC-SGO-022）。
+import { observeIdentity } from './ref-observe.js';
+import { refTurnHolder } from './ref-turn.js';
 import type { ChatRefFact } from './messaging.js';
 import {
   errorResponse,
@@ -176,8 +179,9 @@ const turnQueue = createTurnQueue();
 /**
  * V5.5F-1 **TASK-V55F-105/107** (ADR-SGO-001 §3 · FR-SGO-019) — 当前回合活跃引用单源。
  * SW 的引用事实**唯一来源 = 回合载荷**（零新通道）；每回合 `set` / `finally` `clear`。
+ * TASK-V55F-117：holder 改为 `ref-turn.ts` 的**生产单例**（`src/tools/dom-anchor.ts` 的
+ * `--ref` live 闸与这里**同源取用**同一份快照，禁第二份）。
  */
-const refTurnHolder = createRefTurnHolder();
 
 /**
  * One-shot readable notice surfaced through the next `state` reply (D-064).
@@ -1131,51 +1135,10 @@ async function pickLayerTarget(
  * `invalid-selector` (the CSS parser rejected the selector) / `missing` (0 nodes) /
  * `ambiguous` (>1) / `resolved` + the `data-wcli-ref` mark.
  *
- * R4（2026-09-22）: the throw is no longer folded into `missing`. A selector the parser
- * rejects is a **capture defect**（非法 / 被截断的选择器），and reporting it as
- * 「目标元素已不存在」is exactly the mis-diagnosis that made the reference born dead.
- *
- * Why it exists: the identity mark is written by the panel **after** the capture report
- * (the panel mints the id), so the capture-time report structurally cannot carry it —
- * without a fresh read, D1 denies every freshly picked reference. A failed read returns
- * `undefined`, which the panel treats as "no new observation" ⇒ the judge stays
- * fail-closed on the older fact.
+ * V5.5F-1 **TASK-V55F-117**：实现已抽到 `background/ref-observe.ts`（**单一实现**），本文件
+ * 与 `tools/dom-anchor.ts` 同源 import；调用点（`ref-highlight` 的 mark / observe 两模式）
+ * **逐字不变**。
  */
-async function observeIdentity(
-  tabId: number,
-  selector: string,
-): Promise<
-  { status: 'resolved' | 'missing' | 'ambiguous' | 'invalid-selector'; refMark?: string; nodeCount?: number; textDigest?: string } | undefined
-> {
-  const results = await chrome.scripting
-    .executeScript({
-      target: { tabId },
-      func: (sel: string) => {
-        let nodes: Element[];
-        try {
-          nodes = Array.from(document.querySelectorAll(sel));
-        } catch {
-          return { status: 'invalid-selector' as const };
-        }
-        if (nodes.length === 0) return { status: 'missing' as const };
-        if (nodes.length !== 1) return { status: 'ambiguous' as const, nodeCount: nodes.length };
-        const node = nodes[0];
-        const mark = node.getAttribute('data-wcli-ref');
-        // R6（2026-09-23）—— 只读重观测同时带回**当前文本摘要**（与 `content/ref-capture.ts`
-        // 同一口径的等价副本：flatten + 80 字截断 + 被截断补 `…`）。判定侧据此判
-        // `text-changed`（身份仍在但内容被改写）；本函数仍**不写页面**。
-        const TEXT_DIGEST_MAX = 80;
-        const flatten = (text: string | null | undefined): string => String(text ?? '').replace(/\s+/g, '');
-        const truncated = flatten(node.textContent);
-        const textDigest = truncated.length > TEXT_DIGEST_MAX ? `${truncated.slice(0, TEXT_DIGEST_MAX)}…` : truncated;
-        return { status: 'resolved' as const, nodeCount: 1, ...(mark ? { refMark: mark } : {}), textDigest };
-      },
-      args: [selector],
-    })
-    .catch(() => undefined);
-  const result = results?.[0]?.result;
-  return result && typeof result === 'object' ? (result as { status: 'resolved' }) : undefined;
-}
 
 /**
  * R3（2026-09-17）— the **read-only** text-candidate probe for a `dom-gone` reference.

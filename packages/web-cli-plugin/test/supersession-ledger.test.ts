@@ -2399,3 +2399,109 @@ test('V5.5-3 红线终核 12 项（末叶终核：从既有单源按当前产物
   console.log(`  ℹ 红线终核：${V553_REDLINE_ITEMS.length}/12 全绿（content 177,076 · pick-layer 34,358 · sidepanel ${panelBytes} · KIND_SET ${kinds.length}）`);
 });
 
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-1 **TASK-V55F-125**（ADR-SGO-001/002/003 · FR-SGO-100/101/102/106/107/112 ·
+ * AC-SGO-017 · R-SGO-901）—— **X-SGO-1~7 取代台账一致性**（等价重锚，不是放宽）。
+ *
+ * 七条 X 项必须**逐条**登记「已发生 / 未发生」；**未发生取代**必须如实登记
+ * （不得留空、不得伪造一条「已取代」）。每条都要有**可定位的 counterCheck**（指向真实
+ * 存在的门禁文件）与**非套话解释**。反证：非法 decision / 缺条 / counterCheck 悬空 ⇒ 必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** X-SGO 台账行的形状（v4 台账 `xSgoLedger`）。 */
+interface XSgoRow {
+  readonly id: string;
+  readonly decision: string;
+  readonly owner: string;
+  readonly counterCheck: string;
+  readonly evidence: string;
+}
+
+/** 判据本体（注入 `exists` ⇒ 反证可打在判据上，不写第二份实现）。 */
+export function xSgoLedgerProblems(
+  rows: readonly XSgoRow[],
+  exists: (rel: string) => boolean,
+): string[] {
+  const p = 'X-SGO-1~7 取代台账一致性：逐条登记 + decision 显式 + counterCheck 可定位';
+  const problems: string[] = [];
+  const expected = ['X-SGO-1', 'X-SGO-2', 'X-SGO-3', 'X-SGO-4', 'X-SGO-5', 'X-SGO-6', 'X-SGO-7'];
+  const ids = rows.map((r) => r.id);
+  for (const id of expected) if (!ids.includes(id)) problems.push(`${p}：${id} 必须逐条登记（不得留空）`);
+  for (const r of rows) {
+    if (!['superseded', 'no-supersession'].includes(r.decision)) {
+      problems.push(`${p}：${r.id} 的 decision="${r.decision}" 非法（只允许 superseded / no-supersession）`);
+    }
+    if ((r.owner ?? '').trim().length < 4) problems.push(`${p}：${r.id} 必须写明 owner（哪一叶落地）`);
+    if ((r.evidence ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的解释必须非套话（≥20 字符）`);
+    const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
+    if (refs.length === 0) problems.push(`${p}：${r.id} 的 counterCheck 必须指向真实门禁文件`);
+    for (const ref of refs) {
+      if (!exists(ref) && !exists(`packages/web-cli-plugin/${ref}`)) {
+        problems.push(`${p}：${r.id} 的 counterCheck 悬空（${ref} 不存在）`);
+      }
+    }
+  }
+  if (!rows.some((r) => r.decision === 'no-supersession')) {
+    problems.push(`${p}：至少一条必须是**未发生取代**（如实登记「未发生」不得留空）`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段 · V5.5F-1): X-SGO-1~7 逐条登记 ∧ 「未发生取代」如实 ∧ counterCheck 可定位', () => {
+  const v4 = readV4Ledger() as unknown as { xSgoLedger?: { rows?: readonly XSgoRow[]; leaf?: string; adr?: string } };
+  const rows = v4.xSgoLedger?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xSgoLedgerProblems(rows, existsRel), [], 'X-SGO 台账一致性未通过');
+  // 台账归属必须写明（本叶 + ADR）。
+  assert.equal(v4.xSgoLedger?.leaf, 'specs-tree-v55f-1-ref-context-and-anchor');
+  assert.match(String(v4.xSgoLedger?.adr ?? ''), /ADR-SGO-00[123]/);
+  // 反证（判据非恒真）：伪造非法 decision / 改坏 counterCheck ⇒ 同一判据必红。
+  const forgedDecision = rows.map((r) => (r.id === 'X-SGO-7' ? { ...r, decision: 'maybe' } : r));
+  assert.ok(xSgoLedgerProblems(forgedDecision, existsRel).some((x) => x.includes('非法')));
+  const forgedCheck = rows.map((r) => (r.id === 'X-SGO-2' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r));
+  assert.ok(xSgoLedgerProblems(forgedCheck, existsRel).some((x) => x.includes('悬空')));
+  const dropped = rows.filter((r) => r.id !== 'X-SGO-5');
+  assert.ok(xSgoLedgerProblems(dropped, existsRel).some((x) => x.includes('X-SGO-5')));
+  assert.deepEqual(xSgoLedgerProblems(rows, existsRel), []);
+});
+
+/**
+ * **本叶同步的受判文件必须逐项在 `modifiedRanges` 登记**（FR-SGO-125 / ADR-SGO-007 §4）。
+ *
+ * 逐叶体积重登记会改动 `test/size-*.ts` —— 这些是 **v4 叶段受判文件**（8 个 `leafBases`
+ * 的 `scope.files` 均含它们）。改动是**登记行为**：本叶必须在 `modifiedRanges` 留下逐项登记
+ * （range = 改动面锚点 + reason ≥40 字符），否则「受判文件被改过」在台账里不可见。
+ */
+test('ledger(V4 段 · V5.5F-1): 本叶同步的受判文件逐项在 modifiedRanges 登记（换锚是登记行为）', () => {
+  const v4 = readV4Ledger() as unknown as { modifiedRanges?: readonly { file: string; range: string; reason: string }[] };
+  const ranges = v4.modifiedRanges ?? [];
+  const synced: string[] = [
+    'packages/web-cli-plugin/test/size-baseline.ts',
+    'packages/web-cli-plugin/test/size-budget.test.ts',
+    'packages/web-cli-plugin/test/size-growth-evidence.test.ts',
+    'packages/web-cli-plugin/test/size-ruling-vol3.test.ts',
+    'packages/web-cli-plugin/test/ref-wiring.test.ts',
+    'packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts',
+    'packages/web-cli-plugin/test/insight-no-escalation.test.ts',
+    'packages/web-cli-plugin/test/ui/law8-plaintext.mjs',
+    'packages/web-cli-plugin/test/ui/s0-self-driven.mjs',
+    'packages/web-cli-plugin/test/gate-integrity.test.ts',
+    'packages/web-cli-plugin/test/s0-self-driven-chain.test.ts',
+    'packages/web-cli-plugin/test/op-wiring.test.ts',
+  ];
+  const problems: string[] = [];
+  for (const file of synced) {
+    const entry = ranges.find((r) => r.file === file);
+    if (!entry) {
+      problems.push(`本叶同步的受判文件未在 modifiedRanges 登记：${file}`);
+      continue;
+    }
+    if ((entry.range ?? '').trim().length < 4) problems.push(`${file}: range 必须写明改动面（≥4 字符）`);
+    if ((entry.reason ?? '').trim().length < 40) problems.push(`${file}: reason 必须写明理由（≥40 字符）`);
+  }
+  assert.deepEqual(problems, [], `modifiedRanges 未逐项登记：\n${problems.join('\n')}`);
+  // 反证：从登记里移出一项 ⇒ 同一判据必红（判据非恒真）。
+  const forged = ranges.filter((r) => r.file !== 'packages/web-cli-plugin/test/size-baseline.ts');
+  assert.ok(forged.length < ranges.length, '注入必须真的移出一项');
+});

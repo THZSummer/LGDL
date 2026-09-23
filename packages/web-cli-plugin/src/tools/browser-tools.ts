@@ -29,6 +29,9 @@ import {
   type ToolEntry,
 } from '@lgdl/web-cli-base';
 import { wrapChromeEntryForHost } from './chrome-host.js';
+// V5.5F-1 TASK-V55F-118/119（ADR-SGO-003 §1 · FR-SGO-031）：`dom` 条目走**包装层**接入
+// `--ref` 引用锚定（base 零 diff；`risk` / `subcommandRisks` 逐字段 spread 自 base）。
+import { wrapDomEntryForAnchor } from './dom-anchor.js';
 
 export interface BrowserToolOptions {
   /** Browser seams (dom.ops / filePicker / events / search). */
@@ -64,7 +67,10 @@ export function createBrowserToolEntries(opts: BrowserToolOptions): ToolEntry[] 
   const ops = env.dom?.ops;
   const entries: ToolEntry[] = [];
 
-  if (ops && !off.dom) entries.push(createDomToolEntry(env));
+  // D1/D4: wrap the plugin-exposed dom entry for reference anchoring (`--ref <n>` →
+  // `[data-wcli-ref="ref_n"]`; live single-node gate ⇒ base executor). base source
+  // is untouched (ADR-SGO-003 §1 / FR-SGO-031).
+  if (ops && !off.dom) entries.push(wrapDomEntryForAnchor(createDomToolEntry(env), env));
   // D1/D4: wrap the plugin-exposed chrome entry (honest screenshot path note +
   // host-era boundary copy). base source is untouched.
   if (ops && !off.chrome) entries.push(wrapChromeEntryForHost(createChromeToolEntry(env), env));

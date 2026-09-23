@@ -18,7 +18,7 @@ specs-tree-v55f-1-ref-context-and-anchor/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座） — 构建报告：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座） | ✅ 存在 |
+| build.md | 构建报告：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座） — A 列 `578,623 → 585,732`（R1 测量值即终值：R2 全部改动落 B 列），B 列 R1 `+3,044` / R2 `+6,411`。 | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定） — 技术计划：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + r... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55f-1-ref-context-and-anchor（V5.5F-1 范围底座：引用事实进回合 + 范围读数 + ref 锚定） — 父规范 §2.1~§2.4 的**根因 A/B/C/D/E/F/H/I/J/K/L/N/O/P/Q/R** 全部落在本叶：回合载荷只有 `user`（`s... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [builded] |

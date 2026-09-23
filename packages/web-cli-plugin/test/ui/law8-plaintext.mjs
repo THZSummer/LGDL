@@ -379,6 +379,72 @@ async function main() {
       (flowSrc.match(/ONBOARD_CHIP_OP = 'op\.llm-config'/g) ?? []).length === 1 && !/keyStore\.save\(|submitSecret\(/.test(flowSrc),
       'single-execution-entry',
     );
+    // ── ⑧ V5.5F-1 **TASK-V55F-127**（ADR-SGO-006 · FR-SGO-046/050/083 · NFR-SGO-004）
+    //    **引用注入路径**的零明文面：越界写请求（引用锚定失败链）的载荷**不回显** ∧
+    //    范围留痕**只含字段名 + 机器枚举** ∧ 凭据形 `textDigest` 的**掩码单点**（真源切片）。
+    console.log('\n▶ ⑧ 引用注入路径零明文（越界写请求 + 留痕零值 + 凭据形掩码单点）');
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const injectedRef = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const rec = window.__v3.testing.l1('ref', { selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin: 'https://v55f-law8.test', documentId: 'doc-l8', navSeq: 1, declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now() });
+          window.__v3.testing.l1('env', { currentOrigin: 'https://v55f-law8.test', authorized: true, documentId: 'doc-l8', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          return JSON.stringify({ refId: rec.facts.refId });
+        })()`,
+      ),
+    );
+    check('⑧ 前置：引用注入路径已就绪（活跃有效引用）', typeof injectedRef.refId === 'string' && injectedRef.refId.length > 0, JSON.stringify(injectedRef));
+    // 越界写请求携带**哨兵**（`args.text`）：面板必须拦下（fail-closed）且**不回显**载荷。
+    await evaluate(
+      sw.cdp,
+      `chrome.runtime.sendMessage({ kind: 'confirm-request', requestId: 'l8-v55f', question: { tool: 'dom', subcommand: 'set-text', args: { ref: '9', text: ${JSON.stringify(SENTINEL)} }, risk: 'write' } }).then(() => true).catch(() => true)`,
+    );
+    await sleep(400);
+    const f1r = JSON.parse(await evaluate(cdp, SCAN_1));
+    const f2r = JSON.parse(await evaluate(cdp, SCAN_2));
+    const f3r = JSON.parse(await evaluate(cdp, SCAN_3));
+    const f4r = JSON.parse(await evaluate(cdp, SCAN_4));
+    check(`⑧-① 引用注入路径：流内 payload 零明文（越界写载荷不回显；${f1r.payloadCount} payload）`, f1r.hits.length === 0, JSON.stringify(f1r.hits));
+    check(`⑧-② 引用注入路径：digest 零明文（${f2r.keys.length} 键）`, f2r.hits.length === 0, JSON.stringify(f2r.hits));
+    check('⑧-③ 引用注入路径：审计面（渲染 + 存储）零明文', f3r.hits.length === 0, JSON.stringify(f3r.hits));
+    check('⑧-④ 引用注入路径：DOM value + 全部属性（逐项）零明文', f4r.hits.length === 0, JSON.stringify(f4r.hits));
+    const trace8 = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const rows = [...document.querySelectorAll('#stream > li')].map((el) => (el.textContent || '').trim());
+           const line = rows.find((t) => t.includes('scope.reading=')) ?? null;
+           const part = line === null ? null : line.slice(line.lastIndexOf('scope.reading='));
+           return JSON.stringify({ part, hasSentinel: rows.some((t) => t.includes(${JSON.stringify(SENTINEL)})) });
+         })()`,
+      ),
+    );
+    check(
+      '⑧-⑤ 范围留痕只含字段名 + 机器枚举（零用户内容值）',
+      typeof trace8.part === 'string' && /^scope\.reading=[a-z-]+ \| scope\.authorized=(user|none)$/.test(trace8.part) && trace8.hasSentinel === false,
+      JSON.stringify(trace8),
+    );
+    // ⑧ 反证（注入 ⇒ 必红 ⇒ 还原 ⇒ PASS）：把哨兵注入一条卡 payload ⇒ 同一扫描必命中。
+    await evaluate(cdp, `window.__v3.testing.streamSeed([{ kind: 'ai', cardId: 'l8-v55f-evil', payload: { text: ${JSON.stringify(SENTINEL)} } }]); true`);
+    const inj8 = JSON.parse(await evaluate(cdp, SCAN_1));
+    check('⑧ (FAIL 段) 引用注入面判据非恒真：注入一条卡 payload ⇒ 同一扫描必命中', inj8.hits.length > 0, JSON.stringify(inj8.hits));
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+    const res8 = JSON.parse(await evaluate(cdp, SCAN_1));
+    check('⑧ (PASS 段) 还原后零命中', res8.hits.length === 0, JSON.stringify(res8.hits));
+    // 凭据形掩码单点（真源切片 + 反证）。
+    const scopeSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/l1/ref-scope.ts'), 'utf8');
+    const maskSiteProblems = (src) =>
+      (src.match(/textDigest: maskRefDigest\(/g) ?? []).length === 1 ? [] : ['凭据形掩码点必须恰一处（第二份/缺失即红）'];
+    check('⑧-⑥ 凭据形 `textDigest` 掩码单点：投影 `turnRefsOf` 恰一处 `maskRefDigest(`', maskSiteProblems(scopeSrc).length === 0, `sites=${(scopeSrc.match(/textDigest: maskRefDigest\(/g) ?? []).length}`);
+    check(
+      '⑧-⑥ 反证：把掩码点从投影里移除 ⇒ 判据必红 → 还原 PASS',
+      maskSiteProblems(scopeSrc.replace('textDigest: maskRefDigest(', 'textDigest: ((x: string) => x)(')).length > 0 && maskSiteProblems(scopeSrc).length === 0,
+      'injected=red / restored=green',
+    );
+
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

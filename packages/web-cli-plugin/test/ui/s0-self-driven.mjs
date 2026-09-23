@@ -21,8 +21,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { CHROME, DIST, PACKAGE_ROOT, check, evaluate, finish, launch, openSidePanel, findOurServiceWorker, sleep } from './_v3-helpers.mjs';
+import { CHROME, DIST, PACKAGE_ROOT, check, connectCdp, evaluate, findTarget, finish, launch, openSidePanel, findOurServiceWorker, sleep, waitFor } from './_v3-helpers.mjs';
 import { S0_ANSWER, S0_B_PARAM_KINDS, S0_B_STEPS, S0_CHAIN, s0BranchBProblems } from './fixtures/s0-chain.mjs';
+// V5.5F-1 TASK-V55F-124（W4，纯追加 import）：S0′ 范围内核样本（**与 node 面同一份**）。
+import { S0P_ANCHOR_SELECTOR, S0P_BEATS, S0P_ITEMS, S0P_REF_NUM, s0PChain, s0pProblems } from './fixtures/s0-chain.mjs';
 // V5.5-3 TASK-V55-316/317（W5，纯追加）：分支 A 端到端 + 护栏在链路上可判（**同一份样本**）。
 import {
   S0_A_BEATS,
@@ -45,6 +47,8 @@ export const JUDGEMENTS = [
   // V5.5-3 TASK-V55-316/317（W5）：分支 A 端到端（零按键）+ 护栏在链路上可判（只增不减）。
   { id: 'S0C-8-branch-A-end-to-end', expectFailPattern: '分支 A 端到端：已配置 ⇒ 答案后**零按键** ⇒ 经 op.turn 槽自动成回合 + 三要素留痕（删 pressCandidate 门 ⇒ FAIL）' },
   { id: 'S0C-9-guard-on-chain', expectFailPattern: '护栏在链路上真实可判：越限 ⇒ 可读抑制行 ∧ 真的没发起 ∧ 关断 ⇒ 主题① 仍放行（删护栏缝 ⇒ FAIL）' },
+  // V5.5F-1 TASK-V55F-124（W4，只增不减）：S0′ 范围内核（`ty.md` 原案重放）的真面板面。
+  { id: 'S0C-10-s0p-ref-anchor', expectFailPattern: 'S0′：真面板回合载荷含引用事实 ∧ 系统段追加段在位 ∧ 合成锚在真 DOM 恰 1 命中 ∧ 范围留痕行独立成行' },
 ];
 
 /**
@@ -464,6 +468,116 @@ async function main() {
       await evaluate(cdp, `JSON.stringify({ commands: document.querySelectorAll('#stream [data-msg-type="command"]').length })`),
     );
     aBeatCheck('stream', '④ 思考/命令：`chat-result{command}` ⇒ 流内出现命令行（续流进流内）', aCommand.commands >= 1, JSON.stringify(aCommand));
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // V5.5F-1 **TASK-V55F-124**（ADR-SGO-006 §3 · FR-SGO-090/094 · AC-SGO-013/014）
+    //   —— **S0′ 范围内核**的真面板面（**只加断言不加文件**；`CHROMIUM_GATES === 9` 不动）。
+    //   样本 + 判据取自共享 `./fixtures/s0-chain.mjs`（禁第二份）；本面只注入**真面板读数**。
+    // ═════════════════════════════════════════════════════════════════════════
+    // ③′ **回合载荷含引用事实**（真面板：`requestTurn` 的真实构建点；由 sendMessage 捕获面记录）。
+    const s0pMsg = aChats[0] ?? {};
+    const s0pRefs = Array.isArray(s0pMsg.refs) ? s0pMsg.refs : Array.isArray(s0pMsg?.chat?.refs) ? s0pMsg.chat.refs : [];
+    // 序号取**真拾取**的 refId 序号（`ty.md` 原案 = 1；本门禁前面已拾取过一次，故面板给的
+    // 是下一个序号）—— 判据是「载荷里的 refNum 与本次拾取同源」，样本侧 `S0P_REF_NUM = 1`
+    // 由 node 面机核（sample canonical）。
+    const s0pExpectNum = Number(String(aPick.refId).slice(4));
+    const s0pRef = s0pRefs.find((r) => r && r.refNum === (Number.isFinite(s0pExpectNum) && s0pExpectNum > 0 ? s0pExpectNum : S0P_REF_NUM)) ?? null;
+    check(
+      `S0P-C1 真面板回合载荷含引用事实（refNum=${s0pExpectNum} 与本次拾取同源 ∧ refState=valid ∧ selector 非空；样本 canonical = ${S0P_REF_NUM}）`,
+      Boolean(s0pRef) && s0pRef.refState === 'valid' && String(s0pRef.selector ?? '').length > 0,
+      JSON.stringify({ ref: s0pRef, refs: s0pRefs, keys: Object.keys(s0pMsg) }),
+    );
+    // ④′ **系统段追加段在位**（真产物字节）：构建后的 SW bundle 必须同时承载**基座条款**与
+    //     **法则引导**追加段文案，且真源工厂 = `SYSTEM_PROMPT + refContextSegment(refs)`。
+    //     （运行期「零引用 ⇒ system 逐字等于基座」的等价由 node 面 S0P-2 用生产模块判定。）
+    const swSource = readFileSync(join(PACKAGE_ROOT, 'src/background/service-worker.ts'), 'utf8');
+    const swBundle = readFileSync(join(DIST, 'background.js'), 'utf8');
+    const baseClause = 'Never reveal secrets.';
+    const guidanceNeedle = '引用'; // 追加段的法则引导文案（`REF_SCOPE_GUIDANCE`）含中文「引用」
+    check(
+      'S0P-C2 系统段 = 基座 + 追加段在位（真产物字节：基座条款 ∧ 引导文案 ∧ 真源工厂 `SYSTEM_PROMPT + refContextSegment(refs)`）',
+      swSource.includes('SYSTEM_PROMPT + refContextSegment(refs)') && swBundle.includes(baseClause) && swBundle.includes(guidanceNeedle),
+      JSON.stringify({ factory: swSource.includes('SYSTEM_PROMPT + refContextSegment(refs)'), base: swBundle.includes(baseClause), append: swBundle.includes(guidanceNeedle) }),
+    );
+    // ⑥′ **合成锚在真 DOM 上恰 1 命中**（写目标的单节点保证；多命中 ⇒ 2，判据非恒真）。
+    //     —— 用真实 Chromium 页面（`data:` URL）承载标记节点，按合成锚选择器计数。
+    const anchor = S0P_ANCHOR_SELECTOR;
+    const pageUrl = `data:text/html,${encodeURIComponent(`<div id="one" ${anchor.slice(1, -1)}>A</div>`)}`;
+    await evaluate(sw.cdp, `chrome.tabs.create({ url: ${JSON.stringify(pageUrl)} }).then((t) => t.id)`);
+    const pageTarget = await findTarget(base, (t) => t.type === 'page' && t.url.startsWith('data:text/html'));
+    let s0pPage = { single: -1, doubled: -1, after: -1 };
+    if (pageTarget) {
+      const pageCdp = await connectCdp(pageTarget.webSocketDebuggerUrl);
+      await pageCdp.send('Runtime.enable');
+      // 页面加载是异步的 ⇒ 轮询等标记节点就位（不假设 create 返回即已渲染）。
+      await waitFor(pageCdp, `document.querySelectorAll(${JSON.stringify(anchor)}).length >= 1`, 40, 150);
+      s0pPage = JSON.parse(
+        await evaluate(
+          pageCdp,
+          `(() => {
+             const sel = ${JSON.stringify(anchor)};
+             const single = document.querySelectorAll(sel).length;
+             const extra = document.createElement('span');
+             extra.setAttribute('data-wcli-ref', 'ref_1');
+             document.body.appendChild(extra);
+             const doubled = document.querySelectorAll(sel).length;
+             extra.remove();
+             return JSON.stringify({ single, doubled, after: document.querySelectorAll(sel).length });
+           })()`,
+        ),
+      );
+      pageCdp.close();
+    }
+    check(
+      'S0P-C3 合成锚在真 DOM 恰 1 命中（写目标单节点保证）∧ 注入第二节点 ⇒ 2（判据非恒真）',
+      s0pPage.single === 1 && s0pPage.doubled === 2 && s0pPage.after === 1,
+      JSON.stringify(s0pPage),
+    );
+    // ⑦′ **范围留痕行独立成行**（真面板 confirm 面）：越界未征询的 `dom set-text` ⇒ fail-closed
+    //     拦下 + 留痕行 `scope.reading=out-of-scope-unauthorized | scope.authorized=none` 独立成行。
+    const traceBefore = await evaluate(cdp, `document.querySelectorAll('#stream > li').length`);
+    await evaluate(
+      sw.cdp,
+      `chrome.runtime.sendMessage({ kind: 'confirm-request', requestId: 's0p-trace', question: { tool: 'dom', subcommand: 'set-text', args: { ref: '9' }, risk: 'write' } }).then(() => true).catch(() => true)`,
+    );
+    await sleep(400);
+    const s0pTrace = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const rows = [...document.querySelectorAll('#stream > li')].map((el) => (el.textContent || '').trim());
+           // 「独立成行」= 该范围留痕行**自成一个 li**，且行内只含这一条机器格式（不得与别的事实粘连）。
+           const line = rows.find((t) => /scope\\.reading=[a-z-]+ \\| scope\\.authorized=(user|none)$/.test(t) && (t.match(/scope\\.reading=/g) || []).length === 1) ?? null;
+           // 系统行的文本投影含「系统事件 HH:MM:SS」前缀 ⇒ 取行尾的**机器格式**切片做判据本体
+           // （「独立成行」= 该切片自成一行且行内恰一条 scope.reading=）。
+           const trace = line === null ? null : line.slice(line.lastIndexOf('scope.reading='));
+           return JSON.stringify({ line, trace, rows: rows.slice(-4) });
+         })()`,
+      ),
+    );
+    check(
+      'S0P-C4 范围留痕行独立成行 ∧ 仅含字段名（`scope.reading` / `scope.authorized`；零用户内容值）',
+      typeof s0pTrace.trace === 'string' &&
+        /^scope\.reading=[a-z-]+ \| scope\.authorized=(user|none)$/.test(s0pTrace.trace) &&
+        typeof s0pTrace.line === 'string' &&
+        !s0pTrace.line.includes(S0_ANSWER),
+      JSON.stringify(s0pTrace),
+    );
+    // ⑧′ 共享样本一致性（本面登记自己真的驱动/读到的 S0′ 拍）。
+    const s0pCovered = new Set();
+    if (s0pRef) s0pCovered.add('ref-in-turn');
+    if (s0pTrace.line) s0pCovered.add('no-injection');
+    check(
+      `S0P-C5 S0′ 样本单源（${s0PChain().length} 拍登记 ∧ 本面 ≥1 拍有真读数 ∧ 与 node 面同一份文件）`,
+      S0P_BEATS.length === 5 && s0PChain().every((b, i) => b.id === S0P_BEATS[i].id) && s0pCovered.size >= 1 &&
+        readFileSync(join(PACKAGE_ROOT, 'test/s0-self-driven-chain.test.ts'), 'utf8').includes('test/ui/fixtures/s0-chain.mjs'),
+      JSON.stringify({ beats: S0P_BEATS.length, covered: [...s0pCovered] }),
+    );
+    check(
+      'S0P 人工面 M1（「原地」语义遵从观感）/ M4（SPA 锚定失败提示可理解度）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）',
+      S0P_ITEMS.length === 8,
+      '⏳ 未执行',
+    );
 
     // ── ⑥ 续流收口：`chat-result{done}` ⇒ 回合结束（pending=false ∧ 无死端 ∧ 无开口 ask）──
     await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'done' }).then(() => true).catch(() => true)`);

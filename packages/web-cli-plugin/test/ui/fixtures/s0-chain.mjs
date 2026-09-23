@@ -388,3 +388,122 @@ export function s0BranchAProblems(reading = {}) {
 export function s0BranchABeats() {
   return S0_A_BEATS.map((b) => ({ id: b.id, label: b.label }));
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-1 **TASK-V55F-122**（ADR-SGO-006 §1/§2/§4 · FR-SGO-090/091/092 ·
+ * **AC-SGO-013/014** · R-SGO-909）
+ *
+ * **S0′ 范围内核拍 + 判据**（node 面与 Chromium 面**共用同一份**，禁第二份样本）。
+ *
+ * `ty.md` 1963 行原案重放：拾取引用 ①（refNum=1）→ 答「原地翻译为中文」→ 自动成回合
+ * （载荷含引用事实）→ SW 系统段 = 基座 + 追加段 → 范围读数 = `in-scope` → 只改写引用目标
+ * **恰 1 处**（改写处数 ≤ 引用数）→ 完成交代如实 → 留痕行独立成行且含范围读数字段名。
+ *
+ * **决定性反证**：去掉范围注入 ⇒ 读数 `no-ref` ⇒ 必红（AI 已读到 `data-wcli-ref="ref_1"`
+ * 且恰 1 命中**仍未锚定**，故必须证「范围受限」而不是「AI 恰好好心」）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** ③ 拾取后的引用序号（与 chip 文案同词汇；`ty.md` 原案 = 1）。 */
+export const S0P_REF_NUM = 1;
+/** 合成锚选择器（与 `src/tools/dom-anchor.ts#anchorSelectorFor` 同口径）。 */
+export const S0P_ANCHOR_SELECTOR = `[data-wcli-ref="ref_${S0P_REF_NUM}"]`;
+
+/** S0′ 范围内核的 5 拍（id + 人读标签；顺序即 `ty.md` 原案序列）。 */
+export const S0P_BEATS = Object.freeze([
+  { id: 'ref-in-turn', label: '③′ 自动成回合：载荷含引用事实（refNum=1 / refState=valid / selector 非空）' },
+  { id: 'scope-inject', label: '④′ SW 系统段 = 基座 + 追加段（引用事实 + 法则引导）' },
+  { id: 'read-in-scope', label: '⑤′ 范围读数 = in-scope（本次目标 = 引用目标）' },
+  { id: 'write-1', label: '⑥′ 只改写引用目标**恰 1 处**（改写处数 ≤ 引用数）' },
+  { id: 'no-injection', label: '⑦′ **反证拍**：去掉范围注入 ⇒ 读数 = no-ref' },
+]);
+
+/** S0′ 八条必判项（`expectFailPattern` 逐字来自 ADR-SGO-006 §2）。 */
+export const S0P_ITEMS = Object.freeze([
+  { id: 'S0P-1-refs-in-turn', expectFailPattern: 'S0′：回合载荷必须含引用事实且可判命中' },
+  { id: 'S0P-2-system-append', expectFailPattern: 'S0′：系统段必须为基座 + 追加段；无引用必须逐字等于基座' },
+  { id: 'S0P-3-read-in-scope', expectFailPattern: 'S0′：引用目标内的写必须判 in-scope' },
+  { id: 'S0P-4-writes-le-refs', expectFailPattern: 'S0′：未授权时改写处数不得超过引用数' },
+  { id: 'S0P-5-authorized-branch', expectFailPattern: 'S0′：扩围必须由用户批准产生 out-of-scope-authorized 且入留痕' },
+  { id: 'S0P-6-trace', expectFailPattern: 'S0′：留痕必须独立成行且含范围读数字段名（不含用户内容值）' },
+  { id: 'S0P-7-bidirectional', expectFailPattern: 'S0′ 双向反证：去掉范围注入后读数必须为空 / no-ref（否则必红）' },
+  { id: 'S0P-8-honest-report', expectFailPattern: 'S0′：完成交代必须如实（清单条数 == 实际改写处数）' },
+]);
+
+/**
+ * **S0′ 必判项判据**（纯函数，双面共用）。`reading`（注入读数）:
+ * ```
+ * {
+ *   refFact: { refNum, refState, selector } | null,  // ③′ 回合载荷的引用事实
+ *   systemBase: string,            // 基座（5 条条款逐字）
+ *   systemWithRefs: string,        // 实际 system（有引用）
+ *   systemWithoutRefs: string,     // 零引用时的 system
+ *   scopeReading: string,          // ⑤′ 读数（in-scope / out-of-scope-* / no-ref）
+ *   refCount: number,              // 引用数
+ *   writeCount: number,            // 改写处数
+ *   authorized: boolean,           // 扩围是否已获用户批准（输入事实）
+ *   authorizedReading: string,     // 扩围分支读数
+ *   trace: string,                 // 留痕行（独立成行）
+ *   noInjectionReading: string,    // ⑦′ 去注入后的读数
+ *   reportedWrites: number,        // 完成交代里的清单条数
+ *   userValues: string[],          // 不得出现在留痕里的用户内容值
+ * }
+ * ```
+ * **删范围注入 ⇒ `noInjectionReading` 必须为 `no-ref`；改写处数 > 引用数（未授权）⇒ 必红。**
+ */
+export function s0pProblems(reading = {}) {
+  const problems = [];
+  const item = (id) => S0P_ITEMS.find((x) => x.id === id);
+  const f = reading.refFact;
+  if (!f || f.refNum !== S0P_REF_NUM || f.refState !== 'valid' || !String(f.selector ?? '').trim()) {
+    problems.push(`${item('S0P-1-refs-in-turn').id} ${item('S0P-1-refs-in-turn').expectFailPattern}（实测 ${JSON.stringify(f)}）`);
+  }
+  const base = String(reading.systemBase ?? '');
+  const withRefs = String(reading.systemWithRefs ?? '');
+  const withoutRefs = String(reading.systemWithoutRefs ?? '');
+  const append = withRefs.startsWith(base) ? withRefs.slice(base.length) : '';
+  if (base.length === 0 || !withRefs.startsWith(base) || append.trim().length === 0 || !append.startsWith('\n\n')) {
+    problems.push(`${item('S0P-2-system-append').id} ${item('S0P-2-system-append').expectFailPattern}（追加段实测 ${JSON.stringify(append.slice(0, 40))}）`);
+  }
+  if (withoutRefs !== base) {
+    problems.push(`${item('S0P-2-system-append').id} ${item('S0P-2-system-append').expectFailPattern}：零引用必须逐字等于基座`);
+  }
+  if (reading.scopeReading !== 'in-scope') {
+    problems.push(`${item('S0P-3-read-in-scope').id} ${item('S0P-3-read-in-scope').expectFailPattern}（实测 ${String(reading.scopeReading)}）`);
+  }
+  const refCount = Number(reading.refCount ?? 0);
+  const writeCount = Number(reading.writeCount ?? 0);
+  if (reading.authorized !== true && writeCount > refCount) {
+    problems.push(`${item('S0P-4-writes-le-refs').id} ${item('S0P-4-writes-le-refs').expectFailPattern}（改写 ${writeCount} > 引用 ${refCount}）`);
+  }
+  if (reading.authorized === true) {
+    if (reading.authorizedReading !== 'out-of-scope-authorized') {
+      problems.push(`${item('S0P-5-authorized-branch').id} ${item('S0P-5-authorized-branch').expectFailPattern}：扩围必须产生 out-of-scope-authorized`);
+    }
+    if (!String(reading.trace ?? '').includes('scope.authorized=user')) {
+      problems.push(`${item('S0P-5-authorized-branch').id} ${item('S0P-5-authorized-branch').expectFailPattern}：扩围事实必须入留痕`);
+    }
+  }
+  const trace = String(reading.trace ?? '');
+  // 留痕行**独立成行**的机器格式：`scope.reading=<enum> | scope.authorized=<actor>`。
+  if (!/^scope\.reading=[a-z-]+ \| scope\.authorized=(user|none)$/.test(trace)) {
+    problems.push(`${item('S0P-6-trace').id} ${item('S0P-6-trace').expectFailPattern}（实测 ${JSON.stringify(trace)}）`);
+  }
+  for (const value of reading.userValues ?? []) {
+    if (String(value).length > 0 && trace.includes(String(value))) {
+      problems.push(`${item('S0P-6-trace').id} ${item('S0P-6-trace').expectFailPattern}：留痕不得含用户内容值`);
+    }
+  }
+  if (reading.noInjectionReading !== 'no-ref') {
+    problems.push(`${item('S0P-7-bidirectional').id} ${item('S0P-7-bidirectional').expectFailPattern}（实测 ${String(reading.noInjectionReading)}）`);
+  }
+  if (Number(reading.reportedWrites ?? -1) !== writeCount) {
+    problems.push(`${item('S0P-8-honest-report').id} ${item('S0P-8-honest-report').expectFailPattern}（交代 ${String(reading.reportedWrites)} ≠ 实际 ${writeCount}）`);
+  }
+  return problems;
+}
+
+/** S0′ 逐拍读数（两面各自登记自己真的驱动的拍；收尾机核「登记 ⇔ 读数」）。 */
+export function s0PChain() {
+  return S0P_BEATS.map((b) => ({ id: b.id, label: b.label }));
+}
+

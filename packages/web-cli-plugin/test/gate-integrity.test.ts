@@ -255,6 +255,13 @@ export const EXPECTED_AUDITED_FILES = [
   'test/op-three-tier.test.ts',
   'test/turn-arbitration.test.ts',
   'test/proactivity-guard.test.ts',
+  // ── V5.5F-1（leaf specs-tree-v55f-1-ref-context-and-anchor）范围底座三枚新 node 门禁 ──
+  // W1/W2 落地 `ref-context-in-turn` / `law9-scope-reading`，W3 落地 `dom-ref-anchor`（TASK-V55F-108/
+  // 113/121）。**只追加** ⇒ 改名 / 删除仍 FAIL；`CHROMIUM_GATES.length === 9` 逐字不动（本叶零新增
+  // Chromium 门禁文件：S0′ 的 Chromium 面走既有 `test/ui/s0-self-driven.mjs`，只加断言不加文件）。
+  'test/ref-context-in-turn.test.ts',
+  'test/law9-scope-reading.test.ts',
+  'test/dom-ref-anchor.test.ts',
 ] as const;
 
 /**
@@ -1004,6 +1011,43 @@ test('元门禁反证（合成夹具）：F-01 历史形态（await 挡在退出
 });
 
 // ── 2b. N-01/N-02: the two demonstrated blind spots must now be caught ──────
+/**
+ * V5.5F-1（leaf `specs-tree-v55f-1-ref-context-and-anchor`）—— **范围底座叶的三枚 node 门禁**。
+ *
+ * `CHROMIUM_GATES.length === 9` 逐字不动（本叶零新增 Chromium 门禁文件；S0′ 的 Chromium 面
+ * 只加断言不加文件）。
+ */
+export const V55F1_NODE_GATE_FILES = [
+  'test/ref-context-in-turn.test.ts',
+  'test/law9-scope-reading.test.ts',
+  'test/dom-ref-anchor.test.ts',
+] as const;
+
+test('元判据（V5.5F-1）：范围底座叶的三枚新 node 门禁逐项在受审集合内（下界 ≥3，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V55F1_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    if ((text.match(/expectFailPattern\s*:/g) ?? []).length < 3) problems.push(`${file}: 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  assert.deepEqual(problems, [], `V5.5F-1 新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  assert.ok(V55F1_NODE_GATE_FILES.length >= 3, 'V5.5F-1 新增 node 门禁下界不得低于 3（只增不减）');
+  const forgedProblems: string[] = [];
+  for (const file of [...V55F1_NODE_GATE_FILES, 'test/ghost-gate.test.ts']) {
+    if (!discovered.includes(file)) forgedProblems.push(`${file}: 未被目录扫描纳入`);
+  }
+  assert.ok(forgedProblems.length > 0, '未在受审集合的门禁必须被判红（判据非恒真）');
+  for (const file of [...V553_NODE_GATE_FILES, ...V552_NODE_GATE_FILES, ...V551_NODE_GATE_FILES]) {
+    assert.ok(discovered.includes(file), `${file} 不得脱离受审集合`);
+  }
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本叶零新增 Chromium 门禁文件）');
+  console.log(`  ℹ V5.5F-1 新门禁受审：${V55F1_NODE_GATE_FILES.length}/${V55F1_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
 test('元门禁反证（合成夹具）：N-01 中间语句绕过 / N-02 注释满足有界性 必须被判红', () => {
   // N-01 — the *exact* shape validate drove green: no `process.exitCode`, a plain
   // `console.error` sits between the await and the exit, and the callee lost its

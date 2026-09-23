@@ -209,9 +209,12 @@ test('R1：标记回程带回**新**身份观测并重判（回退即 FAIL；面
   assert.match(pickInput, /if \(mode !== 'mark' \|\| !res\.ok\) return undefined;/, '只有身份标记回程带回观测');
   assert.match(pickInput, /Promise<RefResolution \| undefined>/, 'highlight 必须把观测交回调用方');
   const sw = read('src/background/service-worker.ts');
-  assert.match(sw, /async function observeIdentity\(/, '新观测必须由 SW 从页面读取');
+  const observeSrc = read('src/background/ref-observe.ts');
+  // V5.5F-1 TASK-V55F-117（等价重锚）：`observeIdentity` 抽为**单一实现** ⇒ 「新观测由 SW
+  // 从页面读取」的真源随实现前移（判据不变；SW 侧的调用点断言保留在下面两条）。
+  assert.match(observeSrc, /export async function observeIdentity\(/, '新观测必须由 SW 从页面读取（单一实现）');
   assert.match(sw, /mode === 'mark' && selector \? await observeIdentity\(target\.tabId, selector\)/, 'ref-highlight 的 mark 分支必须带新观测');
-  assert.match(sw, /getAttribute\('data-wcli-ref'\)/, '身份判据必须是 `data-wcli-ref`（与 D1 同一判据）');
+  assert.match(observeSrc, /getAttribute\('data-wcli-ref'\)/, '身份判据必须是 `data-wcli-ref`（与 D1 同一判据）');
   assert.ok(
     !/setResolution\(\{\s*status: 'resolved'/.test(sidepanel),
     '生产路径不得自证 resolved（观测只能来自页面）',

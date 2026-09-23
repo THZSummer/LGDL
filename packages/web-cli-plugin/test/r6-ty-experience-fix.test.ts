@@ -45,6 +45,9 @@ const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel: string): string => readFileSync(join(PKG, rel), 'utf8');
 const SIDEPANEL = read('src/ui/sidepanel/sidepanel.ts');
 const SW = read('src/background/service-worker.ts');
+// V5.5F-1 TASK-V55F-117（等价重锚）：`observeIdentity` 已抽为**单一实现**（`ref-observe.ts`），
+// 「只读观测带回当前文本摘要」这一判据的真源随实现前移（**判据不变，只换切片指向**）。
+const OBSERVE = read('src/background/ref-observe.ts');
 const READ_CHAT_EVENTS = read('src/background/chat-events.ts');
 const RECOMMEND = read('src/ui/sidepanel/recommend.ts');
 
@@ -285,8 +288,14 @@ test('R6-P5b: 身份匹配但文本摘要失配 ⇒ text-changed 失效；摘要
 });
 
 test('R6-P5b: 生产接线 —— 只读重观测（observe）+ set-text 成功带回选择器 + 面板重评', () => {
-  // SW：observeIdentity 必须带回当前文本摘要（只读）。
-  assert.match(SW, /const textDigest = truncated\.length > TEXT_DIGEST_MAX/, 'observeIdentity 必须算当前摘要');
+  // 单一实现（`ref-observe.ts`）：observeIdentity 必须带回当前文本摘要（只读）。
+  assert.match(OBSERVE, /const textDigest = truncated\.length > TEXT_DIGEST_MAX/, 'observeIdentity 必须算当前摘要');
+  // 反证：把摘要判据从单一实现里抽掉 ⇒ 同一判据必须能红（切片不是橡皮图章）。
+  assert.equal(
+    /const textDigest = truncated\.length > TEXT_DIGEST_MAX/.test(OBSERVE.replace('const textDigest = truncated.length > TEXT_DIGEST_MAX', 'const textDigest = ""')),
+    false,
+    '摘要判据注入必红（真源切片可 FAIL）',
+  );
   // SW：ref-highlight 的 observe 模式（不写页面）。
   assert.match(SW, /mode === 'observe' && selector \? await observeIdentity\(target\.tabId, selector\)/, 'observe 模式必须复用同一观测');
   // SW：仅成功的 dom set-text 带 targetSelector。

@@ -348,7 +348,19 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * `authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。`dist/content.js` 177,076 B 与
  * `dist/pick-layer.js` 34,358 B **逐字节不变**。本条目为**中间登记**（W5 TASK-V55-319 按三叶合计终态再登记）。
  */
-export const SIDEPANEL_BASELINE_BYTES = 578_623;
+/**
+ * ── V5.5F-1 **R1+R2（2026-09-24，leaf `specs-tree-v55f-1-ref-context-and-anchor`；TASK-V55F-101~129）** ──
+ * 范围治理「引用即范围」**底座叶**（A 列逐叶重登记）：`l1/ref-scope.ts` NEW（引用快照投影 +
+ * 法九读数单源 + 写闸裁决）+ `sidepanel.ts`（`requestTurn` 唯一载荷构建点 / confirm 面范围闸 /
+ * 范围留痕 / testing seam）+ `l1/ref-store.ts`（只读取用：`isActiveRef` + `activeValid`）；
+ * `--ref` 锚定链（`tools/dom-anchor.ts` / `background/ref-observe.ts`）与系统段追加段
+ * （`background/ref-context.ts`）全部落 **B 列**（`background.js`，**不计入本账本**）。
+ * 真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v55f1R1R2Rows`（Σ 模块 +7,070 + glue 39 == +7,109）。
+ * 方向 = 提升；**档位 614,400 / 绝对上限 675,840 均不动**（585,732 < 614,400 ⇒ 未跨档位），
+ * `authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。`dist/content.js` 177,076 B 与
+ * `dist/pick-layer.js` 34,358 B **逐字节不变**。**本叶逐叶收口登记**（不等叶2合计，FR-SGO-125）。
+ */
+export const SIDEPANEL_BASELINE_BYTES = 585_732;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -442,6 +454,12 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   //    pick-input.ts +258 / next-registry/drivers.ts +402；Σ +5,199 + glue 0 == +5,199）。
   //   档位 614,400 / 绝对上限 675,840 均不动（未跨档位），生效上限 = floor(578,623 × 1.05) = 607,554。
   578_623,
+  // 〖V5.5F-1 R1+R2（2026-09-24，leaf specs-tree-v55f-1-ref-context-and-anchor；W1~W4 = TASK-V55F-101~129）〗
+  //   范围治理「引用即范围」**底座叶**的逐叶收口登记值：578,623 → **585,732 B**（+7,109 B，+1.23%）；
+  //   逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v55f1R1R2Rows`（Σ 模块 +7,070 + glue 39 == +7,109）。
+  //   档位 614,400 / 绝对上限 675,840 均不动（585,732 < 614,400 ⇒ 未跨档位）；
+  //   生效上限 = floor(585,732 × 1.05) = **615,018**（旧生效上限 607,554 未越）。
+  585_732,
 ] as const;
 
 /**
@@ -503,7 +521,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 578_623;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 585_732;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -512,10 +530,16 @@ export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 578_623;
  */
 export const SIDEPANEL_BASELINE_META = {
   kind: 'regression-baseline-only',
-  measuredOn: '2026-09-23',
+  measuredOn: '2026-09-24',
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
+    'SDDU **V5.5F-1 R1+R2（2026-09-24, leaf specs-tree-v55f-1-ref-context-and-anchor；A 列逐叶重登记）**: re-registered on the FINAL artifact — 578,623 → **585,732 B**（+7,109 B，+1.23%）— ' +
+    '范围治理「引用即范围」底座叶：`l1/ref-scope.ts` NEW（引用快照投影 `turnRefsOf` + 法九四值读数单源 `scopeReading` + 写闸 `scopeWriteGate` + 留痕单源）+ `sidepanel.ts`（`requestTurn` 唯一载荷构建点 + confirm 面越界写 fail-closed + 范围留痕行 + `l1(scope)` seam）+ `l1/ref-store.ts`（只读取用 `isActiveRef` / `activeValid`）；' +
+    '`--ref` 锚定链（`tools/dom-anchor.ts` 包装层 + `background/ref-observe.ts` 单实现 live 单节点闸）与系统段追加段（`background/ref-context.ts`）**全部落 B 列**（`background.js`，不计入本账本）；' +
+    '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v55f1R1R2Rows`（`l1/ref-scope.ts` NEW +2,572 / `sidepanel.ts` +1,765 / `l1/ref-store.ts` +149 / `../web-cli-base/dist/sensitive.js` +2,584【复用 base 掩码/敏感面，非复制】；Σ +7,070 + glue 39 == +7,109）；' +
+    '档位 614,400 / 绝对上限 675,840 均不动（585,732 < 614,400 ⇒ 未跨档位），生效上限 = floor(585,732 × 1.05) = **615,018**（旧生效上限 607,554 **未越** ⇒ 未触发 EC-SGO-022 任一分支）；`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；' +
+    '**本叶逐叶收口登记**（不等叶2合计，FR-SGO-125）。Previous round: ' +
     'SDDU **R6 缺陷快修轮（2026-09-23, 真机体验 ty.md；P3 答案 once / P4 用户输入排队统一 / P5a 完成后同动作去重 / P5b 引用改写后重评）**: re-registered on the FINAL artifact — 573,424 → **578,623 B**（+5,199 B，+0.91%）— ' +
     '答案 once 语义（后台 ask 答案经 `askBridge.settle` 消费后 requestId 级去重）+ 用户输入路径与 AI 同仲裁（在飞提交走 SW 有界队列）+ 完成后同 digest 引用动作去重 + `text-changed` 引用重评（身份仍在但文本摘要被改写）；' +
     '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.r6TyFixRows`（sidepanel.ts +2,513 / recommend.ts +977 / view-model.ts +453 / l1/ref-validity.ts +596 / pick-input.ts +258 / next-registry/drivers.ts +402；Σ +5,199 + glue 0 == +5,199）；' +
@@ -562,7 +586,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 578_623,
+  finalArtifactBytes: 585_732,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -2208,6 +2232,52 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [573_424, 566_535],
     ceilingUncappedFormulaBytes: 607_554,
   },
+  /**
+   * 〖V5.5F-1 **R1+R2**（2026-09-24，leaf `specs-tree-v55f-1-ref-context-and-anchor`；TASK-V55F-101~129）〗
+   * 范围治理「引用即范围」**底座叶**的**逐叶收口重登记**（FR-SGO-125：不等叶2合计）。
+   * 方向 = **提升**；**档位 614,400 / 绝对上限 675,840 均不动**（585,732 < 614,400 ⇒ 未跨档位）；
+   * 生效上限 = `min(675,840, floor(585,732 × 1.05) = 615,018) = 615,018`（旧生效上限 607,554 **未越**
+   * ⇒ EC-SGO-022 两个分支均**未触发**：既未越生效上限、也未越档位）。`authorConfirmation` 保持
+   * **`pending-author-line`**（不伪称已确认）。`dist/content.js` 177,076 B / sha `52a82620…` 与
+   * `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；容差 5% 未动；**断言零删减**
+   * （体积面只改数值重 pin + 追加本条目与 `v55f1R1R2Rows`；新门禁 3 枚：`ref-context-in-turn` /
+   * `law9-scope-reading` / `dom-ref-anchor`；`requestTurn(` **仍恰 2**）。
+   * 预算口径诚实登记（ADR-SGO-007 §1）：本叶 A 列预算 **6.0~9.0 KB**（上界 10.35 KB）⇒ 实测
+   * **+7,109 B ≈ 6.94 KiB**，**未越预算、未越上界**；B 列（`background.js`）1,621,013 → **1,627,424 B**
+   * （+6,411 B，**不计账**：`--ref` 包装 + `ref-observe` 单实现 + 系统段追加段）。
+   */
+  {
+    id: 'v55f-1-r2',
+    direction: 'raised',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-v55f-1-ref-context-and-anchor',
+    date: '2026-09-24',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU V5.5F-1 R1+R2（2026-09-24，leaf specs-tree-v55f-1-ref-context-and-anchor；W1~W4 = TASK-V55F-101~129）',
+    reason:
+      '**本叶逐叶收口显式提升重登记：578,623 → 585,732 B（+7,109 B，+1.23%）**。' +
+      '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.v55f1R1R2Rows`（Σ 模块 +7,070 + glue **39** == +7,109）：' +
+      '`l1/ref-scope.ts` NEW **2,572**（引用快照投影 + 法九四值读数单源 + 写闸裁决 + 留痕单源）；' +
+      '`sidepanel.ts` 106,714 → **108,479（+1,765）**（`requestTurn` 唯一载荷构建点 / confirm 面越界写 fail-closed / 范围留痕行 / `l1(scope)` seam）；' +
+      '`l1/ref-store.ts` 6,169 → **6,318（+149）**（只读取用 `isActiveRef` + `activeValid`）；' +
+      '`../web-cli-base/dist/sensitive.js` 938 → **3,522（+2,584）**（**复用** base 的掩码/敏感面 —— `maskRefDigest` 走既有 `maskTextPayload`，非复制）。' +
+      '**B 列**（`tools/dom-anchor.ts` / `background/ref-observe.ts` / `ref-context.ts` / `ref-turn.ts` / `turn-queue.ts` / `messaging.ts` type-only）全部落 `background.js` ⇒ **本产物零字节**（ADR-SGO-007 §3 / FR-SGO-121）。' +
+      '**档位与绝对上限均未变**（`ceilTo50KB(585,732) = 614,400`、675,840）；生效上限 = `min(675,840, floor(585,732 × 1.05) = 615,018) = 615,018`。' +
+      '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；' +
+      '容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减**。' +
+      '**预算口径诚实登记**：本叶 A 列预算 **6.0~9.0 KB** / 上界 **10.35 KB** ⇒ 实测 **+7,109 B（6.94 KiB）未越**；' +
+      'R1（W1+W2）+ R2（W3+W4）合计 = 本叶合计（逐叶登记，不等两叶合计口径）。' +
+      '**EC-SGO-022 二态显式**：越**生效上限**（607,554）= **否**（585,732 < 607,554）；越**档位**（614,400）= **否**；' +
+      '越**绝对上限**（675,840）= **否** ⇒ 三档均未触发（禁预填、不静默）。',
+    baselineBeforeBytes: 578_623,
+    baselineAfterBytes: 585_732,
+    ceilingBeforeBytes: 607_554,
+    ceilingAfterBytes: 615_018,
+    assertionNonRemovalEntries: ['V42-E-VOL-2', 'V55F1-E-VOL-1'],
+    historyRetainedBytes: [578_623, 573_424, 566_535, 563_780],
+    ceilingUncappedFormulaBytes: 615_018,
+  },
 ] as const;
 
 /**
@@ -2254,7 +2324,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 累计：当前基线 − `baselineReferenceBytes`（**557,883 − 295,225 = 262,658**；
    * V5.5-1 review R1 修复轮为 557,761 − 295,225 = 262,536 再加本轮 +122）。
    */
-  deltaBytes: 283_398,
+  deltaBytes: 290_507,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 上一轮登记值`（`size-growth-evidence.test.ts` 直接机核该等式）。
    * 〖R4 缺陷修复轮（2026-09-22）〗最新一轮 = `r4-selector-fix` ⇒ 本字段 = `549,609 − 547,558 = **2,051**`
@@ -2270,8 +2340,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 5_199,
-  newRequiredModuleBytes: 192_990,
+  closeoutDeltaBytes: 7_109,
+  newRequiredModuleBytes: 195_562,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
   // 〖V5-2 R1/R2/reviewfix 修复轮 + 收口轮〗接线桶按各轮 sidepanel.ts 归因前移；
@@ -2282,7 +2352,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   // 〖V5.5-1 review R1 修复轮（2026-09-23）〗新增 +122 B 全部落在**既有模块的接线桶**
   //   （sidepanel.ts 99,566 → 99,688；glue 0，`unattributedHelperDeltaBytes` 不变）。
   // 桶和 = newRequiredModuleBytes 181,921 + wiringBytes 78,814 + 0 + 1,923 == 262,658 == `deltaBytes`。
-  wiringBytes: 88_345,
+  wiringBytes: 92_843,
   attributionShiftBytes: 0,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
@@ -2292,10 +2362,10 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 但 `view-model.ts` 的 esbuild **分摊位移** −68 B 同时被重算（19,654 → 19,586），因此本字段（= delta − Σrows）
    * 回到与 build 轮相同的 1,060 B；`attributionShiftBytes` 265 与「未解释字节 <1,500 ∧ <2%」判据不变（实测 1,325 / 1.02%）。
    */
-  unattributedHelperDeltaBytes: 2_063,
+  unattributedHelperDeltaBytes: 2_102,
   /** 模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
   duplicationCheck:
-    '输入模块数 **88**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**；**V5-1 R1 新增 5 个必需模块**（`next-registry/{definition,registry,pipeline,providers,dispatch}.ts`：Definition / Provider / 管线 / 内置 provider / 瘦分发）⇒ 78 + 5 = **83**；**V5-2 R1/R2 再新增 3 个必需模块**（`shared/op-table.ts` 双侧同源描述符表 + `next-registry/ops.ts` 9 op 执行体 + `next-registry/snapshot.ts` 三表快照）⇒ 83 + 3 = **86**；**V5-2 review R1 修复轮再新增 1 个必需模块**（`settings/op-bodies.ts`：与面无关的四类执行体，面板与 options 共用）⇒ 86 + 1 = **87**；**V5.5-1 R1 再新增 1 个必需模块**（`next-registry/drivers.ts`：驱动者声明单源 + 四元组 + `CTX_FIELD_SERVICE`）⇒ 87 + 1 = **88**；**V5.5-2 R1 再新增 2 个必需模块**（`next-registry/onboarding-flow.ts`：引导流恰 4 步单源 + `next-registry/suspension.ts`：配置悬置任务单源 + `MAX_SUSPENSIONS = 1`）⇒ 88 + 2 = **90**；**V5.5-3 R1 再新增 1 个必需模块**（`next-registry/ai-drive.ts`：`pressCandidate` 单源 + 档位矩阵 + 留痕三要素）⇒ 90 + 1 = **91**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows；**V5.5-3 R2 再新增 1 个必需模块**（`next-registry/guard.ts`：护栏六常量单源 / 越限抑制判据 / 关断偏好读写）⇒ 91 + 1 = **92**），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
+    '输入模块数 **88**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**；**V5-1 R1 新增 5 个必需模块**（`next-registry/{definition,registry,pipeline,providers,dispatch}.ts`：Definition / Provider / 管线 / 内置 provider / 瘦分发）⇒ 78 + 5 = **83**；**V5-2 R1/R2 再新增 3 个必需模块**（`shared/op-table.ts` 双侧同源描述符表 + `next-registry/ops.ts` 9 op 执行体 + `next-registry/snapshot.ts` 三表快照）⇒ 83 + 3 = **86**；**V5-2 review R1 修复轮再新增 1 个必需模块**（`settings/op-bodies.ts`：与面无关的四类执行体，面板与 options 共用）⇒ 86 + 1 = **87**；**V5.5-1 R1 再新增 1 个必需模块**（`next-registry/drivers.ts`：驱动者声明单源 + 四元组 + `CTX_FIELD_SERVICE`）⇒ 87 + 1 = **88**；**V5.5-2 R1 再新增 2 个必需模块**（`next-registry/onboarding-flow.ts`：引导流恰 4 步单源 + `next-registry/suspension.ts`：配置悬置任务单源 + `MAX_SUSPENSIONS = 1`）⇒ 88 + 2 = **90**；**V5.5-3 R1 再新增 1 个必需模块**（`next-registry/ai-drive.ts`：`pressCandidate` 单源 + 档位矩阵 + 留痕三要素）⇒ 90 + 1 = **91**；**V5.5F-1 再新增 1 个必需模块**（`l1/ref-scope.ts`：引用快照投影 + 法九读数单源 + 写闸裁决）⇒ 91 + 1 = **92**；**V5.5F-1 R2（W3+W4）再新增 2 个必需模块**（`src/tools/dom-anchor.ts` 包装层 + `src/background/ref-observe.ts` 单实现 live 单节点闸 —— 两者都在 `background.js` bundle，**不进本产物**，但真实 metafile 的 `inputs` 计数包含它们 ⇒ 92 + 2 = **94**），见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows；**V5.5-3 R2 再新增 1 个必需模块**（`next-registry/guard.ts`：护栏六常量单源 / 越限抑制判据 / 关断偏好读写）⇒ 91 + 1 = **92**），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
     'src/insight/ownership-tree.ts（首次被侧栏 bundle 引用 → 共享而非复制）—— 审计/命令目录/树视图复用既有投影模块；' +
     'l2/{counts,view-host,command-catalog,audit}.ts 与 settings/sections.ts 与 ui/sidepanel/pick-input.ts 各只有**一份**实现（v3-4 的页面侧代码全部在 ' +
     '独立 artifact `dist/pick-layer.js`，不重复进本 bundle）；R1 不新增模块 —— 六处改动全部落在既有模块（ref-validity / sidepanel / pick-input / ref-store / chat-state / view-model），' +
@@ -2308,7 +2378,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `duplicationCheck` 的散文里写「输入模块数 75」；这个字段让数字可被 metafile 直接核对
    * （`size-growth-evidence.test.ts`：`Object.keys(inputs).length === duplicationCheckInputModuleCount`）。
    */
-  duplicationCheckInputModuleCount: 92,
+  duplicationCheckInputModuleCount: 94,
   /**
    * **收口后缺陷修复轮 R2 自身的逐模块增量**（R1 工作树 → R2 工作树）：366,755 → 368,529 B（+1,774 B），
    * 与 `SIDEPANEL_RE_REGISTRATIONS['v3-4-r2']` 的 `baselineAfterBytes − baselineBeforeBytes` **逐字节相等**
@@ -2576,6 +2646,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     // 〖V5.5-3 R2（2026-09-23，W3+W4 仲裁 + 护栏）〗**最新一轮** = 本组。
     v553R2Rows: 'v55-3-r2',
     r6TyFixRows: 'r6-ty-fix',
+    // 〖V5.5F-1 R1+R2（2026-09-24，leaf specs-tree-v55f-1-ref-context-and-anchor）〗**最新一轮** = 本组。
+    v55f1R1R2Rows: 'v55f-1-r2',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -2972,6 +3044,23 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as const,
   /** 〖R6 缺陷快修轮〗未归因运行时胶水 = 0 B（Σ 模块 +5,199 == 登记增量 +5,199）。 */
   r6TyFixUnattributedGlueBytes: 0,
+  /**
+   * 〖V5.5F-1 R1+R2（2026-09-24，leaf `specs-tree-v55f-1-ref-context-and-anchor`；TASK-V55F-101~129）〗
+   * 逐模块增量（**真实 `dist/build-meta.json`**，与 R6 树在**同一几何**下重建对账 —— 见 build.md §5）：
+   * `l1/ref-scope.ts` **NEW +2,572**（A 列唯一新必需模块）；`sidepanel.ts` 106,714 → **108,479（+1,765）**；
+   * `l1/ref-store.ts` 6,169 → **6,318（+149）**；`../web-cli-base/dist/sensitive.js` 938 → **3,522（+2,584）**
+   * （**复用** base 的掩码/敏感面，非复制）；Σ 模块 **+7,070** + 未归因胶水 **39** == 登记增量 **+7,109**。
+   * **B 列**（`tools/dom-anchor.ts` / `background/ref-observe.ts` / `ref-context.ts` / `ref-turn.ts` /
+   * `turn-queue.ts` / `messaging.ts` type-only）全部落 `background.js` ⇒ **本产物零字节**。
+   */
+  v55f1R1R2Rows: [
+    { module: 'src/ui/sidepanel/l1/ref-scope.ts', beforeBytes: null, afterBytes: 2_572, deltaBytes: 2_572 },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 106_714, afterBytes: 108_479, deltaBytes: 1_765 },
+    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: 6_169, afterBytes: 6_318, deltaBytes: 149 },
+    { module: '../web-cli-base/dist/sensitive.js', beforeBytes: 938, afterBytes: 3_522, deltaBytes: 2_584 },
+  ] as const,
+  /** 〖V5.5F-1 R1+R2〗未归因运行时胶水 = 39 B（Σ 模块 +7,070 + 39 == 登记增量 +7,109）。 */
+  v55f1R1R2UnattributedGlueBytes: 39,
   v551FixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 99_566, afterBytes: 99_688, deltaBytes: 122 },
   ] as const,
@@ -3069,6 +3158,11 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_351, afterBytes: 3286, deltaBytes: -65, kind: 'wiring', requiredBy: 'FR-V3-047 + FR-V3-068 + R2 + v4-1（三区外壳）+ FR-CHAT-040/042（决策槽退役后 #l0-more / #l1-more-options 单一写入者迁入 + 流内卡兜底输入与 composer reveal 控制）· ADR-V4-030' },
     { module: 'src/ui/sidepanel/l0/status-bar.ts', beforeBytes: 1_382, afterBytes: 67, deltaBytes: -1315, kind: 'wiring', requiredBy: 'FR-V3-015 / FR-V3-046（入口标签 + 面板摘要写入 + 逐目标 aria 对）+ I-01（逐目标 `aria-controls`：设置入口指向 `#settings-view`） + v4-1（位置迁移为 L2 入口写入器并委托 `toolbar.ts`；模块体从 1,694 B 收缩到 67 B —— 计数徽标改由工具栏渲染，`L2_ENTRY_FIELDS`/`syncTriggerAria` 语义保持）—— FR-CHAT-011/015' },
     { module: 'src/ui/sidepanel/l0/decision-card.ts', beforeBytes: 4_028, afterBytes: 0, deltaBytes: -4028, kind: 'wiring', requiredBy: 'FR-ALLN-043/065（V5-2 9 op 落地 + 面板接线）' },
+    // 〖V5.5F-1 R1+R2（2026-09-24）〗范围治理底座叶：新增 1 个必需模块 + 3 行接线（含 base 掩码面复用增长）。
+    { module: 'src/ui/sidepanel/l1/ref-scope.ts', beforeBytes: null, afterBytes: 2_572, deltaBytes: 2_572, kind: 'new-required-module', requiredBy: 'FR-SGO-011/012/018/020~024/080/083（引用快照投影 + 法九读数单源 + 写闸裁决 + 留痕单源）· ADR-SGO-001/002' },
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 106_714, afterBytes: 108_479, deltaBytes: 1_765, kind: 'wiring', requiredBy: 'FR-SGO-013/014/019 + FR-SGO-025/026/027 + FR-SGO-080/083/084（requestTurn 唯一载荷构建点 + confirm 面范围闸 + 范围留痕行 + l1(scope) seam）· ADR-SGO-001/002' },
+    { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: 6_169, afterBytes: 6_318, deltaBytes: 149, kind: 'wiring', requiredBy: 'FR-SGO-014/015（只读取用：isActiveRef 单源谓词 + activeValid 只读访问器；judge/dispatch/退役语义零改）' },
+    { module: '../web-cli-base/dist/sensitive.js', beforeBytes: 938, afterBytes: 3_522, deltaBytes: 2_584, kind: 'wiring', requiredBy: 'FR-SGO-012/019（凭据形 textDigest 掩码复用 base 的 maskTextPayload 敏感面；非复制实现）' },
   ] as readonly GrowthAttributionRow[],
 } as const;
 

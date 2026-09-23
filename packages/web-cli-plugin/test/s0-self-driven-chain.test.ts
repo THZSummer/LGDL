@@ -15,6 +15,7 @@
  * @module test/s0-self-driven-chain
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -53,6 +54,20 @@ import {
   loadProactivePref,
 } from '../src/ui/sidepanel/next-registry/guard.js';
 import { bindPanelOps } from '../src/ui/sidepanel/next-registry/ops.js';
+// ── V5.5F-1 TASK-V55F-123（W4，纯追加 import）────────────────────────────────
+// S0′ 范围内核（`ty.md` 原案重放）的**真源切片**：读数单源 + 系统段追加段 + `--ref` 包装层。
+import { refContextSegment, validateRefPayload } from '../src/background/ref-context.js';
+import { createRefTurnHolder } from '../src/background/ref-turn.js';
+import { createRefStore, type RefRecord } from '../src/ui/sidepanel/l1/ref-store.js';
+import {
+  SCOPE_TRACE_FIELDS,
+  scopeReading,
+  scopeReadingTrace,
+  scopeRefsOf,
+  turnRefsOf,
+} from '../src/ui/sidepanel/l1/ref-scope.js';
+import { anchorSelectorFor, wrapDomEntryForAnchor } from '../src/tools/dom-anchor.js';
+import { createDomToolEntry, type PlatformEnv } from '@lgdl/web-cli-base';
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const SIDEPANEL_REL = 'src/ui/sidepanel/sidepanel.ts';
 const PIPELINE_REL = 'src/ui/sidepanel/next-registry/pipeline.ts';
@@ -108,6 +123,13 @@ interface S0Module {
   readonly S0_A_BEATS: readonly { readonly id: string; readonly label: string }[];
   readonly s0BranchAProblems: (reading?: Record<string, unknown>) => readonly string[];
   readonly s0BranchABeats: () => readonly { readonly id: string; readonly label: string }[];
+  /** V5.5F-1 TASK-V55F-123：S0′ 范围内核（样本 + 判据，双面共用）。 */
+  readonly S0P_BEATS: readonly { readonly id: string; readonly label: string }[];
+  readonly S0P_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly S0P_REF_NUM: number;
+  readonly S0P_ANCHOR_SELECTOR: string;
+  readonly s0PChain: () => readonly { readonly id: string; readonly label: string }[];
+  readonly s0pProblems: (reading?: Record<string, unknown>) => readonly string[];
 }
 const s0 = (await import(S0_FIXTURE)) as unknown as S0Module;
 const s2 = (await import(S2_FIXTURE)) as unknown as { readonly S2_CHAIN: readonly { readonly id: string }[] };
@@ -115,6 +137,8 @@ const { S0_ANSWER, S0_BRANCHES, S0_B_PARAM_KINDS, S0_B_RESUME_MARK, S0_B_STEPS, 
 const { S2_CHAIN } = s2;
 /** V5.5-3 TASK-V55-316/317（纯追加解构；不动既有两行）。 */
 const { S0_A_BEATS, S0_A_GUARD_REASONS, S0_A_ON_CHAIN_REASONS, S0_A_SLOT, s0BranchABeats, s0BranchAProblems } = s0;
+/** V5.5F-1 TASK-V55F-123（W4，纯追加解构）：S0′ 范围内核样本与判据（双面共用同一份）。 */
+const { S0P_ANCHOR_SELECTOR, S0P_BEATS, S0P_ITEMS, S0P_REF_NUM, s0PChain, s0pProblems } = s0;
 
 export interface Judgement {
   readonly id: string;
@@ -656,4 +680,224 @@ test('S0N 元判据 V5.5-3：W5 两条新 judgement 的下界只增（≥10）',
   assert.ok(JUDGEMENTS.some((j) => j.id === 'S0N-10-guard-on-chain'));
   for (const r of S0_A_GUARD_REASONS) assert.ok(typeof r === 'string' && r.length > 0);
   assert.deepEqual([...S0_A_ON_CHAIN_REASONS], ['frequency', 'chain-depth', 'budget'], '链上三项护栏口径逐字');
+});
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5F-1 **TASK-V55F-123**（ADR-SGO-006 §1/§2/§4/§5 · FR-SGO-090/091/092 ·
+ * **AC-SGO-013/014** · R-SGO-909）
+ *
+ * **S0′ 范围内核（`ty.md` 原案重放）的 node 面判官**：`S0P-1~8` 逐条判据 + 双向反证。
+ *
+ * 真源切片（**不**用假 provider 跳过真实读数 / 包装）：`l1/ref-scope.ts`（读数 + 投影）·
+ * `background/ref-context.ts`（系统段追加段）· `tools/dom-anchor.ts`（`--ref` 包装层）·
+ * `background/service-worker.ts`（基座字面量）。样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs`
+ * （与 Chromium 面共用同一份）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const SW_REL = 'src/background/service-worker.ts';
+const REF_CONTEXT_REL = 'src/background/ref-context.ts';
+const DOM_ANCHOR_REL = 'src/tools/dom-anchor.ts';
+
+export interface S0PJudgement {
+  readonly id: string;
+  readonly expectFailPattern: string;
+}
+
+/** S0′ 八条判据（`expectFailPattern` 从共享样本**单源**取，不写第二份文案）。 */
+export const S0P_JUDGEMENTS: readonly S0PJudgement[] = S0P_ITEMS.map((i) => ({ id: i.id, expectFailPattern: i.expectFailPattern }));
+
+/** `SYSTEM_PROMPT` 基座字面量（从唯一声明处抽取；与 `ref-context-in-turn` 同口径）。 */
+export function systemPromptLiteralOf(sw: string): string {
+  const at = sw.indexOf('const SYSTEM_PROMPT =');
+  if (at < 0) return '';
+  const end = sw.indexOf(';', at);
+  const block = sw.slice(at, end < 0 ? sw.length : end);
+  return [...block.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]).join('');
+}
+
+/** 造一条**判为 valid** 的记录（走生产判定路径，不手搓 verdict）。 */
+function s0pValidRecords(digests: readonly string[]): RefRecord[] {
+  const env = { currentOrigin: 'https://s0.test', authorized: true, documentId: 'doc-s0', navSeq: 1, declarationHash: 'h1' };
+  const out: RefRecord[] = [];
+  for (const textDigest of digests) {
+    const store = createRefStore();
+    const rec = store.create({ selector: '#host-btn', textDigest, origin: env.currentOrigin, documentId: env.documentId, navSeq: 1, declarationHash: 'h1', capturedAt: 1 });
+    store.judge({ ...env, resolution: { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 } });
+    const judged = store.all()[0];
+    if (judged.verdict === 'valid') out.push(judged);
+  }
+  return out;
+}
+
+/** 诚实读数（**注入式 deps** ⇒ 双向反证可打在判据上）：生产模块驱动。 */
+function s0pReading(opts: { inject?: boolean; authorize?: boolean; extraWrites?: number } = {}): Record<string, unknown> {
+  const records = opts.inject === false ? [] : s0pValidRecords(['宿主按钮']);
+  const facts = turnRefsOf(records);
+  const refs = scopeRefsOf(records);
+  const base = systemPromptLiteralOf(readSrc(SW_REL));
+  const authorized = opts.authorize === true;
+  // 主路径目标**恒** = 引用目标（S0′ ⑤ 的本次目标）；扩围是**另一条**分支读数（S0′ ⑧）。
+  const reading = scopeReading({ targets: [{ selector: '', refNum: S0P_REF_NUM }], refs, authorized: false });
+  const extra = opts.extraWrites ?? 0;
+  return {
+    refFact: facts[0] ?? null,
+    systemBase: base,
+    systemWithRefs: base + refContextSegment(facts),
+    systemWithoutRefs: base + refContextSegment([...facts].splice(0, 0)),
+    scopeReading: reading,
+    refCount: refs.length,
+    writeCount: facts.length === 0 ? 0 : 1 + extra,
+    authorized,
+    authorizedReading: scopeReading({ targets: [{ selector: '#other-page-target' }], refs, authorized: true }),
+    trace: scopeReadingTrace(reading, authorized),
+    noInjectionReading: scopeReading({ targets: [{ selector: '', refNum: S0P_REF_NUM }], refs: turnRefsOf([]), authorized: false }),
+    reportedWrites: facts.length === 0 ? 0 : 1 + extra,
+    userValues: ['宿主按钮', '原地翻译为中文'],
+  };
+}
+
+test('S0P-1~4：载荷含引用事实 ∧ 系统段 = 基座 + 追加段 ∧ 读数 in-scope ∧ 改写处数 ≤ 引用数', () => {
+  const reading = s0pReading();
+  assert.deepEqual(s0pProblems(reading), [], 'S0′ 必判项（正读）必须全绿');
+  const facts = turnRefsOf(s0pValidRecords(['宿主按钮']));
+  assert.equal(facts.length, 1);
+  assert.equal(facts[0].refNum, S0P_REF_NUM, S0P_JUDGEMENTS[0].expectFailPattern);
+  assert.equal(facts[0].refState, 'valid');
+  assert.ok(String(facts[0].selector).length > 0);
+  assert.equal(validateRefPayload(facts).length, 1, '载荷必须通过运行时校验（可判命中）');
+  assert.equal(S0P_ANCHOR_SELECTOR, anchorSelectorFor(S0P_REF_NUM), '样本的合成锚口径 = 包装层单源');
+  assert.equal(reading.scopeReading, 'in-scope', S0P_JUDGEMENTS[2].expectFailPattern);
+  assert.ok(Number(reading.writeCount) <= Number(reading.refCount), S0P_JUDGEMENTS[3].expectFailPattern);
+  // 系统段：零引用 ⇒ 逐字等于基座（`refContextSegment([]) === ''`）。
+  assert.equal(refContextSegment([]), '', S0P_JUDGEMENTS[1].expectFailPattern);
+  assert.equal(String(reading.systemWithoutRefs), String(reading.systemBase));
+  assert.ok(String(reading.systemWithRefs).startsWith(String(reading.systemBase) + '\n\n'));
+});
+
+test('S0P-1~3 反证：删范围注入 ⇒ 载荷无引用 ∧ 系统段逐字 = 基座 ∧ 读数 no-ref ⇒ 必 FAIL', () => {
+  const injected = s0pReading({ inject: false });
+  const problems = s0pProblems(injected);
+  assert.ok(problems.length > 0, '去注入后判据必须红（否则判据恒真）');
+  assert.ok(problems.some((p) => p.includes('S0P-1-refs-in-turn')), 'S0P-1 必须红（载荷无引用事实）');
+  assert.ok(problems.some((p) => p.includes('S0P-2-system-append')), 'S0P-2 必须红（追加段缺失）');
+  assert.ok(problems.some((p) => p.includes('S0P-3-read-in-scope')), 'S0P-3 必须红（读数 no-ref ≠ in-scope）');
+  assert.equal(injected.refFact, null);
+  assert.equal(injected.systemWithRefs, injected.systemBase, '零引用 ⇒ system 逐字等于基座');
+  assert.equal(injected.scopeReading, 'no-ref');
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(s0pProblems(s0pReading()), []);
+});
+
+test('S0P-4 反证：未授权却改写 2 处（引用 1）⇒ 必 FAIL（复现「整页改写」而引用为 1）', () => {
+  const over = s0pReading({ extraWrites: 1 });
+  assert.equal(over.refCount, 1);
+  assert.equal(over.writeCount, 2);
+  const problems = s0pProblems(over);
+  assert.ok(problems.some((p) => p.includes('S0P-4')), 'S0P-4 必须红（改写处数 > 引用数）');
+});
+
+test('S0P-5：扩围必须由用户批准产生 out-of-scope-authorized 且入留痕', () => {
+  const authorized = s0pReading({ authorize: true });
+  assert.equal(authorized.authorizedReading, 'out-of-scope-authorized');
+  assert.match(String(authorized.trace), /scope\.authorized=user/);
+  assert.deepEqual(s0pProblems(authorized), [], S0P_JUDGEMENTS[4].expectFailPattern);
+  // 反证：已批准但仍判 unauthorized / 留痕缺扩围事实 ⇒ 必红。
+  assert.ok(
+    s0pProblems({ ...authorized, authorizedReading: 'out-of-scope-unauthorized' }).some((p) => p.includes('S0P-5')),
+    '扩围读数错 ⇒ 必红',
+  );
+  assert.ok(
+    s0pProblems({ ...authorized, trace: 'scope.reading=out-of-scope-authorized | scope.authorized=none' }).some((p) => p.includes('S0P-5')),
+    '扩围不留痕 ⇒ 必红',
+  );
+});
+
+test('S0P-6 留痕：独立成行 ∧ 含范围读数字段名 ∧ 零用户内容值', () => {
+  const reading = s0pReading();
+  const trace = String(reading.trace);
+  assert.deepEqual([...SCOPE_TRACE_FIELDS], ['scope.reading', 'scope.authorized'], '字段名单源');
+  assert.match(trace, /^scope\.reading=[a-z-]+ \| scope\.authorized=(user|none)$/, S0P_JUDGEMENTS[5].expectFailPattern);
+  for (const v of reading.userValues as string[]) assert.equal(trace.includes(v), false, '留痕不得含用户内容值');
+  // 反证：把用户内容值塞进留痕 ⇒ 必红。
+  assert.ok(
+    s0pProblems({ ...reading, trace: `${trace} 宿主按钮` }).some((p) => p.includes('S0P-6')),
+    '含用户内容值 ⇒ 必红',
+  );
+});
+
+test('S0P-7 双向反证（决定性）：把生产真源的 no-ref 分支改判 in-scope ⇒ 判红 → 逐字节还原 ⇒ PASS', () => {
+  const original = readSrc('src/ui/sidepanel/l1/ref-scope.ts');
+  const originalSha = createHash('sha256').update(original, 'utf8').digest('hex');
+  // 真源切片判据（读生产模块字节；改判即红）—— 与读数侧判据**两半**合起来才是 S0P-7。
+  const noRefProblems = (src: string): string[] =>
+    /if \(f\.refs\.length === 0\) return 'no-ref';/.test(src) ? [] : [`${S0P_JUDGEMENTS[6].id} ${S0P_JUDGEMENTS[6].expectFailPattern}：真源必须保留「无引用 ⇒ no-ref」分支`];
+  assert.deepEqual(noRefProblems(original), [], S0P_JUDGEMENTS[6].expectFailPattern);
+  const injected = original.replace("if (f.refs.length === 0) return 'no-ref';", "if (f.refs.length === 0) return 'in-scope';");
+  assert.notEqual(injected, original, '注入锚点必须存在（no-ref 分支）');
+  assert.notEqual(createHash('sha256').update(injected, 'utf8').digest('hex'), originalSha, '注入必须真的改变字节');
+  assert.ok(noRefProblems(injected).length > 0, '真源被改判 ⇒ 真源切片判据必红（判据不是恒真）');
+  // 读数侧：去注入后的读数**必须**是 `no-ref`；伪造 `in-scope` ⇒ 必红。
+  const deInjected = s0pReading({ inject: false });
+  assert.equal(deInjected.noInjectionReading, 'no-ref', '去注入 ⇒ 读数必须为空 / no-ref');
+  assert.ok(
+    s0pProblems({ ...deInjected, noInjectionReading: 'in-scope' }).some((p) => p.includes('S0P-7-bidirectional')),
+    '去注入后读数非 no-ref ⇒ S0P-7 必红',
+  );
+  // 逐字节还原 ⇒ PASS（生产文件从未被改写；sha256 前后相同）。
+  assert.equal(createHash('sha256').update(original, 'utf8').digest('hex'), originalSha, '还原后 sha256 必须逐字节相同');
+  assert.equal(createHash('sha256').update(readSrc('src/ui/sidepanel/l1/ref-scope.ts'), 'utf8').digest('hex'), originalSha, '生产文件零改写');
+  assert.deepEqual(noRefProblems(readSrc('src/ui/sidepanel/l1/ref-scope.ts')), []);
+});
+
+test('S0P-8：完成交代如实（清单条数 == 实际改写处数）', () => {
+  const honest = s0pReading();
+  assert.deepEqual(s0pProblems(honest), [], S0P_JUDGEMENTS[7].expectFailPattern);
+  // 反证：交代 2 条而实际改写 1 处 ⇒ 必红（复现「报整页改写」）。
+  assert.ok(s0pProblems({ ...honest, reportedWrites: 2 }).some((p) => p.includes('S0P-8')), '交代不实 ⇒ 必红');
+});
+
+test('S0P-4/6 真源切片：`write-1` 的写目标 = 合成锚（经生产包装层 + 基线 executor）且恰 1 次写', async () => {
+  const seen: string[] = [];
+  const env = {
+    dom: { ops: { async setText(selector: string) { seen.push(selector); return { ok: true, output: `✓ ${selector}` }; } }, state: { snapshot: async () => ({ injected: true }) } },
+  } as unknown as PlatformEnv;
+  const wrapped = wrapDomEntryForAnchor(createDomToolEntry(env), env);
+  const holder = createRefTurnHolder();
+  holder.set({
+    refs: turnRefsOf(s0pValidRecords(['宿主按钮'])),
+    tabId: 3,
+    observe: async () => ({ status: 'resolved', refMark: 'ref_1', nodeCount: 1 }),
+  });
+  // 生产包装层用的是**模块单例** holder（`refTurnHolder`），因此这里以单例驱动同一条链。
+  const { refTurnHolder } = await import('../src/background/ref-turn.js');
+  refTurnHolder.set({
+    refs: turnRefsOf(s0pValidRecords(['宿主按钮'])),
+    tabId: 3,
+    observe: async () => ({ status: 'resolved', refMark: 'ref_1', nodeCount: 1 }),
+  });
+  const out = await wrapped.executor({ subcommand: 'set-text', args: { ref: String(S0P_REF_NUM), text: '译文' } }, {});
+  refTurnHolder.clear();
+  holder.clear();
+  assert.equal(out.ok, true, S0P_JUDGEMENTS[3].expectFailPattern);
+  assert.deepEqual(seen, [S0P_ANCHOR_SELECTOR], '改写处数恰 1 且目标 = 合成锚（单节点保证）');
+});
+
+test('S0P 元判据：八条必判项齐备且 expectFailPattern 非占位（下界只增）', () => {
+  assert.equal(S0P_JUDGEMENTS.length, 8, 'S0′ 必须恰 8 条必判项（ADR-SGO-006 §2）');
+  assert.deepEqual(S0P_JUDGEMENTS.map((j) => j.id), [
+    'S0P-1-refs-in-turn',
+    'S0P-2-system-append',
+    'S0P-3-read-in-scope',
+    'S0P-4-writes-le-refs',
+    'S0P-5-authorized-branch',
+    'S0P-6-trace',
+    'S0P-7-bidirectional',
+    'S0P-8-honest-report',
+  ]);
+  for (const j of S0P_JUDGEMENTS) {
+    assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 的 expectFailPattern 不得占位`);
+  }
+  // 样本单源：5 拍逐序，且**既有** S0_CHAIN 10 环节逐字保留（只增不减）。
+  assert.deepEqual(s0PChain().map((b) => b.id), S0P_BEATS.map((b) => b.id));
+  assert.deepEqual(S0P_BEATS.map((b) => b.id), ['ref-in-turn', 'scope-inject', 'read-in-scope', 'write-1', 'no-injection']);
+  assert.equal(S0_CHAIN.length, 10, '既有 S0_CHAIN 10 环节逐字保留');
 });
