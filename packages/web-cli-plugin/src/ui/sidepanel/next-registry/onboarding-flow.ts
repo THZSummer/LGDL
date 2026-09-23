@@ -47,6 +47,15 @@ export const ONBOARD_RESUME_TEXT = '配置完成：已自动接上你刚才那�
 export const ONBOARD_INVALIDATED_TEXT = '原任务已失效（站点或会话已变）：下方给出可走的一步';
 
 /**
+ * 悬置任务**超容**（`MAX_SUSPENSIONS = 1` 且已有**不同**意图在等）时的**留痕文案**
+ * —— review R1 **I-02**：`registerConfigSuspension` 的 `over-capacity` 返回值**不得被调用方
+ * 静默丢弃**（`suspension.ts` 契约）。事实口径 = **原任务优先保留**（不叠加第二条悬置），
+ * **不是**「原任务已被取代」（旧任务并未被新意图取代 —— 注释与实现同口径）。
+ * 零明文：不提凭据、不回显用户原话。
+ */
+export const ONBOARD_SUSPENSION_RETAINED_TEXT = '已有等待配置的原任务：本条新意图未叠加（原任务优先保留）';
+
+/**
  * **恰 4 步**（顺序 = 数组顺序；每步的 `evidence` / `carrier` 是可机核契约）。
  * `Object.freeze` 保证运行期不可被追加第 5 步（门禁另有注入反证）。
  */
@@ -119,4 +128,31 @@ export function onboardCauseKey(intent: string): string {
 /** 同因不重复判据（纯）：该因已被取消 ⇒ 不再弹同一条引导。 */
 export function suppressOnboardCause(cause: string | undefined, declined: readonly string[]): boolean {
   return cause !== undefined && cause.length > 0 && declined.includes(cause);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 **小修轮（review R1 的 I-04 / I-03）** —— 把两条「折叠 / 记因」口径提为
+ * **可机核的纯函数**（生产与门禁**同一份**，零第二实现）。
+ *
+ * ① `llmBlockedFactApplies` ——「LLM 未配置」这条 `risk` 事实的**两个独立来源**：
+ *    · `ruled`   = **SW 的 `isLlmConfigured` 裁定投影**（`chat-result{variant:'llm-unconfigured'}`
+ *      只在 SW 判「未配置」时产生）—— 它是主题① ↔ 主题② 的同一把判据；
+ *    · `passive` = 面板**已加载**的 `llm-status` 快照（`llmLoaded ∧ ¬configured`）。
+ *    二者是 **∨**（互不嵌套）：冷启动竞态窗口（detect 行已出、`llm-status` 尚未回）下
+ *    `passive` 为假而 `ruled` 已成立 ⇒ 事实必须成立 —— 否则 `guide` 步的
+ *    `op.llm-config` chip 不出现（detect 行宣告了**没有下一步**的引导，双源退化为单源）。
+ *    反向同样成立：`ruled` 不取代被动观测（修复 op 失败 / 被拒）的合法降级场景。
+ *    两者皆假 ⇒ 不成立（判据非恒真，注入必红）。
+ *
+ * ② `recordsDeclinedCause` —— 同因去重键的**写入口径**（review R1 **I-03**）：
+ *    只有**用户主动放弃**（`cancelled` / `rejected`）才记「因」；配置**失败**（`failed`）不是
+ *    放弃 ⇒ 同因引导保持**可重试**（FR-SELF-046 只覆盖取消 / 放弃；FR-SELF-050 要求失败后
+ *    「可达 next」，而最自然的 next 恰是**重试配置**这一条 chip）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+export function llmBlockedFactApplies(ruled: boolean, passive: boolean): boolean {
+  return ruled || passive;
+}
+
+export function recordsDeclinedCause(state: 'completed' | 'cancelled' | 'rejected' | 'failed'): boolean {
+  return state === 'cancelled' || state === 'rejected';
 }

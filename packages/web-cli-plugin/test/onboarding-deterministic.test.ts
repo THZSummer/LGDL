@@ -27,6 +27,10 @@
  *         空悬置 ⇒ `empty` 且**非死端**（可达 next）。
  *   OD-13 **自动续接的顺序** —— 「回执（settle completed）**在前**、续接（`panelOpSettled`
  *         → `resumeAfterConfig`）**在后**」；删自动续接 ⇒ FAIL。
+ *   OD-17 **I-04 双源独立** —— 主动裁定（SW 的 `isLlmConfigured` 投影）与被动快照是 **∨**；
+ *        冷启动窗口（裁定真 ∧ 快照未回）下事实必须成立（否则 guide chip 无 ⇒ 必红）。
+ *   OD-18 **I-03 失败可重试** —— 只有取消 / 拒绝记因；配置失败（failed）不并入同因去重。
+ *   OD-19 **I-02 超容留痕** —— `over-capacity` 返回值必须被消费并落事实行（丢弃 ⇒ 必红）。
  *
  * @module test/onboarding-deterministic
  */
@@ -50,8 +54,11 @@ import {
   ONBOARD_SCENARIOS,
   ONBOARD_STEP_IDS,
   ONBOARD_STEPS,
+  ONBOARD_SUSPENSION_RETAINED_TEXT,
+  llmBlockedFactApplies,
   onboardCauseKey,
   onboardScenario,
+  recordsDeclinedCause,
   suppressOnboardCause,
 } from '../src/ui/sidepanel/next-registry/onboarding-flow.js';
 import {
@@ -129,6 +136,10 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'OD-15-cancel-not-dead-end', expectFailPattern: '取消引导必须非死端（悬置保留 + 可达 next）且同因不重复（取消后不再弹同一条）' },
   // V5.5-2 W5（TASK-V55-216②）：X-SELF-3 取代台账落账（缺条目 ⇒ 必红）。
   { id: 'OD-16-x-self-3-ledger', expectFailPattern: 'X-SELF-3 取代台账必须落账（双源并存 = 被动保留 + 主动新增；缺条目 ⇒ FAIL）' },
+  // V5.5-2 **小修轮（review R1 的 I-02 / I-03 / I-04；只增不减）**。
+  { id: 'OD-17-cold-start-independence', expectFailPattern: 'I-04：主动裁定（SW 的 isLlmConfigured 投影）与被动快照必须双源独立（冷启动 ⇒ detect 有而 guide chip 无 ⇒ 必红）' },
+  { id: 'OD-18-failed-retryable', expectFailPattern: 'I-03：配置失败不得并入同因去重（failed ⇒ 同因引导必须保持可重试）' },
+  { id: 'OD-19-over-capacity-trace', expectFailPattern: 'I-02：over-capacity 返回值不得被调用方静默丢弃（必须消费并留痕）' },
 ];
 
 /* ── OD-1 ──────────────────────────────────────────────────────────────────── */
@@ -257,14 +268,17 @@ export function dualSourceProblems(sidepanelSrc: string, providersSrc: string, d
   const branchAt = sidepanelSrc.indexOf("variant === 'llm-unconfigured'");
   if (branchAt < 0) problems.push(`${JUDGEMENTS[6].expectFailPattern}：面板无主动识别分支（variant === 'llm-unconfigured'）`);
   else {
-    const body = sidepanelSrc.slice(branchAt, sidepanelSrc.indexOf('\n      }', sidepanelSrc.indexOf('noteLlmBlockedFact(false)', branchAt)) + 1);
-    if (!/noteLlmBlockedFact\(false\)/.test(body)) problems.push(`${JUDGEMENTS[6].expectFailPattern}：主动识别未折叠进既有 risk 源（同一终态词汇）`);
+    const body = sidepanelSrc.slice(branchAt, sidepanelSrc.indexOf('\n      }', sidepanelSrc.indexOf('noteLlmBlockedFact(false, true)', branchAt)) + 1);
+    // 〖V5.5-2 小修轮（review R1 I-04）等价重锚〗主动识别把 **SW 的 `isLlmConfigured` 裁定**
+    // 显式传进折叠（`noteLlmBlockedFact(false, true)`）；语义仍是「折叠进既有 risk 源 /
+    // 同一终态词汇」，判据力只升（原先只断言调用存在，现断言裁定入参存在）。
+    if (!/noteLlmBlockedFact\(false,\s*true\)/.test(body)) problems.push(`${JUDGEMENTS[6].expectFailPattern}：主动识别未折叠进既有 risk 源（同一终态词汇）`);
     if (!/nextAfterSettle\(\{ kind: 'answered' \}\)/.test(body)) problems.push(`${JUDGEMENTS[6].expectFailPattern}：主动识别未立刻求值一次驱动者`);
   }
   // 被动观测保留（合法降级场景：写入失败）。
   const passive = (stripComments(sidepanelSrc).match(/noteLlmBlockedFact\(/g) ?? []).length;
   if (passive < 5) problems.push(`${JUDGEMENTS[6].expectFailPattern}：被动观测路径被削弱（noteLlmBlockedFact 出现 ${passive} 次 < 5：定义 + 4 生产调用点）`);
-  if (!/function noteLlmBlockedFact\(ok: boolean\): void \{[\s\S]*?observedBlocked\.add\(LLM_BLOCKED_RISK\)/.test(sidepanelSrc)) {
+  if (!/function noteLlmBlockedFact\(ok: boolean, ruled = false\): void \{[\s\S]*?observedBlocked\.add\(LLM_BLOCKED_RISK\)/.test(sidepanelSrc)) {
     problems.push(`${JUDGEMENTS[6].expectFailPattern}：阻塞事实未落既有 risk 源（llmBlocked）`);
   }
   // 恢复链零改写（逐条）。
@@ -470,6 +484,116 @@ export function cancelProblems(
   }
   if (!/declinedOnboardCauses\.length = 0;/.test(src)) {
     problems.push(`${JUDGEMENTS[14].expectFailPattern}：去重键未随 fixture 复位（会跨夹具残留）`);
+  }
+  return problems;
+}
+
+/* ── OD-17 / OD-18 / OD-19（V5.5-2 小修轮 = review R1 的 I-04 / I-03 / I-02）───────── */
+
+/**
+ * **I-04** —— 双源**独立**判据（冷启动 ⇒ detect 行有、guide chip 无 ⇒ 必红）。
+ *
+ * `llmBlockedFactApplies(ruled, passive)` 的两个来源必须各自**单独成立**：
+ *   · `ruled`   = SW 的 `isLlmConfigured` 裁定投影（`llm-unconfigured` 变体）；
+ *   · `passive` = 面板**已加载**的 `llm-status` 快照（`llmLoaded ∧ ¬configured`）。
+ * 冷启动窗口 = `ruled` 真 ∧ `passive` 假 ⇒ 事实必须成立；两源皆假 ⇒ 不成立（非恒真）。
+ * 接线：主动识别分支必须把裁定显式传进折叠，折叠必须走**同一份**纯判据。
+ */
+export function llmBlockedIndependenceProblems(
+  rawSidepanelSrc: string,
+  applies: (ruled: boolean, passive: boolean) => boolean,
+): string[] {
+  const src = stripComments(rawSidepanelSrc);
+  const problems: string[] = [];
+  if (applies(true, false) !== true) {
+    problems.push(`${JUDGEMENTS[16].expectFailPattern}：冷启动（裁定真 ∧ 被动快照未回）下事实不成立 ⇒ detect 行有而 guide chip 无`);
+  }
+  if (applies(false, true) !== true) {
+    problems.push(`${JUDGEMENTS[16].expectFailPattern}：被动观测（修复 op 失败）单独成立时必须仍落事实（合法降级不得丢）`);
+  }
+  if (applies(false, false) !== false) problems.push(`${JUDGEMENTS[16].expectFailPattern}：两源皆假却成立（判据恒真）`);
+  const branchAt = src.indexOf("variant === 'llm-unconfigured'");
+  if (branchAt < 0) {
+    problems.push(`${JUDGEMENTS[16].expectFailPattern}：未定位到主动识别分支（判据不得空转）`);
+  } else {
+    const end = src.indexOf('\n      }', branchAt);
+    const body = end < 0 ? src.slice(branchAt) : src.slice(branchAt, end + 1);
+    if (!/noteLlmBlockedFact\(false,\s*true\)/.test(body)) {
+      problems.push(`${JUDGEMENTS[16].expectFailPattern}：主动识别未把 SW 裁定显式传进折叠（仍在读被动快照门）`);
+    }
+  }
+  if (!/function noteLlmBlockedFact\(ok: boolean, ruled = false\): void \{[\s\S]*?llmBlockedFactApplies\(ruled,/.test(src)) {
+    problems.push(`${JUDGEMENTS[16].expectFailPattern}：折叠未把「裁定 ∨ 被动」交给单源纯判据（llmBlockedFactApplies）`);
+  }
+  return problems;
+}
+
+/**
+ * **I-03** —— 「配置**失败** ⇒ 同因引导**可重试**」判据。
+ *
+ * `recordsDeclinedCause` 只认**用户主动放弃**（`cancelled` / `rejected`）；`failed` 不记因
+ * ⇒ `suppressOnboardCause(cause, declined)` 对同因返回 false（chip 照旧可出现）。
+ * 接线：收口缝必须经该单源纯判据（第二份口径 ⇒ 红）。
+ */
+export function declinedCauseProblems(
+  rawSidepanelSrc: string,
+  records: (state: 'completed' | 'cancelled' | 'rejected' | 'failed') => boolean,
+  suppress: (cause: string | undefined, declined: readonly string[]) => boolean,
+): string[] {
+  const src = stripComments(rawSidepanelSrc);
+  const problems: string[] = [];
+  if (records('cancelled') !== true || records('rejected') !== true) {
+    problems.push(`${JUDGEMENTS[17].expectFailPattern}：取消 / 拒绝必须记因（否则同一句原话会反复弹同一条引导）`);
+  }
+  if (records('failed') !== false) {
+    problems.push(`${JUDGEMENTS[17].expectFailPattern}：配置失败被并入同因去重（失败后同因引导被永久压掉 ⇒ 不可重试）`);
+  }
+  if (records('completed') !== false) problems.push(`${JUDGEMENTS[17].expectFailPattern}：成功也记因（引导被误压）`);
+  // 行为面（冷/热同一份判据的模拟）：失败 ⇒ declined 不增 ⇒ 同因**不被压**（可重试）。
+  const sim = (states: readonly ('cancelled' | 'rejected' | 'failed')[]): string[] =>
+    states.filter((s) => records(s)).map(() => '同一句话');
+  if (suppress('同一句话', sim(['failed'])) !== false) {
+    problems.push(`${JUDGEMENTS[17].expectFailPattern}：失败后被压掉 ⇒ 必红（配置不可重试）`);
+  }
+  if (suppress('同一句话', sim(['cancelled'])) !== true) {
+    problems.push(`${JUDGEMENTS[17].expectFailPattern}：取消后仍弹同一条（判据恒假）`);
+  }
+  if (!/nextAfterSettle: \(op, state\) => \{[\s\S]*?recordsDeclinedCause\(state\)[\s\S]*?declinedOnboardCauses\.push\(onboardGuideCause\)/.test(src)) {
+    problems.push(`${JUDGEMENTS[17].expectFailPattern}：收口缝未把「记因」交给单源纯判据（recordsDeclinedCause）`);
+  }
+  return problems;
+}
+
+/**
+ * **I-02** —— `over-capacity` 返回值**必须被消费并留痕**（不得被调用方静默丢弃）。
+ *
+ * 接线判据：主动识别分支必须捕获 `registerConfigSuspension(` 的返回值，并在
+ * `over-capacity` 时 `dispatch` 一行事实（文案单源 `ONBOARD_SUSPENSION_RETAINED_TEXT`）。
+ * 行为面（真源）：第二条**不同**意图仍是 `over-capacity` ∧ **原任务（最早意图）优先保留**
+ * —— 与留痕文案的口径逐字一致（不伪称「已被取代」）。
+ */
+export function overCapacityTraceProblems(
+  rawSidepanelSrc: string,
+  rawFlowSrc: string,
+  reading: { readonly outcome: string; readonly pendingInstruction: string | undefined; readonly expected: string },
+): string[] {
+  const src = stripComments(rawSidepanelSrc);
+  const flow = stripComments(rawFlowSrc);
+  const problems: string[] = [];
+  if (!/const suspensionOutcome = registerConfigSuspension\(/.test(src)) {
+    problems.push(`${JUDGEMENTS[18].expectFailPattern}：返回值未被捕获（丢弃 ⇒ 第二条意图被静默拒绝）`);
+  }
+  if (!/if \(suspensionOutcome === 'over-capacity'\) dispatch\(\{ type: 'notice', text: ONBOARD_SUSPENSION_RETAINED_TEXT \}\)/.test(src)) {
+    problems.push(`${JUDGEMENTS[18].expectFailPattern}：over-capacity 未留痕（无事实行）`);
+  }
+  if (!/export const ONBOARD_SUSPENSION_RETAINED_TEXT = /.test(flow)) {
+    problems.push(`${JUDGEMENTS[18].expectFailPattern}：留痕文案缺单源声明`);
+  }
+  if (reading.outcome !== 'over-capacity') {
+    problems.push(`${JUDGEMENTS[18].expectFailPattern}：第二条不同意图实测 ${reading.outcome}（应 over-capacity）`);
+  }
+  if (reading.pendingInstruction !== reading.expected) {
+    problems.push(`${JUDGEMENTS[18].expectFailPattern}：原任务未被优先保留（实测 ${String(reading.pendingInstruction)}）`);
   }
   return problems;
 }
@@ -787,4 +911,101 @@ test('OD 元判据：每条 judgement 的 expectFailPattern 非占位', () => {
   }
   assert.equal(MAX_SUSPENSIONS, 1);
   assert.equal(CONFIG_SUSPENSION_SOURCE, 'llm-config');
+});
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 小修轮（review R1 的 I-04 / I-03 / I-02）
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+test('OD-17 I-04：双源独立（冷启动 ⇒ 裁定单独成立）+ 裁定接线 / 同一份折叠判据', () => {
+  assert.deepEqual(
+    llmBlockedIndependenceProblems(SIDEPANEL_SRC, llmBlockedFactApplies),
+    [],
+    JUDGEMENTS[16].expectFailPattern,
+  );
+  // 冷启动构造（真值面）：SW 裁定为真 ∧ 被动快照未回（`llmLoaded=false`）。
+  assert.equal(llmBlockedFactApplies(true, false), true, '冷启动：SW 的 isLlmConfigured 裁定单独成立 ⇒ 事实必须落');
+  assert.equal(llmBlockedFactApplies(false, true), true, '被动观测（修复 op 失败）单独成立 ⇒ 合法降级保留');
+  assert.equal(llmBlockedFactApplies(false, false), false, '两源皆假 ⇒ 不成立（判据非恒真）');
+});
+
+test('OD-17 反证：退回「只读被动门」/ 丢弃裁定 ⇒ 冷启动必红 → 还原 PASS', () => {
+  // 注入 ①：折叠退回旧形态（被动门单独决定）—— 复现冷启动「detect 行有、guide chip 无」。
+  const passiveOnly = (_ruled: boolean, passive: boolean): boolean => passive;
+  assert.ok(
+    llmBlockedIndependenceProblems(SIDEPANEL_SRC, passiveOnly).some((p) => p.includes('冷启动')),
+    '只读被动门 ⇒ 冷启动必红（双源退化为单源）',
+  );
+  // 注入 ②：主动识别分支丢弃裁定（退回单参调用）。
+  const dropped = SIDEPANEL_SRC.replace('noteLlmBlockedFact(false, true);', 'noteLlmBlockedFact(false);');
+  assert.notEqual(dropped, SIDEPANEL_SRC, '前置：裁定入参注入锚点必须存在');
+  assert.ok(
+    llmBlockedIndependenceProblems(dropped, llmBlockedFactApplies).some((p) => p.includes('裁定')),
+    '丢弃裁定 ⇒ 必红（detect 行宣告了没有下一步的引导）',
+  );
+  assert.deepEqual(llmBlockedIndependenceProblems(SIDEPANEL_SRC, llmBlockedFactApplies), []);
+});
+
+test('OD-18 I-03：failed 不并入同因去重（取消 / 拒绝才记因；失败保留可重试）', () => {
+  assert.deepEqual(
+    declinedCauseProblems(SIDEPANEL_SRC, recordsDeclinedCause, suppressOnboardCause),
+    [],
+    JUDGEMENTS[17].expectFailPattern,
+  );
+  assert.equal(recordsDeclinedCause('cancelled'), true, '取消 = 主动放弃 ⇒ 记因');
+  assert.equal(recordsDeclinedCause('rejected'), true, '拒绝 = 主动放弃 ⇒ 记因');
+  assert.equal(recordsDeclinedCause('failed'), false, '失败 ≠ 放弃 ⇒ 不记因（同因引导可重试）');
+  assert.equal(recordsDeclinedCause('completed'), false, '成功 ⇒ 不记因');
+});
+
+test('OD-18 反证：把 failed 并入去重（失败后被压）/ 绕开单源判据 ⇒ 必红 → 还原 PASS', () => {
+  const failedRecorded = (state: 'completed' | 'cancelled' | 'rejected' | 'failed'): boolean => state !== 'completed';
+  assert.ok(
+    declinedCauseProblems(SIDEPANEL_SRC, failedRecorded, suppressOnboardCause).some((p) => p.includes('失败')),
+    '配置失败被压掉 ⇒ 必红（最自然的 next = 重试配置 被吞）',
+  );
+  const bypassed = SIDEPANEL_SRC.replace(' && recordsDeclinedCause(state)', '');
+  assert.notEqual(bypassed, SIDEPANEL_SRC, '前置：单源判据注入锚点必须存在');
+  assert.ok(
+    declinedCauseProblems(bypassed, recordsDeclinedCause, suppressOnboardCause).length > 0,
+    '收口缝绕开单源判据 ⇒ 必红（第二份口径）',
+  );
+  assert.deepEqual(declinedCauseProblems(SIDEPANEL_SRC, recordsDeclinedCause, suppressOnboardCause), []);
+});
+
+test('OD-19 I-02：over-capacity 被消费并落留痕事实行（原任务优先保留，口径与文案一致）', () => {
+  const first = '原地翻译为中文';
+  resetSuspensions();
+  assert.equal(registerConfigSuspension(first, { origin: 'https://a.example', sessionId: 's1' }), 'registered');
+  const outcome = registerConfigSuspension('总结这页', { origin: 'https://a.example', sessionId: 's1' });
+  const reading = { outcome, pendingInstruction: pendingSuspension()?.instruction, expected: first };
+  assert.deepEqual(overCapacityTraceProblems(SIDEPANEL_SRC, FLOW_SRC, reading), [], JUDGEMENTS[18].expectFailPattern);
+  assert.equal(ONBOARD_SUSPENSION_RETAINED_TEXT.includes('原任务优先保留'), true, '留痕文案必须与实现口径一致');
+  assert.equal(ONBOARD_SUSPENSION_RETAINED_TEXT.includes('取代'), false, '不得伪称「原任务已被取代」（review R1 I-02 口径订正）');
+  resetSuspensions();
+});
+
+test('OD-19 反证：丢弃返回值 / 伪称「已被取代」⇒ 必红 → 还原 PASS', () => {
+  const first = '原地翻译为中文';
+  resetSuspensions();
+  registerConfigSuspension(first, { origin: 'https://a.example', sessionId: 's1' });
+  const outcome = registerConfigSuspension('总结这页', { origin: 'https://a.example', sessionId: 's1' });
+  const okReading = { outcome, pendingInstruction: pendingSuspension()?.instruction, expected: first };
+  // 注入 ①：退回旧形态（返回值被丢弃、无留痕）。
+  const discarded = SIDEPANEL_SRC.replace('const suspensionOutcome = registerConfigSuspension(', 'registerConfigSuspension(').replace(
+    "if (suspensionOutcome === 'over-capacity') dispatch({ type: 'notice', text: ONBOARD_SUSPENSION_RETAINED_TEXT });",
+    '',
+  );
+  assert.notEqual(discarded, SIDEPANEL_SRC, '前置：返回值捕获 / 留痕注入锚点必须存在');
+  assert.ok(
+    overCapacityTraceProblems(discarded, FLOW_SRC, okReading).length > 0,
+    '丢弃 over-capacity ⇒ 必红（静默拒绝第二条意图）',
+  );
+  // 注入 ②：实现口径变成「被取代」（旧任务未保留）⇒ 与留痕文案不一致 ⇒ 必红。
+  assert.ok(
+    overCapacityTraceProblems(SIDEPANEL_SRC, FLOW_SRC, { ...okReading, pendingInstruction: '总结这页' }).some((p) => p.includes('优先保留')),
+    '原任务被新意图顶替 ⇒ 必红（口径与文案不符）',
+  );
+  assert.deepEqual(overCapacityTraceProblems(SIDEPANEL_SRC, FLOW_SRC, okReading), []);
+  resetSuspensions();
 });

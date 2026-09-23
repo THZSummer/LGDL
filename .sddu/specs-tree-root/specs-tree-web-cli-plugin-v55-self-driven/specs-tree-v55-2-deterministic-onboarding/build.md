@@ -224,8 +224,8 @@
 | 门禁 | R1 | R2 | 判定 |
 |---|---|:--:|:--:|
 | `npm test`（node 全量） | 1268 / 0 | **1277 / 0**（+9） | ✅ 只增 |
-| — 其中 `onboarding-deterministic` | 18 / 0 | **30 / 0**（OD-14 / OD-15 / OD-16） | ✅ 只增 |
-| — 其中 `s0-self-driven-chain` | 7 / 0 | **10 / 0**（S0N-7 / S0N-8） | ✅ 只增 |
+| — 其中 `onboarding-deterministic` | 18 / 0 | **23 / 0**（OD-14 / OD-15 / OD-16；R1 `18 → 23`，+5 = OD-14(2)+OD-15(2)+OD-16(1)）— 〖v55-2 小修轮（review R1 **I-01**）订正〗原登记 30/0 **与实测不符**（实测 `npm run test:onboarding` = 23/0） | ✅ 只增 |
+| — 其中 `s0-self-driven-chain` | 7 / 0 | **11 / 0**（S0N-1~S0N-8 + 元判据；〖v55-2 小修轮（review R1 **I-01**）订正〗原登记 10/0 系「不含元判据」口径，实测 11/0） | ✅ 只增 |
 | `typecheck` | 绿 | 绿 | ✅ |
 | `test:supersession` | 36 / 0 | **36 / 0** | ✅（含保护段双绿） |
 | `test:gate-integrity` | 绿 | **18 / 0**（+1 元门禁） | ✅ 只增 |
@@ -302,3 +302,99 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.1 | R2 收口段（W5 = TASK-V55-213~216）：两场景门禁 / S0 分支 B 必判项（双面 + 反证）/ 取消非死端同因去重 / 体积最终登记 563,145（未越档 563,200）+ X-SELF-3 落账；`npm test` 1277/0；s0-self-driven 42/0；**发现并修复 R1 的「掩码 ask resolver 误删 ⇒ 引导永远配不完」运行期断链** | 2026-09-23 | SDDU Build Agent |
+---
+
+# v55-2 **小修轮**（review R1 的 I-01~04；2026-09-23）
+
+> **范围**：本叶 review R1（`review-report.md`）的 4 个非阻塞改进项 —— **I-01** 读数登记订正 /
+> **I-02** `over-capacity` 静默丢弃 / **I-03** `failed` 并入同因去重 / **I-04** 冷启动双源不独立。
+> **零新任务**（不新增 TASK 编号；全部落在既有 16 任务的产物与门禁上，**测试只增**）。
+
+## 1c. 构建概要（小修轮）
+
+| 维度 | 数值 |
+|------|:--:|
+| 处置改进项 | **4 / 4**（I-01 I-02 I-03 I-04） |
+| 新增文件 | **0 个** |
+| 修改文件 | **11 个**（源码 3：`next-registry/onboarding-flow.ts` / `next-registry/suspension.ts` / `ui/sidepanel/sidepanel.ts`；门禁 4：`test/onboarding-deterministic.test.ts` / `test/size-baseline.ts` / `test/size-budget.test.ts` / `test/size-ruling-vol3.test.ts` / `test/size-growth-evidence.test.ts` / `test/supersession-ledger.test.ts`；台账 2：`docs/v4-supersession-ledger.json` / `docs/v4-density-baseline.json`） |
+| 体积 | `dist/sidepanel.js` **563,780 B**（小修轮增量 **+635 B**；Σ 模块 +635 + glue **0**） |
+| 红线冻结面 | `dist/content.js` 177,076 B / sha `52a82620…`、`dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；`KIND_SET` 40 逐字；`manifest.json` / `ROADMAP.md` / `design/**` / `docs/v3-*` 零 diff |
+| 测试计数 | `npm test` **1277 → 1283 / 0**（+6）；`test:onboarding` **23 → 29 / 0**；`test:s0-self-driven-chain` **11 / 0**；`test:supersession` **36 / 0**；`test:gate-integrity` **18 / 0**；`test:size-ruling-vol3` **12 / 0**；`test:design-contract` **19 / 0** |
+
+## 2c. 逐项处置（I-01~04）
+
+| # | 位置 | 处置 | 反证（红 ⇒ 还原绿） |
+|:--:|---|---|---|
+| **I-01** | `build.md §5b` | 逐门禁读数按**实测**订正：`onboarding-deterministic` `30/0 → **23/0**`（R1 `18 → 23`，+5 = OD-14(2)+OD-15(2)+OD-16(1)）、`s0-self-driven-chain` `10/0 → **11/0**`（含元判据）。总读数 `1277/0` 本已亲跑无误，故这只是登记口径订正（**零字节**） | 无需反证（登记项）；订正后 `test:onboarding` 亲跑 **29/0** 与本段同源 |
+| **I-02** | `sidepanel.ts` ↔ `suspension.ts` | `over-capacity` 返回值**被消费**：`const suspensionOutcome = registerConfigSuspension(…)` + `if (suspensionOutcome === 'over-capacity') dispatch({ type: 'notice', text: ONBOARD_SUSPENSION_RETAINED_TEXT })` —— **留痕**（不静默丢）。同时把 `suspension.ts` 的自述与实现**同口径订正**：`MAX=1` 下保留的是**最早**意图（「原任务优先保留」），**不伪称**「已被新的意图取代」 | **OD-19**（纯判据 + 真源行为 + 源码接线）：丢弃返回值 / 无留痕 / 文案与「优先保留」口径不符 ⇒ **必红**；**端到端注入**（`const x = ` 与 `if (…) dispatch` 两处同删）⇒ `test:onboarding` **27/2** ⇒ 还原（sha 逐字节相同）⇒ **29/0** |
+| **I-03** | `sidepanel.ts:3450` 收口缝 | 同因去重键**只记用户主动放弃**：新增单源纯判据 `recordsDeclinedCause(state)`（`cancelled ∨ rejected`），收口缝改为 `… && recordsDeclinedCause(state)` ⇒ 配置**失败**（`failed`）**不**并入 ⇒ 同因引导保持**可重试**（失败后最自然的 next = 重试配置） | **OD-18**：真值表（cancelled/rejected ⇒ true；failed/completed ⇒ false）+ 模拟「失败后被压 ⇒ 红」+ 源码接线（绕开单源判据 ⇒ 红）；**端到端注入**（删 `&& recordsDeclinedCause(state)`）⇒ **27/2** ⇒ 还原 ⇒ **29/0** |
+| **I-04** | `sidepanel.ts` 主动识别分支 ↔ 折叠 | 新增单源纯判据 `llmBlockedFactApplies(ruled, passive)` = **∨**：`ruled` = **SW 的 `isLlmConfigured` 裁定投影**（`chat-result{variant:'llm-unconfigured'}` 只在 SW 判未配置时产生），`passive` = 面板已加载的 `llm-status` 快照。主动分支显式传裁定（`noteLlmBlockedFact(false, true)`）⇒ **冷启动竞态窗口**（detect 行已出、`llm-status` 未回）下仍落事实 ⇒ `guide` chip 不缺席；被动观测（修复 op 失败）单独成立**仍保留**。仍落**同一** `observedBlocked` Set / 同一 `llmBlocked` 终态词汇 ⇒ 幂等不破 | **OD-17**：冷启动真值（`applies(true,false) === true`）+ 被动保留（`applies(false,true) === true`）+ 非恒真（`applies(false,false) === false`）+ 裁定接线 / 同一份判据；**端到端注入**（退回 `noteLlmBlockedFact(false)`）⇒ **25/4**（含 OD-7 的等价重锚判据）⇒ 还原 ⇒ **29/0** |
+| **OD-7 等价重锚** | `test/onboarding-deterministic.test.ts` | 主动识别分支的折叠调用形态由 `noteLlmBlockedFact(false)` 重锚为 `noteLlmBlockedFact(false, true)`（**语义不变**：折叠进既有 `risk` 源 / 同一终态词汇；判据力**只升**——现断言裁定入参存在）；折叠函数形态判据同步为 `(ok, ruled = false)` + `llmBlockedFactApplies(ruled, …)` | 端到端注入 I-04 时 OD-7 与 OD-17 **同时**翻红（两判据互相独立、非重复） |
+
+## 3c. 体积五要素（小修轮 → **越档位 ⇒ ADR-V55-011 §4 显式升档**）
+
+| 要素 | 值 |
+|---|---|
+| `B_before` | 563,145 B（R2 本叶最终登记） |
+| `B_final` | **563,780 B**（`stat -c %s dist/sidepanel.js`） |
+| 小修轮增量 | **+635 B**（+0.11%）；逐模块：`onboarding-flow.ts` 1,722 → **2,125（+403）** · `sidepanel.ts` 101,472 → **101,704（+232）**（Σ +635 + glue **0**） |
+| 本叶合计增量 | 563,780 − 557,883 = **+5,897 B**（R1 +4,390 / R2 +872 / 小修轮 +635）—— 叶预算 4,900 ⇒ **超出 997 B**；叶上界 6,300 ⇒ **未越**（余 403 B） |
+| 档位 / 绝对上限 | **⚠️ 本轮越档位**（`ceilTo50KB(563,780) = 614,400` > 563,200）⇒ **显式升档**：档位 563,200 → **614,400**；绝对上限 619,520 → **675,840**（`614,400 × 1.10`）；生效上限 = `min(675,840, floor(563,780 × 1.05) = 591,969) = 591,969`；`authorConfirmation` 保持 **`pending-author-line`**（**不伪称已确认**） |
+| 时间线 / 登记册 | `SIDEPANEL_BASELINE_BYTES_TIMELINE` **追加** 563,780（只追加）；`SIDEPANEL_RE_REGISTRATIONS['v55-2-r3']` 五要素齐备（direction=raised，Δ=+635，ceiling 591,969 = 公式值）；`SIDEPANEL_TIER_FLOOR_BYTES` 512,001 → **563,201**（只挡下移、不挡上移，方向不变） |
+| 升档触发点前移 | ADR-V55-011 §3 原预计 v55-3 收口轮越档（567,409）；本叶小修轮实测已越 ⇒ 按 ADR「**谁先越谁登记**」在本叶登记（v55-3 收口轮届时**不再**触发升档，只做三叶合计结算） |
+
+## 4c. 门禁对账（小修轮，全部亲跑；日志 `/tmp/opencode/v4-gate-logs/v55-2-fix/`）
+
+| 门禁 | 基线 | 小修轮 | 判定 |
+|---|---|:--:|:--:|
+| `npm test`（node 全量） | 1277 / 0 | **1283 / 0**（+6 = OD-17~19 各 2 用例） | ✅ 只增 |
+| — 其中 `test:onboarding` | 23 / 0 | **29 / 0** | ✅ 只增 |
+| — 其中 `test:s0-self-driven-chain` | 11 / 0 | **11 / 0** | ✅ |
+| `typecheck` | 绿 | 绿 | ✅ |
+| `test:supersession` | 36 / 0 | **36 / 0** | ✅（含体积面**逐行重锚**与叶段判据） |
+| `test:gate-integrity` | 18 / 0 | **18 / 0** | ✅ |
+| `test:size-ruling-vol3` | 12 / 0 | **12 / 0** | ✅（升档三值同源复算） |
+| `test:design-contract` | 19 / 0 | **19 / 0** | ✅ |
+| `test:ref-pick-wiring` | 11 / 0 | **11 / 0** | ✅ |
+| `test:law8` | 36 / 0 | **36 / 0** | ✅ |
+| `test:stream` | 76 / 0 | **76 / 0** | ✅ |
+| `test:s0-self-driven` | 42 / 0 | **42 / 0** | ✅ |
+| `test:dead-end` | 49 / 0 | **49 / 0** | ✅ |
+| `test:ask-auth` | 78 / 0 | **78 / 0** | ✅ |
+| `test:recommendation` | 72 / 0 | **72 / 0** | ✅ |
+| `test:ui`（journey 保段） | 171 PASS | **PASS** | ✅ |
+| `test:density` / `l0` / `l1` / `l2` / `zero-injection` / `auth-chip` / `insight` / `hardening` / `e2e` / `l1-reverse` / `l2-reverse` | 全绿 | **全 0 fail** | ✅ |
+| `test:page-input` | 118 / 0 | 5 次复跑：**3× 118/0 + 2× 116/2** | ◐ **继承 R4 已登记环境性 flake**（harness 注释即写明「偶发一次 116/2、复跑 118/0」；与 `test:page-input` 的 F-01 夹具前提有关，**非本轮回归**——基线 HEAD 亲跑 118/0、本构建 3 次 118/0） |
+| `test:binding` | 192 PASS（R2 一次） | **FAIL**（`#8d/#8e` ⇒ harness `selector not found: #confirm-allow`） | ◐ **继承 N-07 环境性 flake**（与 review R1 §3 亲跑同族同面；`binding.mjs` 不在本轮变更面，保护段由 `test:supersession` 双绿独立机核） |
+| 冻结面 | content 177,076 / pick-layer 34,358 | **逐字节不变**（`sha256` 复核 `52a82620…` / `77796bab…`） | ✅ |
+
+## 5c. 注入反证（端到端，真源——非仅测试内副本）
+
+| # | 注入 | 判据 | 结果 |
+|:--:|---|---|:--:|
+| 1 | I-04：`noteLlmBlockedFact(false, true)` → `noteLlmBlockedFact(false)`（丢弃裁定） | `test:onboarding` | ✅ **25/4**（OD-17 ×2 + OD-7）⇒ `git` 还原（sha 逐字节相同）⇒ **29/0** |
+| 2 | I-03：删 `&& recordsDeclinedCause(state)`（failed 并入去重） | `test:onboarding` | ✅ **27/2**（OD-18 ×2）⇒ 还原 ⇒ **29/0** |
+| 3 | I-02：同删 `const suspensionOutcome = ` 与留痕 `if (…) dispatch` | `test:onboarding` | ✅ **27/2**（OD-19 ×2）⇒ 还原 ⇒ **29/0** |
+
+## 6c. 诚实登记 / 口径差异
+
+| # | 事实 | 处置 |
+|:--:|---|---|
+| F1 | 小修轮**越档位**（563,780 > 563,200，距档位仅 55 B 的余量被 3 个真修复用尽） | **显式升档**（ADR-V55-011 §4）：档位 614,400 / 绝对上限 675,840 / 生效上限 591,969；`authorConfirmation` 保持 `pending-author-line`（不伪称确认）；`pendingAbsoluteCapObligation` 的「三值同源」复算保持绿 |
+| F2 | 本叶合计 **超预算 997 B**（预算 4,900，实际 5,897） | **显式登记**（未越叶上界 6,300）；不静默、不放宽任何阈值、不删判据 |
+| F3 | `suspension.ts` 自述原写「由调用方固化『原任务已被新的意图取代』」而实现保留**最早**意图 | 按 review R1 I-02 建议②**订正注释为诚实口径**（「原任务优先保留」），并落地建议①（消费返回值 + 留痕）—— 两者同时满足，注释与文案与实现三者同口径 |
+| F4 | `test:page-input` 116/2 与 `test:binding` `#confirm-allow` FAIL | 均为**继承的环境性 flake**（R4 / N-07 族），非本轮回归；本轮亲跑证据：基线 118/0、本构建 3× 118/0；binding 与 review R1 同面（`binding.mjs` 零改动） |
+| F6 | `docs/v4-density-baseline.json#volume.absoluteCeilingBytes` 自 F 快修轮起陈旧（563,200，与权威口径 619,520 脱钩）—— review R1 观察项 **O-06** | 本小修轮因**已在该文件同一 `volume` 对象内升档**，同轮**订正为 675,840** 并加 `absoluteCeilingNote` 说明历史链（该字段**零判据读取**，权威复算在 `size-ruling-vol3`）；不属 I 项但属同文件自洽义务，显式登记（零判据影响、零字节） |
+| F5 | 台账 v4 段 `newTitle` **56 条就地换锚** + 新增 16 条 `V552-R3-SVOL-*`（逐行删除登记）+ 4 条 `V552-R3-CHAIN-*`（接管链条目）+ 2 个叶段 scope 追加 `test/supersession-ledger.test.ts` | 沿用 R1/R2 既定形态（「换链不放松」）；`test:supersession` 36/0 亲跑复核 |
+
+## 7c. 下一步
+
+| 场景 | 操作 |
+|------|------|
+| 小修轮已完成（I-01~04 全处置 + 反证 + 体积升档登记） | 运行 `@sddu-validate specs-tree-v55-2-deterministic-onboarding`（可进 validate） |
+
+## 修订记录（小修轮）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.2 | **v55-2 小修轮（review R1 的 I-01~04）**：I-01 §5b 逐门禁读数按实测订正（`onboarding-deterministic` 30→**23**、`s0-self-driven-chain` 10→**11**）；I-02 `over-capacity` 返回值被消费 + 留痕（口径订正为「原任务优先保留」）；I-03 同因去重只记主动放弃（`recordsDeclinedCause`）⇒ 失败可重试；I-04 双源独立（`llmBlockedFactApplies(ruled, passive)`：SW 的 `isLlmConfigured` 裁定投影 ∨ 被动快照）⇒ 冷启动不丢 guide chip；新增 OD-17/18/19（含反证）⇒ `npm test` **1277 → 1283 / 0**、`test:onboarding` **23 → 29 / 0**；体积 563,145 → **563,780 B**（+635，Σ 模块 +635 + glue 0）⇒ **越档位 ⇒ ADR-V55-011 §4 显式升档**（档位 563,200 → **614,400**、绝对上限 619,520 → **675,840**，`authorConfirmation` 保持 `pending-author-line`）；三冻结面逐字节不变；继承的环境性 flake（`page-input` F-01 / `binding` N-07）如实登记 | 2026-09-23 | SDDU Build Agent |

@@ -1033,7 +1033,7 @@ test('ledger(V4 段 · V5-3 收口): X5 逐行五要素齐备 + 体积「恰一�
     baselineBytes,
     '⑤三值闭合.newBaselineBytes 必须与 size-baseline 源码常量同源（同一条目不得两叶各改一次）',
   );
-  assert.equal(closeout?.absoluteCeilingBytes, 619_520, '绝对上限逐字（不下移）');
+  assert.equal(closeout?.absoluteCeilingBytes, 675_840, '绝对上限逐字（不下移；V5.5-2 小修轮升档后 = 675,840）');
   console.log(`  ℹ X5 逐行登记：${x5.length} 条五要素齐备 · 体积三值同源（${closeout?.newBaselineBytes} B）`);
 });
 

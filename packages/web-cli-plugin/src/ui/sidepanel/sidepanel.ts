@@ -50,7 +50,10 @@ import {
   ONBOARD_DETECT_TEXT,
   ONBOARD_INVALIDATED_TEXT,
   ONBOARD_RESUME_TEXT,
+  ONBOARD_SUSPENSION_RETAINED_TEXT,
+  llmBlockedFactApplies,
   onboardCauseKey,
+  recordsDeclinedCause,
   suppressOnboardCause,
 } from './next-registry/onboarding-flow.js';
 import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
@@ -1334,10 +1337,18 @@ const observedBlocked = new Set<string>();
 let onboardGuideCause: string | undefined;
 const declinedOnboardCauses: string[] = [];
 
-/** `llm.unconfigured` — derived from the live LLM status (the key-store is empty). */
-function noteLlmBlockedFact(ok: boolean): void {
+/**
+ * `llm.unconfigured` — derived from the live LLM status (the key-store is empty).
+ *
+ * `ruled`（review R1 **I-04**）= **SW 的 `isLlmConfigured` 裁定投影**：主动识别分支只在 SW
+ * 已判「未配置」时收到 `llm-unconfigured` 变体 ⇒ 这条事实**不读**面板的 `llmLoaded` 被动
+ * 快照门（冷启动竞态窗口下该门为假，双源会因此退化为单源：detect 行已出而 guide chip 不出现）。
+ * 两个来源的 ∨ 口径是**同一份纯判据**（`llmBlockedFactApplies`，生产与门禁共用，零第二实现）；
+ * 仍落**同一** `observedBlocked` Set / 同一 `llmBlocked` 终态词汇 ⇒ 幂等不破（C38 / OD-7）。
+ */
+function noteLlmBlockedFact(ok: boolean, ruled = false): void {
   if (ok) observedBlocked.delete(LLM_BLOCKED_RISK);
-  else if (llmLoaded && !llmSummary?.configured) observedBlocked.add(LLM_BLOCKED_RISK);
+  else if (llmBlockedFactApplies(ruled, llmLoaded && !llmSummary?.configured)) observedBlocked.add(LLM_BLOCKED_RISK);
 }
 
 /**
@@ -3442,9 +3453,11 @@ function wire(): void {
     },
     /* V5.5-1 TASK-V55-113: 取消 / 拒绝 / 失败与「已答」走同一求值入口；恢复行必须立刻可达（force）。 */
     nextAfterSettle: (op, state) => {
-      // V5.5-2 TASK-V55-215: 取消/拒绝/失败 = 「这条引导的因被拒」—— 记入去重键（同因不重复），
-      // 悬置任务**保留**（取消不是死端：下方 force 求值仍给出可达 next）。
-      if (op.opId === ONBOARD_CHIP_OP && onboardGuideCause) declinedOnboardCauses.push(onboardGuideCause);
+      // V5.5-2 TASK-V55-215 + review R1 I-03: **只有「用户主动放弃」（cancelled / rejected）**
+      // 才是同因去重键的来源（`recordsDeclinedCause` 单源纯判据）。配置**失败**（failed）
+      // **不是放弃** ⇒ 同因引导保持**可重试**（失败后最自然的 next 恰是重试配置这一步），
+      // 悬置任务仍**保留**（取消不是死端：下方 force 求值仍给出可达 next）。
+      if (op.opId === ONBOARD_CHIP_OP && onboardGuideCause && recordsDeclinedCause(state)) declinedOnboardCauses.push(onboardGuideCause);
       nextAfterSettle({ kind: `op-${state}`, force: true, opId: op.opId });
     },
     /* V5.5-2 TASK-V55-211（ADR-V55-007 §3）：回执写出**之后**的收口回调 —— 配置成功 ⇒ 续接。 */
@@ -3574,11 +3587,18 @@ function wire(): void {
         onboardGuideCause = onboardCauseKey(intent);
         dispatch({ type: 'pending', value: false });
         dispatch({ type: 'notice', text: ONBOARD_DETECT_TEXT });
-        registerConfigSuspension(intent, {
+        // review R1 **I-02**：`over-capacity` 是**契约返回值**（`suspension.ts`），**不得静默丢弃**
+        // —— `MAX=1` 下已有**不同**意图在等时，留痕「原任务优先保留、本条新意图未叠加」；
+        // `registered`（本次登记）与 `deduped`（同因幂等，已有同一事实）都无需第二条事实行。
+        const suspensionOutcome = registerConfigSuspension(intent, {
           ...(state.activeOrigin ? { origin: state.activeOrigin } : {}),
           ...(sessionId ? { sessionId } : {}),
         });
-        noteLlmBlockedFact(false);
+        if (suspensionOutcome === 'over-capacity') dispatch({ type: 'notice', text: ONBOARD_SUSPENSION_RETAINED_TEXT });
+        // ③ 折叠进**既有** `risk` 源（与被动观测同一终态词汇 ⇒ 幂等，不产生第二条阻塞事实 /
+        //    第二条引导）。`ruled = true`：事实来自 **SW 的 `isLlmConfigured` 裁定**，
+        //    不依赖被动 `llm-status` 快照门（review R1 I-04：冷启动竞态窗口下双源仍各自成立）。
+        noteLlmBlockedFact(false, true);
         nextAfterSettle({ kind: 'answered' });
       }
       else if (variant === 'done') {

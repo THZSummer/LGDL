@@ -85,7 +85,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 });
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 563145, '反证必须打在**当前真实产物**上（V5.5-2 R2 本叶最终登记）');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 563780, '反证必须打在**当前真实产物**上（V5.5-2 小修轮登记）');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -184,15 +184,15 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
   assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '新基线必须等于现行登记基线（同源）');
   assert.equal(
     ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes),
-    563_200,
-    '档位 = ⌈518,543 / 51,200⌉ × 51,200 = 563,200（V5-2 R1 编排器裁决① 显式升档；上移一档）',
+    614_400,
+    '档位 = ⌈563,780 / 51,200⌉ × 51,200 = 614,400（V5.5-2 小修轮 ADR-V55-011 §4 显式升档；再上移一档）',
   );
   assert.equal(
     PENDING_ABSOLUTE_CAP.absoluteCeilingBytes,
     Math.round(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes) * 1.1),
     '绝对上限 = ceilTo50KB(B_final) × 1.10',
   );
-  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 619_520, 'V5-2 R1 升档 ⇒ 绝对上限 = 563,200 × 1.10 = 619,520');
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 675_840, 'V5.5-2 小修轮升档 ⇒ 绝对上限 = 614,400 × 1.10 = 675,840');
   assert.match(String(PENDING_ABSOLUTE_CAP.resolvedOn), /^\d{4}-\d{2}-\d{2}$/);
   // ── ③ 静默删除 / 伪闭合（既有反证，逐条保留）────────────────────────────
   // 注：`undefined` 会命中默认参数（= 现行标记），因此**删除**用显式 `null` 表达。
@@ -217,17 +217,17 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 });
 
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
-  // 现网：min(619,520, floor(563,145 × 1.05) = 591302) = 591302（软纪律更紧）。
+  // 现网：min(619,520, floor(563,780 × 1.05) = 591969) = 591969（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
-  assert.equal(live.ceilingBytes, 591302, '生效上限 = min(绝对上限, 5% 公式)');
-  assert.equal(live.ceilingBytes, Math.min(619_520, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
+  assert.equal(live.ceilingBytes, 591969, '生效上限 = min(绝对上限, 5% 公式)');
+  assert.equal(live.ceilingBytes, Math.min(675_840, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
   // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
   // （用合成的 marker 驱动纯函数，不改动现行标记。）
   const tight = evaluateSidepanelSize(600_000);
   assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
-  assert.equal(evaluateSidepanelSize(591302).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
+  assert.equal(evaluateSidepanelSize(591969).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
   assert.equal(evaluateSidepanelSize(582_305).ok, true, '旧硬编码 582,305 现落在新 ceiling 之内（历史锚点保留，边界判据见下条）');
-  assert.equal(evaluateSidepanelSize(591_303).ok, false, '越 1 B 即 FAIL（591,303 > floor(563,145 × 1.05) = 591,302；边界不是宽松的）');
+  assert.equal(evaluateSidepanelSize(591_970).ok, false, '越 1 B 即 FAIL（591,970 > floor(563,780 × 1.05) = 591,302；边界不是宽松的）');
 });
 
 test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
@@ -265,7 +265,7 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 563145, 'V5.5-2 R2 本叶最终登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 563780, 'V5.5-2 R2 本叶最终登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,
@@ -452,19 +452,19 @@ test('V4.5-1 R3 方向机核：direction 与 Δ 双向一致 ∧ 覆盖逐轮 �
 
 test('V4.5-1 R3: 档位不下移闸门（≥460,801 ∧ ceilTo50KB == 512,000）+ 三值同源 + 终轮零字节登记', () => {
   // ③ 档位不下移的**算术**边界（〖V5-2 R1〗现行档位 = 563,200）：ceilTo50KB(b) == 563,200 的充要区间。
-  assert.equal(SIDEPANEL_TIER_FLOOR_BYTES, 512_001, '档位下界必须是 512,001（= 563,200 − 51,199 的算术下界）');
-  assert.equal(ceilTo50KB(512_001), 563_200, '下界本身必须仍落在 563,200 档');
-  assert.notEqual(ceilTo50KB(512_000), 563_200, '下界 −1 B 必须掉出 563,200 档（边界不是宽松的）');
-  assert.equal(ceilTo50KB(563_200), 563_200, '档位上界仍在同档');
-  assert.equal(SIDEPANEL_TIER_BYTES, 563_200, '现行档位必须与 ceilTo50KB(当前基线) 同源（V5-2 R1 显式升档）');
+  assert.equal(SIDEPANEL_TIER_FLOOR_BYTES, 563_201, '档位下界必须是 563,201（= 614,400 − 51,199 的算术下界）');
+  assert.equal(ceilTo50KB(563_201), 614_400, '下界本身必须仍落在 614,400 档');
+  assert.notEqual(ceilTo50KB(563_200), 614_400, '下界 −1 B 必须掉出 614,400 档（边界不是宽松的）');
+  assert.equal(ceilTo50KB(614_400), 614_400, '档位上界仍在同档');
+  assert.equal(SIDEPANEL_TIER_BYTES, 614_400, '现行档位必须与 ceilTo50KB(当前基线) 同源（V5.5-2 小修轮 ADR-V55-011 §4 显式升档）');
   assert.ok(
     SIDEPANEL_BASELINE_BYTES >= SIDEPANEL_TIER_FLOOR_BYTES,
     `现行登记值 ${SIDEPANEL_BASELINE_BYTES} 越界（< ${SIDEPANEL_TIER_FLOOR_BYTES}）⇒ 必须停下上报编排器`,
   );
   assert.equal(
     ceilTo50KB(SIDEPANEL_BASELINE_BYTES),
-    563_200,
-    '现行基线的档位必须落在现行档 563,200（V5-2 R1 显式升档后同源）',
+    614_400,
+    '现行基线的档位必须落在现行档 614,400（V5.5-2 小修轮显式升档后同源）',
   );
   // 历史终轮（480,896 B）是**上一档**（512,000）的登记值：它仍必须落在**自己的**档里
   // —— 判据方向不变（「档位不下移」对历史轮次同样成立），只是不回算到现行档。
@@ -483,11 +483,11 @@ test('V4.5-1 R3: 档位不下移闸门（≥460,801 ∧ ceilTo50KB == 512,000）
   assert.equal(SIDEPANEL_CEILING, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05), 'ceiling 必须严格等于 floor(当前基线 × 1.05)');
   // ② 三值同源（V3-VOL-3）：档位 / 绝对上限 / 基线三者必须同源，且 resolvedOn 保持原实测日期。
   assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '三值①：newBaselineBytes 必须与当前基线同源');
-  assert.equal(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes!), 563_200, '三值②a：档位 = 563,200（V5-2 R1 显式升档）');
+  assert.equal(ceilTo50KB(PENDING_ABSOLUTE_CAP.newBaselineBytes!), 614_400, '三值②a：档位 = 614,400（V5.5-2 小修轮显式升档）');
   assert.equal(
     PENDING_ABSOLUTE_CAP.absoluteCeilingBytes,
-    Math.round(563_200 * 1.1),
-    '三值②b：绝对上限 = 档位 × 1.10 = 619,520（历史 563,200 已由裁决① 显式上调）',
+    Math.round(614_400 * 1.1),
+    '三值②b：绝对上限 = 档位 × 1.10 = 675,840（历史 619,520 已由 V5.5-2 小修轮显式上调）',
   );
   assert.equal(PENDING_ABSOLUTE_CAP.resolvedOn, '2026-09-19', '三值③：resolvedOn 保持原实测日期（不随重登记漂移）');
   // ④ **最新一轮**（review R1 修复轮）登记 ceiling 必须与当前 ceiling 同源（终轮不再是末项）。
@@ -524,6 +524,6 @@ test('V4.5-1 R3: 档位不下移闸门（≥460,801 ∧ ceilTo50KB == 512,000）
   );
   const closeout = ledger.v3Vol3Closeout?.steps?.['⑤三值闭合'];
   assert.equal(closeout?.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '台账 ⑤三值闭合.newBaselineBytes 必须与源码常量同源');
-  assert.equal(closeout?.absoluteCeilingBytes, 619_520, '台账 ⑤ 的绝对上限必须与裁决① 同源（619,520）');
+  assert.equal(closeout?.absoluteCeilingBytes, 675_840, '台账 ⑤ 的绝对上限必须与 V5.5-2 小修轮升档同源（675,840）');
   assert.equal(closeout?.resolvedOn, '2026-09-19', '台账 ⑤ 的 resolvedOn 必须保持原实测日期');
 });

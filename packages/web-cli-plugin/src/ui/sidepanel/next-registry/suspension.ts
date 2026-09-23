@@ -12,8 +12,10 @@
  *
  * 本模块只加**策略**，不加**载体**：
  *   · `MAX_SUSPENSIONS = 1` —— 有界可判（同 MAX_OPEN_ASKS 的诚实有界口径）。新来者
- *     **不叠加**：已有一条**不同**意图时返回 `over-capacity`，由调用方固化「原任务已被
- *     新的意图取代」事实（留痕，不静默丢）；同一意图重复 ⇒ `deduped`（幂等，NFR-SELF-010）。
+ *     **不叠加**：已有一条**不同**意图时返回 `over-capacity`，**由调用方留痕**（固化一行
+ *     「原任务优先保留、本条新意图未叠加」的事实行，**不静默丢**）；同一意图重复 ⇒ `deduped`
+ *     （幂等，NFR-SELF-010）。口径订正（review R1 I-02）：旧任务**并未**被新意图取代 ——
+ *     保留的是**最早**的那条意图，因此注释与实现同口径（不伪称「已被取代」）。
  *   · **有效期重校验** —— 续接**先校验**再交付：站点已变 ∨ 会话已切换 ∨ 引用已失效
  *     ⇒ `invalidated`（**不制造假成功**），且**不复用**旧输入。
  *   · **空悬置非死端** —— `empty` 是一个显式读数，调用方仍产出可达 next（EC-SELF-012）。
@@ -72,7 +74,8 @@ export function pendingSuspension(): Suspension | undefined {
 /**
  * 登记一条「等待配置」悬置任务 —— **本模块是 `registerSuspension` 在配置语境下的唯一
  * 调用点**。空意图**不占位**（不制造假悬置）；同因 ⇒ `deduped`；已有不同意图 ⇒
- * `over-capacity`（**不叠加**，`MAX_SUSPENSIONS = 1` 因此是可判事实）。
+ * `over-capacity`（**不叠加**，`MAX_SUSPENSIONS = 1` 因此是可判事实）——该返回值是**契约**：
+ * 调用方必须**消费**它并留痕（review R1 I-02：不得静默丢弃）。
  */
 export function registerConfigSuspension(instruction: string, ctx: SuspensionContext): RegisterOutcome {
   const trimmed = instruction.trim();
