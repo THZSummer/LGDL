@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-2-deterministic-onboarding",
   "version": "v5.5.0",
   "name": "V5.5-2 主题① 确定性系统流——runChat 前置配置判据（主动式）+ llm.unconfigured 触发语义升级（被观测 → 被识别，双源并存）+ 多步确定性引导流（步骤单源 / 零 LLM 调用）+ 配置完成 → 自动续接悬置任务（S2 范式复用；悬置任务单源 + 失效重校验）+ 首装 / 已装未配两场景 + 取消非死端 + 不跳走（流内闭环）+ 掩码卡复用（法八不退化）",
-  "phase": "builded",
-  "status": "tracked",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -69,7 +69,11 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/TREE.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/tasks.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/build.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/build.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-2-deterministic-onboarding/validate-report.md"
   ],
   "coversIssues": [
     "Q-SELF-003",
@@ -121,7 +125,7 @@
     "本叶体积五要素（本叶增量）+ 预算前移评估",
     "保护段 journey 43054..58287 / binding 107780..115930 优先保段"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。次叶 / P0 / 依赖 v55-1。权威条文见父 ../spec.md（§5.5 ONBOARD / §5.9 X-SELF-3 / §5.12 S0 分支 B / §5.10 / §5.11）。下游 = specs-tree-v55-3-ai-driven-orchestration（依赖本叶的配置判据 = 主题①② 唯一分流依据）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-2-deterministic-onboarding/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（16 任务 / 5 波）。本阶段只做 tasks，零代码改动。\n\nbuild 阶段完成（2026-09-23，sddu-build，R1 = W1~W4 = TASK-V55-201~212）：产出本叶 build.md v1.0；12/16 任务 completed；新门禁 onboarding-deterministic（18 用例）；npm test 1246 → 1268/0；law8 36/0、stream 76/0；体积中间登记 557,883 → 562,273 B（+4,390，未越档位，余 927 B）；content.js / pick-layer.js 逐字节不变；W5（TASK-V55-213~216）留 R2（含 S0 分支 B 必判项 + 体积收口）。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。次叶 / P0 / 依赖 v55-1。权威条文见父 ../spec.md（§5.5 ONBOARD / §5.9 X-SELF-3 / §5.12 S0 分支 B / §5.10 / §5.11）。下游 = specs-tree-v55-3-ai-driven-orchestration（依赖本叶的配置判据 = 主题①② 唯一分流依据）。\n\nplan 阶段完成（2026-09-22，sddu-plan）：产出 specs-tree-v55-2-deterministic-onboarding/plan.md v1.0；跨切契约见父 .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/plan.md + ADR-V55-001~012。本叶只做 plan，零代码改动。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出本叶 tasks.md + tasks.json（16 任务 / 5 波）。本阶段只做 tasks，零代码改动。\n\nbuild 阶段完成（2026-09-23，sddu-build，R1 = W1~W4 = TASK-V55-201~212）：产出本叶 build.md v1.0；12/16 任务 completed；新门禁 onboarding-deterministic（18 用例）；npm test 1246 → 1268/0；law8 36/0、stream 76/0；体积中间登记 557,883 → 562,273 B（+4,390，未越档位，余 927 B）；content.js / pick-layer.js 逐字节不变；W5（TASK-V55-213~216）留 R2（含 S0 分支 B 必判项 + 体积收口）。\n\nbuild 阶段完成（2026-09-23，sddu-build，R2 = W5 = TASK-V55-213~216）：16/16 任务全部完成；两场景单源 + 取消同因去重 + **S0 分支 B 必判项**（node S0N-7/8 + Chromium S0C-7，双面）；修复 R1 运行期断链（掩码参数 ask resolver 归属）；npm test 1268 → 1277/0；s0-self-driven 24 → 42/0；体积终登记 563,145 B（未越档 563,200，距 55 B）。\n\nbuild 小修轮完成（2026-09-23，sddu-build，4ca1bf6）：review R1 的 I-01~04 全处置 —— I-02 超容留痕（over-capacity 返回值被消费 + 文案与实现同口径「原任务优先保留」）/ I-03 失败可重试（recordsDeclinedCause：failed 不并入同因去重）/ I-04 冷启动双源独立（llmBlockedFactApplies：SW 裁定投影 ∨ 被动快照）/ I-01 读数订正（onboarding 30→23、s0-chain 10→11）；新增 OD-17/18/19（含反证）；npm test 1277 → **1283/0**、test:onboarding 23 → 29/0；体积 563,145 → **563,780 B**（+635）⇒ **越档位 ⇒ ADR-V55-011 §4 显式升档**（档位 563,200 → 614,400、绝对上限 619,520 → 675,840，authorConfirmation 保持 pending-author-line）；三冻结面逐字节不变。\n\nreview 阶段完成（2026-09-23，sddu-review，b5be4ae；**补记**）：产出 review.md + review-report.md v1.0（R1：40 Cx 逐项 / **0 BLOCK** / 4 I / 6 O；用户点名 5 组动手复核——S0 双面亲跑 node 11/0 + Chromium 42/0、运行期断点注入回退 R2 resolver 归属 ⇒ 38/4 ⇒ 还原 42/0、三冻结面 sha、计数与台账对账；结论 ✅ 通过）。4 个 I 已由小修轮 4ca1bf6 闭环。\n\nvalidate 阶段完成（2026-09-23，sddu-validate）：产出 validate.md（V1~V15 场景矩阵，对照 spec §7 的 10 条父 AC 锚点 + 23 FR / 10 NFR / 7 EC 逐条映射，代码类 ⇒ 全五维度）+ validate-report.md v1.0（结论 **✅ 通过 / 0 阻塞**）。亲跑复刻（不采信 build/review 既有读数）：① **S0 分支 B 端到端独立复刻** —— node 11/0（S0N-7/8）+ Chromium 42/0（S0C-7 真产品路径：未配置 ⇒ detect 系统行 + 悬置 ⇒ op.llm-config chip ⇒ 三段 params（secret=password 掩码卡）⇒ 成功回执 ⇒ **自动续接** ⇒ 留痕逐字为原话）+ 自写脚本从真源派生 reading 全绿（4 类反证：删自动续接 / 顺序错 / 无掩码 / 不逐字）；② **小修轮 I-02/I-03/I-04 行为级复刻** —— over-capacity 真触发（pending=最早意图）+ 留痕文案「原任务优先保留」、failed 不并入同因去重（保持可重试）、冷启动 applies(T,F)=true ∧ (F,F)=false；③ **两场景 + 取消** —— first-install / installed-unconfigured(via:'risk'，不依赖 firstRun) / configured⇒none、同因压制 + 新因放行 + force 可达 next；④ **门禁全量** npm test **1283/0**（基线 1283）+ 全部 node/Chromium 子门禁 0 fail（仅 test:binding 环境性 flake，binding.mjs 不在变更面，保护段由 supersession 36/0 兜底）；⑤ **2 组真源注入抽验** —— 真删自动续接 ⇒ s0-chain 9/2（S0N-7「删自动续接 ⇒ FAIL」）+ onboarding 28/1、failed 并入去重 ⇒ onboarding 27/2（OD-18 ×2），均 git checkout 还原、sha 逐字节一致、复绿；⑥ **红线/体积终核** —— content 177,076/`52a82620…` · pick-layer 34,358/`77796bab…` · sidepanel **563,780** · KIND_SET 40（无 llm-unconfigured）· law8 36/0 · 保段 journey 171 PASS · 五要素 **563,780 / 614,400 / 675,840 / 591,969 / pending-author-line**（未伪称）；漂移 0（spec 未被 build 期改动、23/23 FR 有实现、红线路径零命中）。受限登记 L-01~L-03（binding 环境性 flake / 人工面 ⏳ / review O-01·O-02·O-05·O-06 观察项）。**终端状态 = validated / completed（7.validate）**。",
   "phaseHistory": [
     {
       "phase": "planned",
@@ -146,6 +150,24 @@
       "agent": "sddu-build",
       "at": "2026-09-23",
       "artifact": "specs-tree-v55-2-deterministic-onboarding/build.md v1.0（R2 = W5 = TASK-V55-213~216 收口：两场景门禁 / S0 分支 B 必判项 / 取消非死端 / 体积收口 + X-SELF-3 落账）"
+    },
+    {
+      "phase": "builded",
+      "agent": "sddu-build",
+      "at": "2026-09-23",
+      "artifact": "specs-tree-v55-2-deterministic-onboarding/build.md v1.2（小修轮 4ca1bf6：review R1 的 I-01~04 全处置——超容留痕 / 失败可重试 / 冷启动双源独立 / 读数订正；npm test 1283/0；体积越档 ⇒ ADR-V55-011 §4 显式升档 614,400 / 675,840）"
+    },
+    {
+      "phase": "reviewed",
+      "agent": "sddu-review",
+      "at": "2026-09-23",
+      "artifact": "review.md + review-report.md v1.0（R1：40 Cx / 0 BLOCK / 4 I / 6 O；S0 双面 + 运行期断点注入 + 冻结面 sha 亲跑复核；结论 ✅ 通过）"
+    },
+    {
+      "phase": "validated",
+      "agent": "sddu-validate",
+      "at": "2026-09-23",
+      "artifact": "validate.md（V1~V15 场景矩阵 + 10 AC 锚点映射）+ validate-report.md v1.0（V1~V15 全绿；S0 分支 B 独立复刻 node 11/0 + Chromium 42/0；小修轮 I-02/I-03/I-04 行为级复刻；npm test 1283/0；2 组真源注入抽验 9/2 · 27/2 还原复绿；红线/体积终核 563,780/614,400/675,840/591,969/pending-author-line；结论 ✅ 通过 / 0 阻塞）"
     }
   ]
 }
