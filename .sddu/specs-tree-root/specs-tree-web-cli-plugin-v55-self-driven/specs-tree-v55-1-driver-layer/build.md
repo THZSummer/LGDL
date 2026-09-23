@@ -369,3 +369,87 @@
 |------|---------|------|--------|
 | v1.0 | R1 = W1+W2（12 任务 · SG-V55-01 可行 · 3 新门禁 · 体积中间登记 +4,967 B · npm test 1220/0） | 2026-09-23 | SDDU Build Agent |
 | v2.0 | R2 = W3+W4（13 任务 · SG-V55-02 可行 · 答案驱动化 + S0 双面 + 法七扩展 + `no-dead-end` 升级 · 体积收口 +8,152 B（超叶预算未越上界，如实登记）· npm test 1244/0 · 本叶 25/25 completed） | 2026-09-23 | SDDU Build Agent |
+
+---
+
+# 构建报告 v3.0（v55-1 **review R1 修复轮**，BLOCK-01/02 + I-01~03）
+
+> 输入：`review-report.md` v1.0（38 Cx；2 BLOCK / 3 I / 4 O）+ `review.md`（C1~C38 清单）。
+> 纪律：测试只增不减（≥1244）；门禁**串行** + 日志全量落盘 `/tmp/opencode/v4-gate-logs/v55-1-fix/`；禁 `git add -A`；每条修复都有**注入反证**。
+> 基线（修前实测）：`npm test` **1244/0** · `test:supersession` **36/0** · `test:gate-integrity` **16/0** · `test:dead-end` **49/0** · `test:s0-self-driven` **22/0** · `dist/sidepanel.js` **557,761 B** · 冻结面 `content.js` 177,076 B / sha `52a82620…`、`pick-layer.js` 34,358 B / sha `77796bab…`。
+
+## 18. 逐条处置（review R1 → 修复）
+
+| # | 审查项 | 处置 | 落点 |
+|---|---|---|---|
+| **BLOCK-01**（C13） | 后台 ask「取消」仍被记 `answered-bg` 并驱动 `'answered'`（FR-SELF-023 口径② / EC-SELF-005 的**唯一生产漏口**） | **修**：`submitAskFor` 的 `rid && !isRef` 分支在 `registerSuspension` **之前**加取消守卫 `if (isCanceled) { nextAfterSettle({ kind: 'settle', force: true }); return; }`（与 op 路 `:2641-2644` **同口径**：取消走稳态驱动集，仍有接管者 ⇒ 非死端；`bgAsk` 夹具闸门与 `dispatch({type:'ask-resolved'})` 逐字不变） | `src/ui/sidepanel/sidepanel.ts`（+7 行：守卫 4 行 + 可读理由注释 3 行） |
+| **BLOCK-01 门禁** | 「取消后台 ask 不得登记 `answered` / 不得触发 `answered` 时机」原来**没有任何门禁** | **修**：新增 `L7X-4` —— 判据读**真源切片**（`bgAskBranch` + `bracedBlockAt` 花括号配对），要求守卫**先于** `registerSuspension`、含 `return`、走 `nextAfterSettle({kind:'settle', force:true})`、守卫块内**零 `'answered'`**；三段注入反证（删守卫 / 守卫搬到登记之后 / 守卫内改记 answered） | `test/law7x-ext.test.ts`（`JUDGEMENTS[3]` = `L7X-4-bg-ask-cancel-guard` + `bgAskCancelGuardProblems` / `bgAskBranch` / `bracedBlockAt` + 1 用例） |
+| **BLOCK-02**（C26/C27/C28） | `docs/v4-supersession-ledger.json` 内 `X-SELF` 命中 **0**；v55-1 仅 2 条体积 `entries`、`modifiedRanges` **0** 条 | **修**：按父 ADR-V55-012 §1 逐条落账 —— `X-SELF-2`（类型外移 re-export + `providers.ts` 注释级、`when` 零改）、`X-SELF-4`（`no-dead-end.mjs` 段外逐行 + `stream-model.ts` 零改对照 + `terminals.ts` 新模块）、`X-SELF-5`（`applyRefAction` 函数体 + `ref-store.ts` 消费面 + 调用点口径）、`X-SELF-6`（`submitDescribe` 函数体）、`X-SELF-1`（**无条目**但在 `xSelfLedger` 行内写明「**未发生取代**：`requestTurn(` 定义恰 1 / 调用点仍恰 2 / diff = 0」）；并新增 5 条 `modifiedRanges`（`V551-FIX-MR-volume` / `V551-MR-X-SELF-2/4/5/6`）、4 条体积条目（`V551-FIX-SVOL-1~4`）、七行 `xSelfLedger`（`X-SELF-3` / `X-SELF-7` = handed-over 到 v55-2 / v55-3，不得在本叶伪称已取代） | `docs/v4-supersession-ledger.json` |
+| **I-01**（C14/C38） | `driver-quadruple.test.ts:273` 恒真断言 `… \|\| true`（违反 FR-SELF-111「反证不空转」） | **修**：删除恒真断言，改为**真实断言**「时机**闭集**多一行 ⇒ 必判悬空（`timingMappingProblems(DECLS, [...DRIVER_TIMINGS, 'ghost-timing'])` 非空）」；用例名同步为「时机闭集多一行」，并写明「驱动者声明表多一行」由 DQ-1 的 `bidirectionalProblems` 承担（不再用空转断言冒充覆盖） | `test/driver-quadruple.test.ts` |
+| **I-02**（C15/C12） | ADR-V55-004 §1 / plan §2/§6 / TASK-V55-115 的「`applyRefAction` 调用点**恰 1**」与源码不符（实测文本调用点 **2**：生产 1 + 既有 testing seam 1），且**无任何门禁覆盖** | **修（低成本路径①）+ 静态门禁**：口径显式化为「**生产调用点恰 1** + 既有 testing seam 1（白名单逐字锚点）」，新增 `applyRefCallSites` / `applyRefCallSiteProblems` 与用例（真源逐行归类 + 白名单锚点可定位 + 三段注入反证）；ADR/plan 文本**保持冻结不改**，口径订正登记在本轮 build.md 与台账条目 `X-SELF-5` 的 reason 内 | `test/l1-ref-validity.test.ts`（+1 用例 + 判据 + 白名单） |
+| **I-03**（C33） | `s0-self-driven.mjs` 的 `S0C-1` 只在 `JUDGEMENTS` 里声明、**无 check 引用**；Chromium 面只把「10」当常量（样本改名/换序 ⇒ 无感） | **修**：新增 `PANEL_BEATS`（本面**实际驱动**的十拍）+ `beatCheck()` 唯一入口（未声明 id ⇒ loud 抛错）；① 开头机核 `PANEL_BEATS[i].id === S0_CHAIN[i].id` 逐序；② 收尾机核每拍 ≥1 真面板读数（19 处断言之父改为 `beatCheck`）；`S0C-1` 成为**两个真 check** | `test/ui/s0-self-driven.mjs` |
+
+## 19. 注入反证（每条都「注入 ⇒ 实跑 FAIL ⇒ **逐字节还原（sha256 复核）** ⇒ PASS」，日志全量）
+
+| 反证 | 注入形态 | 实跑结果 | 还原 | 日志 |
+|---|---|---|---|---|
+| **BLOCK-01（真源注入）** | **真删** `src/ui/sidepanel/sidepanel.ts` 的取消守卫块（4 行，不是 in-memory 变换） | `node --test dist-test/test/law7x-ext.test.js` ⇒ **1 failed**（`L7X-4`，诊断「取消守卫缺失（isCanceled ⇒ 不记「已答」，不得驱动 answered）」） | sha256 `51df03bb…a21d41` **前后相同** ⇒ 复跑 **5/5 PASS** | `30-inject-block01.log` |
+| **I-01** | **真删** `driver-quadruple.test.ts` 内 `timingMappingProblems` 的**闭集校验**（注释掉的判据） | 重编译后 ⇒ **13 passed / 1 failed**（`DQ-4 反证…`，诊断「时机闭集多一行必须红（不得是恒真断言）」） | sha256 `0febc986…f27a4657` **前后相同** ⇒ 复跑 **14/14 PASS** | `31-inject-i01-i02.log` |
+| **I-02** | 在 `submitAskFor` 之外**真加**第 2 处**生产**调用 `applyRefAction(refId, action)` | ⇒ **19 passed / 1 failed**（诊断「生产调用点必须恰 1（实测 2）——「恰 1」是口径，不是口号」） | sha256 `51df03bb…a21d41` **前后相同** ⇒ 复跑 **20/20 PASS** | `31-inject-i01-i02.log` |
+| **I-03** | **真改**共享样本 `test/ui/fixtures/s0-chain.mjs` 首拍 `bind` → `bind-x` | `npm run test:s0-self-driven` ⇒ **23 passed / 1 failed**（`✖ S0C-1 十环节逐序与共享样本一致`，诊断逐字打出 `panel` vs `sample` 两个 id 序列） | sha256 `d8c3839b…ea2f9d` **前后相同** ⇒ 复跑 **24/24 PASS** | `32-inject-i03.log` |
+| **BLOCK-01（in-gate 三段）** | 门禁自带：① 删守卫 ② 守卫搬到 `registerSuspension` 之后 ③ 守卫内改记 `'answered'` | 三段各命中对应 problem（in-memory，作为常驻守护） | 就地还原 ⇒ `assert.deepEqual(…, [])` | `40-final-npm-test.log` |
+| **既有反证保留** | `no-dead-end` 3 类 / `driver-quadruple` DQ-1~6 / `law7x-ext` L7X-2/L7X-3 / `l1-ref-validity` `applyRefDriveProblems` 两段 | 逐条仍绿（未删任一旧反证） | — | `21-*` / `40-*` |
+
+## 20. 门禁对账（修复轮 vs 基线；**串行**逐门禁，日志 `/tmp/opencode/v4-gate-logs/v55-1-fix/`）
+
+| 门禁 | 基线（修前） | 修复轮 | 判定 |
+|---|---|---|---|
+| `npm test`（node） | 1244/0 | **1246/0** | ✅ 只增（+2：`L7X-4` + I-02 调用点用例） |
+| `test:supersession` | 36/0 | **36/0** | ✅ 不减（`counts` 同源层新增 2 项**真核验**：nodeTestRuntime 1246 / supersession 36） |
+| `test:gate-integrity` | 16/0 | **16/0** | ✅ 不增不减（仍 5 枚 v55-1 受审 node 门禁；`V551_NODE_GATE_FILES` 未改） |
+| `test:dead-end`（Chromium） | 49/0 | **49/0** | ✅ **不减**（判据升级保留） |
+| `test:s0-self-driven`（Chromium） | 22/0 | **24/0** | ✅ 只增（+2 = `S0C-1` 机序 + 逐拍覆盖） |
+| `test:law8` | 33/0 | **33/0** | ✅ |
+| `test:ask-auth` | 78/0 | **78/0** | ✅ |
+| `test:recommendation` | 72/0 | **72/0** | ✅ |
+| `test:l0` / `test:l1` / `test:l2` | 248 / 120 / 74 | **248 / 120 / 74** | ✅ |
+| `test:page-input` / `test:stream` | 118 / 73 | **118 / 73** | ✅ |
+| `test:density` | 242/0 | **242/0** | ✅（阈值逐字） |
+| `test:journey`（保护段） | 171 | **171 PASS** | ✅ **保段** |
+| `test:binding`（保护段） | 192 | **192 PASS** | ✅ **保段** |
+| `test:insight` / `test:hardening` | 118 / 24 | **118 / 24** | ✅ |
+| `test:auth-chip` / `e2e` | 37 / PASS | **37 / PASS** | ✅ |
+| `test:l1-reverse` / `test:l2-reverse` | 9 / 10 | **9 / 10** | ✅（反证全套「注入 → FAIL → 逐字节还原 → PASS」） |
+| `test:zero-injection` / `test:size-ruling-vol3` | 28 / 12 | **28 / 12** | ✅ |
+| `test:design-contract` / `test:ref-pick-wiring` | 19 / 11 | **19 / 11** | ✅ |
+
+> 真实产物 `dist/build-meta.json`：`outputs['dist/sidepanel.js'].bytes` = **557,883** = `SIDEPANEL_BASELINE_BYTES`（登记值 == 实测产物，`size-growth-evidence` 逐值机核）；`inputs` 仍 **88** 个（**零新增模块**）。
+
+## 21. 体积五要素（**本叶 review 修复轮**重登记：`SIDEPANEL_RE_REGISTRATIONS['v55-1-fix']`）
+
+| 要素 | 值 |
+|---|---|
+| ① 前值 → 新值 | **557,761 → 557,883 B（+122 B / +0.02%）** |
+| ② ceiling | 585,649 → **585,777**（`floor(557,883 × 1.05)`；容差 **5%** 未动、cap 仍 `record-only`） |
+| ③ measuredOn / measuredBy | 2026-09-23 / `SDDU V5.5-1 review R1 修复轮（BLOCK-01/02 + I-01~03）`；`buildCommand` = `npm run build --workspace @lgdl/web-cli-plugin` |
+| ④ 逐模块归因 | `SIDEPANEL_GROWTH_BREAKDOWN.v551FixRows`：`sidepanel.ts` 99,566 → **99,688（+122）**；**Σ +122 + glue 0 == +122**（真实 metafile `bytesInOutput`） |
+| ⑤ 披露链条 | `SIDEPANEL_BASELINE_BYTES_TIMELINE` 追加 557,883（前值全保留）；`deltaBytes` 262,536 → **262,658**；`closeoutDeltaBytes` 3,185 → **122**；`wiringBytes` 78,692 → **78,814**；`docs/v4-density-baseline.json#volume`（baseline / ceiling）同源前移；台账 `V551-FIX-SVOL-1~4` + `v3Vol3Closeout.⑤三值闭合.newBaselineBytes` 557,883（`test:size-ruling-vol3` / `test:supersession` 双机核） |
+| **档位 / 绝对上限** | `ceilTo50KB(557,883) = **563,200**`（**未跨档**）· 绝对上限 **619,520**（未变）⇒ **无跨档升档事件** |
+| **冻结面** | `dist/content.js` 177,076 B / sha `52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6` · `dist/pick-layer.js` 34,358 B / sha `77796babd9c93893542195424d160e0877d8acca4142f8faf2232e217fbd575e` —— **逐字节不变** |
+| **预算口径（诚实登记）** | 本叶合计 **+8,274 B**（R1 +4,967 / R2 +3,185 / 修复轮 +122）仍**超叶预算 7,000 B、未越上界 9,000 B**（未删判据 / 未放宽容差 / 未静默降档） |
+
+## 22. 遗留 / 登记（修复轮，如实，不静默）
+
+1. **I-02 的规范文本未改（冻结面）**：ADR-V55-004 §1 / leaf plan §2/§6 / tasks.md TASK-V55-115 写「调用点恰 1」，与源码（生产 1 + seam 1）不符。修复轮**不改冻结的 ADR/plan/tasks**，而是把口径显式化为「生产恰 1 + seam 1（白名单）」并**加机核**（`applyRefCallSiteProblems`）+ 在本节与台账 `X-SELF-5` reason 内登记该订正。下游叶若引用该口径，请以**门禁口径**为准。
+2. **O-01~O-04（review 的观察项）未在本轮处置**：`s0-chain.mjs#judgeBeat` 的 `driverAttribution` 常量（O-01）· `PROACTIVE_MOMENTS` 伞名 vs ADR 三型（O-02）· `SettleSource.terminal?` 死字段（O-03）· `ref-action.driverClass:'ai-driven'` 的 v55-3 用途（O-04）—— 均为低severity 且**未阻塞**，按 review 建议留后续叶/收口。
+3. **人工面**：S0 的主动接手体感 / 打断感 / 引导文案可读性 = ⏳ 未执行（headless 不可合成，**不冒充 PASS**）。
+4. **`test:supersession` 的 `counts` 同源层**：本轮把 `nodeTestRuntime` / `supersession` 的 `source.log` 指向 `/tmp/opencode/v4-gate-logs/v55-1-fix/registry/`（日志已落盘 ⇒ 由 skip 变为**真核验**）；若该目录被清理则回到显式 skip（设计行为，不静默通过）。
+5. **BLOCK-02 的叶段归属**：v55-1 的删除面（`test/size-*.ts` 的旧数值行）按 R1/R2 的既有约定登记在 **`r4-selector-fix`（leafBase `953a2ed`）叶段** —— 因为 v55-1 的开工点即 `953a2ed`（与 r4 段同 leafBase，新增同 base 的叶段会被 schema 判据拒），故不新建叶段；本轮的 `entries` / `modifiedRanges` 均带 `leaf: specs-tree-v55-1-driver-layer` 显式归属。
+
+## 修订记录（v3.0）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0 | R1 = W1+W2（12 任务 · SG-V55-01 可行 · 3 新门禁 · 体积中间登记 +4,967 B · npm test 1220/0） | 2026-09-23 | SDDU Build Agent |
+| v2.0 | R2 = W3+W4（13 任务 · SG-V55-02 可行 · 答案驱动化 + S0 双面 + 法七扩展 + `no-dead-end` 升级 · 体积收口 +8,152 B（超叶预算未越上界，如实登记）· npm test 1244/0 · 本叶 25/25 completed） | 2026-09-23 | SDDU Build Agent |
+| v3.0 | **review R1 修复轮**（BLOCK-01 后台 ask 取消守卫 + 新门禁 `L7X-4` · BLOCK-02 X-SELF-2/4/5/6 + X-SELF-1「未发生取代」台账落账 · I-01 恒真断言修复 · I-02 调用点口径显式化 + 静态门禁 · I-03 S0 十环节机序；4 组**真源注入**反证（sha 逐字节还原）· npm test **1246/0** · supersession 36/0 · dead-end **49/0 不减** · s0-self-driven **24/0** · 体积 **557,883 B**（+122）· 两冻结面逐字节不变） | 2026-09-23 | SDDU Build Agent |

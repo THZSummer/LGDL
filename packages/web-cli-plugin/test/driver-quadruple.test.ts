@@ -265,12 +265,21 @@ test('DQ-4 时机 ↔ 驱动者映射：每时机 ≥1 驱动者；answered 恰�
   assert.equal(driver?.driverClass, 'ai-driven', `${JUDGEMENTS[3].expectFailPattern}：ref-action 必须是 ai-driven`);
 });
 
-test('DQ-4 反证：删掉 answered 驱动者 / 悬空 timing / 映射多一行 ⇒ 各 FAIL → 还原 PASS', () => {
+test('DQ-4 反证：删掉 answered 驱动者 / 悬空 timing / 时机闭集多一行 ⇒ 各 FAIL → 还原 PASS', () => {
   const noAnswered = DECLS.map((d) => (d.driverId === 'ref-action' ? { ...d, timings: d.timings.filter((t) => t !== 'answered') } : d));
   assert.ok(timingMappingProblems(noAnswered).some((p) => p.includes('answered')), `${JUDGEMENTS[3].expectFailPattern}：删 answered 驱动者必须红`);
   const dangling = DECLS.map((d) => (d.driverId === 'onboarding' ? { ...d, timings: [...d.timings, 'ghost'] } : d));
   assert.ok(timingMappingProblems(dangling).some((p) => p.includes('悬空')), `${JUDGEMENTS[3].expectFailPattern}：悬空 timing 必须红`);
-  assert.ok(timingMappingProblems([...DECLS, { driverId: 'ghost', timings: ['answered'], moments: ['turn-end'], driverClass: 'deterministic', evidence: ['risk'] }]).length === 0 || true, '多一行由 DQ-1 承担（映射表本身只看闭集）');
+  /* I-01（v55-1 review R1）：本行原为 `… === 0 || true` 的**恒真断言**（永远通过，违反 FR-SELF-111
+     「反证不空转」）。改为真实断言：本判据只看**时机闭集**，故「多一行」的可红形态 = 闭集多一项
+     ⇒ 必判「悬空」。（「驱动者声明表多一行」不由本判据承担 —— 它由 DQ-1 的 `bidirectionalProblems`
+     断言 FAIL，见上文「多一行必须红」；这里不再用一条空转断言冒充覆盖。） */
+  const extraTiming = timingMappingProblems(DECLS, [...DRIVER_TIMINGS, 'ghost-timing']);
+  assert.ok(
+    extraTiming.some((p) => p.includes('悬空')),
+    `${JUDGEMENTS[3].expectFailPattern}：时机闭集多一行必须红（不得是恒真断言）`,
+  );
+  assert.ok(extraTiming.length > 0, '时机闭集多一行必须产生 ≥1 条 problem（判据非恒真）');
   assert.deepEqual(timingMappingProblems(DECLS), []);
 });
 

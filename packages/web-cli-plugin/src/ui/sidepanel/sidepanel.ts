@@ -2652,6 +2652,14 @@ function submitAskFor(requestId: string | undefined, value: string | undefined, 
     void send<{ late?: boolean }>(makeMessage('ask-user-response', isCanceled ? { requestId: rid, canceled: true } : { requestId: rid, value: trimmed, canceled: false })).then(
       (res) => {
         if (!bgAsk) return;
+        /* V5.5-1 review R1 **BLOCK-01**（FR-SELF-023 口径② / EC-SELF-005）：后台 ask 被**取消**
+           （`data-act="cancel"` 或空值）⇒ **不记「已答」终态、不驱动 `'answered'`** —— 与 op 路
+           （:2641-2644）**同口径**走稳态驱动集（仍有接管者，非死端）。少了这一守卫，本路径是全仓
+           唯一「取消被记成 answered-bg 并驱动 answered」的漏口（ref / op 两路均已守卫）。 */
+        if (isCanceled) {
+          nextAfterSettle({ kind: 'settle', force: true });
+          return;
+        }
         const late = res?.data?.late === true;
         if (late) dispatch({ type: 'system', kind: 'turn', text: LATE_ASK_TEXT });
         registerSuspension({

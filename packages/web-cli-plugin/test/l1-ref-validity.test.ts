@@ -484,6 +484,99 @@ export function applyRefDriveProblems(source: string): string[] {
 const PKG = new URL('../../', import.meta.url).pathname;
 const SIDEPANEL_SRC = readFileSync(join(PKG, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
 
+/* ── 〖I-02（v55-1 review R1）〗`applyRefAction` 调用点口径的显式化 + 机核 ─────────
+ *
+ * ADR-V55-004 §1 / leaf plan §2/§6 / TASK-V55-115 写的是「`applyRefAction` 调用点**恰 1**」，
+ * 与源码不符：实测**文本调用点 2 处** —— ① **生产** 1 处（`submitAskFor` 的引用回合分支
+ * `if (refId && !isCanceled && trimmed) applyRefAction(refId, trimmed);`）；② 既有 `testing`
+ * seam 1 处（`installV3TestHooks` 的 `act` 分支，注释自述 "calls the production entry point
+ * itself"）。该口径此前**无任何门禁覆盖**（`l1-ref-validity` 只判函数体顺序），因此「恰 1」
+ * 是不可复核的口号。本判据把口径显式化为「**生产调用点恰 1** + 既有 seam 1（白名单，逐字锚点）」
+ * 并机核：新增第 2 处**生产**调用 ⇒ 必红；seam 被删 ⇒ 必红（登记事实不得静默消失）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 调用点口径白名单（`production` / `testingSeam` 为**数量**，`anchors` 逐字可定位）。 */
+export const APPLY_REF_CALL_SITE_WHITELIST = Object.freeze({
+  production: 1,
+  testingSeam: 1,
+  anchors: Object.freeze([
+    'if (refId && !isCanceled && trimmed) applyRefAction(refId, trimmed);',
+    "return applyRefAction(String(args[0]), String(args[1] ?? 'ref-action'));",
+  ]),
+});
+
+export type ApplyRefCallSite = 'definition' | 'production' | 'testing-seam';
+
+/** 逐行切出 `applyRefAction(` 的调用点并归类（`function applyRefAction(` = 定义；`return applyRefAction(String(args[0])` = 既有 seam）。 */
+export function applyRefCallSites(source: string): Array<{ site: ApplyRefCallSite; line: number }> {
+  const out: Array<{ site: ApplyRefCallSite; line: number }> = [];
+  source.split('\n').forEach((line, idx) => {
+    for (let at = line.indexOf('applyRefAction('); at >= 0; at = line.indexOf('applyRefAction(', at + 1)) {
+      const before = line.slice(0, at);
+      const site: ApplyRefCallSite = /function\s+$/.test(before)
+        ? 'definition'
+        : /return applyRefAction\(String\(args\[0\]\)/.test(line)
+          ? 'testing-seam'
+          : 'production';
+      out.push({ site, line: idx + 1 });
+    }
+  });
+  return out;
+}
+
+/** I-02 判据：定义恰 1 ∧ 生产调用点恰 `whitelist.production` ∧ 既有 seam 恰 `whitelist.testingSeam` ∧ 白名单锚点逐字可定位。 */
+export function applyRefCallSiteProblems(
+  source: string,
+  whitelist: { production: number; testingSeam: number; anchors: readonly string[] } = APPLY_REF_CALL_SITE_WHITELIST,
+): string[] {
+  const problems: string[] = [];
+  const sites = applyRefCallSites(source);
+  const count = (s: ApplyRefCallSite): number => sites.filter((x) => x.site === s).length;
+  if (count('definition') !== 1) problems.push(`applyRefAction 定义必须恰 1（实测 ${count('definition')}）`);
+  if (count('production') !== whitelist.production) {
+    problems.push(`生产调用点必须恰 ${whitelist.production}（实测 ${count('production')}）——「恰 1」是口径，不是口号`);
+  }
+  if (count('testing-seam') !== whitelist.testingSeam) {
+    problems.push(`既有 testing seam 调用点必须恰 ${whitelist.testingSeam}（实测 ${count('testing-seam')}）—— 登记的 seam 不得静默消失`);
+  }
+  for (const anchor of whitelist.anchors) {
+    if (!source.includes(anchor)) problems.push(`白名单锚点定位不到（橡皮图章）：${anchor}`);
+  }
+  return problems;
+}
+
+test('V5.5-1 I-02 调用点口径：生产恰 1 + 既有 testing seam 1（白名单逐字） ∧ 第 3 处必红', () => {
+  assert.deepEqual(applyRefCallSiteProblems(SIDEPANEL_SRC), [], '真源调用点口径不满足');
+  assert.deepEqual(
+    applyRefCallSites(SIDEPANEL_SRC).map((s) => s.site),
+    ['testing-seam', 'definition', 'production'],
+    '调用点必须是「既有 seam 1 + 定义 1 + 生产 1」（顺序即源码序）',
+  );
+  // 反证①：再加一处**生产**调用 ⇒ 必红（口径可复核、可失败）。
+  const extra = SIDEPANEL_SRC.replace(
+    '  if (refId && !isCanceled && trimmed) applyRefAction(refId, trimmed);',
+    '  if (refId && !isCanceled && trimmed) applyRefAction(refId, trimmed);\n  if (refId) applyRefAction(refId, action);',
+  );
+  assert.notEqual(extra, SIDEPANEL_SRC);
+  assert.ok(
+    applyRefCallSiteProblems(extra).some((p) => /生产调用点必须恰 1/.test(p)),
+    '新增第二处生产调用 ⇒ 必红',
+  );
+  // 反证②：既有 seam 被删 ⇒ 必红（登记事实不得静默消失）。
+  const noSeam = SIDEPANEL_SRC.replace("return applyRefAction(String(args[0]), String(args[1] ?? 'ref-action'));", 'return String(args[0]);');
+  assert.notEqual(noSeam, SIDEPANEL_SRC);
+  assert.ok(
+    applyRefCallSiteProblems(noSeam).some((p) => /testing seam 调用点必须恰 1/.test(p)),
+    '既有 seam 被删 ⇒ 必红',
+  );
+  // 反证③：白名单锚点漂移 ⇒ 必红（白名单不是散文）。
+  assert.ok(
+    applyRefCallSiteProblems(noSeam).some((p) => /白名单锚点定位不到/.test(p)),
+    '锚点漂移 ⇒ 必红',
+  );
+  assert.deepEqual(applyRefCallSiteProblems(SIDEPANEL_SRC), [], '还原 ⇒ PASS（判据非恒真）');
+});
+
 test('V5.5-1 答案驱动化：`sends += 1` 递增**不足以**满足「答案不被丢弃」（计数 vs 输入）', () => {
   const store = createRefStore();
   const rec = store.create({ ...FACTS, selector: '#t', textDigest: 't', semanticPath: 'p' });
