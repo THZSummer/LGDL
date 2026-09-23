@@ -19,10 +19,11 @@ specs-tree-web-cli-plugin-v55-self-driven/
 ├── ADR-V55-010-concurrency-arbitration.md          # ADR-V55-010: 并发仲裁（有界队列 1 + 明确告知 + 草稿恢复）与 SW / panel 分工
 ├── ADR-V55-011-volume-budget-and-tier-crossing.md          # ADR-V55-011: 体积预算（三叶分列 + 15% 缓冲）+ 跨档位**显式升档**预案
 ├── ADR-V55-012-supersession-ledger-and-leafs.md          # ADR-V55-012: X-SELF-1~7 取代台账 + 门禁等价重锚 + **每叶验收门禁清单** + 保护段与波次
+├── closeout.md          # F-33 web-cli-plugin v5.5「self / ai-driven：让助手像助手」——全 Feature 总账（父收口）
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v55-self-driven
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」）
-├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
 ├── tasks.md          # 任务分解：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性任务总览）
 ├── specs-tree-v55-1-driver-layer/          # 本叶 = v5.5 的**首叶 / 底座叶**，交付「可以让『用户已表达意图』之后**有人接手**」
@@ -45,10 +46,11 @@ specs-tree-web-cli-plugin-v55-self-driven/
 | ADR-V55-010-concurrency-arbitration.md | ADR-V55-010: 并发仲裁（有界队列 1 + 明确告知 + 草稿恢复）与 SW / panel 分工 — 现状（R3 / C5 / X-SELF-7）：`chatBusy` 单飞（`service-worker.ts:879-885`）—— 并发第二条**被丢... | ✅ 存在 |
 | ADR-V55-011-volume-budget-and-tier-crossing.md | ADR-V55-011: 体积预算（三叶分列 + 15% 缓冲）+ 跨档位**显式升档**预案 — ⇒ **预算低估约 2 倍**，导致 v5-2 R1 **越档位**、必须由编排器裁决**显式升档**（512,000 → 563,200；绝对上限 → ... | ✅ 存在 |
 | ADR-V55-012-supersession-ledger-and-leafs.md | ADR-V55-012: X-SELF-1~7 取代台账 + 门禁等价重锚 + **每叶验收门禁清单** + 保护段与波次 — 本 Feature 触碰 7 条被门禁**逐字钉住**的既有红线（X-SELF-1~7），且新增 ≥6 个门禁。spec 纪律（FR-SELF-107 /... | ✅ 存在 |
+| closeout.md | F-33 web-cli-plugin v5.5「self / ai-driven：让助手像助手」——全 Feature 总账（父收口） — 1. **驱动者层（drive ownership）**：把「用户已表达意图」的每个时刻之后的**接管者**注册表化——驱动者 = `drivers.ts... | ✅ 存在 |
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v55-self-driven — web-cli-plugin v5.5「self / ai-driven：让助手像助手」问题挖掘报告 —— 把作者主题（**没有配置 LLM 时由系统代码... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性技术方案） — v5（F-32）已把「下一步**是什么**」做成管线强制保证（`BLOCKED_TERMINALS` 恰 5 + 死端守护门禁 + S2 十环节全链）；但... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」） — web-cli-plugin v5.5「self / ai-driven：让助手像助手」需求规范 —— 把作者主题（**没有配置 LLM 时由系统代码流程... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [tasked] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-web-cli-plugin-v55-self-driven（web-cli-plugin v5.5「self / ai-driven：让助手像助手」；父 Feature 统领性任务总览） — `npm test` 1181 · `law8` 25 · `dead-end` 39 · `auth-chip` 37 · `l0` 248 · `de... | ✅ 存在 |
 
@@ -56,8 +58,8 @@ specs-tree-web-cli-plugin-v55-self-driven/
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 任务分解 (4/7) |
-| Status | 🟢 tracked [tasked] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)

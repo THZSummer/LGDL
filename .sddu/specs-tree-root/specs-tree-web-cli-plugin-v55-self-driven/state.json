@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-self-driven",
   "version": "v5.5.0",
   "name": "web-cli-plugin v5.5「self / ai-driven：让助手像助手」—— 把「下一步由谁按」从用户侧转移到系统 / AI 侧：① 没有配置 LLM 时由系统代码流程（确定性、非 AI）驱动用户去配置 LLM；② 已配置 LLM 时让 AI 启动整个 chat/next（AI 驱动编排）；法七扩展（已答 ask / 已交描述入终态词汇）；驱动者层（drive ownership）统一设计",
-  "phase": "tasked",
-  "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -41,8 +41,8 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/",
       "name": "V5.5-3 主题② AI 驱动编排 + 治理收口（末叶 / 收口叶）",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 3,
       "dependsOn": [
@@ -182,9 +182,18 @@
     "featureIdOccupancy": "measured-zero (ROADMAP grep -c F-33 = 0; repo-wide 2 hits are prose only)",
     "versionSlot": "v0.11.0",
     "versionSlotOccupancy": "measured-zero (ROADMAP grep -c v0.11.0 = 0 => brand-new version slot)",
-    "registration": "deferred-to-closeout (this phase: ROADMAP zero diff)",
-    "f29Section": "untouched (F-29 A2A candidate unchanged)",
-    "namingSemantics": "v5.5 = v5（F-32）驱动者层的结构性收尾，作为 v0.11.0 主题登记（O-SELF-001 裁决读法①；本规范与收口须明示该语义）"
+    "registration": "done-on-closeout (2026-09-23 父收口：ROADMAP v1.30.0 登记 F-33)",
+    "f29Section": "untouched (F-29 A2A candidate unchanged；v1.30.0 登记后 F-29 区段前后字节相等，sha 核验)",
+    "namingSemantics": "v5.5 = v5（F-32）驱动者层的结构性收尾，作为 v0.11.0 主题登记（O-SELF-001 裁决读法①；本规范与收口须明示该语义）",
+    "roadmapDocVersion": "1.30.0（收口轮登记后；登记前实测 1.29.0）",
+    "touchPoints": [
+      "头部 v1.30.0 素材增补行（F-33 · v5.5「self / ai-driven：让助手像助手」· 目录指向 · 关键数字 · 过程价值）",
+      "§二 新增 v0.11.0 段（v1.30.0 追加注 + 「v0.11.0 同批 Feature（F-33）」详段 + Feature 表行）",
+      "版本总览表追加 v0.11.0（F-33）行（既有 v0.10.0「AI 增强与生态」行与 F-32 行逐字保留）",
+      "文档版本 1.29.0 → 1.30.0 + 修订记录行 v1.30.0",
+      "F-29 区段一字未动（## 未来方向候选（未立项）→ ## 修订记录 整区间字节相等，已核验）",
+      "（本轮不做）ROADMAP.md 之外的 .sddu 产物登记已由三叶各自收口段与父 closeout.md 承担"
+    ]
   },
   "domainBaseline": {
     "branch": "feature/web-cli-plugin",
@@ -345,7 +354,7 @@
     "门禁计数全部引自 v5 收口总账 §4（本轮未跑门禁 / 构建 / Chromium，零产品运行时验证）",
     "R4 之后 volume 数字为本轮实测（sidepanel 549,609 B / pick-layer 34,358 B），与 v5 closeout 的 547,558 / 33,900 差异 = 0a60740（R4）轮产物，已分别标注来源（COR-3）"
   ],
-  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。产出 spec.md v1.0（父）+ **3 个叶**（specs-tree-v55-1-driver-layer / specs-tree-v55-2-deterministic-onboarding / specs-tree-v55-3-ai-driven-orchestration，各含 spec.md + state.json + TREE.md）+ state.json（phase=specified）+ TREE.md（由 sddu-tree 定向更新）。\n\n**结构裁决**：父 = 轻量规范容器（depth=1，不承接 tasks/build/review/validate，不产出 tasks.json）；3 叶依存序串行（v55-1 底座 → v55-2 主题① → v55-3 主题② + 收口）。**已复核「不可分割性」**：判为可分割（三叶各自可独立验收；安全评审与体积收口可分层），**不退化单叶**。\n\n**编号与计数**：FR 95（GOV 5 / DRIVE 10 / LAW7X 9 / TIMING 7 / ONBOARD 13 / AIDRIVE 11 / OPSAFE 7 / GUARD 8 / SUPERSEDE 8 / GATE 7 / VOL 5 / S0 5）· NFR 14 · EC 22 · NG 22 · AC 26 · US 10 · G 8 · DC 7 · 新增红线 N-SELF-021~026。\n\n**O-SELF-001~007 全部裁决**（status 一律 ruled，采纳 discovery 推荐项）：① 保持 v55 + v0.11.0 并明示命名语义 ② runChat 前置判据 + 配置完成自动续接 + op.llm-config 唯一执行体 ③ 驱动者注册表化 + 新增时机源 + diff = 0 机核 ④ op 三档清分 auto 5 / confirm 2 / gesture 2 + 特权恒 gesture + 新 op 归档机核 ⑤ 优先注册表内扩张（X-SELF-1 默认 diff = 0）⑥ 护栏三件套全入 spec + 载体零新增 ⑦ 不做外部竞品调研。\n\n**S0 首验收**（真机 22:49 序列，地位 = v5 之 S2）：① 绑定 → ② 探测 → ③ 拾取引用（出生有效）→ ④ ask 登记 → ⑤ 作答「原地翻译为中文」已结算 → ⑥ **答案产生驱动** → ⑦ **双分支**（A 已配置 ⇒ AI 自动成回合续流 / B 未配置 ⇒ 系统流驱动配置 + **配置完成自动续接悬置任务**）→ ⑧ 终局；断言「答案不被丢弃 ∧ 静默窗口 = 0 ∧ 死端 = 0」。\n\n**现状事实核对**：§2.4 A~E 全量只读复核（本轮实测 HEAD = 1022f8d；worktree clean；dist 三值命中；KIND_SET 40；requestTurn 恰 2；RecommendTrigger 恰 4；9 op 与特权恰 2 逐项命中）+ **3 条复核订正**（COR-1 / COR-2 / COR-3，见 specCorrections）。\n\n**纪律遵守（本轮）**：只读源码 / 产物 / 文档 / 尺寸 / sha；只写本 Feature 目录（父 + 3 叶的 spec.md / state.json / TREE.md 及其父链导航）；未改 src / test / dist / design / docs / ROADMAP / 其他 SDDU 目录；未跑 npm test / Chromium / 构建（零产品运行时验证）。注：/tool sddu_update_state 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（同 v4.5 / v5 先例）。\n\n**无 BLOCKER**；下游 = @sddu-plan（按叶各自规划：v55-1 → v55-2 → v55-3）。\n\nplan 阶段完成（2026-09-22，sddu-plan）。产出父 plan.md v1.0 + 3 叶 plan.md + **ADR-V55-001~012 全 12 条正文**。\n\n**核心设计定案**：① 驱动者 = 注册表 provider + `drivers.ts` 声明表（不扩 v5 契约接口）+ 双向包含机核；时机源闭集 4→**5**（`+'answered'`，旧 4 逐字）；`ref-action` 抑制走**时机侧**读法①（`when` 零改字节）；主流程 diff = 0（`requestTurn(` 仍恰 2 / `maybeRecommend(` 定义 1 调用点 7 / `nextAfterSettle(` 定义 1 / 集 B per-op 分支 0）。② 主题①：配置判据 = `hasKey ∧ providerId ∈ PROVIDERS ∧ model 非空`（后二者由 key-store 读归一化结构性保证）；`runChat` 前置判据落 **SW bundle**（零 sidepanel 字节）；引导流 4 步单源；悬置任务单源（MAX=1）+ 配置完成自动续接。③ 主题②：自动成回合经**既有 `op.turn` 槽**（零新增 `requestTurn` 调用点）；三档清分**派生式**（`tierOf` 由 `layer`/`consent` 计算 ⇒ 自动 5/2/2、漂移不可能，且**否决第 10 个 op**）；护栏六常量单源；并发仲裁 = 有界队列 1 + 明确告知 + **草稿回填**（用户输入零丢失）。④ 法七扩展 = 新 `DRIVER_TERMINALS` 4 项与 `STREAM_TERMINALS` 6 项**正交** + **三段控制**（正常 / 移除驱动者必红 / 端态不存在 N/A）禁恒真。⑤ S0 = 样本单源（`test/ui/fixtures/s0-chain.mjs`）+ node/Chromium 双面 + A/B 双分支**分层接线**（v55-1 机制侧 / v55-2 必判项 / v55-3 端到端）。\n\n**体积**：Σ 预算 **17,800 B**（上界 22,900）⇒ ×1.15 = **20,470**（上界 **26,335**）**≤ 余量 27,480** ⇒ **可行，不停机**；累计投影 549,609 → 556,609 → 561,509 → **567,409**：v55-1/v55-2 **未越档位**，**v55-3 收口预计越档位 +4,209 B** ⇒ 按 V3-VOL-3 走**显式升档**（614,400 / 675,840），`authorConfirmation` 保持 `pending-author-line`（**不得伪称已确认**）。\n\n**波次**：3 叶串行 **14 波 / ~60 任务**。**本轮只做 plan**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动，零门禁 / 构建 / Chromium，未调用任何受管 Provider。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出父 tasks.md + tasks.json（总览型：3 叶 × 14 波 × 61 任务；0 条可执行任务正文）+ 3 叶 tasks.md + tasks.json（25 / 16 / 20）；跨切红线 → 任务映射、体积预算逐叶分摊（Σ 17,800 B ≤ 27,480）、共享面「恰一次」、S0 三层接线、5 个 spikeGate、新增 10 门禁 / 升级 22 门禁、26 门禁守恒、停机规则 10 条、build/review/validate 二维时序。本阶段只做 tasks，零 src/test/dist/docs/design/ROADMAP 改动。",
+  "notes": "spec 阶段完成（2026-09-22，sddu-spec）。产出 spec.md v1.0（父）+ **3 个叶**（specs-tree-v55-1-driver-layer / specs-tree-v55-2-deterministic-onboarding / specs-tree-v55-3-ai-driven-orchestration，各含 spec.md + state.json + TREE.md）+ state.json（phase=specified）+ TREE.md（由 sddu-tree 定向更新）。\n\n**结构裁决**：父 = 轻量规范容器（depth=1，不承接 tasks/build/review/validate，不产出 tasks.json）；3 叶依存序串行（v55-1 底座 → v55-2 主题① → v55-3 主题② + 收口）。**已复核「不可分割性」**：判为可分割（三叶各自可独立验收；安全评审与体积收口可分层），**不退化单叶**。\n\n**编号与计数**：FR 95（GOV 5 / DRIVE 10 / LAW7X 9 / TIMING 7 / ONBOARD 13 / AIDRIVE 11 / OPSAFE 7 / GUARD 8 / SUPERSEDE 8 / GATE 7 / VOL 5 / S0 5）· NFR 14 · EC 22 · NG 22 · AC 26 · US 10 · G 8 · DC 7 · 新增红线 N-SELF-021~026。\n\n**O-SELF-001~007 全部裁决**（status 一律 ruled，采纳 discovery 推荐项）：① 保持 v55 + v0.11.0 并明示命名语义 ② runChat 前置判据 + 配置完成自动续接 + op.llm-config 唯一执行体 ③ 驱动者注册表化 + 新增时机源 + diff = 0 机核 ④ op 三档清分 auto 5 / confirm 2 / gesture 2 + 特权恒 gesture + 新 op 归档机核 ⑤ 优先注册表内扩张（X-SELF-1 默认 diff = 0）⑥ 护栏三件套全入 spec + 载体零新增 ⑦ 不做外部竞品调研。\n\n**S0 首验收**（真机 22:49 序列，地位 = v5 之 S2）：① 绑定 → ② 探测 → ③ 拾取引用（出生有效）→ ④ ask 登记 → ⑤ 作答「原地翻译为中文」已结算 → ⑥ **答案产生驱动** → ⑦ **双分支**（A 已配置 ⇒ AI 自动成回合续流 / B 未配置 ⇒ 系统流驱动配置 + **配置完成自动续接悬置任务**）→ ⑧ 终局；断言「答案不被丢弃 ∧ 静默窗口 = 0 ∧ 死端 = 0」。\n\n**现状事实核对**：§2.4 A~E 全量只读复核（本轮实测 HEAD = 1022f8d；worktree clean；dist 三值命中；KIND_SET 40；requestTurn 恰 2；RecommendTrigger 恰 4；9 op 与特权恰 2 逐项命中）+ **3 条复核订正**（COR-1 / COR-2 / COR-3，见 specCorrections）。\n\n**纪律遵守（本轮）**：只读源码 / 产物 / 文档 / 尺寸 / sha；只写本 Feature 目录（父 + 3 叶的 spec.md / state.json / TREE.md 及其父链导航）；未改 src / test / dist / design / docs / ROADMAP / 其他 SDDU 目录；未跑 npm test / Chromium / 构建（零产品运行时验证）。注：/tool sddu_update_state 在本会话工具集中不可见 ⇒ 状态文件由 Agent 直接写入（同 v4.5 / v5 先例）。\n\n**无 BLOCKER**；下游 = @sddu-plan（按叶各自规划：v55-1 → v55-2 → v55-3）。\n\nplan 阶段完成（2026-09-22，sddu-plan）。产出父 plan.md v1.0 + 3 叶 plan.md + **ADR-V55-001~012 全 12 条正文**。\n\n**核心设计定案**：① 驱动者 = 注册表 provider + `drivers.ts` 声明表（不扩 v5 契约接口）+ 双向包含机核；时机源闭集 4→**5**（`+'answered'`，旧 4 逐字）；`ref-action` 抑制走**时机侧**读法①（`when` 零改字节）；主流程 diff = 0（`requestTurn(` 仍恰 2 / `maybeRecommend(` 定义 1 调用点 7 / `nextAfterSettle(` 定义 1 / 集 B per-op 分支 0）。② 主题①：配置判据 = `hasKey ∧ providerId ∈ PROVIDERS ∧ model 非空`（后二者由 key-store 读归一化结构性保证）；`runChat` 前置判据落 **SW bundle**（零 sidepanel 字节）；引导流 4 步单源；悬置任务单源（MAX=1）+ 配置完成自动续接。③ 主题②：自动成回合经**既有 `op.turn` 槽**（零新增 `requestTurn` 调用点）；三档清分**派生式**（`tierOf` 由 `layer`/`consent` 计算 ⇒ 自动 5/2/2、漂移不可能，且**否决第 10 个 op**）；护栏六常量单源；并发仲裁 = 有界队列 1 + 明确告知 + **草稿回填**（用户输入零丢失）。④ 法七扩展 = 新 `DRIVER_TERMINALS` 4 项与 `STREAM_TERMINALS` 6 项**正交** + **三段控制**（正常 / 移除驱动者必红 / 端态不存在 N/A）禁恒真。⑤ S0 = 样本单源（`test/ui/fixtures/s0-chain.mjs`）+ node/Chromium 双面 + A/B 双分支**分层接线**（v55-1 机制侧 / v55-2 必判项 / v55-3 端到端）。\n\n**体积**：Σ 预算 **17,800 B**（上界 22,900）⇒ ×1.15 = **20,470**（上界 **26,335**）**≤ 余量 27,480** ⇒ **可行，不停机**；累计投影 549,609 → 556,609 → 561,509 → **567,409**：v55-1/v55-2 **未越档位**，**v55-3 收口预计越档位 +4,209 B** ⇒ 按 V3-VOL-3 走**显式升档**（614,400 / 675,840），`authorConfirmation` 保持 `pending-author-line`（**不得伪称已确认**）。\n\n**波次**：3 叶串行 **14 波 / ~60 任务**。**本轮只做 plan**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动，零门禁 / 构建 / Chromium，未调用任何受管 Provider。\n\ntasks 阶段完成（2026-09-22，sddu-tasks）：产出父 tasks.md + tasks.json（总览型：3 叶 × 14 波 × 61 任务；0 条可执行任务正文）+ 3 叶 tasks.md + tasks.json（25 / 16 / 20）；跨切红线 → 任务映射、体积预算逐叶分摊（Σ 17,800 B ≤ 27,480）、共享面「恰一次」、S0 三层接线、5 个 spikeGate、新增 10 门禁 / 升级 22 门禁、26 门禁守恒、停机规则 10 条、build/review/validate 二维时序。本阶段只做 tasks，零 src/test/dist/docs/design/ROADMAP 改动。\n\n父收口轮完成（2026-09-23，sddu-build，编排器代作者决策）：F-33 web-cli-plugin v5.5「self / ai-driven：让助手像助手」整体收口。**父（轻量规范容器）+ 3 叶全部收口，三叶 phase=validated / status=completed**（v55-1 25/25 · v55-2 16/16 · v55-3 20/20 = 61 任务 / 14 波 / 5 spikeGate）。**主题达成**：① 未配置 ⇒ 系统代码流程驱动配置 + 配置完成自动续接悬置任务（S0 分支 B 双面）；② 已配置 ⇒ AI 零按键启动整个 chat/next（S0 分支 A 端到端，经既有 `op.turn` 槽）；另法七扩展 4 终态（driver-terminals 8/0 + law7x-ext 5/0）/ op 三档 5·2·2（op-three-tier 10/0）/ 护栏六常量单源（proactivity-guard 7/0）/ 驱动者层主流程 diff=0（requestTurn 仍恰 2）。**数字总账**：`npm test` **1186 → 1319**（F-33 段 **+133**）· `dist/sidepanel.js` **549,609 → 573,424 B**（**+23,815**）· `content.js` 177,076 / `pick-layer.js` 34,358 逐字节未动 · **新门禁 10**（9 node + s0-self-driven Chromium 面 24→59）· `no-dead-end` 39→49 · `law8` 25→36 · `supersession` 36→37 · `gate-integrity` 15→19。**体积两次升档**（作者行确认事项，`authorConfirmation` 保持 `pending-author-line` 未伪称）：v5-2（F-32）512,000→563,200 / 619,520；v55-2 修复轮 563,200→**614,400** / 619,520→**675,840**（生效上限 602,095）。**过程真问题**：v55-1 review R1 2 BLOCK（后台 ask 取消守卫缺失 / 取代台账 0 命中）；**v55-2 R1 自动续接运行期断链**（掩码 ask resolver 误删，机核盲区，R2 修复 + 运行期必判项双面）；v55-3 叶上界超 2,044（计划低估）；binding/journey 环境性 flake 家族（KL-N-10）。**新建父 closeout.md 总账**（全 Feature，镜像 F-32 结构）；**三叶移交项汇总**（owner=父收口 全清单 + 人工面清单 ⏳ 不冒充 PASS）。零 `src/`、零 `test/`、零三叶产物实义改动（收口轮仅改 `.sddu/**` + `ROADMAP.md`）。**不合 main、不发布**（v1~v5.5 均在 feature/web-cli-plugin）。**容器纪律差异（如实登记，供作者复核）**：F-30~F-32 父 phase 保持 `tasked`，本轮按收口指令将父终态标记为 `phase=validated / status=completed / workflow=7.validate / agent=sddu-validate`。",
   "phaseHistory": [
     {
       "phase": "discovered",
@@ -370,6 +379,12 @@
       "agent": "sddu-tasks",
       "at": "2026-09-22",
       "artifact": "tasks.md + tasks.json v1.0（父总览 + 3 叶 61 任务 / 14 波）"
+    },
+    {
+      "phase": "validated",
+      "agent": "sddu-build",
+      "at": "2026-09-23",
+      "artifact": "父收口轮：新建 closeout.md（全 Feature 总账）+ ROADMAP v1.30.0 登记 F-33（v0.11.0 新版本位）+ 三叶终态镜像核对 + 本 state 终态收口（phase=validated / status=completed）"
     }
   ],
   "planBaseline": {
@@ -396,5 +411,66 @@
       "overByBytes": 4209,
       "plan": "explicit tier re-registration (614,400 / 675,840); authorConfirmation stays pending-author-line"
     }
+  },
+  "closeout": {
+    "round": "v55-self-driven 父收口（整体收口，第 1 轮）",
+    "date": "2026-09-23",
+    "authorization": "编排器代作者决策（继承 F-30 / F-31 / F-32 父收口先例；作者已授权编排器代行决策、SDDU 全流程自行调度）",
+    "conclusion": "✅ F-33 完成：父（轻量规范容器）+ 3 叶收口，三叶 phase=validated / status=completed（各 7/7 全闭环）；主题达成 = 把「下一步由谁按」从用户侧转移到系统 / AI 侧 —— ① 未配置 LLM ⇒ 系统代码流程驱动配置 + 配置完成自动续接悬置任务（S0 分支 B 双面：node 11/0 + Chromium 42/0）；② 已配置 LLM ⇒ AI 零按键启动整个 chat/next（S0 分支 A：Chromium 59/0，作答后 [data-op] 点击 = 0 ∧ 恰 1 条 chat 原文 ∧ 留痕三要素独立成行）；③ 法七扩展 4 终态（driver-terminals 8/0 + law7x-ext 5/0，与 STREAM_TERMINALS 正交）；④ op 三档清分 auto 5 / confirm 2 / gesture 2（op-three-tier 10/0，tierOf 派生式单源）；⑤ 护栏六常量单源（proactivity-guard 7/0：6/10min · 同因不重复 · 静默 60s · 冷却 10s · 链深 2 · 回合预算 8）+ 可关断（主题① 不受总控）。关键数字：content.js 177,076 B / pick-layer.js 34,358 B 逐字节未动；sidepanel.js 549,609 → 573,424 B（+23,815）；npm test 1186 → 1319（+133）；新门禁 10；体积两次升档（512,000→563,200 / 619,520；563,200→614,400 / 675,840，authorConfirmation 仍 pending-author-line）。本轮为纯文档 / 状态收口：零 src / 零 test / 零三叶产物实义改动，不跑构建 / 门禁 / Chromium；数字一律取自三叶 build/validate 产物实测值并抽查 3 个与源核对；不合 main、不发布。",
+    "containerDiscipline": "父 Feature 为轻量规范容器（depth=1；不承接 build/review/validate、不产出可执行 tasks，仅总览型 tasks.md/tasks.json）。**本轮按收口指令将父终态标记为 phase=validated / status=completed / workflow=7.validate / agent=sddu-validate —— 与 F-30~F-32『父 phase 保持 tasked / status tracked』先例不同，此处如实登记该差异供作者复核（如需回归先例可一行改回 tasked/tracked）**。",
+    "artifacts": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/closeout.md"
+    ],
+    "digitalLedger": {
+      "npmTest": "1186 → 1319（F-33 段 +133：1186 → v55-1 1246 → v55-2 1283 → v55-3 1319）",
+      "sidepanelBytes": "549,609 → 573,424（+23,815 / +4.33%；逐叶：+8,274 → +5,897 → +9,644）",
+      "frozenFaces": "content.js 177,076 B（sha 52a82620…）/ pick-layer.js 34,358 B（sha 77796bab…）逐字节零 diff",
+      "newGates": "10（9 node：driver-timings 11 / driver-quadruple 14 / driver-terminals 8 / s0-self-driven-chain 15 / law7x-ext 5 / onboarding-deterministic 29 / op-three-tier 10 / proactivity-guard 7 / turn-arbitration 6 + s0-self-driven Chromium 面 24→59）；CHROMIUM_GATES === 9 未动",
+      "gateDeltas": "no-dead-end 39→49 · law8 25→36 · supersession 36→37 · gate-integrity 15→19 · stream 73→76 · ask-auth 71→78 · recommendation 65→72 · page-input 108→118 · l1 116→120；journey 171 / binding 192 保段",
+      "spikeGates": "SG-V55-01/02（v55-1）· SG-V55-03/04/05（v55-3）= 5/5 可行"
+    },
+    "volumeTierUpgrades": [
+      {
+        "round": "v5-2 R1（F-32，2026-09-22）",
+        "tiers": "512,000 → 563,200",
+        "absoluteCeiling": "563,200 → 619,520",
+        "note": "越档位停机 → 编排器裁决① → 显式升档（F-32 父收口 §5）"
+      },
+      {
+        "round": "v55-2 小修轮（F-33，2026-09-23）",
+        "tiers": "563,200 → 614,400",
+        "absoluteCeiling": "619,520 → 675,840",
+        "effectiveCeiling": "floor(573,424×1.05) = 602,095",
+        "note": "ceilTo50KB(563,780)=614,400 > 563,200；ADR-V55-011 §4「谁先越谁登记」；authorConfirmation 保持 pending-author-line"
+      }
+    ],
+    "budgetSettlement": "逐叶：v55-1 +8,274（预算 7,000 / 上界 9,000，超预算 1,274 未越上界）· v55-2 +5,897（4,900 / 6,300，超 997 未越）· v55-3 +9,644（5,900 / 7,600，超预算 3,744 / 超上界 2,044，未跨档位，登记不停机）；合计 +23,815（预算 17,800 / 上界 22,900，超预算 6,015 / 超上界 915）",
+    "processProblems": "① v55-1 review R1 2 BLOCK（后台 ask 取消守卫缺失 / 取代台账 0 命中）→ 修复 + L7X-4 门禁 + 逐条落账；② v55-2 R1 自动续接运行期断链（掩码 ask resolver 误删，机核盲区）→ R2 修复 + S0 运行期必判项双面（review 载荷性亲核 38/4 → 还原 42/0）；③ 体积两次越档位（v5-2 R1 停机 / v55-2 小修轮显式升档）；④ v55-3 叶上界超 2,044（计划低估）；⑤ binding / journey 环境性 flake 家族（KL-N-10）；⑥ 对抗探针 v55-3 validate 注入抽验 10 组全必红 + S0-A 真面板 15/15",
+    "handover": {
+      "ownerParent": [
+        "v55-1 N-02 · N-03(O-01/O-02) · N-04 · N-07 · N-08",
+        "v55-2 N-04 · N-05 · N-07 · N-10（作者行）",
+        "v55-3 N-01 · N-02 · N-04 · N-05（作者行）· N-06 · N-07 · N-08 · N-09 · N-11 · N-12 · N-13 · N-14 · N-16"
+      ],
+      "ownerManual": [
+        "v55-1 N-06（S0 主动接手体感 / 打断感 / 引导文案）",
+        "v55-2 N-08（引导文案 / 掩码卡读屏 NFR-SELF-008）",
+        "v55-3 N-10（3 项人工面）· N-15（auto 档一次性否决观感）",
+        "v5 人工面 9 项（零改写，并列不覆盖）"
+      ],
+      "deferred": [
+        "token 口径 = 回合数代理（无 usage 回报面）",
+        "跨 options 页续接口径边界（不属本 Feature）",
+        "生产零消费导出族（门禁契约层单源，非漂移）",
+        "续接后悬置未清空（已由 lastAutoDrivenKey 去重缓解）",
+        "会话 / 分组未收编 op（PO-ALLN-001）",
+        "l2-reverse 需独立会话",
+        "外部竞品调研未执行（O-SELF-007）",
+        "authorConfirmation pending-author-line（未闭合义务）",
+        "F-29 A2A 未立项未排期（ROADMAP 区段一字未动）"
+      ]
+    },
+    "manualFaces": "⏳ 未执行（headless 不可合成，不冒充 PASS）：未配置⇒系统流引导观感 / 已配置⇒AI 零按键续流观感 / 主动接手·打断体感 / auto 档否决观感 / 引导文案可读性 / 掩码卡读屏 + v5 人工面 9 项（零改写）",
+    "roadmapRegistration": "ROADMAP v1.30.0 登记 F-33（v0.11.0 新版本位）；只增不改，F-29 区段一字未动；文档版本 1.29.0 → 1.30.0"
   }
 }
