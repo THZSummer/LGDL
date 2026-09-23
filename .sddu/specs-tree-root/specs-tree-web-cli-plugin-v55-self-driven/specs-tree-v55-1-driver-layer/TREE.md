@@ -9,6 +9,8 @@ specs-tree-v55-1-driver-layer/
 ├── TREE.md          # 本文件 - 目录导航
 ├── build.md          # 构建报告：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
 ├── plan.md          # 技术计划：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
+├── review.md          # 审查策略：specs-tree-v55-1-driver-layer
+├── review-report.md          # 审查报告：specs-tree-v55-1-driver-layer
 ├── spec.md          # Feature Specification：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座）
 ├── state.json          # 状态文件 (🟢 tracked [builded])
 ├── tasks.json          # 任务清单 (机器可读)
@@ -20,6 +22,8 @@ specs-tree-v55-1-driver-layer/
 |------|------|------|
 | build.md | 构建报告：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — 1. **W3/W4 未开工**：TASK-V55-113~125（`nextAfterSettle` 单入口 / `'answered'` 触发通路 /... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — 技术计划：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） | ✅ 存在 |
+| review.md | 审查策略：specs-tree-v55-1-driver-layer — 1. ✅ `src/` 已实现（`next-registry/drivers.ts` / `terminals.ts` 新增；`sidepanel.ts`... | ✅ 存在 |
+| review-report.md | 审查报告：specs-tree-v55-1-driver-layer — `git diff --stat ace3033..HEAD` = 38 文件，**不含** `src/content/**`、`manifest.jso... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-v55-1-driver-layer（V5.5-1 驱动者层 + 法七扩展底座） — 本叶 = v5.5 的**首叶 / 底座叶**，交付「可以让『用户已表达意图』之后**有人接手**」的那一层：**驱动者**成为**注册表条目**（不再是... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [builded] |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
