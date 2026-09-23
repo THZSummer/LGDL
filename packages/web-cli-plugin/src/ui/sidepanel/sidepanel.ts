@@ -41,7 +41,7 @@ import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definiti
 // `next-registry/drivers.ts`。本文件**只** re-export 类型（零第二声明）——`import type`
 // 会被擦除，因此本行对 `sidepanel.js` 体积贡献为 0；时机值的扩缩只发生在单源处。
 import type { RecommendTrigger } from './next-registry/drivers.js';
-import { listSuspensions, registerSuspension, resetSuspensions, timingOfSettle, type SettleSource } from './next-registry/drivers.js';
+import { dedupeKey, listSuspensions, registerSuspension, resetSuspensions, timingOfSettle, type SettleSource } from './next-registry/drivers.js';
 // V5.5-2 TASK-V55-205/210/211（ADR-V55-006 §4 · ADR-V55-007 §1~§3）——主题① 的引导流声明
 // 单源（4 步）+ 配置悬置任务（单源登记 / 有效期重校验 / 续接决策）。本文件只**消费**它们，
 // 不写第二份步骤表 / 不写第二个登记点。
@@ -57,6 +57,9 @@ import {
   suppressOnboardCause,
 } from './next-registry/onboarding-flow.js';
 import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
+// V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/063/065）——「AI 自动成回合」的**唯一**
+// 按下入口（`op.turn` 槽；`requestTurn(` 调用点计数不变）。本文件只**接线**，判据在单源模块里。
+import { pressCandidate } from './next-registry/ai-drive.js';
 export type { RecommendTrigger } from './next-registry/drivers.js';
 import { providerById } from '../../llm/providers.js';
 import { dispatchChipAction } from './next-registry/dispatch.js';
@@ -1936,6 +1939,44 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
  */
 function nextAfterSettle(src: SettleSource = { kind: 'idle' }): void {
   maybeRecommend(timingOfSettle(src), src.kind === 'answered' ? {} : { force: src.force === true });
+  // V5.5-3 TASK-V55-306：「已答」结算同时也是**主题② 自动成回合**的时机（零按键）。
+  if (src.kind === 'answered') driveAnsweredTurn();
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-3 **TASK-V55-306**（ADR-V55-009 §3 · ADR-V55-010 §2/§3 · FR-SELF-060/063/065/070 ·
+ * AC-SELF-001/008）——「**已配置 ⇒ 答案后零按键自动成回合**」（S0 分支 A 的机制侧端到端）。
+ *
+ * 答案在哪：v55-1 的**唯一**悬置登记（`registerSuspension`）——「用户已表达的一句话」不是
+ * 计数，而是**可被接手的输入**。本函数把那句话经**既有** `op.turn` 槽交出去：
+ *
+ *   `pressCandidate('op.turn', instruction, { by:'ai' })` → `dispatchChipAction` → `runOp`
+ *   → `PANEL.turn` → `requestTurn`（**调用点计数不变，仍恰 2**）
+ *
+ * **有界性（事件作用域）**：同一条意图（`dedupeKey(driverId:source, instruction)` 单源）只自动
+ * 发起**一次**；下一次尝试只可能来自新的结算事件（新的用户表达），因此不可能形成自触发环。
+ * 拒绝**不消费**该意图（回合未真正建立 ⇒ 下个回合结束点再试），台账不丢答案。
+ * 频次 / 冷却 / 链深度 / 预算的六常量护栏由 W4 的 `guard.ts` 经 `guardAllowed` 缝接入（零第二阈值）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+/** 已经自动驱动过的意图键（单槽：只有**最新**那条悬置需要判重）。 */
+let lastAutoDrivenKey: string | undefined;
+
+function driveAnsweredTurn(): void {
+  // 主题② 前提 = **已配置**（配置判据 = v55-2 的唯一分流依据；未配置 ⇒ 零 AI 主动发起）。
+  const configured = llmLoaded && Boolean(llmSummary?.configured);
+  if (!configured) return;
+  const live = listSuspensions().slice(-1)[0];
+  if (!live || !live.instruction) return;
+  const key = dedupeKey(`${live.driverId}:${live.source}`, live.instruction);
+  if (key === lastAutoDrivenKey) return;
+  const out = pressCandidate(
+    'op.turn',
+    live.instruction,
+    { actor: 'ai', driverId: live.driverId, driverClass: 'ai-driven', configured, armed: true, busy: state.pending },
+    live.evidence,
+  );
+  // 只在**真正按下**时消费该意图：被拒（未配置 / 档位 / 在飞）时下个结算点仍可再试。
+  if (out.ok) lastAutoDrivenKey = key;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -3609,6 +3650,9 @@ function wire(): void {
         // production timing. The producer itself refuses to mint while `pending`, so
         // this runs after the settle above.
         if (state.stream.openAsks.length === 0) maybeRecommend('idle');
+        // V5.5-3 TASK-V55-306：回合结束（`pending` 已置假）是「在飞时被让位」的那次自动
+        // 成回合的**续流点** —— 用户那句话仍在悬置里等，此时不再 busy ⇒ 交 `op.turn` 槽。
+        driveAnsweredTurn();
       }
       else if (text) dispatch({ type: 'assistant', text });
       return undefined;

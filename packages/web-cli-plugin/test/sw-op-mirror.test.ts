@@ -28,6 +28,8 @@ import { SW_OPS, SW_OP_FIELDS } from '../src/background/op-executors.js';
 import { execSwOp } from '../src/background/op-executors.js';
 import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/pipeline.js';
 import { OP_DESCRIPTORS, OP_IDS, SW_OP_DESCRIPTORS, opDescriptor } from '../src/shared/op-table.js';
+// V5.5-3 TASK-V55-304（纯追加 import —— 不动既有行）：三档清分表 + 逐 op 档位读数。
+import { OP_TIER_TABLE, tierOfId } from '../src/shared/op-table.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel: string): string => readFileSync(join(PKG, rel), 'utf8');
@@ -100,7 +102,11 @@ test('SW-M ②: 9 行描述符只声明于 shared/op-table.ts（恰一处声明�
 
 test('SW-M ③ 反证：顶层表改一行 / 反写一份手工镜像 ⇒ 两侧判据同时红', () => {
   // ① 表一行被改（layer panel→sw）：SW 镜像多一项 ∧ 面板注册表 layer 不符 —— 两个判据都能失败。
-  const forgedTable = read('src/shared/op-table.ts').replace("['op.help', 'panel', 'card-boundary', false]", "['op.help', 'sw', 'card-boundary', false]");
+  // V5.5-3 TASK-V55-304：注入锚点随 `hasConsent` 列（ADR-V55-008 §1）**等价重锚**为 5 元组形态。
+  const forgedTable = read('src/shared/op-table.ts').replace(
+    "['op.help', 'panel', 'card-boundary', false, false]",
+    "['op.help', 'sw', 'card-boundary', false, false]",
+  );
   assert.notEqual(forgedTable, read('src/shared/op-table.ts'), '前置：注入锚点必须存在');
   const forgedSwRows = [...forgedTable.matchAll(/\['([^']+)', 'sw'/g)].map((m) => m[1]);
   const realSwRows = [...read('src/shared/op-table.ts').matchAll(/\['([^']+)', 'sw'/g)].map((m) => m[1]);
@@ -158,4 +164,32 @@ test('SW-M ④: probe 只读（快照 + 手势指令），commit 才写授权；
   const commit = await execSwOp({ kind: 'op-exec', opId: 'op.authorize', phase: 'commit', consentToken: 'c', gestureResult: { granted: true } }, deps);
   assert.equal(commit.ok, true);
   assert.deepEqual((commit.data as { granted?: boolean }).granted, true);
+});
+
+/* ── V5.5-3 **TASK-V55-304**（ADR-V55-008 §2/§3 · FR-SELF-081/085/086 · AC-SELF-005）───
+ *
+ * 三档清分加固（只增不减）：镜像里那 **2** 项特权 op 必须**恒** `gesture`，且镜像 / 顶层表 /
+ * 清分表三者同源。反证：AI 自动执行特权 op ⇒ FAIL（判据在本文件内实跑并还原）。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** AI 自动执行判据（`by: 'ai'` 只放行 `auto` 档；特权恒 gesture ⇒ 一律拦）。 */
+export function swAiExecuteProblems(opId: string, by: 'ai' | 'user-gesture'): string[] {
+  if (by !== 'ai') return [];
+  const tier = tierOfId(opId);
+  return tier === 'auto' ? [] : [`AI 不得自动执行 ${opId}（档位 ${String(tier)}）`];
+}
+
+test('SW-M ⑤（V5.5-3）：镜像 2 项特权恒 gesture ∧ 与清分表同源 ∧ AI 不可自动执行', () => {
+  assert.ok(Object.keys(SW_OPS).length >= 2, 'SW 镜像下界 ≥2（本判据只增不减）');
+  const gesture = Object.entries(OP_TIER_TABLE).filter(([, t]) => t === 'gesture').map(([id]) => id).sort();
+  assert.deepEqual(gesture, ['op.authorize', 'op.perm.request'], 'gesture 档必须恰 2');
+  for (const id of Object.keys(SW_OPS)) {
+    assert.equal(tierOfId(id), 'gesture', `${id} 必须恒 gesture（特权不可让渡）`);
+    assert.ok(swAiExecuteProblems(id, 'ai').length > 0, `AI 自动执行 ${id} 必须判红`);
+    assert.deepEqual(swAiExecuteProblems(id, 'user-gesture'), [], '用户手势路径不受该判据限制');
+  }
+  // 与顶层描述符逐项同源（layer 决定档位，无第二份清分数据）。
+  for (const d of SW_OP_DESCRIPTORS) assert.equal(opDescriptor(d.id)?.layer, 'sw');
+  // 对照（判据非恒真）：`auto` 档 op 在 `by:'ai'` 下不被本判据拦。
+  assert.deepEqual(swAiExecuteProblems('op.turn', 'ai'), []);
 });

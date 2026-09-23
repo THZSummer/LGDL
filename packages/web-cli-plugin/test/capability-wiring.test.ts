@@ -24,6 +24,7 @@ import {
   unregisteredCapabilityIds,
 } from '../src/platform/capability-permissions.js';
 import { OP_PARAM_SEQUENCE } from '../src/ui/sidepanel/next-registry/ops.js';
+import { OP_TIER_TABLE, SW_OP_DESCRIPTORS, type OpTier, tierOfId } from '../src/shared/op-table.js';
 
 const read = (rel: string): string => readFileSync(new URL(rel, import.meta.url), 'utf8');
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
@@ -288,4 +289,57 @@ test('FR-055: clipboard read is state-tier; the confirm/audit path scrubs conten
   const confirm = read('../../src/security/confirm.ts');
   assert.match(confirm, /scrubContentArgs/);
   assert.match(confirm, /CONTENT_ARG_TOOLS/);
+});
+
+/* ── V5.5-3 **TASK-V55-304**（ADR-V55-008 §2/§3 · FR-SELF-081/086 · AC-SELF-005）─────────
+ *
+ * **等价重锚**（只增不减）：`.request(` 的既有两条断言（「SW 内零命中」×2 + 手势 helper 的
+ * 请求点）**逐字保留不动**，本段**追加**三档语义的读数：
+ *   ① 特权集（`layer === 'sw'`）== `gesture` 档，**恰 2**；
+ *   ② 「SW 永不 `.request(`」的**计数不减**：SW 源里 `.request(` 仍 0 命中，手势 helper 里
+ *      的请求点仍 ≥1（判据不是「把断言删掉」）；
+ *   ③ 反证：AI 自动执行特权 op ⇒ FAIL（逐档，本文件内实跑并还原）。
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/** ① —— 特权集必须恰等于 `gesture` 档（清分从单源读，不手写第二份）。 */
+export function privilegedGestureProblems(
+  privileged: readonly string[],
+  tiers: Readonly<Record<string, OpTier>>,
+): string[] {
+  const problems: string[] = [];
+  const gesture = Object.entries(tiers).filter(([, t]) => t === 'gesture').map(([id]) => id).sort();
+  const want = [...privileged].sort();
+  if (JSON.stringify(gesture) !== JSON.stringify(want)) {
+    problems.push(`特权 op 必须恰等于 gesture 档（实测 gesture=[${gesture.join(',')}] 特权=[${want.join(',')}]）`);
+  }
+  for (const id of privileged) {
+    if (tiers[id] !== 'gesture') problems.push(`特权 ${id} 必须恒 gesture（实测 ${String(tiers[id])}）`);
+  }
+  return problems;
+}
+
+/** ③ —— AI 自动执行特权 op 的判据：`by: 'ai'` 只允许 `auto` 档。 */
+export function aiAutoProblems(opId: string, by: 'ai' | 'gesture', tiers: Readonly<Record<string, OpTier>>): string[] {
+  if (by !== 'ai') return [];
+  return tiers[opId] === 'auto' ? [] : [`AI 不得自动执行 ${opId}（档位 ${String(tiers[opId])}）`];
+}
+
+test('V5.5-3 三档等价重锚：特权集 == gesture 档（恰 2）∧ AI 不可自动执行', () => {
+  const privileged = SW_OP_DESCRIPTORS.map((d) => d.id);
+  assert.equal(privileged.length, 2, '特权 op 恰 2（FR-ALLN-066）');
+  assert.deepEqual(privilegedGestureProblems(privileged, OP_TIER_TABLE), []);
+  // ② 计数不减：SW 源仍零 `.request(`（上面两条既有断言逐字保留），手势 helper 仍有请求点。
+  const sw = read('../../src/background/service-worker.ts');
+  assert.equal((sw.match(/\.request\s*\(/g) ?? []).length, 0, '「SW 永不 .request(」计数不得减（语义等价保留）');
+  const helper = read('../../src/platform/capability-permissions.ts');
+  assert.ok((helper.match(/\.request\s*\(/g) ?? []).length >= 1, '手势 helper 的请求点不得消失（计数不减）');
+  // ③ 反证：AI 自动执行特权 op ⇒ FAIL → 还原 PASS（判据非恒真）。
+  for (const id of privileged) {
+    assert.ok(aiAutoProblems(id, 'ai', OP_TIER_TABLE).length > 0, `AI 自动执行特权 ${id} 必须判红`);
+    assert.deepEqual(aiAutoProblems(id, 'gesture', OP_TIER_TABLE), [], '手势路径不受该判据限制');
+  }
+  // 对照：auto 档 op 在 `by: 'ai'` 下不被本判据拦（拦它的是 `pressCandidate` 的 guard，不是本档）。
+  assert.deepEqual(aiAutoProblems('op.turn', 'ai', OP_TIER_TABLE), []);
+  // 逐档读数与单源一致（清分不脱钩）。
+  for (const d of SW_OP_DESCRIPTORS) assert.equal(tierOfId(d.id), 'gesture');
 });

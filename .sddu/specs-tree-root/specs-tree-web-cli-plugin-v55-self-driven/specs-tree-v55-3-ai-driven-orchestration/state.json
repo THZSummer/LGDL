@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55-3-ai-driven-orchestration",
   "version": "v5.5.0",
   "name": "V5.5-3 主题② AI 驱动编排——AI / 系统经既有 op.turn 槽启动回合（requestTurn 仍恰 2 处，diff = 0）+ op 三档清分（auto 5 / confirm 2 / gesture 2；特权恒 gesture；新 op 必须归档机核）+ 护栏三件套（打扰控制 / token 预算 / 防环）+ 并发仲裁（chatBusy 丢弃语义 → 可判仲裁）+ AI 主动留痕三要素 + 否决 / 关断 + 零新增载体（12 kind / 零宿主 / KIND_SET 40）+ 三叶共享面收口",
-  "phase": "tasked",
+  "phase": "builded",
   "status": "tracked",
   "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-self-driven",
   "childrens": [],
@@ -17,7 +17,7 @@
     "specs-tree-v55-2-deterministic-onboarding"
   ],
   "createdAt": "2026-09-22",
-  "updatedAt": "2026-09-22",
+  "updatedAt": "2026-09-23",
   "description": "本叶 = v5.5 的末叶 / 收口叶，交付作者主题② 的完整形态：「已配置 LLM 时：让 AI 来启动整个 chat/next」。关键约束：AI 的主动性必须有边界——op 三档清分（auto 5 / confirm 2 / gesture 2；特权 op 恒 gesture）与护栏三件套（打扰控制 / token 预算 / 防环），且用户可随时关断。同时本叶承担三叶共享面收口（体积五要素 / journey+binding 保护段 / 取代台账 / knownGap 一致性）。",
   "scope": {
     "in": [
@@ -61,14 +61,16 @@
       ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ADR-V55-012-supersession-ledger-and-leafs.md"
     ],
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/build.md"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/TREE.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/specs-tree-v55-3-ai-driven-orchestration/build.md"
   ],
   "coversIssues": [
     "Q-SELF-004",
@@ -146,6 +148,12 @@
       "agent": "sddu-tasks",
       "at": "2026-09-22",
       "artifact": "tasks.md + tasks.json v1.0（20 任务 / 5 波）"
+    },
+    {
+      "phase": "builded",
+      "agent": "sddu-build",
+      "at": "2026-09-23",
+      "artifact": "build.md v1.0（R1 = W1+W2，TASK-V55-301~307；W3~W5 留 R2）"
     }
   ]
 }

@@ -26,6 +26,9 @@ import { fileURLToPath } from 'node:url';
 
 import { OP_IDS } from '../src/shared/op-table.js';
 import { OPS_BY_ID, runOp } from '../src/ui/sidepanel/next-registry/pipeline.js';
+// V5.5-3 TASK-V55-306/307（纯追加 import —— 不动既有两行）：AI 按下策略单源 + 面板 seam。
+import { bindPanelOps } from '../src/ui/sidepanel/next-registry/ops.js';
+import { pressCandidate, pressDecision } from '../src/ui/sidepanel/next-registry/ai-drive.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel: string): string => readFileSync(join(PKG, rel), 'utf8');
@@ -50,6 +53,11 @@ export const JUDGEMENTS: readonly OpWiringJudgement[] = [
   // V5.5-1 TASK-V55-113（ADR-V55-001 §5 · FR-SELF-015/033 · R-V55-101）——
   // **主流程 diff = 0 复合读数**：新增「答案驱动化」时的三条计数判据同屏机核。
   { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 2 / maybeRecommend 1 定义 7 调用点 / nextAfterSettle 1 定义）' },
+  // V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/064/065 · AC-SELF-008 · R-V55-101）——
+  // 「AI 自动成回合」经**既有** `op.turn` 槽：唯一自动按下点（`ai-drive.ts` 恰 1 处）
+  // + `nextAfterSettle(` 调用点**钉死**（本叶升级后的数值）+ 分支 A 端到端（零按键）。
+  { id: 'OP-W-7-single-auto-press', expectFailPattern: '自动按下点必须恰 1 处（ai-drive.ts 的 dispatchChipAction）' },
+  { id: 'OP-W-8-next-after-settle-pinned', expectFailPattern: 'nextAfterSettle 调用点必须钉死（1 定义 + 10 调用点）' },
 ];
 
 /**
@@ -254,4 +262,92 @@ test('OP-W ⑥ 反证：新增第 8 个 maybeRecommend( 调用点 ⇒ 必红 →
   assert.notEqual(noEntry, SIDEPANEL, '前置：注入锚点必须存在');
   assert.equal(definitionCount(noEntry, 'nextAfterSettle'), 0, '删掉唯一入口 ⇒ 定义计数必须归零（判据非恒真）');
   assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'), []);
+});
+
+/* ── V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/063/064/065 · AC-SELF-008/001）────
+ *
+ * 「AI 自动成回合」必须经**既有** `op.turn` 槽，且自动按下点**恰 1 处**：
+ *   ① `ai-drive.ts` 恰 1 个 `dispatchChipAction(`（AI **不自造** chip 执行面）；
+ *   ② `sidepanel.ts` 的 `requestTurn(` 仍恰 2（新增调用点 ⇒ 红）；
+ *   ③ `nextAfterSettle(` 调用点**钉死**（1 定义 + 10 调用点，随本叶 op-wiring 升级钉死）——
+ *      「加时机 = 改映射」的纪律不被绕开；
+ *   ④ 分支 A 端到端（机制侧，node 面）：已配置 ⇒ **无需用户按键** ⇒ `op.turn` 槽真的到达
+ *      面板回合入口（`bindPanelOps.turn`），且流内出现**三要素留痕**（零明文）。
+ * ─────────────────────────────────────────────────────────────────────────────────── */
+
+const AI_DRIVE = read('src/ui/sidepanel/next-registry/ai-drive.ts');
+/** AI 自动成回合时的 `nextAfterSettle(` 调用点登记值（V5.5-3 升级后钉死）。 */
+export const NEXT_AFTER_SETTLE_CALLSITES = 10;
+
+test('OP-W ⑦: 自动按下点恰 1 处 ∧ requestTurn 仍恰 2 ∧ nextAfterSettle 调用点钉死', () => {
+  const pressSites = callSites(AI_DRIVE, 'dispatchChipAction');
+  assert.equal(pressSites.length, 1, `${JUDGEMENTS[6].expectFailPattern}：实测 ${pressSites.length} 处（行号 ${pressSites.join(', ')}）`);
+  // AI 路径**不得**直接触达回合入口（必须经 `op.turn` 槽 ⇒ dispatchChipAction）。
+  assert.equal(callSites(AI_DRIVE, 'requestTurn').length, 0, 'AI 路径不得直接调用 requestTurn（必须经 op.turn 槽）');
+  assert.deepEqual(requestTurnProblems(SIDEPANEL), [], JUDGEMENTS[2].expectFailPattern);
+  // `nextAfterSettle` 数值钉死（1 定义 + 10 调用点）。
+  assert.equal(definitionCount(SIDEPANEL, 'nextAfterSettle'), 1, `${JUDGEMENTS[7].expectFailPattern}：定义必须恰 1`);
+  assert.deepEqual(
+    occurrenceProblems(SIDEPANEL, 'nextAfterSettle', NEXT_AFTER_SETTLE_CALLSITES, 'nextAfterSettle 调用点'),
+    [],
+    JUDGEMENTS[7].expectFailPattern,
+  );
+});
+
+test('OP-W ⑦ 反证：新增第三个 requestTurn( 调用点 / 把自动按下点复制一份 ⇒ 必红 → 还原 PASS', () => {
+  const fn = `\nfunction ghostTurn(): void {\n  requestTurn('ghost');\n}\n`;
+  const forged = `${SIDEPANEL}${fn}`;
+  const problems = requestTurnProblems(forged);
+  assert.ok(problems.some((p) => p.includes(JUDGEMENTS[2].expectFailPattern)), problems.join(' | '));
+  // 还原 ⇒ PASS（判据非恒真）。
+  assert.deepEqual(requestTurnProblems(SIDEPANEL), []);
+  // 自动按下点被复制 ⇒ 唯一判据必红。
+  const forgedDrive = `${AI_DRIVE}\ndispatchChipAction('op.turn', 'x');\n`;
+  assert.equal(callSites(forgedDrive, 'dispatchChipAction').length, 2, JUDGEMENTS[6].expectFailPattern);
+  assert.equal(callSites(AI_DRIVE, 'dispatchChipAction').length, 1, '还原后仍恰 1 处');
+});
+
+test('OP-W ⑦: 分支 A 端到端（机制侧）—— 已配置 ⇒ 无需用户按键 ⇒ 经 op.turn 槽自动成回合 + 三要素留痕', async () => {
+  const notices: string[] = [];
+  let turned: string | undefined;
+  bindPanelOps({ notice: (text) => notices.push(text), turn: (text) => void (turned = text) });
+  try {
+    const ctx = { actor: 'ai' as const, driverId: 'ref-action', driverClass: 'ai-driven' as const, configured: true, armed: true };
+    // ① 决策：auto 档 + ai-driven + 已配置 + 已武装 + 非在飞 ⇒ 放行。
+    assert.deepEqual(pressDecision('op.turn', ctx), { ok: true });
+    const out = pressCandidate('op.turn', '原地翻译为中文', ctx, ['ref.validCount', 'ref.latestRefNum']);
+    assert.equal(out.ok, true, 'op.turn 必须可被 AI 自动按下（auto 档）');
+    // ② 端到端：真实管线（dispatchChipAction → runOp → PANEL.turn）送达对话文本。
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(turned, '原地翻译为中文', '自动成回合必须经既有 op.turn 槽把答案原样交出去（零按键）');
+    // ③ 三要素留痕（driverId / timing / 依据摘要）且**零明文**（不含答案全文）。
+    const trace = notices.find((t) => t.startsWith('driver='));
+    assert.ok(trace, '自动发起必须留痕');
+    assert.match(trace as string, /^driver=ref-action \| timing=answered \| evidence=ref\.validCount,ref\.latestRefNum$/);
+    assert.equal((trace as string).includes('原地翻译为中文'), false, '留痕必须零明文（不得回显答案全文）');
+  } finally {
+    bindPanelOps({});
+  }
+});
+
+test('OP-W ⑦: 逐档拒绝（confirm / gesture 不可自动按下；AI 不自造 opId；未配置 / 在飞 / 未武装 / 护栏）', () => {
+  const base = { actor: 'ai' as const, driverId: 'ref-action', driverClass: 'ai-driven' as const, configured: true, armed: true };
+  // confirm 档（op.llm-config）与 gesture 档（op.authorize / op.perm.request）一律拒。
+  assert.deepEqual(pressDecision('op.llm-config', base), { ok: false, blocked: 'tier' });
+  assert.deepEqual(pressDecision('op.revoke', base), { ok: false, blocked: 'tier' });
+  for (const id of ['op.authorize', 'op.perm.request']) {
+    assert.deepEqual(pressDecision(id, base), { ok: false, blocked: 'tier' }, `${id} 必须恒 gesture（不得自动按下）`);
+  }
+  // AI 自造 opId ⇒ 拒（候选恒由注册表产出）。
+  assert.deepEqual(pressDecision('op.ghost', base), { ok: false, blocked: 'unknown-op' });
+  // 确定性驱动者无自动按下权；其余三段（未配置 / 在飞 / 未武装 / 护栏）逐条可判。
+  assert.deepEqual(pressDecision('op.turn', { ...base, driverClass: 'deterministic' }), { ok: false, blocked: 'driver-class' });
+  assert.deepEqual(pressDecision('op.turn', { ...base, configured: false }), { ok: false, blocked: 'unconfigured' });
+  assert.deepEqual(pressDecision('op.turn', { ...base, busy: true }), { ok: false, blocked: 'busy' });
+  assert.deepEqual(pressDecision('op.turn', { ...base, armed: false }), { ok: false, blocked: 'not-armed' });
+  assert.deepEqual(pressDecision('op.turn', { ...base, guardAllowed: () => false }), { ok: false, blocked: 'guard' });
+  // 两段证伪：抽掉档位闸门的对照实现会放行 confirm 档 ⇒ 真判据确实承重（非恒真）。
+  const bypass = (opId: string): { ok: boolean } => (OP_IDS.includes(opId) ? { ok: true } : { ok: false });
+  assert.equal(bypass('op.llm-config').ok, true, '对照：无档位闸门 ⇒ confirm 档会被放行');
+  assert.equal(pressDecision('op.llm-config', base).ok, false, '有档位闸门 ⇒ confirm 档必拒');
 });
