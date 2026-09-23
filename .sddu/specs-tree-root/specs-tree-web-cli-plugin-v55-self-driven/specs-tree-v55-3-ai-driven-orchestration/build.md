@@ -411,10 +411,39 @@
 
 ---
 
+## 9. review 微修（R1 审查 I-01 / I-02）—— 零行为变化
+
+> 触发：`review-report.md` R1 的 2 个**非阻塞**改进项（I-01 注释失实 / I-02 构造值标注）。改动面 = **注释 + 测试标注**，`src/**` 无行为变化、判据本体零改动。
+
+### 9.1 逐项处置
+
+| # | 位置 | 处置 | 验证 |
+|---|---|---|---|
+| I-01 | `src/ui/sidepanel/next-registry/ai-drive.ts:94-95` | 注释由**失实**引用 `guard.ts#GUARD_BLOCK_REASONS`（该导出不存在）订正为**真实符号**：`guard.ts` 的 `GuardBlockReason` 闭集（经 `GuardVerdict.reason` 透出）—— 语义不变（抑制原因仍「词表单源」），**零行为变化** | `npx tsc --noEmit` = 0；`npm test` 1319/0 |
+| I-02 | `test/s0-self-driven-chain.test.ts`（node `S0N-9`） | 对 `guardReasons` / `suppressedReadable` / `continuation` 三项**构造值**加显式标注：注明其为占位真值（本面不驱动链式护栏 / 不读抑制行 / 不收口），**真实读数**在 **Chromium 面**（`s0-self-driven.mjs#aReading`，抑制行 / 收口由真面板派生）与 **`runChain`**（沿链序穷举 `frequency` / `chain-depth` / `budget`）—— **不得冒充真实链读数**；判据本体（`s0BranchAProblems`）零改动 | `npm test` 1319/0（`S0N-9` 正例 + 反证均绿） |
+
+### 9.2 复跑与体积
+
+| 项 | 结果 |
+|---|---|
+| `npx tsc --noEmit` | **0**（绿） |
+| 相关门禁 | `s0-self-driven-chain`（S0N-9 正/反证）· `op-three-tier`（OT①~⑪）· `proactivity-guard`（PG①~⑦）**均绿** |
+| `npm test`（node 全量） | **1319 / 0**（= R3 基线，**只增不减**；无新增 / 无删除用例） |
+| 体积五要素 | **不变**：`sidepanel.js` **573,424 B**（I-01 注释被 esbuild 擦除 ⇒ 零字节；`dist` 重建后逐字节同值）/ `content.js` **177,076** / `pick-layer.js` **34,358**；生效上限 602,095 / 档位 614,400 / 绝对上限 675,840 / `pending-author-line` 均不动 ⇒ **无需重登记** |
+
+日志：`/tmp/opencode/v4-gate-logs/v55-3-fix/`（`tsc-noemit.log` / `build.log` / `npm-test.log`）。
+
+### 9.3 下一步
+
+I-01 / I-02 已在 review → validate 之间闭环，均为**非阻塞**项；零行为变化、体积零变 ⇒ 不触发新轮次，直接交 validate。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
+| v1.3 | **review 微修（R1 审查 I-01 / I-02）**：I-01 `ai-drive.ts:94-95` 注释失实引用订正为真实符号（`GuardBlockReason` + `GuardVerdict.reason`）；I-02 node `S0N-9` 对 `guardReasons`/`suppressedReadable`/`continuation` 三项构造值加显式标注（真实读数在 Chromium 面 + `runChain`，不得冒充链读数）。**零行为变化 / 判据本体零改动**；`npx tsc --noEmit`=0 · `npm test` **1319/0**（不减）· 体积五要素**不变**（573,424 / 177,076 / 34,358 / 602,095 / pending-author-line） | 2026-09-23 | SDDU Fast Agent |
 | v1.0 | R1 = W1+W2 / 7 任务；SG-V55-03 = 可得；`npm test` 1283 → 1299 / 0；体积 563,780 → 566,535 B（+0.49%） | 2026-09-23 | SDDU Build Agent |
 | v1.2 | **R3 = W5 收口轮**：S0 分支 A 端到端（样本单源 + node/Chromium 双面，零按键）· 护栏链上可判（频次/链深/预算穷举 + 真面板抑制可读）· 关断偏好复核（主题① 放行）· 红线终核 12 项 · 体积定稿（Δ 0 / 未跨档位 / 五要素 = 573,424/602,095/614,400/675,840/pending-author-line）· SG-V55-05 = 保段可得（journey/binding sha 双命中，零 diff）· 3 新门禁入受审集合；`npm test` 1312 → **1319/0**，`test:s0-self-driven` 45 → **59/0**；`src/**` 零字节改动 | 2026-09-23 | SDDU Build Agent |
 | v1.1 | **R2 = W3+W4 / 8 任务**：SG-V55-04 = 可得；SW 有界仲裁（队列 1 + 溢出明确拒绝 + 草稿回填）+ 护栏六常量单源 + 越限真抑制 + 关断（主题① 不受控）+ `driverSuppressedLine`；`npm test` 1299 → **1312 / 0**；体积 566,535 → **573,424 B**（R2 +6,889，Σ+glue=6,843+46；未跨档位，生效上限 → 602,095）；`binding` 环境性 FAIL（基线复现）；W5 留 R3 | 2026-09-23 | SDDU Build Agent |

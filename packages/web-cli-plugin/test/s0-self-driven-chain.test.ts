@@ -531,6 +531,12 @@ function branchAReading(guard: ReturnType<typeof createProactivityGuard>): {
       answer: turned ?? null,
       chatTurns: turned ? 1 : 0,
       trace: notices.some((t) => /^driver=ref-action \| timing=answered \| evidence=ref\.validCount,ref\.latestRefNum$/.test(t)),
+      // ⚠️ **构造值（非真实链读数）**：本函数只跑「单拍」端到端（`bindPanelOps` + `pressCandidate`），
+      // 不驱动链式护栏、不读抑制行、不收口 ⇒ 下三项为占位真值，**不得**冒充真实链读数：
+      //   · `guardReasons` 由测试以共享样本 `S0_A_ON_CHAIN_REASONS` 构造注入；
+      //   · `suppressedReadable` / `continuation` 恒 `true`（本面不产抑制行、不读收口）。
+      // 真实读数在 **Chromium 面**（`test/ui/s0-self-driven.mjs#aReading`：抑制行 / 收口由真面板派生）
+      // 与 **`runChain`**（沿链序穷举得 `frequency` / `chain-depth` / `budget`）。
       guardReasons: [],
       suppressedReadable: true,
       continuation: true,
@@ -571,6 +577,7 @@ test('S0N-9 分支 A 端到端：已配置 ⇒ 答案后**零按键** ⇒ 经 op
   assert.ok(chainReasons.reasons.includes('frequency'), `频次必须在链路上可判（实测 ${JSON.stringify(chainReasons)}）`);
   assert.ok(depthReasons.reasons.includes('chain-depth'), `链深必须在链路上可判（实测 ${JSON.stringify(depthReasons)}）`);
   assert.ok(budgetReasons.reasons.includes('budget'), `预算必须在链路上可判（实测 ${JSON.stringify(budgetReasons)}）`);
+  // ⚠️ 构造注入（非链读数）：真实护栏读数由 `runChain` 独立证明 + Chromium 面真机核（见 `branchAReading` 标注）。
   const guardReasons = [...S0_A_ON_CHAIN_REASONS];
   const clean = { ...reading, guardReasons };
   assert.deepEqual(s0BranchAProblems(clean), [], JUDGEMENTS[8].expectFailPattern);

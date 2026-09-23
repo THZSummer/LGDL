@@ -91,8 +91,8 @@ export function driverTraceLine(driverId: string, timing: string, evidence: read
  * 的单源行：`driver=… | timing=… | evidence=… | suppressed=<reason>`。
  *
  * 「被抑制」与「没反应」必须**可判**（用户能看到刚才是被频次 / 静默 / 预算还是链深挡住），
- * 所以抑制走**可读行**而不是静默 return（FR-SELF-096 的判据）。`reason` 取自
- * `guard.ts#GUARD_BLOCK_REASONS`（词表单源），本函数只做拼装。
+ * 所以抑制走**可读行**而不是静默 return（FR-SELF-096 的判据）。`reason` 的取值来自
+ * `guard.ts` 的 `GuardBlockReason` 闭集（经 `GuardVerdict.reason` 透出），本函数只做拼装。
  */
 export function driverSuppressedLine(driverId: string, timing: string, evidence: readonly string[], reason: string): string {
   return `${driverTraceLine(driverId, timing, evidence)} | suppressed=${reason}`;
