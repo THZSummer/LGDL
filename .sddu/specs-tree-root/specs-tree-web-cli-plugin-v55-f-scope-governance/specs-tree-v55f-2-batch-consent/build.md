@@ -20,7 +20,7 @@
 | 新增文件 | **2 个**：`src/background/batch-plan.ts`（B 列）· `test/batch-consent.test.ts`（新 node 门禁） |
 | 修改文件 | **13 个**（唯一文件）：源码 9（`messaging.ts` / `service-worker.ts` / `confirm.ts` / `audit-sink.ts` / `stream-model.ts` / `chat-state.ts` / `cards/auth.ts` / `cards/index.ts` / `sidepanel.ts`）+ 门禁 4（`supersession-ledger.test.ts` / `op-three-tier.test.ts` / `capability-wiring.test.ts` / `gate-integrity.test.ts`） |
 | 新增 node 门禁 | **1 枚**（`batch-consent`，BC-1~7；已入 `EXPECTED_AUDITED_FILES`；`CHROMIUM_GATES === 9` 逐字不动） |
-| 测试计数 | `npm test` **1375 → 1386**（+11 用例：BC-1~7 ×7 + RL-06 扩批量 ×1 + OT-⑩ 扩批量 ×1 + 特权不入批 ×1 + 元门禁自动纳入 ×1）；R1 末 **1379 pass / 7 fail**（6 = 体积/红线 pin 家族，逐叶重登记属 W3 `216`；1 = 预提交 worktree 漂移，提交后自愈） |
+| 测试计数 | `npm test` **1375 → 1386**（+11 用例：BC-1~7 ×7 + RL-06 扩批量 ×1 + OT-⑩ 扩批量 ×1 + 特权不入批 ×1 + 元门禁自动纳入 ×1）；**提交前 1379 pass / 7 fail**（含 1 条预提交 worktree 漂移）⇒ **提交后 1380 pass / 6 fail**（漂移自愈；6 = 体积/红线 pin 家族，逐叶重登记属 W3 `216`） |
 | A 列体积 | `dist/sidepanel.js` **585,732 → 589,033 B**（**+3,301 B ≈ 3.22 KiB**；叶预算 **3.5~5.5 KB** ⇒ 上界未越；生效上限 615,018 / 档位 614,400 ⇒ **未跨**） |
 | B 列体积（**不计账**） | `dist/background.js` **1,627,424 → 1,635,675 B**（**+8,251 B**；`batch-plan.ts` NEW + `confirm.ts` 计划感知桥 + `service-worker.ts` 捕获/接线 + `audit-sink.ts` 字段） |
 | 红线冻结面 | `dist/content.js` **177,076 B** / sha `52a82620…`、`dist/pick-layer.js` **34,358 B** / sha `77796bab…` **逐字节不变**；`packages/web-cli-base/**` **零 diff** |
@@ -109,7 +109,7 @@
 |---|---:|:--:|---|
 | `npm run typecheck` | 绿 | **绿** | 无类型错误（`typecheck` 日志同时段） |
 | `npm run build` | 绿 | **绿** | 4 产物 + `build-meta.json`；`sidepanel.js` = 589,033（`build.log`） |
-| `npm test`（全部 node 门禁） | 1375 / 0 | **1386 用例（1379 / 7）** | +11 用例只增。**7 红 = 6 体积/红线 pin**（登记基线滞后产物 ⇒ **逐叶重登记属 W3 `TASK-V55F-216`**，R1 如实红并归因）+ **1 预提交 worktree 漂移**（`zeroDiffFiles` 巡检对未提交改动敏感 ⇒ 提交后自愈） |
+| `npm test`（全部 node 门禁） | 1375 / 0 | **1386 用例（提交前 1379/7 ⇒ 提交后 1380/6）** | +11 用例只增。**6 红 = 体积/红线 pin**（登记基线滞后产物 ⇒ **逐叶重登记属 W3 `TASK-V55F-216`**，R1 如实红并归因）；预提交的 1 条 worktree 漂移（`zeroDiffFiles` 巡检对未提交改动敏感）在提交后**自愈**（实测 `npm test-final.log` = 1380 pass / 6 fail） |
 | `batch-consent`（**新**） | — | **7 / 0** | BC-1~7 全绿（含 on-disk 注入反证） |
 | `test:supersession` | 39 / 0 | **40 / 0**（除体积红线③家族 → 归 §7 偏差 1） | RL-06 扩批量变体在册；X-SGO 台账（W3 `215`）未动 |
 | `op-three-tier` | 11 / 0 | **12 / 0** | `tierOf` 逐 op 不变；特权恒 gesture |
