@@ -5,11 +5,11 @@
 > **前置依赖**: review.md、spec.md（43 FR）、plan.md、父 ADR-V55-001/002/003/005、build.md（R1+R2）
 > **创建人**: SDDU Review Agent
 > **创建时间**: 2026-09-23
-> **审查轮次**: R1
-> **版本**: v1.0
+> **审查轮次**: R1 → **R2（复审）**
+> **版本**: v1.1
 > **更新人**: SDDU Review Agent
 > **更新时间**: 2026-09-23
-> **更新说明**: 初始创建 —— 静态审查 + 动手复核（S0 双面 / no-dead-end 真源注入 / 冻结面 sha）
+> **更新说明**: R1 初版（静态审查 + 动手复核）→ **R2 复审段追加**：逐 BLOCK 亲注入闭环 + I-01~03 复核 + 全量复扫 + 红线终核 + `npm test` 全量亲跑（1246/0）
 
 ## 0. 审查范围与执行
 
@@ -172,8 +172,142 @@
   - `files.reviewReport` → `.sddu/.../specs-tree-v55-1-driver-layer/review-report.md`
 - 本 Agent 未直接修改 `state.json`（依 §8.2：该文件由状态机管理）。
 
+---
+
+# 审查报告 R2（复审：BLOCK 闭环 + I 项复核 + 全量复扫 + 红线终核）
+
+> **文档定位**: 对 R1 结论（❌ 2 BLOCK / 3 I / 4 O）的**复审轮**——验证修复提交 `c69650e` 的闭环真实性，并做全量复扫与红线终核
+> **被审对象**: 分支 `feature/web-cli-plugin` / HEAD `b9eb9fa`；修复提交 `c69650e`（= R1 报告 `19a602f` 的处置轮）；`build.md` v3.0（修复轮记录）
+> **审查方式**: 逐 BLOCK **真源注入亲测** + I 项复核（含 2 组注入） + 全量复扫（R1 通过项抽核 + 新引入风险分析） + 红线终核 + `npm test` 全量亲跑
+> **日志**: `/tmp/opencode/v4-gate-logs/v55-1-review-r2/`（`10-*` … `80-*`，逐门禁串行）
+
+## R2-0. 复审执行读数总览
+
+| 项 | 读数 |
+|---|---|
+| `npm test`（node 全量，**两次亲跑**：复审起始 + 全部注入还原后） | **1246 / 0**（= R1 基线 1246，不减） |
+| BLOCK-01 亲注入（真删守卫） | `law7x-ext` **4 pass / 1 fail**（`L7X-4` 逐字命中）⇒ 还原（sha 一致）⇒ **5/5 PASS** |
+| BLOCK-01 行为对照（真链路 SW→面板→真点击取消） | 有守卫：`suspensions=[]` ∧ `nextOps=6` ∧ `lastTrigger=idle/risk-recovery`；删守卫：`suspensions=[{source:'late',kind:'answered-late',…}]`（漏口复现） |
+| BLOCK-02 台账 | `grep -c X-SELF` in `docs/v4-supersession-ledger.json` = **41**；X-SELF-1~7 全在；`test:supersession` **36/0** |
+| I-01 / I-02 / I-03 | 全部闭环（见 R2-2，各带注入/抽核证据） |
+| 红线终核 | 三冻结面 / `KIND_SET` 40 / 特权手势 / 法八 / journey·binding 保段 / 体积五要素 —— **全部满足**（见 R2-4） |
+
+> **状态登记（SDDU §8.2）**：R1 报告曾提示 `state.json` 缺 `files.review` 登记；修复轮 `c69650e` 已把 `review.md` 与 `review-report.md` 写入本叶 `state.json#files`（复审实测存在）⇒ 策略/报告双文件均已登记，R1 的提醒**已闭环**（本 Agent 不直接改 `state.json`）。
+
+## R2-1. 逐 BLOCK 闭环验证
+
+### BLOCK-01（FR-SELF-023 口径② / EC-SELF-005 生产漏口）— ✅ 闭环
+
+**① 真源注入反证（判据侧）**
+
+- 注入：**真删** `src/ui/sidepanel/sidepanel.ts` 的取消守卫块（4 行 `if (isCanceled) { nextAfterSettle({ kind: 'settle', force: true }); return; }`，非 in-memory 变换）⇒ sha `51df03bb…` → `d54eea5b…`。
+- 实跑 `node --test dist-test/test/law7x-ext.test.js` ⇒ **4 passed / 1 failed**，失败项 = `L7X-4`，诊断逐字：「取消守卫缺失（isCanceled ⇒ 不记「已答」，不得驱动 answered）」。
+- 还原 `git checkout` ⇒ sha `51df03bb…a21d41` **与注入前逐字节相同**（= build.md §19 登记值）⇒ 复跑 **5/5 PASS**。
+- ⇒ `L7X-4` 读真源文件（`sidepanel.ts` 切片），**可 FAIL、非恒真**。
+
+**② 行为对照反证（真链路侧，R2 新增亲测）**
+
+用真实面板走完整链路（临时探针，不入库）：SW `chrome.runtime.sendMessage({kind:'ask-user-request'})` → 面板 `onMessage`（`bgAskIds` 命中，检出 `askuser` 卡 `data-card-key=q3`）→ 真点击 `[data-act="cancel"]`：
+
+| 变体 | 取消后 `suspensions` | 取消后流内可达 `[data-op]` | `lastRecommend` |
+|---|---|---|---|
+| **有守卫**（HEAD / 557,883 B） | **`[]`**（不记「已答」族） | `op.rebind, op.authorize, op.pick ×2`（**6**） | `{trigger:'idle', rule:'risk-recovery'}` |
+| **删守卫**（重建 dist / 557,761 B） | `[{source:'late', kind:'answered-late', late:true, instruction:''}]` | 同上（6） | 同上 |
+
+- ⇒ ① 漏口**真实可复现**（删守卫后取消被登记为 `answered-*`「已答」族）；② 守卫**不引入死端**（两变体均可达 next；守卫走 `nextAfterSettle({kind:'settle',force:true})` = 稳态驱动集，与 op 路 `:2644` / ref 路 `:2685` 同口径）。
+- 还原后重建 ⇒ `dist/sidepanel.js` **557,883 B**、`content.js` sha `52a82620…b5f6` / `pick-layer.js` sha `77796bab…575e` **逐字不变**。
+
+### BLOCK-02（X-SELF-1~7 取代台账）— ✅ 闭环
+
+| 判据 | 实测 |
+|---|---|
+| `grep -c "X-SELF"` | **41**（R1 = 0） |
+| 7 个 id 齐备 | X-SELF-1×3 / 2×10 / 3×3 / 4×11 / 5×11 / 6×10 / 7×1 |
+| `entries`（双落点之一） | **X-SELF-2 / 4 / 5 / 6** 各含 `file` / `oldTitle→newTitle` / `modificationType:equivalent-rewrite` / `reason` / `leaf:specs-tree-v55-1-driver-layer` |
+| `modifiedRanges`（双落点之二） | **V551-MR-X-SELF-2 / 4 / 5 / 6**（`oldId` 承载 id，含 `range` / `deletedLines` / `addedLinesText` / `leaf`） |
+| `xSelfLedger.rows` | **恰 7 行**：4 × `superseded` + 1 × `no-supersession`（X-SELF-1） + 2 × `handed-over`（X-SELF-3 → v55-2 / X-SELF-7 → v55-3，**未伪称已取代**） |
+| X-SELF-1「未发生取代」**如实性机核** | `requestTurn(` **定义恰 1**（`sidepanel.ts:283`）+ **调用点恰 2**（`:3330` / `:3354`，`grep -c` = 3 = 1 定义 + 2 调用）；`git diff ace3033..HEAD -- src/ui/sidepanel/sidepanel.ts \| grep -c "requestTurn("` = **0** ⇒ 与台账「diff = 0」逐字相符（注：R1 记 `:3322/:3346`，修复轮 +8 行后平移为 `:3330/:3354`，台账取**修复后**行号，一致） |
+| 锚点抽核（防橡皮图章） | X-SELF-2 `newTitle` = `export type { RecommendTrigger } from './next-registry/drivers.js';` 在 `sidepanel.ts:45` **逐字存在**；X-SELF-5 `range 2217-2245` ↔ `function applyRefAction` 实测 `:2217`；X-SELF-6 `range 2596-2610` ↔ `submitDescribe` 尾部 `nextAfterSettle({kind:'answered'})` 实测 `:2609` |
+| 门禁 | `test:supersession` **36/0** 亲跑；`counts` 同源层日志目录 `/tmp/opencode/v4-gate-logs/v55-1-fix/registry/` **存在** ⇒ 真核验（非 skip）；`zeroDiffFiles`(9) / `protectedRanges` / `protectedSupersession` / `redlineRemap` 四个冻结键**未被修复提交改动**（`git show` 逐行核） |
+
+## R2-2. I 项闭环复核
+
+| # | R1 问题 | R2 复核结论 | 证据 |
+|---|---|---|---|
+| **I-01** | `driver-quadruple.test.ts:273` 恒真断言 `… \|\| true` | ✅ **已除**（全文件 `\|\| true` 零命中；原行改为真实断言「时机闭集多一行 ⇒ 必判悬空」+ 注释写明「驱动者表多一行」由 DQ-1 承担） | 亲注入：**真删** `timingMappingProblems` 的闭集校验段 ⇒ `driver-quadruple` **13 pass / 1 fail**（DQ-4 反证必红）；还原 ⇒ sha `0febc986…f27a4657` **逐字节一致**（= build §19 登记值）⇒ 复跑 **14/14 PASS** |
+| **I-02** | 「`applyRefAction` 调用点恰 1」与源码不符（实测 2）且无门禁 | ✅ **口径显式化 + 静态门禁**：`APPLY_REF_CALL_SITE_WHITELIST`（生产 1 + seam 1 + 逐字锚点）+ `applyRefCallSites` / `applyRefCallSiteProblems`（三段注入反证：第 2 处生产调用 / seam 被删 / 锚点漂移） | 源码抽核：`applyRefAction(` 三处 = `:1166` testing-seam / `:2217` 定义 / `:2684` 生产 ⇒ 归类 `['testing-seam','definition','production']` 与断言一致；`l1-ref-validity` **20/0**；ADR-V55-004 / leaf plan / tasks.md **冻结未改**（修复提交 diff 不含） |
+| **I-03** | `S0C-1` 只在 `JUDGEMENTS` 声明、无 check；Chromium 面对样本改名/换序无感 | ✅ **成为两个真 check**：`PANEL_BEATS`（本面实际驱动的十拍）+ `beatCheck()` 唯一入口（未登记 id ⇒ loud 抛错）+ 收尾逐拍 ≥1 真面板读数机核 | 亲跑 `test:s0-self-driven` ⇒ `S0C-1 十环节逐序与共享样本一致` ∧ `实测 10/10 拍有读数` ⇒ **24/0**；亲注入：共享样本首拍 `bind`→`bind-x` ⇒ **23 pass / 1 fail**（`S0C-1` 必红，逐字打出 panel vs sample 序列）；还原 ⇒ sha `d8c3839b…ea2f9d` **逐字节一致**（= build §19 登记值）⇒ 24/0 PASS |
+
+## R2-3. 全量复扫
+
+### ① R1 通过项抽核（亲跑，全 0 fail）
+
+| 面 | 读数 | 面 | 读数 |
+|---|---|---|---|
+| `op-protocol`（KIND_SET 逐字） | 6/6 | `gate-integrity`（受审集合 + `CHROMIUM_GATES===9`） | 16/16 |
+| `capability-wiring` | 9/9 | `op-wiring`（`requestTurn` 2 / `maybeRecommend` 1·7 / 入口定义 1） | 9/9 |
+| `capability-revoke` | 5/5 | `law7x-ext`（L7X-1~4） | 5/5 |
+| `capabilities` + `local-act-wiring` + `sw-op-mirror` | 32/32 | `l1-ref-validity` | 20/20 |
+| `next-registry` | 18/18 | `driver-quadruple` | 14/14 |
+| `driver-terminals` | 8/8 | `design-contract`（12 kind 契约） | 19/19 |
+| `driver-timings` | 11/11 | `size-ruling-vol3` / `size-budget` / `size-growth-evidence` | 12/12 · 16/16 · 17/17 |
+| `blocked-terminals` | 11/11 | `s0-self-driven-chain`（node 面） | 8/8 |
+
+Chromium 面：`s0-self-driven` **24/0** · `dead-end` **49/0（不减）** · `law8` **33/0** · `recommendation` **72/0** · `ask-auth` **78/0** · `journey` **171 PASS（保段）** · `binding` **192 PASS（保段，一次跑通）**。
+
+### ② 新引入风险分析
+
+| 风险 | 结论 |
+|---|---|
+| 守卫是否引入**新死端**（取消后 settle 驱动可达 next？） | **无**。R2-1② 真链路对照：有/无守卫两变体取消后 `nextOps` 均 6 个（`op.rebind/op.authorize/op.pick`），`lastRecommend = {trigger:'idle', rule:'risk-recovery'}`；守卫走的是**稳态驱动集**（`timingOfSettle('settle')='idle'`），与 op/ref 取消路同口径 |
+| 守卫是否改动既有闸门行为 | 否。`dispatch({type:'ask-resolved', canceled:true})`、`bgAsk` 夹具闸门、`send` 载荷（`canceled:true`）**逐字未动**；守卫插在 `if (!bgAsk) return;` 之后、`registerSuspension` 之前 |
+| 新增判据是否恒真 | 否。`L7X-4` 亲注入必红（R2-1①）；门禁自带三段注入（删守卫 / 守卫后移 / 守卫内改记 answered）常驻 |
+| **N-01（新，低）**：`nextAfterSettle(` 调用点 **7 → 8**（守卫新增第 8 处），`op-wiring#OP-W-6` 只钉「定义恰 1 ∧ 调用点 ≥ 4」⇒ 不破门禁，修复轮 build/门禁未显式登记该 +1 | 登记（见 R2-5），建议 validate 或后续叶在口径中记明 |
+| **N-02（新，信息）**：`dist/sidepanel.js` 的 **sha 不可跨重建复现**（内嵌 `BUILD_STAMP` 时间戳，重建后仅 9 字节差、**字节数恒为 557,883**）；`content.js` / `pick-layer.js` 的 sha **重建后逐字不变** | 登记（见 R2-5）：sidepanel 的红线口径是**字节数**，非 sha |
+
+## R2-4. 红线终核
+
+| 红线 | 要求 | 实测（HEAD `b9eb9fa`） | 判定 |
+|---|---|---|---|
+| **三冻结面** | 逐字节 | `dist/content.js` **177,076 B** / sha `52a82620…b5f6` · `dist/pick-layer.js` **34,358 B** / sha `77796bab…575e` · `dist/sidepanel.js` **557,883 B**（= 登记基线；重建后同） | ✅ |
+| **KIND_SET** | 40 逐字 | `messaging.ts#KIND_SET` 实测 **40**（逐字顺序核）；`op-protocol#OP-P-1` 绿 | ✅ |
+| **12 kind / 零宿主** | 零新增 | `design-contract` 19/19（B1~B5 卡类型学零新增）；`REGISTERED_STRUCTURAL_HOSTS === []` | ✅ |
+| **特权手势** | SW 永不 `permissions.request`（仅手势助手内） | `capability-wiring` 9/9 + `capability-revoke` 5/5 + `capabilities` 等 32/32（「request 调用句法上只在 gesture helper 内」判据绿） | ✅ |
+| **法八（零明文四面）** | 33 判据 | `test:law8` **33/0**（含悬置输入不落 digest + 迟到文案静态零明文） | ✅ |
+| **journey / binding 保护段** | 171 / 192 不减 | `journey` **171 PASS** · `binding` **192 PASS** | ✅ |
+| **体积五要素** | 557,883 / ceiling 585,777 / 档 563,200 | 基线 `SIDEPANEL_BASELINE_BYTES` = **557,883**（= `dist/build-meta.json#outputs['dist/sidepanel.js'].bytes` 实测）· ceiling `floor(557,883 × 1.05)` = **585,777** · 档 `ceilTo50KB(557,883)` = **563,200**（未跨档）· 绝对上限 **619,520** · 逐模块归因 `sidepanel.ts 99,566 → 99,688（+122）`（Σ +122 + glue 0）· `docs/v4-density-baseline.json#volume` 同源（`size-budget` / `size-growth-evidence` / `size-ruling-vol3` / `supersession` 全绿） | ✅ |
+| **叶面足迹（不碰冻结面）** | `git diff ace3033..HEAD` 不含清单 | 不含 `src/content/**`、`manifest.json`、`ROADMAP.md`、`design/**`、`v3-supersession-ledger.json`、`stream-model.ts`、`src/background/messaging.ts`（`zeroDiffFiles` 9 项未被本轮改动）；`src/content/**` 在 `953a2ed..HEAD` 的出现属**前一叶 r4-selector-fix（`0a60740`）**，非 v55-1 足迹 | ✅ |
+| **禁恒真（FR-SELF-111）** | 无空转断言 | R1 唯一弱断言（I-01）已除；新增 `L7X-4` / I-02 调用点判据 / `S0C-1` 三条均**可 FAIL**（亲注入验证） | ✅ |
+
+## R2-5. 残留 N 项（登记，不阻塞）
+
+| # | 类型 | 内容 | 来源 |
+|---|---|---|---|
+| N-R2-01 | 观察（低） | `nextAfterSettle(` 调用点 **7 → 8**（取消守卫新增第 8 处）；`op-wiring#OP-W-6` 仅钉「定义恰 1 ∧ 调用点 ≥4」⇒ 无门禁钉死具体数值，修复轮 build 未显式登记该 +1。判据不破、语义正确（守卫必须经唯一入口），建议后续在口径/门禁中显式记明 | R2 新发现 |
+| N-R2-02 | 信息 | `dist/sidepanel.js` 的 **sha** 因内嵌 `BUILD_STAMP` 不可跨重建复现（字节数稳定 557,883）；红线口径应以**字节数**为准。`content.js` / `pick-layer.js` 的 sha 重建后逐字不变，可继续作冻结面凭据 | R2 新发现 |
+| N-R2-03 | 继承（低） | **O-01~O-04 未处置**：`s0-chain.mjs#judgeBeat` 的 `driverAttribution` 取常量（O-01）· `PROACTIVE_MOMENTS` 伞名 vs ADR 三型（O-02）· `SettleSource.terminal?` 生产零消费死字段（O-03）· `ref-action.driverClass:'ai-driven'` 供 v55-3（O-04）。四项在 HEAD 逐项复核仍成立 | build.md §22.2 |
+| N-R2-04 | 继承（登记） | **I-02 的规范文本未改**：ADR-V55-004 §1 / leaf plan §2·§6 / TASK-V55-115 仍写「调用点恰 1」，与源码（生产 1 + seam 1）不符；修复轮不改冻结文本，改以**门禁口径**为准（`applyRefCallSiteProblems`）并登记 | build.md §22.1 |
+| N-R2-05 | 继承（设计行为） | `test:supersession` 的 `counts` 同源层依赖 `/tmp/opencode/v4-gate-logs/v55-1-fix/registry/`；该目录被清理时回到**显式 skip**（不静默通过）。复审时目录存在 ⇒ 本轮为真核验 | build.md §22.4 |
+| N-R2-06 | 继承（人工面） | S0 主动接手**体感** / 打断感 / 引导文案可读性 = ⏳ **未执行**（headless 不可合成，**不冒充 PASS**） | build.md §22.3 |
+
+## R2-6. 结论
+
+**结论**: ✅ **通过**（R1 的 2 个 BLOCK 均已闭环，3 个 I 均已闭环）
+
+| 指标 | 结果 |
+|------|------|
+| 阻塞问题 | **0**（R1 的 BLOCK-01 / BLOCK-02 均经**亲注入/亲抽核**验证闭环） |
+| 改进项 | **0**（R1 的 I-01 / I-02 / I-03 全部闭环，各带注入或抽核证据） |
+| 残留 N 项 | **6**（N-R2-01/02 新发现，均为低 severity/信息；N-R2-03~06 继承登记，不阻塞） |
+| 红线终核 | **12/12 全绿**（R2-4） |
+| `npm test` | **1246 / 0**（不减） |
+| 可进入 validate | **是** |
+
+**理由**：修复轮 `c69650e` 对 R1 的处置**逐条可复核**——BLOCK-01 的守卫是**载荷性**的（真删 ⇒ `L7X-4` 必红；真链路对照 ⇒ 删守卫即复现「取消被记 `answered-late`」漏口），且**不引入新死端**（取消后仍必有可达 next）；BLOCK-02 的台账**双落点齐备**（`entries` + `modifiedRanges`），X-SELF-1「未发生取代」的 diff = 0 与 `requestTurn(` 恰 2 **实测相符**，X-SELF-3/7 如实 handed-over；I-01~03 的三处弱断言/口径漂移/机序缺口均已成为**可 FAIL 的真判据**。全量复扫中 R1 通过项抽核 19 面 + Chromium 7 面全绿，红线终核无一破线，体积五要素与台账同源。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（R1：38 Cx 逐项；2 BLOCK / 3 I / 4 O；S0 双面 + no-dead-end 真源注入 + 冻结面 sha 实跑复核） | 2026-09-23 | SDDU Review Agent |
+| v1.1 | **R2 复审段追加**（对修复提交 `c69650e`）：BLOCK-01 真源注入（删守卫 ⇒ `L7X-4` 必红 ⇒ 还原绿）+ 真链路行为对照（删守卫复现「取消记 `answered-late`」漏口，两变体均非死端）；BLOCK-02 台账 41 命中 + 双落点齐备 + X-SELF-1 diff=0 如实性机核 + `supersession` 36/0；I-01~03 全部闭环（2 组注入 + 1 组抽核）；全量复扫 19 node 面 + 7 Chromium 面抽核；红线终核 12/12；`npm test` **1246/0**；残留 6 项（2 新 + 4 继承）；结论 ✅ 通过 | 2026-09-23 | SDDU Review Agent |
