@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-2-batch-consent",
   "version": "v0.11.1",
   "name": "V5.5F-2 任务级批量授权——写入计划（N 处 目标+原文→译文）+ 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次用户手势 + 计划外逐条回落 + 逐条审计零明文 + 中途可中止 + 特权 op 恒不入批 + 批量变体注入必红 + WIDEN ask-user 二择",
-  "phase": "builded",
+  "phase": "reviewed",
   "status": "tracked",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "workflow": "6.review",
+  "agent": "sddu-review",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -53,14 +53,18 @@
     "tasksJson",
     "build.md（R1+R2）",
     "xSgoLedgerLeaf2",
-    "v55f2R1R2Rows"
+    "v55f2R1R2Rows",
+    "review.md（C1~C36 策略清单）",
+    "review-report.md v1.0（R1）"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/plan.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/review-report.md"
   ],
   "coversFr": [
     "FR-SGO-040~050",
@@ -145,6 +149,14 @@
       "agent": "sddu-build",
       "artifact": "build.md v2.0（R2 = W3）+ 6 源码/文档 + 8 测试文件",
       "note": "V5.5F-2 R2（W3，TASK-V55F-213~216）收口 ⇒ 16/16 全部完成：WIDEN 二择（ref-scope 单源 + sidepanel 接线 + 批量留痕；AI 零写入面注入必红）→ S0′ 批量段 S0P-B1~B3（样本单源 + node/Chromium 双面只加断言）→ X-SGO-4 已发生（redlineRemap 扩断言）+ 6/7 如实 + law8 批量零明文 → 体积逐叶重登记（A 列 585,732 → 591,946 B，+6,214）。6 项体积/红线 pin 一次闭环：npm test 1394 / 0 fail；law8 52/0（+6）、dead-end 53/0（+4）、s0 70/0（+5）、stream 76、auth-chip 37、ask-auth 78、l0 248、l1 131、l2 74、journey 171、binding 192（1 次 KL-N-10 flake ⇒ 复跑 PASS）、e2e PASS；三冻结面/base 零 diff；两叶 Σ +13,323 B（正常口径内，不触发升档）。零受管 Provider 调用（routing.v1 = local_or_compute → none）"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-review",
+      "artifact": "review.md（C1~C36 策略清单）+ review-report.md v1.0（R1）",
+      "note": "R1 审查：36 Cx / 33 ✅ / 3 ⚠️ / 0 ❌ / 0 BLOCK / 4 I（I-01 cards/index.ts 两条 import 并行的格式回归；I-02 confirm.ts fallback 未显式分支（文案未上屏 / planGate 状态推进）；I-03 batch-plan.ts BATCH_RENDER_MAX 死常量且与 AUTH_PLAN_RENDER_MAX 双声明；I-04 build.md R2 终值登记两小点：§9.2 supersession 40→42、§9.3 EC-SGO-022 生效上限 615,018→621,543）/ 5 O；亲注入 5 处承重（①AI 侧 markApproved ⇒ RL-06 扩批量 1 红；②op.authorize 入计划模块 ⇒ 特权不入批 1 红；③planEntryKey 归一化 ⇒ BC-2 1 红；④admitEntry 计划外放行 ⇒ BC-3 1 红；⑤去 WIDEN「整页」守卫 ⇒ L9-9 2 红；全部逐字节还原 sha 相同、复绿）；亲跑 npm test 1394/0 + node（supersession 42/0 · batch-consent 7/0 · law9 14/0 · op-three-tier 11/0 · capability-wiring 11/0 · s0-self-driven-chain 27/0 · op-wiring 14/0 · ref-context-in-turn 9/0 · gate-integrity 22/0 · host-registry 11/0）+ Chromium（s0-self-driven 70/0 · law8 52/0 · dead-end 53/0）；三冻结面 sha 双锚（content 177,076 / 52a82620… · pick-layer 34,358 / 77796bab…）+ base/判定链/op-table 零 diff + KIND_SET 40 + requestTurn( 2 + 12 kind 零宿主；体积五要素同源 591,946 / 621,543 / 675,840（越预算基线上界 5.5 KB 未越 +15% 6.3 KB，显式诚实登记）；结论 ✅ 通过（可进 validate）"
     }
   ]
 }
