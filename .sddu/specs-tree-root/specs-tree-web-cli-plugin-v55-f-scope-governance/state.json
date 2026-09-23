@@ -1,0 +1,163 @@
+{
+  "feature": "specs-tree-web-cli-plugin-v55-f-scope-governance",
+  "featureKey": "specs-tree-web-cli-plugin-v55-f-scope-governance",
+  "version": "v5.5.1",
+  "name": "web-cli-plugin「范围治理（scope governance）：引用即范围」—— ① 引用事实进回合（id / 序号 / 文本摘要 / 选择器 / data-wcli-ref 标记注入系统段）② 范围法则（引用存在 ⇒ 任务范围默认限定于引用目标；扩大范围必须先征询）③ 工具面 ref 锚定（dom set-text --ref <n>；单节点保证；失配 / 失效非静默）④ 任务级批量授权（AI 先出写入计划 ⇒ 一次 consent 覆盖整批；逐条审计保留零明文；中途可中止；非批次仍逐条）",
+  "phase": "discovered",
+  "status": "tracked",
+  "workflow": "0.discovery",
+  "agent": "sddu-discovery",
+  "depth": 1,
+  "parent": null,
+  "childrens": [],
+  "leaf": false,
+  "createdAt": "2026-09-23",
+  "updatedAt": "2026-09-23",
+  "description": "立项来源 = 编排指示 2026-09-23（P1 引用事实进回合 / P1′ 范围法则 / P3 工具面 ref 锚定 / P2 任务级批量授权；P3/P4/P5 已由 R6 74d76c1 修复，本 Feature 不重复立项）+ 真机证据 ty.md（1963 行，21:28:28–21:32:29，本轮入库）。核心事实：用户拾取引用 ① → 答「原地翻译为中文」→ 回合 user 载荷只有答案原文（引用范围未进回合）→ AI 把「原地」理解为整页就地替换 → 42 处 dom set-text 全页改写 + 42 张同文案授权卡。决定性反证：AI 已读到 data-wcli-ref=\"ref_1\"（ty.md:550）且 [data-wcli-ref] 恰 1 命中（ty.md:566）仍未锚定 ⇒ 问题不是 AI 能力，而是引用事实在链路上不可见 + 无范围法则 + 工具面无 ref 参数 + 授权逐条。",
+  "scope": {
+    "core": [
+      "引用事实进回合（ref-context-in-turn）：回合载荷 + 系统段携带活跃引用事实，两条入口（驱动者自动成回合 / 手动回合）同口径",
+      "范围法则（scope law）：引用存在 ⇒ 范围默认限定于引用目标；扩大范围必须先征询；载体与判据须 spec 裁决（机制读数 vs 提示词约定）",
+      "工具面 ref 锚定（ref anchor）：dom 写命令（至少 set-text）可按引用锚定；解析单节点保证；失配 / 失效非静默（EC 家族）；读命令是否同加 = 论证项；实现载体受 base 零 diff 红线约束（plugin 侧包装先例 chrome-host.ts:206）",
+      "任务级批量授权（batch consent）：AI 先出写入计划（N 处 目标+原文→译文）⇒ 一次 consent 覆盖整批；逐条审计保留（零明文）；中途可中止；非批次写入仍逐条批准；特权 op 恒 gesture 不受影响；与 confirm 档 / 红线⑥（AI 不得代答 consent）的关系须显式裁决"
+    ],
+    "incidental": [
+      "范围读数与越界留痕（可判 / 可读 / 可机核）",
+      "端到端验收锚（拾取 → 答 → 自动成回合 → 范围受限写入 → 完成；双向反证）",
+      "手动回合的引用可见性覆盖（驱动者回合有悬置，手动回合裸文本）"
+    ],
+    "nonGoals": [
+      "P3/P4/P5（R6 已修：答案 once 语义 / 用户输入排队统一 / 完成后同动作去重 / 引用改写重评 text-changed）",
+      "src/content/**（content.js 177,076 B）与 pick-layer.js（34,358 B）语义改动（零容差冻结）",
+      "packages/web-cli-base/** 改动（test/insight-no-escalation.test.ts:147 机核零 diff；解冻须作者放行）",
+      "特权 op（op.authorize / op.perm.request）发起方式与批量授权的绕过面",
+      "判定链（security/policy.ts / auto-authorize.ts）与 zeroDiffFiles 冻结面触碰",
+      "法八（零明文）放宽；12 kind 新增；零宿主判据回退",
+      "v55 / R6 产物改写（D7 / D8）；F-29（A2A）状态变更；安装期静态权限 / 存储加密 / 会话分组收编 op"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "state.json"
+  ],
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/discovery.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ty.md"
+  ],
+  "coversIssues": [
+    "Q-SGO-001 引用事实不进回合（母问题；反证：ty.md:550 / :566 AI 已读到 data-wcli-ref 且恰 1 命中仍未锚定）",
+    "Q-SGO-002 无范围法则（SYSTEM_PROMPT service-worker.ts:107-118 零范围条款；42 条单点命令覆盖整页）",
+    "Q-SGO-003 工具面无 ref 锚定（base dom-tools.ts:462-470 无 ref；[data-wcli-ref=\"ref_n\"] 单节点锚已存在；失配口径未定义；引用表在面板、工具调用在 SW 的跨进程断层）",
+    "Q-SGO-004 逐条授权退化为连点（ty.md 实测 42 调用 / 42 卡 / 42 批准 / 理由串逐字相同）",
+    "Q-SGO-005 批量授权的范围绑定与 consent 关系缺失（红线⑥ RL-06 / OT-⑩ 不得被批量绕过）",
+    "Q-SGO-006 引用事实进回合的载荷与零明文口径未定（textDigest = 截断 80 字页面文本，非哈希）",
+    "Q-SGO-007 手动回合与驱动者回合的引用可见性不对称",
+    "Q-SGO-008 引用三义（证据 / 范围 / 语境）共用一份 RefFacts 未区分",
+    "Q-SGO-009 范围漂移无留痕（留痕三要素只记字段名，无范围读数）",
+    "Q-SGO-010 法则退化为提示词约定的风险（现无门禁读提示词 ⇒ 零机核）",
+    "Q-SGO-011 引用即范围的过度约束反风险（正当全页任务被卡）",
+    "Q-SGO-012 体积距档位仅 35,777 B（基线 578,623 / 生效 607,554 / 档 614,400 / pending-author-line）",
+    "Q-SGO-013 越界写的终态 / 读数词汇缺位（法七扩展第二个面）",
+    "Q-SGO-014 端到端验收锚缺失（S0 只验零按键，不验范围）",
+    "Q-SGO-015 data-wcli-ref 标记的耐久性（SPA 重渲染即丢；作锚后失效必须非静默）"
+  ],
+  "coversGaps": [
+    "真机截图 / 录屏未入库（ty.md 为会话文字记录）",
+    "外部竞品调研未执行（O-SGO-009）",
+    "门禁计数引自 R6 记录（本轮零产品运行时验证）",
+    "编排指示约数（~60 探测 / 35 写入 / 35 卡）与本轮 grep 实测（≥142 探测 / 42 写入 / 42 卡）的差异已登记",
+    "同类范围漂移的历史会话未统计（无历史会话库）"
+  ],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/**（F-33 三叶 validated + closeout 总账；驱动者层 / 悬置任务 / 法七扩展 / 护栏六常量）",
+      "packages/web-cli-plugin/docs/r6-ty-experience-fix-2026-09-23.md（P3/P4/P5 已修证据；不重开）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/ty.md（第一证据，本轮入库）",
+      ".sddu/specs-tree-root/ROADMAP.md（v1.30.0；F-34 / v0.11.1 本轮实测零占用）"
+    ],
+    "downstream": [
+      "@sddu-spec（基于 discovery.md 定义需求）"
+    ]
+  },
+  "roadmap": {
+    "featureId": "F-34",
+    "featureIdOccupancy": "measured-zero（ROADMAP grep -c F-34 = 0；全仓 *.md/*.json/*.ts（排除 node_modules/.git）0 命中）",
+    "versionSlot": "v0.11.1",
+    "versionSlotOccupancy": "measured-zero（ROADMAP grep -c v0.11.1 = 0；全仓 0 命中）",
+    "registered": false,
+    "registrationOwner": "closeout（ROADMAP 留给收口；本阶段零 diff）"
+  },
+  "domainBaseline": {
+    "branch": "feature/web-cli-plugin",
+    "head": "74d76c1",
+    "headSubject": "fix(web-cli-plugin): R6——答案once语义/用户输入排队统一/完成后同动作去重与引用重评",
+    "sidepanelBaselineBytes": 578623,
+    "sidepanelEffectiveCeilingBytes": 607554,
+    "tierBytes": 614400,
+    "absoluteCeilingBytes": 675840,
+    "tierRemainingBytes": 35777,
+    "contentJsBytes": 177076,
+    "pickLayerJsBytes": 34358,
+    "kindSetSize": 40,
+    "authorConfirmation": "pending-author-line（未闭合义务，不得伪称已确认）",
+    "npmTestCount": 1330,
+    "source": "test/size-baseline.ts:351 + docs/r6-ty-experience-fix-2026-09-23.md（门禁计数引自 R6 记录，本轮未复跑）"
+  },
+  "openPoints": [
+    "O-SGO-001 命名与版本位配对（推荐 v55-f-scope-governance + v0.11.1）",
+    "O-SGO-002 范围法则载体：机制读数 + 提示词表述（双轨，推荐）vs 纯机制 vs 纯提示词",
+    "O-SGO-003 引用事实进回合的载荷形态（推荐 chat type-only 结构化载荷 + 零明文口径写死）",
+    "O-SGO-004 工具面 ref 锚定（推荐 plugin 侧包装 + --ref <n> + 单节点保证 + 失配 fail-closed 非静默；先落写命令）",
+    "O-SGO-005 批量授权的范围绑定与 consent 关系（推荐计划指纹绑定 + 一次手势 + 计划外逐条回落 + 特权不入批 + 注入必红）",
+    "O-SGO-006 扩大范围的征询形态（推荐 ask-user 二择 + 确认入留痕）",
+    "O-SGO-007 法则是否机核化与判据形态（推荐立法为范围读数机核，参考 law7x-ext 双向反证 + 禁恒真）",
+    "O-SGO-008 体积预算与叶拆分（推荐 spec 先出分列预算 + 缓冲校验；升档走 EC 显式路径 + 作者一行）",
+    "O-SGO-009 是否需要外部竞品调研（推荐不需要）"
+  ],
+  "riskPreRegistration": [
+    "R-SGO-001 批量授权被误用为 AI 代答 consent 的合法外衣（高；RL-06 / OT-⑩ 必扩批量变体注入必红）",
+    "R-SGO-002 范围漂移不可判 + 易造恒真断言（高；须读数 + 双向反证）",
+    "R-SGO-003 packages/web-cli-base/** 零 diff 红线被撞（高）",
+    "R-SGO-004 锚定失配静默 ⇒ 写错节点（高；fail-closed 非静默）",
+    "R-SGO-005 批量计划清单撞破法八零明文（高）",
+    "R-SGO-006 体积越档位（距档 35,777 B；历史 plan 低估 2.8× 与 v55 超预算 +6,015）（中高）",
+    "R-SGO-007 KIND_SET 40 / 12 kind / 零宿主被撞（高）",
+    "R-SGO-008 回合载荷扩张引发主流程调用点门禁重锚（中高）",
+    "R-SGO-009 KL-N-10 环境性 flake 被误读为回归（低—中）",
+    "R-SGO-010 断言只增的门禁规模（中）",
+    "R-SGO-011 方案先行（开放点在 spec 前被顺手定下）（中高）"
+  ],
+  "assumptions": [
+    "A-SGO-001 范围指称信息在链路上缺失是系统性的（两条回合入口均只传文本）——已证",
+    "A-SGO-002 引用锚点（[data-wcli-ref=\"ref_n\"]）页面侧已可用，无需新页面能力——已证（含 best-effort 边界）",
+    "A-SGO-003 --ref 可在不改 base 的前提下经 plugin 侧包装实现——部分已证，实现面待验证",
+    "A-SGO-004 批量授权可零新增 kind（复用 auth + confirm + type-only 载荷）——部分已证，待裁决",
+    "A-SGO-005 范围法则可机核——形态待验证",
+    "A-SGO-006 批量授权不侵蚀红线⑥与特权手势——待验证",
+    "A-SGO-007 引用事实进回合不破法八（页面文本 ≠ 凭据值；仍需口径裁决）——待验证",
+    "A-SGO-008 体积可在余量内完成或必须先预算——待验证",
+    "A-SGO-009 三冻结面零触碰（content.js / pick-layer.js / KIND_SET 40）——待验证",
+    "A-SGO-010 本轮 .sddu 外零触碰（ty.md 入库除外）——已遵守"
+  ],
+  "pendingObligations": [
+    "authorConfirmation.status = pending-author-line（档位 614,400 / 绝对上限 675,840）—— 承接 v55，未闭合义务，不得伪称已确认",
+    "本 Feature 若触发升档 ⇒ 走 EC 显式路径 + 作者一行"
+  ],
+  "evidenceGaps": [
+    "真机截图 / 录屏未入库",
+    "外部竞品调研未执行",
+    "门禁计数引自 R6 记录（本轮未复跑）",
+    "编排约数与实测差异已登记（§0.2）"
+  ],
+  "notes": "本轮 discovery 零产品运行时验证（未跑 npm test / Chromium / build）。ty.md 原地提交入库（不移动；R6 记录与 size-baseline 按该路径引用它）。叶拆分建议 2 叶：v55f-1 范围底座（引用事实进回合 + 范围法则 + 工具面 ref 锚定 + 范围读数 + 端到端样板）→ v55f-2 批量授权；若两叶共享底座不可分割可退化为单叶 + 内部分组。完成协议：phase → discovered / status → tracked；ROADMAP 零 diff（登记留给收口）。",
+  "phaseHistory": [
+    {
+      "phase": "discovered",
+      "status": "tracked",
+      "at": "2026-09-23",
+      "agent": "sddu-discovery",
+      "note": "初始创建（F-34 立项 discovery）：ty.md 入库为第一证据 + 问题清单 Q-SGO-001~015 + 红线继承 N-SGO-001~023 + 取代候选 X-SGO-1~7 + 开放问题 O-SGO-001~009（附推荐）+ 叶拆分草案"
+    }
+  ]
+}
