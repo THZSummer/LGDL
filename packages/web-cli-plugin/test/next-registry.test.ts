@@ -29,7 +29,7 @@ import {
   setKnownOpIds,
   validateNextProvider,
 } from '../src/ui/sidepanel/next-registry/registry.js';
-import type { NextProvider } from '../src/ui/sidepanel/next-registry/definition.js';
+import type { NextCtx, NextProvider } from '../src/ui/sidepanel/next-registry/definition.js';
 // V5.5-1 TASK-V55-118: 注册表**内**扩张的声明表（与 provider 集合双向包含的判据面）。
 import { DRIVER_DECLS_SRC, builtinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
 
@@ -263,6 +263,34 @@ test('NR-10（V5.5-1）：驱动者声明 10 行 ↔ provider 集合双向包含
   const answered = decls.filter((d) => d.timings.includes('answered'));
   assert.ok(answered.length >= 1, "answered 时机必须至少 1 个驱动者（答完不是死端）");
   for (const d of answered) assert.ok(['deterministic', 'ai-driven'].includes(d.driverClass), `${d.driverId} 的 driverClass 必须明确`);
+});
+
+/**
+ * V5.5-2 **TASK-V55-206**（ADR-V55-006 §4/§5 · FR-SELF-041/051/110 · AC-SELF-013）——
+ * **主动识别折叠进既有 `risk` 源**：`llm.unconfigured` 的 op-driven provider 由
+ * `risk` 派生（不新增 ctx 字段、不新增真值源），且**不看 `firstRun`** ——
+ * 「已装未配」（`firstRun = false`）与「首装」两场景由此**各自**产出同一条引导。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('NR-11（V5.5-2）：引导 provider 由 risk 源驱动 ∧ 与 firstRun 无关（已装未配可达）', () => {
+  const guide = builtinProviders().find((p) => p.id === 'llm.unconfigured');
+  assert.ok(guide, '前置：llm.unconfigured 引导 provider 必须在内置 provider 集内');
+  const mk = (risk: readonly string[], firstRun: boolean): NextCtx => ({
+    ref: { validCount: 0, staleCount: 0 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 0, subcommandCount: 0 },
+    probe: { phase: 'ready', steady: true },
+    risk,
+    onboarding: { firstRun, pendingSteps: firstRun ? ['授权当前站点'] : [] },
+  });
+  // 主动识别（risk 含 llmBlocked）⇒ 两种场景都触发；词源仍是既有 7 源之一（risk）。
+  assert.equal(guide.when(mk(['llmBlocked'], false)), true, '已装未配（firstRun=false）必须仍产出引导');
+  assert.equal(guide.when(mk(['llmBlocked'], true)), true, '首装同样产出（两场景各自可达）');
+  assert.equal(guide.when(mk([], false)), false, '无该风险 ⇒ 不触发（判据非恒真）');
+  assert.ok(NEXT_SOURCE_NAMES.includes('risk') && NEXT_SOURCE_NAMES.length === 7, '真值源仍恰 7（不新增源）');
+  // 反证：把 when 挂到 firstRun 上 ⇒ 已装未配场景必红。
+  const forged = { ...guide, when: (ctx: NextCtx) => ctx.onboarding.firstRun && ctx.risk.includes('llmBlocked') };
+  assert.equal(forged.when(mk(['llmBlocked'], false)), false, '挂上 firstRun ⇒ 已装未配丢失（判据非恒真）');
 });
 
 test('NR-10 反证：声明表多一行 / 少一行 ⇒ 双向包含必红 → 还原 PASS', () => {

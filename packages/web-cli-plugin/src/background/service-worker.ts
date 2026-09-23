@@ -94,7 +94,7 @@ import { execSwOp } from './op-executors.js';
 import { sha256Hex } from '../protocol/trust.js';
 import { providerChat, providerById } from '../llm/providers.js';
 import { createKeyStore } from '../llm/key-store.js';
-import { toLlmStatusSummary } from '../llm/status.js';
+import { isLlmConfigured, toLlmStatusSummary } from '../llm/status.js';
 import { testLlmConnection } from '../llm/test-connection.js';
 import { createTestConnectionCache, llmConfigFingerprint } from '../llm/test-cache.js';
 
@@ -876,9 +876,34 @@ async function resetChatSession(s: Singletons): Promise<void> {
 }
 
 async function runChat(s: Singletons, user: string): Promise<void> {
+  // ★ V5.5-2 **TASK-V55-203** (ADR-V55-006 §3 · FR-SELF-040/041 · AC-SELF-007) —
+  // the **pre-flight configuration predicate**: it runs *before* `providerChat(` and,
+  // decisively, *before* the arbitration slot is taken (`chatBusy = true`). An
+  // unconfigured install therefore never reaches the provider (zero token) and never
+  // produces an LLM **error** event: it produces a deterministic system-flow event
+  // (`variant: 'llm-unconfigured'`) the panel turns into the setup guide (theme ①).
+  //
+  // The key-store read is hoisted above the busy check so that
+  // 「busy check + predicate + claim」stay in ONE synchronous block: had the read sat
+  // between them, the await window would let two concurrent `chat` messages both pass
+  // the busy check (the single-flight guarantee must not be relaxed). While a turn is
+  // in flight the existing busy reply still wins (checked first, unchanged).
+  const settings = await s.keys.load();
   if (chatBusy) {
     await chrome.runtime
       .sendMessage(makeMessage('chat-result', { variant: 'error', text: '上一条消息仍在处理中，请稍候再发送。' }))
+      .catch(() => {});
+    return;
+  }
+  if (!isLlmConfigured({ hasKey: settings.apiKey.length > 0, providerId: settings.providerId, model: settings.model })) {
+    // Zero provider call, zero token, no `llmErrorEvent` — the false「撞一次错误才知道
+    // 要配置」path (R5) is structurally removed. The payload carries the **variant only**:
+    // the blocked-terminal vocabulary stays single-sourced in the panel registry
+    // (`definition.ts` 声明 + `providers.ts` 双射点, BT-1 红线), so the SW must not
+    // re-write the literal — the panel folds the fact through its ONE mapping
+    // (`noteLlmBlockedFact` ⇒ `observedBlocked` ⇒ `llmBlocked` ⇒ the same recovery row).
+    await chrome.runtime
+      .sendMessage(makeMessage('chat-result', { variant: 'llm-unconfigured' }))
       .catch(() => {});
     return;
   }
@@ -887,7 +912,6 @@ async function runChat(s: Singletons, user: string): Promise<void> {
   // switch mid-run can never misattribute the completed turns.
   const sessionIdAtStart = s.currentSessionId;
   try {
-    const settings = await s.keys.load();
     const provider = providerById(settings.providerId);
     // TASK-023: pair each tool's start (onCommandLine) with its result
     // (hooks.onToolDone, fired immediately before onToolOutput) so the side

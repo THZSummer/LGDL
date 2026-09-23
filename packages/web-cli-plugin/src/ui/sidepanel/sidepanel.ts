@@ -42,6 +42,16 @@ import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definiti
 // 会被擦除，因此本行对 `sidepanel.js` 体积贡献为 0；时机值的扩缩只发生在单源处。
 import type { RecommendTrigger } from './next-registry/drivers.js';
 import { listSuspensions, registerSuspension, resetSuspensions, timingOfSettle, type SettleSource } from './next-registry/drivers.js';
+// V5.5-2 TASK-V55-205/210/211（ADR-V55-006 §4 · ADR-V55-007 §1~§3）——主题① 的引导流声明
+// 单源（4 步）+ 配置悬置任务（单源登记 / 有效期重校验 / 续接决策）。本文件只**消费**它们，
+// 不写第二份步骤表 / 不写第二个登记点。
+import {
+  ONBOARD_CHIP_OP,
+  ONBOARD_DETECT_TEXT,
+  ONBOARD_INVALIDATED_TEXT,
+  ONBOARD_RESUME_TEXT,
+} from './next-registry/onboarding-flow.js';
+import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
 export type { RecommendTrigger } from './next-registry/drivers.js';
 import { providerById } from '../../llm/providers.js';
 import { dispatchChipAction } from './next-registry/dispatch.js';
@@ -1895,6 +1905,36 @@ function nextAfterSettle(src: SettleSource = { kind: 'idle' }): void {
   maybeRecommend(timingOfSettle(src), src.kind === 'answered' ? {} : { force: src.force === true });
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 **TASK-V55-210 / 211** (ADR-V55-007 §2/§3 · FR-SELF-045/050 · R-SELF-904) ——
+ * 「配置完成 ⇒ 自动续接悬置任务」。
+ *
+ * **顺序（机核）**：`op.llm-config` 的成功**回执**由 `pipeline.ts#defaultSettle` 写出，
+ * 本函数只在回执落地**之后**被调（`PanelOps.opSettled` 的 `completed` 分支）——「回执在前、
+ * 续接在后」由该处源码序保证。续接经 **`op.turn` 槽**（op 查表执行体，非第二入口）
+ * ⇒ `requestTurn(` 的调用点计数不变，且**全程留在流内**（零视图切换 / 零 `#open-settings`）。
+ *
+ * 失败 / 取消路径**不**经过 `completed` ⇒ 悬置任务**保留**（不丢），由既有失败收口
+ * （回滚 + 错误卡 + 可达 next）告一段落。
+ * ──────────────────────────────────────────────────────────────────────────── */
+function resumeAfterConfig(): void {
+  // 有效期重校验（EC-SELF-011）：站点已变 ∨ 会话已切换 ⇒ `invalidated`（**不制造假成功**）。
+  const decided = resumeSuspension({
+    ...(state.activeOrigin ? { origin: state.activeOrigin } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  });
+  if (decided.status === 'resumed' && decided.instruction) {
+    dispatch({ type: 'notice', text: ONBOARD_RESUME_TEXT });
+    // 悬置的那句话**原样**成为回合输入（不要求用户重说）：经 **`op.turn` 槽**（同一查表
+    // 执行体 ⇒ `requestTurn(` 调用点计数不变、面板侧唯一 chip 入口仍恰 1 处）。
+    void dispatchOp('op.turn', { value: decided.instruction });
+    return;
+  }
+  // 空悬置 / 失效：**非死端** —— 固化事实 + 可达 next（EC-SELF-012）。
+  if (decided.status === 'invalidated') dispatch({ type: 'notice', text: ONBOARD_INVALIDATED_TEXT });
+  nextAfterSettle({ kind: 'answered' });
+}
+
 /** 后台 ask（由 SW 的 `ask-user-request` 投递）的 requestId 集 —— 迟到口径只对它成立。 */
 const bgAskIds = new Set<string>();
 /** 迟到作答的**固化文案**（零明文：不含答案文本本身，法八不破）。 */
@@ -3379,6 +3419,10 @@ function wire(): void {
     nextAfterSettle: (op, state) => {
       nextAfterSettle({ kind: `op-${state}`, force: true, opId: op.opId });
     },
+    /* V5.5-2 TASK-V55-211（ADR-V55-007 §3）：回执写出**之后**的收口回调 —— 配置成功 ⇒ 续接。 */
+    opSettled: (op, state) => {
+      if (op.opId === ONBOARD_CHIP_OP && state === 'completed') resumeAfterConfig();
+    },
     snapshotTables: () => collectThreeTableSnapshot(threeTableAdapters()),
     restoreTables: (snap) => restoreThreeTableSnapshot(threeTableAdapters(), snap),
     llmConfig: async (raw) => {
@@ -3488,6 +3532,25 @@ function wire(): void {
           ...(typeof msg.ms === 'number' ? { ms: msg.ms } : {}),
         });
       } else if (variant === 'command') dispatch({ type: 'command', text });
+      else if (variant === 'llm-unconfigured') {
+        // ★ V5.5-2 **TASK-V55-205 / 210** (ADR-V55-006 §4/§5 · ADR-V55-007 §2) —
+        // 主题① 的**主动识别**源：未配置 ⇒ 系统流（**零 token 已由 SW 保证**）。
+        // ① `detect`：固化系统行事实（零明文）；
+        // ② 悬置任务：记住「用户刚才那句话」（谁在等 / 等什么 / 依据什么），MAX=1；
+        // ③ 折叠进**既有** `risk` 源（`noteLlmBlockedFact` 与被动观测同一终态词汇 ⇒ 幂等，
+        //    不产生第二条阻塞事实 / 第二条引导）；
+        // ④ `nextAfterSettle({kind:'answered'})`：立刻求值一次 ⇒ 既有 `llm.unconfigured`
+        //    provider 产出 `op.llm-config` **op-direct chip**（`guide` 步，零视图切换）。
+        const intent = [...state.entries].reverse().find((entry) => entry.role === 'user')?.text ?? '';
+        dispatch({ type: 'pending', value: false });
+        dispatch({ type: 'notice', text: ONBOARD_DETECT_TEXT });
+        registerConfigSuspension(intent, {
+          ...(state.activeOrigin ? { origin: state.activeOrigin } : {}),
+          ...(sessionId ? { sessionId } : {}),
+        });
+        noteLlmBlockedFact(false);
+        nextAfterSettle({ kind: 'answered' });
+      }
       else if (variant === 'done') {
         dispatch({ type: 'pending', value: false });
         // P5: the page-side flash has finished being the「进行中」signal.

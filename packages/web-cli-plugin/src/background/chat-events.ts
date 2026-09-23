@@ -17,7 +17,11 @@
  * can render a collapsible tool card; `commandEvent` surfaces the derived command
  * line. Both are additive to the existing message shape.
  */
-export type ChatResultVariant = 'assistant' | 'tool' | 'command' | 'error' | 'done';
+// V5.5-2 TASK-V55-204: the variant vocabulary is declared ONCE in `messaging.ts`
+// (type-only, never a `KIND_SET` member) and re-exported here — a second hand-written
+// union for the same payload would be a drift seam.
+import type { ChatResultVariant } from './messaging.js';
+export type { ChatResultVariant };
 
 export interface ChatResultEvent {
   variant: ChatResultVariant;

@@ -39,6 +39,7 @@ import { OBLIGATION_OP_IDS } from '../src/ui/sidepanel/next-registry/obligation-
 import {
   LLM_BLOCKED_RISK,
   OPS_RECOVERY_PROVIDER_IDS,
+  OPS_RECOVERY_ROWS,
   PERM_BLOCKED_RISK,
   RECOVERY_PROVIDER_IDS,
   RECOVERY_PROVIDER_TRIGGERS,
@@ -463,6 +464,57 @@ test('BT-4 反证：登记项缺 reason / status 非法 ⇒ 判据必红', () =>
   assert.ok(pendingItemProblems(noReason).some((p) => p.includes('reason 必须 ≥40')), JUDGEMENTS[3].expectFailPattern);
   const badStatus = [{ ...PENDING_ITEMS[0], status: 'in-progress' }];
   assert.ok(pendingItemProblems(badStatus).length > 0, JUDGEMENTS[3].expectFailPattern);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * V5.5-2 **TASK-V55-206**（ADR-V55-006 §4/§5 · FR-SELF-041/051 · AC-SELF-013）——
+ * **双源并存不改写阻塞枚举**：主动识别（SW 前置判据 `isLlmConfigured`）与被动观测
+ * （`op.llm-config` 失败 / 被拒）折叠进**同一**终态词汇 ⇒ 5 类阻塞逐字、双射 5↔5、
+ * op-driven 两行零改写；且「**已装未配**」（`firstRun = false` ∧ `risk: llmBlocked`）
+ * 必须仍产出 `op.llm-config` 引导 chip（扩张不取代，R-ONBOARDING 判据不减）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('BT-6（V5.5-2）：双源并存零改写阻塞枚举 ∧ 已装未配仍产出引导 chip', () => {
+  // ① 枚举与双射逐字不动。
+  assert.equal(BLOCKED_TERMINALS.length, 5, '阻塞态枚举恰 5 逐字（主动识别不得新增第 6 类）');
+  assert.deepEqual(blockedMapProblems(BLOCKED_P0_MAP, [...BLOCKED_TERMINALS]), []);
+  assert.equal(BLOCKED_P0_MAP.filter((r) => r.status === 'landed').length, 5, '双射 5↔5 仍闭合');
+  // ② op-driven 两行逐字（恢复链零改写）。
+  assert.deepEqual(
+    OPS_RECOVERY_ROWS.map((r) => [r.blocked, r.op]),
+    [
+      ['llm.unconfigured', 'op.llm-config'],
+      ['perm.missing', 'op.perm.request'],
+    ],
+    'op-driven 恢复行必须逐字不变',
+  );
+  // ③ 已装未配（firstRun = false）⇒ 引导 provider 仍产出唯一配置执行体的 op-direct chip。
+  const providers = builtinProviders();
+  const guide = providers.find((p) => p.id === BLOCKED_TERMINALS[1]);
+  assert.ok(guide, '前置：llm.unconfigured 引导 provider 必须存在');
+  const installedUnconfigured = ctxOf({ risk: [LLM_BLOCKED_RISK], onboarding: { firstRun: false, pendingSteps: [] } });
+  assert.equal(guide.when(installedUnconfigured), true, '已装未配（firstRun=false）必须仍触发引导');
+  assert.deepEqual([...guide.chips], ['op.llm-config'], '引导 chip 必须恒为唯一配置执行体 op.llm-config');
+  assert.equal(guide.when(ctxOf()), false, '干净态（无 llmBlocked 风险）不得触发引导（判据非恒真）');
+  // ④ 两条路径同一终态词汇：risk 源的键名与阻塞态枚举的映射是**唯一**双射行。
+  assert.equal(BLOCKED_P0_MAP.find((r) => r.blocked === BLOCKED_TERMINALS[1])?.providerId, BLOCKED_TERMINALS[1]);
+});
+
+test('BT-6 反证：主动识别被实现为「第 6 类阻塞」⇒ 映射判据必红 → 还原 PASS', () => {
+  const forged: BlockedP0Row[] = [...BLOCKED_P0_MAP, { blocked: 'llm.unconfigured-active', providerId: null, driver: '注入', status: 'pending-v5-2' }];
+  assert.ok(
+    blockedMapProblems(forged, [...BLOCKED_TERMINALS, 'llm.unconfigured-active']).length > 0,
+    JUDGEMENTS[2].expectFailPattern,
+  );
+  // 反证：把引导 chip 改写为「第二个配置执行体」⇒ op-driven 行判据必红。
+  const guide = builtinProviders().find((p) => p.id === BLOCKED_TERMINALS[1]);
+  assert.ok(guide);
+  const forked = [{ ...guide, chips: ['op.llm-config-alt'] }];
+  const knownOps = new Set<string>([...OBLIGATION_OP_IDS, ...Object.values(ACT_TO_OP)]);
+  assert.ok(
+    landedProviderProblems(BLOCKED_P0_MAP, forked, [...knownOps]).length > 0,
+    '第二配置执行体必须判红（配置面唯一，NG-SELF-016）',
+  );
+  assert.deepEqual(blockedMapProblems(BLOCKED_P0_MAP, [...BLOCKED_TERMINALS]), [], '还原必须 PASS');
 });
 
 test('BT 元判据：每条 judgement 都声明非占位 expectFailPattern', () => {

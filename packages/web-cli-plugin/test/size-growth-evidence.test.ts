@@ -212,7 +212,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // 捕获回环校验止血）⇒ 累计增量 252,333 → **254,384**。
   // 〖V5.5-1 R1/R2（2026-09-23）〗R1 中间登记 549,609 → **554,576**（+4,967）⇒ 累计 259,351；
   // R2 收口登记 554,576 → **557,761**（+3,185：答案驱动化 + S0 双面 + 判据升级）⇒ 累计 **262,536**。
-  assert.equal(b.deltaBytes, 262_658);
+  assert.equal(b.deltaBytes, 267_048);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -324,7 +324,7 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   // 取自沙箱几何，其 Δ 自洽由上面的对账用例判定（来源不同、判据互不替代）。
   // 〖V5-3 R2（2026-09-22，末叶 / 收口叶）〗随轮次重指向 v5-2-reviewfix → v5-3-r2
   // （v5-2 各轮的历史 rows 逐字保留在 `v52*Rows` 与 `SIDEPANEL_BASELINE_META` 的历史段）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v551FixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R1Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -380,10 +380,10 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
   // 明文如此）；〖V5-3 R2〗最新一轮 = `v5-3-r2`（542,064 → **546,370**，+4,306）
   // ⇒ 与它的登记条目同源复算（`SIDEPANEL_BASELINE_BYTES − 542,064 = 4,306`）。
   // 〖R4 缺陷修复轮（2026-09-22）〗`r4-selector-fix`（547,558 → **549,609**，+2,051）作为历史锚点保留。
-  // 〖V5.5-1 review R1 修复轮（2026-09-23，BLOCK-01/02 + I-01~03）〗最新一轮 = `v55-1-fix`
-  // （557,761 → **557,883**，+122）⇒ 与它的登记条目同源复算（历史轮次 v55-1-r2 的 554,576 → 557,761
+  // 〖V5.5-1 review R1 修复轮（2026-09-23，BLOCK-01/02 + I-01~03）〗最新一轮 = `v55-2-r1`
+  // （557,883 → **562,073**，+4,190）⇒ 与它的登记条目同源复算（历史轮次 v55-1-r2 的 554,576 → 557,761
   // 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 `SIDEPANEL_BASELINE_BYTES_TIMELINE`）。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 557_761);
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 557_883);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -431,7 +431,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // 〖V5-3 review R1 修复轮〗历史 = `v53FixRows`（7 行，Σ +1,188 + glue 0）；〖V5-3 R2〗历史 = `v53Rows`（9 行，Σ +4,306 + glue 0
   // == 546,370 − 542,064）；`v52CloseoutRows`（1 行 −86）的历史值逐字保留在本文件的注释与
   // `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`（其 Σ/Δ 自洽由 N-05 的组判据承担）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v551FixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R1Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -739,7 +739,7 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   // ② 逐模块：与**最新一轮**（V5.5-1 review R1 修复轮）登记的 afterBytes 逐值相等 ⇒ 真实 metafile
   //    与最新登记同源（历史各轮的 Δ 由 N-05 组判据承担；此后任何一轮都必须重新登记）。
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v551FixRows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.v552R1Rows) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(

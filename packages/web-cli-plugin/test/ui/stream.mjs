@@ -452,6 +452,27 @@ async function main() {
     const click = JSON.parse(clickRaw);
     check('⑩ chip 点击不 patch 原卡（原卡 chip 数不变；dispatch 走 op 管线）', click.before === click.after && click.before > 0, clickRaw);
 
+    // ⑯ V5.5-2 **TASK-V55-209**（ADR-V55-007 §1/§6 · FR-SELF-042/044/048）——
+    // **主题① 引导在流内闭环**：detect 步落系统行、guide 步落 op-direct chip、complete 步续接
+    // 走 `op.turn` 槽（零视图切换 / 零第二回合入口）。
+    const panelSrcV552 = readFileSync(new URL('../../src/ui/sidepanel/sidepanel.ts', import.meta.url), 'utf8');
+    const flowSrcV552 = readFileSync(new URL('../../src/ui/sidepanel/next-registry/onboarding-flow.ts', import.meta.url), 'utf8');
+    check(
+      '⑯ 主动识别落**系统行**（detect 步：ONBOARD_DETECT_TEXT 恰一处写者）',
+      (panelSrcV552.match(/text: ONBOARD_DETECT_TEXT/g) ?? []).length === 1 && /dispatch\(\{ type: 'notice', text: ONBOARD_DETECT_TEXT \}\)/.test(panelSrcV552),
+      'system-row',
+    );
+    check(
+      '⑯ guide 步为 op-direct chip（恰 4 步单源 ∧ chip = op.llm-config）',
+      /ONBOARD_STEPS = Object\.freeze\(/.test(flowSrcV552) && /chip: ONBOARD_CHIP_OP/.test(flowSrcV552) && (flowSrcV552.match(/id: '/g) ?? []).length === 4,
+      'four-steps',
+    );
+    check(
+      '⑯ 续接仍留在流内（经 op.turn 槽；零 openSettingsSection / 零 location）',
+      /dispatchOp\('op\.turn'/.test(panelSrcV552) && !/openSettingsSection\(/.test(flowSrcV552) && !/location\./.test(flowSrcV552),
+      'in-flow-resume',
+    );
+
     check('无未捕获页面异常（流渲染全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
     cdp.close();
 

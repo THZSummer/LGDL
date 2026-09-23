@@ -63,6 +63,16 @@ export const OPS_RECOVERY_PROVIDER_IDS: readonly string[] = Object.freeze(OPS_RE
 // V5-3 TASK-V5-156 (ADR-V5-002 §3): the born recovery chips of a blocked terminal.
 // Derived from the ONE registry (OPS_RECOVERY_ROWS + RECOVERY_CHIP_ORDER through ACT_TO_OP);
 // keys are BLOCKED_TERMINALS entries, so the single-source scan BT-1 stays green.
+/**
+ * V5.5-2 **TASK-V55-210** — reverse lookup through the SAME bijection row
+ * (`OPS_RECOVERY_ROWS`):「修这个 op 的阻塞终态是什么」。Deriving keeps the blocked-terminal
+ * literal at its two legal sites (declaration + bijection) — a consumer that needs the
+ * vocabulary never writes a third literal (BT-1 红线).
+ */
+export function blockedTerminalOf(opId: string): string | undefined {
+  return OPS_RECOVERY_ROWS.find((r) => r.op === opId)?.blocked;
+}
+
 export function blockedRecovery(blocked: string): { readonly text: string; readonly opId: string }[] {
   const row = OPS_RECOVERY_ROWS.find((r) => r.blocked === blocked);
   if (row) return [{ text: row.text, opId: row.op }];

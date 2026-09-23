@@ -112,6 +112,14 @@ export interface PanelOps {
    * (零第二推荐器, 零新增 `maybeRecommend(` 调用点).
    */
   nextAfterSettle?(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void;
+  /**
+   * V5.5-2 **TASK-V55-211** (ADR-V55-007 §3 · FR-SELF-050) — the **post-settle** callback:
+   * it runs *after* the receipt row has been written (`defaultSettle` returned), which is
+   * what makes「**回执在前、续接在后**」a machine-checkable event order instead of a hope.
+   * The panel uses it for exactly one thing: a successful `op.llm-config` resumes the
+   * suspended intent (`suspension.ts#resumeSuspension`). Absent ⇒ nothing resumes.
+   */
+  opSettled?(op: NextOp, state: 'completed' | 'cancelled' | 'rejected' | 'failed'): void;
 }
 
 let PANEL: PanelOps = {};
@@ -126,6 +134,14 @@ export function panelNotice(text: string): void {
 /** V5-2 TASK-V5-143 — mint the reachable recovery card after a refusal / failure. */
 export function panelNextAfterSettle(op: NextOp, state: 'cancelled' | 'rejected' | 'failed'): void {
   PANEL.nextAfterSettle?.(op, state);
+}
+
+/**
+ * V5.5-2 **TASK-V55-211** — the post-settle seam (the receipt row is already written by
+ * the time this fires). Called by `pipeline.ts#runOp` on the `completed` branch.
+ */
+export function panelOpSettled(op: NextOp, state: 'completed' | 'cancelled' | 'rejected' | 'failed'): void {
+  PANEL.opSettled?.(op, state);
 }
 
 /** V5-2 TASK-V5-142 — the panel's **three-table** snapshot (absent ⇒ empty snapshot). */

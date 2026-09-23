@@ -358,6 +358,27 @@ async function main() {
     );
     check('⑥ 迟到固化文案零明文反证：注入 URL query 形态 ⇒ 静态判据必红 → 还原 PASS', /[?&][A-Za-z]+=/.test(`${lateCopy}https://x.test/?q=1`), 'injected=hit');
 
+    // ⑦ V5.5-2 **TASK-V55-209**（ADR-V55-007 §1/§6 · FR-SELF-049 · AC-SELF-012）——
+    // **主题① 引导路径零明文**：引导 4 步的文案与悬置任务模块**不携带任何值**，
+    // 值仍只达 key-store（上面的 sink 计数判据已钉死恰一处）。
+    const flowSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/onboarding-flow.ts'), 'utf8');
+    const suspendSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/suspension.ts'), 'utf8');
+    const copies = [...flowSrc.matchAll(/export const ONBOARD_[A-Z_]*TEXT = '([^']+)'/g)].map((m) => m[1]);
+    check(
+      '⑦ 引导文案逐条零明文（≥3 条；无 URL query / 无密钥形态 / 无原始标记）',
+      copies.length >= 3 && copies.every((t) => !/[?&][A-Za-z]+=/.test(t) && !/\bsk-/.test(t) && !/<[a-z/]/i.test(t)),
+      JSON.stringify(copies),
+    );
+    check(
+      '⑦ 悬置任务模块零落盘 / 零流内写者（无 dispatch( / 无 chrome.storage）',
+      !/dispatch\(|chrome\.storage/.test(suspendSrc),
+      'suspension.ts module-scan',
+    );
+    check(
+      '⑦ 引导不绕开掩码卡（配置执行体恒 op.llm-config ∧ 无第二凭据写入路径）',
+      (flowSrc.match(/ONBOARD_CHIP_OP = 'op\.llm-config'/g) ?? []).length === 1 && !/keyStore\.save\(|submitSecret\(/.test(flowSrc),
+      'single-execution-entry',
+    );
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

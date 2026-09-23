@@ -25,8 +25,9 @@ import {
   collectOpConsent,
   collectOpParams,
   opReceiptText,
-  panelNotice,
   panelNextAfterSettle,
+  panelNotice,
+  panelOpSettled,
   panelRestore,
   panelSnapshot,
   swExec,
@@ -194,6 +195,9 @@ export async function runOp(opId: string, ctx: OpCtx = {}, deps: PipelineDeps = 
     const out = op_.layer === 'sw' ? await (deps.execSw ?? defaultExecSw)(op_, ectx) : await op_.execute(ectx);
     if (out.ok) {
       await settle(op_, 'completed', ctx, snap, out);
+      // ★ V5.5-2 TASK-V55-211 (ADR-V55-007 §3): 回执**已写**（settle 返回）之后才通知
+      // 面板「本次结算收口」——「回执在前、续接在后」的事件序由这一处源码序保证。
+      panelOpSettled(op_, 'completed');
       return out;
     }
     // V5-2 review R1 **BLOCK-02** (FR-ALLN-034 ③② · EC-ALLN-011 · NFR-ALLN-010): a

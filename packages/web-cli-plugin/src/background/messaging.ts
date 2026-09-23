@@ -96,6 +96,22 @@ export type PluginMessageKind =
   // (same reason as the rest of this family — `content.js` must not carry the strings).
   | 'ref-rescue';
 
+/**
+ * V5.5-2 **TASK-V55-204** (ADR-V55-006 §4 · FR-SELF-095) — the `chat-result` payload
+ * `variant` vocabulary (the ONE declaration; `chat-events.ts` re-exports this type).
+ *
+ * **Type-only**: `variant` is a *payload value* of the existing `chat-result` kind — it
+ * is NOT a kind and must never join `KIND_SET` below. That set is bundled into the
+ * injected `content.js` (177,076 B, zero headroom), so a new string there is a red-line
+ * breach; the type union, by contrast, is erased by the compiler and costs **zero
+ * runtime bytes on every face**.
+ *
+ * `'llm-unconfigured'` is the pre-flight configuration event the service worker emits
+ * when `isLlmConfigured()` fails — *before* any provider call (zero token). It repays
+ * the same terminal vocabulary the passive observation uses (`llm.unconfigured`).
+ */
+export type ChatResultVariant = 'assistant' | 'tool' | 'command' | 'error' | 'done' | 'llm-unconfigured';
+
 export interface PluginMessage {
   kind: PluginMessageKind;
   requestId?: string;
