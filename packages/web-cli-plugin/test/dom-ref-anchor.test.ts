@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { createDomToolEntry, type PlatformEnv, type ToolEntry } from '@lgdl/web-cli-base';
+import { createDomToolEntry, parseToolArguments, type PlatformEnv, type ToolEntry } from '@lgdl/web-cli-base';
 import {
   ANCHOR_ERRORS,
   REF_ANCHOR_SUBCOMMAND,
@@ -51,9 +51,10 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'DRA-1-parse-chain', expectFailPattern: '`--ref` 解析链必须逐级 fail-closed 且非静默（词法 / 互斥 / 越界 / 非 set-text / 失效）' },
   { id: 'DRA-2-single-node-gate', expectFailPattern: 'live 单节点闸：仅 `nodeCount === 1` 通过；0 / 多命中 / 标记缺失一律失配' },
   { id: 'DRA-3-risk-not-widened', expectFailPattern: '包装层不得放宽 risk / subcommandRisks / 子命令集合（逐字段对照 base）' },
-  { id: 'DRA-4-schema-additive', expectFailPattern: 'schema 覆写只能新增 `ref` 参数（零新子命令 / required 不动）' },
+  { id: 'DRA-4-schema-additive', expectFailPattern: 'schema 覆写只能把 `ref` 新增到 `args.properties` 内（顶层不得有 ref / 零新子命令 / required 不动）' },
   { id: 'DRA-5-base-executor-handoff', expectFailPattern: '锚定通过必须交基线 executor（合成锚选择器）；失配时基线 executor 不得被调用' },
   { id: 'DRA-6-base-zero-diff-and-single-observe', expectFailPattern: 'base 零 diff ∧ 判定链零触碰 ∧ `observeIdentity` 同源单实现（禁第二份副本）' },
+  { id: 'DRA-7-parse-layer-parity', expectFailPattern: 'LLM 依 schema 发的 JSON 必须经 `parseToolArguments` 回到 `args.ref`（顶层 ref 会被静默丢弃 ⇒ 真机「缺少 --selector」）' },
 ];
 
 /* ── fixtures ──────────────────────────────────────────────────────────────── */
@@ -238,29 +239,69 @@ test('DRA-3 risk 不放宽：逐字段对照 base（含注入降档 ⇒ 必红 �
   assert.equal(/^\s*(risk|subcommandRisks)\s*:/m.test(src), false, '`dom-anchor.ts` 不得声明 risk / subcommandRisks');
 });
 
-/* ── DRA-4 schema 覆写仅增 ref ─────────────────────────────────────────────── */
+/* ── DRA-4 schema 覆写仅增 ref（且必须嵌套在 args 内） ─────────────────────── */
 
-test('DRA-4 schema 覆写只新增 `ref` 参数（零新子命令 / required 不动）', () => {
+/** 顶层 `properties`（`subcommand` / `args` 所在层）。 */
+function topPropsOf(entry: ToolEntry): Record<string, unknown> {
+  return (entry.schema.parameters as { properties?: Record<string, unknown> }).properties ?? {};
+}
+
+/** `args` 子 schema 的 `properties`（缺省空对象）。 */
+function argPropsOf(entry: ToolEntry): Record<string, unknown> {
+  const args = (topPropsOf(entry).args ?? {}) as { properties?: Record<string, unknown> };
+  return args.properties ?? {};
+}
+
+test('DRA-4 schema 覆写只把 `ref` 新增到 `args.properties`（顶层不得有 ref / 零新子命令 / required 不动）', () => {
   const p = JUDGEMENTS[3].expectFailPattern;
   const base = baseEntry();
   const wrapped = wrapDomEntryForAnchor(base, fakeEnv());
-  const bp = (base.schema.parameters as { properties: Record<string, unknown>; required?: string[] });
-  const wp = (wrapped.schema.parameters as { properties: Record<string, unknown>; required?: string[] });
-  const added = Object.keys(wp.properties).filter((k) => !(k in bp.properties));
-  const removed = Object.keys(bp.properties).filter((k) => !(k in wp.properties));
-  assert.deepEqual(added, ['ref'], `${p}：只允许新增 ref（实测 ${JSON.stringify(added)}）`);
-  assert.deepEqual(removed, [], `${p}：不得移除既有参数`);
+  const bp = base.schema.parameters as { properties: Record<string, unknown>; required?: string[] };
+  const wp = wrapped.schema.parameters as { properties: Record<string, unknown>; required?: string[] };
+  // ① 顶层键集必须与 base 逐字一致 —— `ref` 不得出现在顶层（R7 真机失效根因）。
+  const addedTop = Object.keys(wp.properties).filter((k) => !(k in bp.properties));
+  const removedTop = Object.keys(bp.properties).filter((k) => !(k in wp.properties));
+  assert.deepEqual(addedTop, [], `${p}：顶层不得新增参数（ref 必须嵌套在 args 内）`);
+  assert.deepEqual(removedTop, [], `${p}：不得移除顶层参数`);
+  assert.equal('ref' in wp.properties, false, `${p}：顶层不得出现 ref`);
+  // ② `ref` 必须在 `args.properties` 内，与 selector / text 同级。
+  const baseArgs = argPropsOf(base);
+  const wrappedArgs = argPropsOf(wrapped);
+  const addedArgs = Object.keys(wrappedArgs).filter((k) => !(k in baseArgs));
+  const removedArgs = Object.keys(baseArgs).filter((k) => !(k in wrappedArgs));
+  assert.deepEqual(addedArgs, ['ref'], `${p}：args.properties 只允许新增 ref（实测 ${JSON.stringify(addedArgs)}）`);
+  assert.deepEqual(removedArgs, [], `${p}：args 既有参数不得移除`);
+  assert.equal('selector' in wrappedArgs && 'text' in wrappedArgs, true, `${p}：ref 必须与 selector/text 同级`);
   assert.deepEqual(wp.required, bp.required, `${p}：required 必须逐字不动`);
   const enumOf = (t: ToolEntry) =>
     (t.schema.parameters as { properties: { subcommand: { enum: string[] } } }).properties.subcommand.enum;
   assert.deepEqual(enumOf(wrapped), enumOf(base), `${p}：子命令集合必须逐字不动（零新子命令）`);
   assert.equal(enumOf(wrapped).includes('ref'), false, '`--ref` 不得成为子命令');
-  assert.equal(typeof (wp.properties.ref as { description?: string }).description, 'string');
-  assert.ok((wp.properties.ref as { description: string }).description.includes('set-text'), 'ref 参数说明必须写明仅 set-text 生效');
-  // 反证：给 schema 注入第二个新参数 ⇒ 必红（判据不是「凡新增皆过」）。
-  const forged = { ...wrapped, schema: { ...wrapped.schema, parameters: { ...wp, properties: { ...wp.properties, ghost: { type: 'string' } } } } };
-  const forgedAdded = Object.keys((forged.schema.parameters as { properties: Record<string, unknown> }).properties).filter((k) => !(k in bp.properties));
-  assert.notDeepEqual(forgedAdded, ['ref'], '多增一个参数必须能被判据检出');
+  assert.equal(typeof (wrappedArgs.ref as { description?: string }).description, 'string');
+  assert.ok((wrappedArgs.ref as { description: string }).description.includes('set-text'), 'ref 参数说明必须写明仅 set-text 生效');
+  // ③ 反证：顶层多增一个参数 ⇒ 必红（R7 原始缺陷形态必须能被判据检出）。
+  const forgedTop = {
+    ...wrapped,
+    schema: { ...wrapped.schema, parameters: { ...wp, properties: { ...wp.properties, ghost: { type: 'string' } } } },
+  };
+  const forgedTopAdded = Object.keys(topPropsOf(forgedTop)).filter((k) => !(k in bp.properties));
+  assert.deepEqual(forgedTopAdded, ['ghost'], '顶层新增参数必须能被判据检出（否则 R7 形态会漏网）');
+  // ④ 反证：args 内多增一个参数 ⇒ 必红（判据不是「凡新增皆过」）。
+  const forgedArgs = {
+    ...wrapped,
+    schema: {
+      ...wrapped.schema,
+      parameters: {
+        ...wp,
+        properties: {
+          ...wp.properties,
+          args: { type: 'object', properties: { ...wrappedArgs, ghost: { type: 'string' } } },
+        },
+      },
+    },
+  };
+  const forgedArgsAdded = Object.keys(argPropsOf(forgedArgs)).filter((k) => !(k in baseArgs));
+  assert.notDeepEqual(forgedArgsAdded, ['ref'], 'args 内多增一个参数必须能被判据检出');
 });
 
 /* ── DRA-5 交基线 executor ─────────────────────────────────────────────────── */
@@ -301,6 +342,78 @@ test('DRA-5 锚定通过 ⇒ 交基线 executor（合成锚 + ref 剥离）；�
   const silentFallback = await wrapped.executor({ subcommand: 'set-text', args: { ref: '1', selector: '#fallback', text: 'z' } }, {});
   assert.equal(silentFallback.ok, false, '互斥（EC-SGO-015）不得静默择一 ⇒ 不产生第三次写入');
   assert.equal(seen.length, 2);
+});
+
+/* ── DRA-7 解析层回归（R7 真机路径） ───────────────────────────────────────── */
+
+/**
+ * 依 **schema** 合成 LLM 会发出的 arguments JSON —— 模拟真机：模型按声明的
+ * `parameters.properties` 决定 `ref` 放**顶层**还是放进 `args`。这正是原门禁绕过的一层：
+ * 手工构 `tc` 直调 executor 跳过了 `parseToolArguments`（base `llm.ts` 只读
+ * `subcommand`/`args`，未知顶层键静默丢弃）。
+ */
+function llmArgsJson(entry: ToolEntry, subcommand: string, args: Record<string, string>): string {
+  const argsKeys = new Set(Object.keys(argPropsOf(entry)));
+  const top: Record<string, unknown> = { subcommand };
+  const inner: Record<string, string> = {};
+  for (const [k, v] of Object.entries(args)) {
+    if (argsKeys.has(k)) inner[k] = v;
+    else top[k] = v;
+  }
+  top.args = inner;
+  return JSON.stringify(top);
+}
+
+test('DRA-7 解析层回归：LLM 依 schema 发的 JSON 经 `parseToolArguments` 后仍能锚定（真机路径）', async () => {
+  const p = JUDGEMENTS[6].expectFailPattern;
+  const seen: Array<[string, string]> = [];
+  const base = baseEntry();
+  const wrapped = wrapDomEntryForAnchor(baseEntry((s, t) => seen.push([s, t])), fakeEnv());
+  refTurnHolder.set({
+    refs: [{ refNum: 1, refId: 'ref_1', selector: '#target', refMark: 'ref_1', textDigest: 'd', refState: 'valid' }],
+    tabId: 7,
+    observe: async () => ({ status: 'resolved', refMark: 'ref_1', nodeCount: 1 }),
+  });
+  // 真机形态：`ref` 依 schema 落在 `args.properties`
+  // ⇒ JSON = {"subcommand":"set-text","args":{"ref":"1","text":"…"}}。
+  const raw = llmArgsJson(wrapped, 'set-text', { ref: '1', text: '你好' });
+  assert.equal(
+    raw,
+    JSON.stringify({ subcommand: 'set-text', args: { ref: '1', text: '你好' } }),
+    `${p}：schema 必须把 ref 声明在 args 内，模型才会把它放进 args`,
+  );
+  const tc = parseToolArguments('call-1', 'dom', raw);
+  assert.equal(tc.subcommand, 'set-text');
+  assert.equal(tc.args.ref, '1', `${p}：解析层必须保留 args.ref（否则回退基线 ⇒ 缺少 --selector）`);
+  assert.equal(tc.args.text, '你好');
+  const res = await wrapped.executor(tc, {});
+  assert.equal(res.ok, true, `${p}：真机路径必须锚定成功`);
+  assert.deepEqual(seen, [['[data-wcli-ref="ref_1"]', '你好']], `${p}：写入目标必须是合成锚`);
+  // ── 注入反证：把 `ref` 放回**顶层**（R7 原始缺陷形态）⇒ 该用例必红 ──────────
+  // 从 **base** 顶层重建（其 `args.properties` 无 ref）再把 ref 挂到顶层。
+  const reverted: ToolEntry = {
+    ...wrapped,
+    schema: {
+      ...wrapped.schema,
+      parameters: {
+        ...(wrapped.schema.parameters as Record<string, unknown>),
+        properties: { ...topPropsOf(base), ref: { type: 'string', description: '顶层 ref（R7 缺陷形态）' } },
+      },
+    },
+  };
+  const buggyRaw = llmArgsJson(reverted, 'set-text', { ref: '1', text: '你好' });
+  assert.equal(
+    buggyRaw,
+    JSON.stringify({ subcommand: 'set-text', ref: '1', args: { text: '你好' } }),
+    '注入形态必须复现「顶层 ref」',
+  );
+  const buggyTc = parseToolArguments('call-2', 'dom', buggyRaw);
+  assert.equal(buggyTc.args.ref, undefined, `${p}：顶层 ref 被解析层静默丢弃（base 只读 subcommand/args）`);
+  const buggyRes = await reverted.executor(buggyTc, {});
+  assert.equal(buggyRes.ok, false, `${p}：回退顶层嵌套 ⇒ 该用例必红`);
+  assert.match(String(buggyRes.error ?? buggyRes.output ?? ''), /缺少 --selector/, `${p}：真机逐字失败信息 = 缺少 --selector`);
+  assert.equal(seen.length, 1, '反证路径不得产生第二次写入');
+  refTurnHolder.clear();
 });
 
 /* ── DRA-6 base 零 diff + 同源单实现 ───────────────────────────────────────── */

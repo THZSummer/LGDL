@@ -33,6 +33,7 @@ export const REF_SCOPE_GUIDANCE = [
   'the numbered references listed above are the ONLY places the user has pointed at.',
   'When a tool writes (for example `dom set-text`), it MUST target one of those references',
   '(prefer `--ref <n>`); do not rewrite other parts of the page.',
+  'Note: `--ref <n>` is accepted only by `dom set-text`; read commands must use `--selector` instead.',
   'If the request needs a target outside that scope, stop and ask the user to confirm widening',
   'it — never widen the scope on your own and never treat "no reference" as "everything is in scope".',
 ].join(' ');

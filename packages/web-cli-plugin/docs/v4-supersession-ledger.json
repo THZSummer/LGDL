@@ -4017,6 +4017,7 @@
       "scope": {
         "files": [
           "packages/web-cli-plugin/test/auto-probe.test.ts",
+          "packages/web-cli-plugin/test/dom-ref-anchor.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
@@ -4054,12 +4055,36 @@
         ],
         "why": "本叶段 scope = v3 台账已登记集合 ∩ test/**(.mjs|.ts) ∪ `git diff --name-only 37e4e28` 下**真有删除行**的 test 文件 —— 规则复算，不得手工收窄（与既有各叶段同一口径）。"
       },
-      "registeredUncoveredLines": [],
+      "registeredUncoveredLines": [
+        {
+          "file": "packages/web-cli-plugin/test/dom-ref-anchor.test.ts",
+          "count": 16,
+          "reason": "R7（2026-09-24）——`--ref` schema 嵌套修正：DRA-4 断言重锚到 `args.properties`（顶层不得有 ref）并新增 DRA-7 解析层回归；被替换的既有断言行逐字登记（R7 真机失效根因）。",
+          "registeredUncoveredLines": [
+            "import { createDomToolEntry, type PlatformEnv, type ToolEntry } from '@lgdl/web-cli-base';",
+            "  { id: 'DRA-4-schema-additive', expectFailPattern: 'schema 覆写只能新增 `ref` 参数（零新子命令 / required 不动）' },",
+            "/* ── DRA-4 schema 覆写仅增 ref ─────────────────────────────────────────────── */",
+            "test('DRA-4 schema 覆写只新增 `ref` 参数（零新子命令 / required 不动）', () => {",
+            "  const bp = (base.schema.parameters as { properties: Record<string, unknown>; required?: string[] });",
+            "  const wp = (wrapped.schema.parameters as { properties: Record<string, unknown>; required?: string[] });",
+            "  const added = Object.keys(wp.properties).filter((k) => !(k in bp.properties));",
+            "  const removed = Object.keys(bp.properties).filter((k) => !(k in wp.properties));",
+            "  assert.deepEqual(added, ['ref'], `${p}：只允许新增 ref（实测 ${JSON.stringify(added)}）`);",
+            "  assert.deepEqual(removed, [], `${p}：不得移除既有参数`);",
+            "  assert.equal(typeof (wp.properties.ref as { description?: string }).description, 'string');",
+            "  assert.ok((wp.properties.ref as { description: string }).description.includes('set-text'), 'ref 参数说明必须写明仅 set-text 生效');",
+            "  // 反证：给 schema 注入第二个新参数 ⇒ 必红（判据不是「凡新增皆过」）。",
+            "  const forged = { ...wrapped, schema: { ...wrapped.schema, parameters: { ...wp, properties: { ...wp.properties, ghost: { type: 'string' } } } } };",
+            "  const forgedAdded = Object.keys((forged.schema.parameters as { properties: Record<string, unknown> }).properties).filter((k) => !(k in bp.properties));",
+            "  assert.notDeepEqual(forgedAdded, ['ref'], '多增一个参数必须能被判据检出');"
+          ]
+        }
+      ],
       "summary": {
-        "filesWithUnregisteredLeafDeletions": 0,
-        "registeredLines": 0,
+        "filesWithUnregisteredLeafDeletions": 1,
+        "registeredLines": 16,
         "caliber": "registeredLines = Σ 各组 `registeredUncoveredLines.length`；filesWithUnregisteredLeafDeletions = 有非空登记的文件数。",
-        "note": "V5.5F-2 收口段：全部删除行由 `entries[]`（`V55F2-E-VOL-*`）+ 已登记的跨叶段逐字行覆盖（本段 `registeredUncoveredLines` 为空 ⇒ 两读数 0/0）。"
+        "note": "V5.5F-2 收口段：`dom-ref-anchor.test.ts` 的 R7 断言重锚删除行已逐字登记（1 文件 / 16 行）；其余删除行由 `entries[]` + 已登记的跨叶段逐字行覆盖。"
       }
     }
   ],

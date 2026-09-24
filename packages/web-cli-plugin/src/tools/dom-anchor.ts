@@ -153,21 +153,35 @@ export async function resolveRefAnchor(
  */
 export function wrapDomEntryForAnchor(entry: ToolEntry, _env: PlatformEnv): ToolEntry {
   const baseExecutor = entry.executor;
-  const params = entry.schema.parameters as { properties?: Record<string, unknown> } & Record<string, unknown>;
+  const params = entry.schema.parameters as {
+    properties?: { args?: { properties?: Record<string, unknown> } } & Record<string, unknown>;
+  } & Record<string, unknown>;
+  const topProps = params.properties ?? {};
+  const argsSchema = (topProps.args ?? {}) as { properties?: Record<string, unknown> } & Record<string, unknown>;
   return {
     ...entry,
     // schema 覆写：**仅新增** `ref` 参数（`--ref` 是参数，不是子命令 ⇒ `SUBCOMMANDS` 不动）。
+    // R7（2026-09-24）：`ref` 必须落在 **`args.properties` 内**（与 selector/text 同级）。
+    // 此前误加在**顶层** `properties` ⇒ LLM 依 schema 发顶层 `ref` ⇒ base
+    // `llm.ts#parseToolArguments` 只读 `subcommand`/`args`、静默丢弃未知顶层键 ⇒ `args.ref`
+    // 为空 ⇒ 包装层早退回基线 ⇒ 真机「缺少 --selector」。嵌套对齐后解析层方可命中（R7 回归）。
     schema: {
       ...entry.schema,
       parameters: {
         ...params,
         properties: {
-          ...(params.properties ?? {}),
-          ref: {
-            type: 'string',
-            description:
-              '引用序号（`--ref <n>` → `[data-wcli-ref="ref_n"]`）：把写入锚定到本次拾取的引用目标；' +
-              '仅 `set-text` 生效，与 `--selector` 互斥。失配 / 失效一律 fail-closed（可读错误 + 指引）。',
+          ...topProps,
+          args: {
+            ...argsSchema,
+            properties: {
+              ...(argsSchema.properties ?? {}),
+              ref: {
+                type: 'string',
+                description:
+                  '引用序号（`--ref <n>` → `[data-wcli-ref="ref_n"]`）：把写入锚定到本次拾取的引用目标；' +
+                  '仅 `set-text` 生效，与 `--selector` 互斥。失配 / 失效一律 fail-closed（可读错误 + 指引）。',
+              },
+            },
           },
         },
       },
