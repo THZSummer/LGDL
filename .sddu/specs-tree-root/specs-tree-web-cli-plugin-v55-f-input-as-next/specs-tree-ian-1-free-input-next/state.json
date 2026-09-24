@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-ian-1-free-input-next",
   "version": "v0.11.2",
   "name": "IAN-1 流内自由输入 next 通道——推荐区按需最末项「自由输入…」+ 点开就地展开卡内输入（.ask-fallback 先例）+ 提交复用 op.turn 槽（唯一生产输入提交点）+ 手输/AI 驱动留痕 driver 两值可判 + 让位语义保留 + R6 双入口并存（旧 composer 入口保留可用）+ 流内草稿回填支持 + a11y focus + 零死端",
-  "phase": "specified",
+  "phase": "planned",
   "status": "tracked",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
   "childrens": [],
@@ -45,7 +45,9 @@
   "artifacts": {
     "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/spec.md",
-    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md"
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md",
+    "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/plan.md",
+    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/plan.md"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
@@ -111,6 +113,22 @@
       "agent": "sddu-spec",
       "artifact": "specs-tree-ian-1-free-input-next/spec.md v1.0",
       "note": "初始创建（叶规范）：承载父 FR ≈44 条切片（GOV / FIM / CHAN / R6Q 叶1 侧 / CONV 050 与 052 / S0'' 中间态侧 / SUPERSEDE 086 叶1 侧 / GATE 骨架 / VOL 叶1 侧）；交付 8 项；执行序 7 步（先立新面）；风险 11 条；开放问题 5 条。父 §11 DC-IAN-001~011 全部适用。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-plan",
+      "artifact": "specs-tree-ian-1-free-input-next/plan.md v1.0",
+      "note": "叶1 plan：执行序 3 波（形态与末端项 / 通道与手输 / R6 与回填与验收）；定案映射父 ADR-IAN-001/002/003/008/009/010；12 项设计定案；文件影响 15 项；新增 node 门禁 test/free-input-next.test.ts；风险 15 条；交付物 8 项。叶1 零删面、零改上游；中间态双入口并存（S0-A）。零 src/test 改动、零门禁/构建、未调用受管 Provider。"
     }
-  ]
+  ],
+  "openPointsRuled": [
+    "PD-IAN-001 = 非独立 rule 候选；recommendNextStep 单点注入恒最末终端 + 零死端 floor（ADR-IAN-001）",
+    "PD-IAN-002 = 复用 .ask-fallback 家系 + askuser kind 内第二语义分支（requestId=free-input）（ADR-IAN-002）",
+    "PD-IAN-003 = MANUAL_DRIVER_ID='manual'（ai-drive.ts 单源）（ADR-IAN-002）",
+    "PD-IAN-004 = 二者属不同卡的终端；无同卡并存（ADR-IAN-001）",
+    "PD-IAN-005 = data-act='free-input' 为集 A 协议动作（不进 ACT_TO_OP）（ADR-IAN-001）"
+  ],
+  "openPointsDeferred": []
 }
