@@ -9,8 +9,10 @@ specs-tree-ian-1-free-input-next/
 ├── TREE.md          # 本文件 - 目录导航
 ├── build.md          # 构建报告：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道）
 ├── plan.md          # 技术计划：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移）
+├── review.md          # 审查策略（review.md）：specs-tree-ian-1-free-input-next
+├── review-report.md          # 审查报告：specs-tree-ian-1-free-input-next
 ├── spec.md          # Feature Specification：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移）
-├── state.json          # 状态文件 (🟢 tracked [builded])
+├── state.json          # 状态文件 (🟢 tracked [reviewed])
 ├── tasks.json          # 任务清单 (机器可读)
 └── tasks.md          # 任务分解：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移）
 ```
@@ -20,8 +22,10 @@ specs-tree-ian-1-free-input-next/
 |------|------|------|
 | build.md | 构建报告：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道） — 1. **§6-A-8（R1）「零死端 floor 只覆盖 `empty` 不覆盖 `safety`」——R2 处置 = 保 fail-closed 既有... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移） — src/ui/sidepanel/ | ✅ 存在 |
+| review.md | 审查策略（review.md）：specs-tree-ian-1-free-input-next — 见 `review-report.md`（每轮执行独立产出；策略文档不变时可多轮迭代）。 | ✅ 存在 |
+| review-report.md | 审查报告：specs-tree-ian-1-free-input-next — 1. **提交通道正确**（重点 1）：自由输入提交**唯一**经 `op.turn` 槽；亲数 `requestTurn(` **仍恰 2**（comp... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移） — 父规范 §2.2~§2.5 的**新面根因**全部落在本叶：「自由输入」作为 next 选项的形态缺位（`Q-IAN-003`）；next 注册表已是可注... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [builded] |
+| state.json | 状态文件 | 🟢 tracked [reviewed] |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移） — W01 ─── 形态与末端项（可并行区：102 ∥ 103；106 ∥ 107） | ✅ 存在 |
 
@@ -29,8 +33,8 @@ specs-tree-ian-1-free-input-next/
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 构建完成 (5/7) |
-| Status | 🟢 tracked [builded] |
+| Phase | 审查完成 (6/7) |
+| Status | 🟢 tracked [reviewed] |
 
 ## 上级目录
 - [返回上级](../TREE.md)
