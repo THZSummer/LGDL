@@ -25,7 +25,7 @@
  * @module ui/sidepanel/cards/nextstep
  */
 import type { CardView } from '../stream-model.js';
-import { ACT_TO_OP } from '../next-registry/dispatch.js';
+import { ACT_TO_OP, FREE_INPUT_LABEL } from '../next-registry/dispatch.js';
 import { CARD_TAG_LABELS, createCardShell } from './shared.js';
 import type { CardDeps } from './shared.js';
 
@@ -34,6 +34,13 @@ export const MAX_CHIPS_PER_CARD = 3;
 
 /** The class every chip button carries (the availability sync + the gate read it). */
 export const NEXT_CHIP_CLASS = 'next-chip';
+
+/**
+ * ★ IAN-1（ADR-IAN-001 §①/§②）：末端「自由输入…」终端的 class —— **故意**不是
+ * {@link NEXT_CHIP_CLASS}：① 在飞时不被 `syncNextstepPending` 禁用；② 不进
+ * `MAX_CHIPS_PER_CARD` 预算（单卡可点 = ≤3 chips + 1 终端 = 4 ≤ 6）。
+ */
+export const NEXT_TERMINAL_CLASS = 'next-terminal';
 
 /**
  * Create one `nextstep` card `<li>`. `chips` beyond {@link MAX_CHIPS_PER_CARD} are
@@ -75,6 +82,17 @@ export function createNextstepCard(view: CardView, deps: CardDeps): HTMLLIElemen
   });
   if (view.payload.nextstepRule) li.setAttribute('data-nextstep-rule', view.payload.nextstepRule);
   col.appendChild(chips);
+  // ★ IAN-1：终端**恒排在 `.next-chips` 之后**（恒最末）。`<button>`（不是输入框）+
+  // 集 A 动作 `data-act='free-input'`（零 `data-op` ⇒ 不触达特权 op）。
+  if (view.payload.nextstepTerminal === true) {
+    const terminal = doc.createElement('button');
+    terminal.type = 'button';
+    terminal.className = NEXT_TERMINAL_CLASS;
+    terminal.setAttribute('data-act', 'free-input');
+    terminal.textContent = FREE_INPUT_LABEL;
+    terminal.addEventListener('click', () => deps.onCardAction?.(view.cardId, 'free-input'));
+    col.appendChild(terminal);
+  }
   return li;
 }
 

@@ -23,6 +23,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { OP_IDS } from '../src/shared/op-table.js';
+import { SET_A_PROTOCOL_ACTIONS } from '../src/ui/sidepanel/next-registry/dispatch.js';
 import {
   CTX_FIELD_SERVICE,
   DRIVER_CLASSES,
@@ -46,7 +47,7 @@ export interface Judgement {
 }
 export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'DQ-1-bidirectional-inclusion', expectFailPattern: '驱动者声明表 ↔ 注册表必须双向包含' },
-  { id: 'DQ-2-quadruple', expectFailPattern: '驱动者四元组必须齐备且 ops ⊆ 9 opId（无悬空）' },
+  { id: 'DQ-2-quadruple', expectFailPattern: '驱动者四元组必须齐备且 ops ⊆ 9 opId ∪ 集 A 协议动作（无悬空）' },
   { id: 'DQ-3-evidence-registered', expectFailPattern: 'evidence 必须在 CTX_FIELD_SERVICE 登记面内且与 when-scope 同源' },
   { id: 'DQ-4-timing-map', expectFailPattern: '时机 ↔ 驱动者映射必须每个时机 ≥1 驱动者' },
   { id: 'DQ-5-moment-coverage', expectFailPattern: '七类时刻必须逐类存在 ≥1 驱动者' },
@@ -74,9 +75,13 @@ export function bidirectionalProblems(declIds: readonly string[], providerIds: r
   return problems;
 }
 
-/** DQ-2 — every quadruple element present; chips resolve into the 9 opId set. */
+/** DQ-2 — every quadruple element present; chips resolve into the 9 opId ∪ 集 A protocol actions. */
 export function quadrupleProblems(decls: readonly DeclLike[], chipsOf: (id: string) => readonly string[]): string[] {
   const problems: string[] = [];
+  // ★ IAN-1（ADR-IAN-001 §①/§②）—— chip 的可分发词汇 = **两集模型**：opId（经 `OPS_BY_ID`）∪
+  // 集 A 协议动作（`handleCardAction` 的卡族动作，如推荐卡末端的 `'free-input'`）。判据方向
+  // 只增不减：既有的「chips 必须可分发」不变，新增的只是**合法的第二词汇面**（两集之外仍判红）。
+  const known = new Set<string>([...OP_IDS, ...SET_A_PROTOCOL_ACTIONS]);
   for (const d of decls) {
     if (!d.driverId) problems.push(`${JUDGEMENTS[1].expectFailPattern}：缺 driverId`);
     if (!Array.isArray(d.timings) || d.timings.length === 0) problems.push(`${JUDGEMENTS[1].expectFailPattern}：${d.driverId} 缺 timing`);
@@ -87,7 +92,7 @@ export function quadrupleProblems(decls: readonly DeclLike[], chipsOf: (id: stri
     const ops = chipsOf(d.driverId);
     if (!Array.isArray(ops) || ops.length === 0) problems.push(`${JUDGEMENTS[1].expectFailPattern}：${d.driverId} 缺 ops`);
     for (const op of ops) {
-      if (!(OP_IDS as readonly string[]).includes(op)) problems.push(`${JUDGEMENTS[1].expectFailPattern}：${d.driverId} 的 chip 悬空 → ${op}`);
+      if (!known.has(op)) problems.push(`${JUDGEMENTS[1].expectFailPattern}：${d.driverId} 的 chip 悬空 → ${op}`);
     }
   }
   return problems;
@@ -230,8 +235,18 @@ test('DQ-1 反证：声明表多一行 / 少一行 ⇒ 必红 → 还原 PASS', 
   assert.deepEqual(bidirectionalProblems(DECL_IDS, PROVIDER_IDS), []);
 });
 
-test('DQ-2 四元组齐备 + chips ⊆ 9 opId（无悬空）', () => {
+test('DQ-2 四元组齐备 + chips ⊆ 9 opId ∪ 集 A 协议动作（无悬空）', () => {
   assert.deepEqual(quadrupleProblems(DECLS, chipsOf), [], JUDGEMENTS[1].expectFailPattern);
+});
+
+test('DQ-2 集 A 词汇面（IAN-1）：终端 chip 合法 ∧ 两集之外仍判悬空', () => {
+  // 前置：`'free-input'` 必须真的是集 A 成员（否则下面的「合法」断言是空转）。
+  assert.ok(SET_A_PROTOCOL_ACTIONS.includes('free-input'), '集 A 必须含 free-input（ADR-IAN-001 §②）');
+  // 生产形态：free-input provider 的 chip = 集 A 协议动作 ⇒ 合法（不悬空）。
+  assert.deepEqual(quadrupleProblems(DECLS, chipsOf), [], JUDGEMENTS[1].expectFailPattern);
+  // 反证：两集之外的 chip ⇒ 悬空（本判据不是「什么都不判」）。
+  const forged = quadrupleProblems(DECLS, (id) => (id === 'free-input' ? ['free-input-ghost'] : chipsOf(id)));
+  assert.ok(forged.some((p) => p.includes('悬空')), `${JUDGEMENTS[1].expectFailPattern}：两集之外的 chip 必须判悬空`);
 });
 
 test('DQ-2 反证：缺元 / 悬空 chips ⇒ 必红 → 还原 PASS', () => {
@@ -239,8 +254,7 @@ test('DQ-2 反证：缺元 / 悬空 chips ⇒ 必红 → 还原 PASS', () => {
   assert.ok(quadrupleProblems(noEvidence, chipsOf).length > 0, `${JUDGEMENTS[1].expectFailPattern}：缺 evidence 必须红`);
   const dangling = quadrupleProblems(DECLS, (id) => (id === 'ref-action' ? ['op.ghost'] : chipsOf(id)));
   assert.ok(dangling.some((p) => p.includes('悬空')), `${JUDGEMENTS[1].expectFailPattern}：悬空 chips 必须红`);
-  assert.deepEqual(quadrupleProblems(DECLS, chipsOf), []);
-});
+  assert.deepEqual(quadrupleProblems(DECLS, chipsOf), []);});
 
 test('DQ-3 evidence 登记 + 与 when-scope 源文本双向一致', () => {
   assert.deepEqual(evidenceProblems(DECLS, SOURCE_READS), [], JUDGEMENTS[2].expectFailPattern);

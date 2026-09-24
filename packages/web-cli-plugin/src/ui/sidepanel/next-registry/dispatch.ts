@@ -24,8 +24,13 @@ export const OP_TO_ACT: Readonly<Record<string, string>> = Object.freeze(
 );
 
 /**
- * 集 A — the card-protocol actions (`askuser` / `auth` / `ref` card families) that
- * never carry `data-op`; they stay in `handleCardAction` and are **not** op fan-out.
+ * 集 A — the card-protocol actions (`askuser` / `auth` / `ref` / `nextstep` card
+ * families) that never carry `data-op`; they stay in `handleCardAction` and are
+ * **not** op fan-out.
+ *
+ * ★ IAN-1（ADR-IAN-001 §②）：`free-input` 为**第九**项 —— 推荐卡末端终端以
+ * `data-act='free-input'` 分发（与 `choose-other` / `reanchor` 同构），不进 `ACT_TO_OP`
+ * （仍恰 6 行）；提交经唯一生产输入点 `op.turn` 槽。
  */
 export const SET_A_PROTOCOL_ACTIONS = Object.freeze([
   'answer',
@@ -36,7 +41,13 @@ export const SET_A_PROTOCOL_ACTIONS = Object.freeze([
   'audit',
   'hover',
   'reanchor',
+  'free-input',
 ] as const);
+
+/** ★ IAN-1（ADR-IAN-001 §①）：终端文案**唯一源**（provider `textOf` + 渲染层共读）。
+ * 终端**不是** `.next-chip`（不被 pending 禁用）也不进 `MAX_CHIPS_PER_CARD` 预算。 */
+export const FREE_INPUT_LABEL = '自由输入…';
+
 
 /**
  * A non-chip alias: the `ref` card's「改用描述」fallback submit is the *same* op as

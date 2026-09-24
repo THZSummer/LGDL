@@ -87,6 +87,21 @@ export function driverTraceLine(driverId: string, timing: string, evidence: read
 }
 
 /**
+ * ★ IAN-1（ADR-IAN-002 §③ · FR-IAN-022）：**手输留痕的 driver 值**（全仓恰一处声明）。
+ * 手输与 AI 自主按下都经唯一 `op.turn` 槽 ⇒ 区分只能落在留痕值上：AI 恒写候选驱动者声明 id，
+ * 手输恒写本常量（EC-IAN-013）。锚点 = `MANUAL_DRIVER_ID ∉ listDriverDecls()`（FIN-4），
+ * 否则「两值可判」会被未来某个 provider 命名为 `manual` 抹平。零值：evidence 只写字段名。
+ */
+export const MANUAL_DRIVER_ID = 'manual';
+
+/**
+ * ★ IAN-1：手输留痕的 `evidence` 面（只写 ctx 字段名，登记面同上）。手输路径的可观察事实 =
+ * 「提交时是否已有回合在飞」（SW 的有界队列据此仲裁 queued / busy-rejected）。
+ */
+export const MANUAL_DRIVER_EVIDENCE: readonly string[] = Object.freeze(['session.busy']);
+
+
+/**
  * V5.5-3 **TASK-V55-313** (ADR-V55-009 §5 · FR-SELF-096 · AC-SELF-006) — 抑制**留痕**
  * 的单源行：`driver=… | timing=… | evidence=… | suppressed=<reason>`。
  *

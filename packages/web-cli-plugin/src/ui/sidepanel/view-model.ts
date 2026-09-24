@@ -347,7 +347,8 @@ const ONBOARDING_TEXTS: readonly string[] = [
   // names the two real entries instead: the onboarding recommendation chip (which now
   // routes straight into the permission flow, act:'authorize') and 设置 → 站点与授权.
   '点「下一步推荐」卡中的「授权当前站点」（或 设置 → 站点与授权），确认知情同意与站点权限',
-  '在输入框输入指令并发送，开始对话',
+  // ★ IAN-1（ADR-IAN-005 · FR-IAN-056）：引导改指**流内**入口（推荐卡末端「自由输入…」项）。
+  '点「下一步推荐」卡末的「自由输入…」项，输入指令并发送，开始对话',
 ];
 
 export function buildOnboarding(input: OnboardingInput): OnboardingView {

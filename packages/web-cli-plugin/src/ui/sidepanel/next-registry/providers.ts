@@ -10,7 +10,7 @@
  * @module ui/sidepanel/next-registry/providers
  */
 import { RECOVERY_CHIP_ORDER, RECOVERY_CHIP_TEXT, type NextstepAct, type RecoveryTrigger } from '../recommend.js';
-import { ACT_TO_OP } from './dispatch.js';
+import { ACT_TO_OP, FREE_INPUT_LABEL } from './dispatch.js';
 import { BLOCKED_RECOVERY_TRIGGER, type BlockedTerminal, type NextCtx, type NextProvider } from './definition.js';
 import { registerNextProvider } from './registry.js';
 import { registerDriverDecl, type DriverDecl } from './drivers.js';
@@ -86,6 +86,14 @@ export function blockedRecovery(blocked: string): { readonly text: string; reado
 
 /** The rule-group ids (the 4 `NEXTSTEP_PRIORITY` rules). */
 export const RULE_PROVIDER_IDS = Object.freeze(['onboarding', 'ref-action', 'capability-discovery']);
+
+/**
+ * ★ IAN-1（ADR-IAN-001 §①）：末端「自由输入…」终端的 **provider id**（存在性**单源** ——
+ * `recommendNextStep` 读它的 `when(ctx)`，恒真 ⇒ 零死端；与 `ADR-IAN-002` 的
+ * `requestId='free-input'` 同字面但**不同面**：那里是卡内输入的语义身份）。
+ */
+export const FREE_INPUT_PROVIDER_ID = 'free-input';
+
 
 function triggerMatch(t: RecoveryTrigger, ctx: NextCtx): boolean {
   if (t === 'site') return ctx.site.authorized === false;
@@ -172,7 +180,24 @@ export function builtinProviders(): readonly NextProvider[] {
       ],
     },
   ];
-  return [...recovery, ...opRecovery, ...rules];
+  // ★ IAN-1（ADR-IAN-001 §①）：末端「自由输入…」终端的**存在性声明**（恒真 ⇒ 零死端）。
+  // `rule`（缺省 = id）不在 `NEXTSTEP_PRIORITY` ⇒ `candidateRules` 恒跳过它（不是第 5 条规则、
+  // 不争两张卡的位）；终端由 `recommendNextStep` 单点注入到选中卡末端并只以集 A 动作渲染。
+  const terminal: NextProvider[] = [
+    {
+      id: FREE_INPUT_PROVIDER_ID,
+      deps: ['session'],
+      priority: 0,
+      mode: 'waterfall',
+      fail: 'card-boundary',
+      // 恒真（`session.busy` 为布尔 ⇒ 两条穷尽分支覆盖全集）；读该字段以让声明面
+      // （`DRIVER_DECLS_SRC.evidence`）与 when-scope 同源（DQ-3）。
+      when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,
+      chips: [FREE_INPUT_PROVIDER_ID],
+      textOf: () => [FREE_INPUT_LABEL],
+    },
+  ];
+  return [...recovery, ...opRecovery, ...rules, ...terminal];
 }
 
 let REGISTERED = false;
@@ -195,7 +220,7 @@ export function registerBuiltinProviders(): void {
  * `when(ctx)` 实际读取的字段一致（门禁从 `providers.ts` 源文本的 when-scope 抽取比对）。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** 10 行 = 既有 provider 集合（5 触发器恢复 + 2 op 驱动恢复 + 3 规则）。 */
+/** 11 行 = 既有 provider 集合（5 触发器恢复 + 2 op 驱动恢复 + 3 规则 + IAN-1 末端终端）。 */
 export const DRIVER_DECLS_SRC: Readonly<Record<string, DriverDecl>> = Object.freeze({
   'ref.stale': { driverId: 'ref.stale', timings: ['stale', 'idle'], moments: ['pick-complete'], driverClass: 'deterministic', priority: 0, evidence: ['ref.staleCount', 'risk'] },
   'declaration.invalid': { driverId: 'declaration.invalid', timings: ['idle', 'stale'], moments: ['bind-complete'], driverClass: 'deterministic', priority: 0, evidence: ['risk'] },
@@ -208,4 +233,7 @@ export const DRIVER_DECLS_SRC: Readonly<Record<string, DriverDecl>> = Object.fre
   // 「答完之后谁接手」的**唯一**声明处：`ref-action` 的 timing 含 `'answered'`（本叶题眼）。
   'ref-action': { driverId: 'ref-action', timings: ['pick', 'stale', 'idle', 'answered'], moments: ['answered-ask', 'describe-submitted', 'pick-complete', 'turn-end'], driverClass: 'ai-driven', priority: 2, evidence: ['ref.validCount', 'session.openAsks', 'ref.latestRefNum'] },
   'capability-discovery': { driverId: 'capability-discovery', timings: ['idle'], moments: ['bind-complete', 'probe-steady', 'auth-receipt', 'turn-end'], driverClass: 'deterministic', priority: 3, evidence: ['site.authorized', 'probe.phase', 'session.busy'] },
+  // ★ IAN-1：末端「自由输入…」终端。`deterministic` ⇒ **无**自动按下权（AI 不得代填手输）。
+  // 手输留痕另用 `MANUAL_DRIVER_ID`（∉ 本表键集）。
+  'free-input': { driverId: 'free-input', timings: ['idle'], moments: ['turn-end'], driverClass: 'deterministic', priority: 0, evidence: ['session.busy'] },
 });

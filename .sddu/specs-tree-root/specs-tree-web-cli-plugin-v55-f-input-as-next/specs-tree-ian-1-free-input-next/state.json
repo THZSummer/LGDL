@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-ian-1-free-input-next",
   "version": "v0.11.2",
   "name": "IAN-1 流内自由输入 next 通道——推荐区按需最末项「自由输入…」+ 点开就地展开卡内输入（.ask-fallback 先例）+ 提交复用 op.turn 槽（唯一生产输入提交点）+ 手输/AI 驱动留痕 driver 两值可判 + 让位语义保留 + R6 双入口并存（旧 composer 入口保留可用）+ 流内草稿回填支持 + a11y focus + 零死端",
-  "phase": "tasked",
+  "phase": "builded",
   "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-plan",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
   "childrens": [],
@@ -49,13 +49,15 @@
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/plan.md",
     "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/plan.md",
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json",
+    "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/build.md"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/build.md"
   ],
   "coversFr": [
     "FR-IAN-001~007",
@@ -133,6 +135,14 @@
       "agent": "sddu-tasks",
       "artifact": "specs-tree-ian-1-free-input-next/tasks.md + tasks.json v1.0",
       "note": "tasks 阶段（2026-09-25）：IAN-1 叶 tasks.md/tasks.json —— 27 任务 / 3 波（TASK-IAN-101~127；S×4 / M×19 / L×4）。2 个 spikeGate（SG-IAN-01/02）；1 个新 node 门禁 free-input-next（FIN-1~8，入 gate-integrity 下界只增）；S0''-A 双面（node TASK-IAN-123 + Chromium TASK-IAN-124，样本单源 s0-chain.mjs 扩展）；体积叶1 正增量重登记 TASK-IAN-126。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-25",
+      "agent": "sddu-build",
+      "artifact": "specs-tree-ian-1-free-input-next/build.md v1.0（R1）",
+      "note": "R1 = W01+W02（TASK-IAN-101~116）实施完成；W03（117~127）按编排器任务书留 R2。SG-IAN-01/02 均判「可行」（4/4，探针探毕删除、不入库）。关键交付：free-input provider（when 恒真 + 存在性单源）· 集 A 协议动作 8→9（不进 ACT_TO_OP，仍恰 6）· 恒最末终端渲染（非 .next-chip）· 零死端 floor（empty ⇒ 仅含终端最小卡；pending/interval/safety 三道硬门不变）· askuser kind 第二语义分支（独立 requestId=free-input，复用 .ask-fallback 家系）· 提交经唯一 op.turn 槽（requestTurn( 叶1 仍恰 2 / 集 B 分发入口恰 1）· 手输 driver=manual 两值可判（∉ listDriverDecls）· 让位语义槽外 · 空提交不静默 · a11y 键盘（Enter/Escape）。门禁对账：npm test 1395 → **1416/0**（+21）；journey 171 / binding 192（隔离复跑 ×2，首轮 CDP 环境 flake）/ s0 70 / density 242 / l0·l1·l2 248·131·74 / recommendation 72→**79** / law8 52 / dead-end 53 / gate-integrity 15 / supersession 42 / size-* PASS / op-wiring 14（requestTurn( 恰 2）/ e2e PASS / test:v3 全链 PASS。体积：A 列 591,946 → **598,282 B（+6,336 B，+1.07%）** —— **越叶预算登记不停机**（预算 +2.5~4.5 KB），中间登记（R2 TASK-IAN-126 按全叶终态重登记）；档位 614,400 / 绝对上限 675,840 不动，生效上限 → 628,196，authorConfirmation = pending-author-line。三冻结面：content.js 177,076/52a82620 与 pick-layer.js 34,358/77796bab 逐字节不变；manifest / web-cli-base 零 diff。偏差 14 项（含 3 处文件清单外连带重锚 / 1 处口径裁决点：floor 只覆盖 empty 不覆盖 safety）已在 build.md §6 如实登记。"
     }
   ],
   "openPointsRuled": [

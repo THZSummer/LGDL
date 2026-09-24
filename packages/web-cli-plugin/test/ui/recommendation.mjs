@@ -686,6 +686,65 @@ async function main() {
     check('⑯ 触发点接线：三处「用户已表达的话」结算路径均经 `nextAfterSettle({ kind: \'answered\'`（≥3 处）', answeredTriggers >= 3, `triggers=${answeredTriggers}`);
     check('⑯ `answered` 不复用 firstRun 的「至多一次」语义（源码面：firstRun 入口只含 `maybeRecommend(\'firstRun\')`）', /maybeRecommendFirstRunEntry[\s\S]{0,1500}?maybeRecommend\('firstRun'\)/.test(sidepanelSrc) && !/maybeRecommendFirstRunEntry[\s\S]{0,1500}?kind: 'answered'/.test(sidepanelSrc), 'firstRun 语义未污染');
 
+    // ══ ⑰ IAN-1（TASK-IAN-107 / ADR-IAN-001 §①/§② · AC-IAN-002）══
+    // 推荐卡末端「自由输入…」终端：**存在 ∧ 恒最末 ∧ 不填输入 ∧ 不越预算**（只增判据）。
+    console.log('\n▶ ⑰ IAN-1：末端「自由输入…」终端（存在 / 恒最末 / 不填输入 / 不越 chips 预算）');
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const terminalRaw = await evaluate(
+      cdp,
+      `(() => {
+         ${VIS}
+         window.__v3.testing.refCard(3, 'valid');
+         window.__v3.testing.recommend('ref', Date.now() + 20000);
+         const card = document.querySelector('#stream [data-msg-type="nextstep"]');
+         if (!card) return JSON.stringify({ found: false });
+         const col = card.querySelector('.card-col');
+         const chips = [...card.querySelectorAll('button.next-chip')];
+         const term = card.querySelector('button[data-act="free-input"]');
+         const inputBefore = document.getElementById('input').value;
+         const usersBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
+         if (term) term.click();
+         const ask = document.querySelector('#stream [data-msg-type="askuser"]');
+         const askInput = document.getElementById('ask-input');
+         return JSON.stringify({
+           found: true,
+           termPresent: Boolean(term),
+           // 恒最末 = 结构序：终端是卡片 .card-col 的**最后一个**子元素（在 .next-chips 之后）。
+           termIsLast: col ? col.lastElementChild === term : false,
+           termTag: term ? term.tagName : null,
+           termIsChip: term ? term.classList.contains('next-chip') : null,
+           chipCount: chips.length,
+           inputBefore,
+           inputAfter: document.getElementById('input').value,
+           usersBefore,
+           usersAfter: document.querySelectorAll('#stream [data-msg-type="user"]').length,
+           askCard: Boolean(ask),
+           askInputVisible: askInput ? askInput.hidden !== true && vis(askInput) : false,
+           focusId: document.activeElement ? document.activeElement.id : null,
+         });
+       })()`,
+    );
+    const term = JSON.parse(terminalRaw);
+    check('⑰ 前置：推荐卡产出且带 chip（本段判据非空转）', term.found === true && term.chipCount >= 1, terminalRaw);
+    check('⑰ 末端「自由输入…」终端存在（`data-act="free-input"`）', term.termPresent === true, terminalRaw);
+    check('⑰ 终端**恒最末**（`.card-col` 的最后一个子元素 ⇒ 结构序在 `.next-chips` 之后）', term.termIsLast === true, terminalRaw);
+    check(
+      '⑰ 终端是 `<button>` 且**不带** `.next-chip`（⇒ `syncNextstepPending` 不在飞禁用 / 不进 chips 预算）',
+      term.termTag === 'BUTTON' && term.termIsChip === false,
+      terminalRaw,
+    );
+    check('⑰ 单卡 `.next-chip` 仍 ≤3（终端不占 MAX_CHIPS_PER_CARD 预算）', term.chipCount >= 1 && term.chipCount <= 3, terminalRaw);
+    check(
+      '⑰ 终端点击**不填** `#input`（项本身不是输入框）∧ 不产生 user 回合',
+      term.inputAfter === term.inputBefore && term.usersAfter === term.usersBefore,
+      terminalRaw,
+    );
+    check(
+      '⑰ 终端点击就地展开卡内输入（复用 `.ask-fallback` 家系；`#ask-input` 可见并获焦点）',
+      term.askCard === true && term.askInputVisible === true && term.focusId === 'ask-input',
+      terminalRaw,
+    );
+
     cdp.close();
 
     const runtime = counts().passes;

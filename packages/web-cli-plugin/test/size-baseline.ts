@@ -359,8 +359,16 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * 方向 = 提升；**档位 614,400 / 绝对上限 675,840 均不动**（585,732 < 614,400 ⇒ 未跨档位），
  * `authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。`dist/content.js` 177,076 B 与
  * `dist/pick-layer.js` 34,358 B **逐字节不变**。**本叶逐叶收口登记**（不等叶2合计，FR-SGO-125）。
+ *
+ * 〖IAN-1 R1（2026-09-24, leaf `specs-tree-ian-1-free-input-next`；W1+W2 = TASK-IAN-101~116）〗
+ * 逐叶**中间登记**（W3/R2 的 TASK-IAN-126 按全叶终态再登记五要素）：591,946 → **598,282 B**
+ * （+6,336 B，+1.07%）；逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows`
+ * （Σ 模块 +6,336 + glue **0** == +6,336）。⚠️ **越叶预算登记不停机**：本叶 A 列预算
+ * +2.5~4.5 KB（ADR-IAN-010 §②）被本轮 **+6,336 B ≈ 6.19 KiB** 超越 ⇒ 如实登记、不停机。
+ * 档位 614,400 / 绝对上限 675,840 均不动（598,282 < 614,400 ⇒ 未跨档位）；
+ * 生效上限 = floor(598,282 × 1.05) = **628,196**（旧生效上限 621,543 未越 ⇒ EC-IAN-016 未触发）。
  */
-export const SIDEPANEL_BASELINE_BYTES = 591_946;
+export const SIDEPANEL_BASELINE_BYTES = 598_282;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -466,6 +474,8 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
   //   档位 614,400 / 绝对上限 675,840 均不动（591,946 < 614,400 ⇒ 未跨档位）；
   //   生效上限 = floor(591,946 × 1.05) = **621,543**（旧生效上限 615,018 未越 ⇒ EC-SGO-022 未触发）。
   591_946,
+  // 〖IAN-1 R1（2026-09-24）〗流内自由输入 W1+W2 的**中间登记**值（W3/R2 收口轮再登记）。
+  598_282,
 ] as const;
 
 /**
@@ -527,7 +537,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 591_946;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_282;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -540,6 +550,11 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
+    'SDDU **IAN-1 R1（2026-09-24, leaf specs-tree-ian-1-free-input-next；W1+W2 = TASK-IAN-101~116；A 列中间登记）**: re-registered on the FINAL artifact — 591,946 → **598,282 B**（+6,336 B，+1.07%）— ' +
+    '流内自由输入 W1+W2：末端「自由输入…」provider（存在性单源，恒真）+ 集 A 协议动作 8→9（`free-input` **不进** `ACT_TO_OP`，仍恰 6）+ 恒最末终端渲染（**非** `.next-chip`）+ 零死端 floor（仅含终端的最小卡；`pending`/`interval`/`safety` 三道硬门逐字不变）+ `askuser` kind 第二语义分支（独立 `requestId` = 独立语义身份（free-input），复用 `.ask-fallback` 家系）+ 提交经唯一 `op.turn` 槽（`requestTurn(` 叶1 **仍恰 2**）+ 手输 `driver=manual` 两值可判（∉ 声明集）+ 让位语义在槽外 + 空提交不静默；' +
+    '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows`（sidepanel.ts +2,516 / providers.ts +957 / cards/askuser.ts +944 / recommend.ts +730 / cards/nextstep.ts +464 / view-model.ts +223 / stream-plaintext.ts +202 / chat-state.ts +103 / ai-drive.ts +99 / dispatch.ts +77 / ops.ts +21；Σ +6,336 + glue 0 == +6,336）；' +
+    '档位 614,400 / 绝对上限 675,840 均不动（598,282 < 614,400 ⇒ 未跨档位），生效上限 = floor(598,282 × 1.05) = **628,196**；`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；' +
+    '**越叶预算登记不停机**（ADR-IAN-010 §② 预算 +2.5~4.5 KB 被 +6.34 KB 超越，如实登记；W3/R2 的 TASK-IAN-126 按全叶终态再登记五要素）。Previous round: ' +
     'SDDU **V5.5F-2 R1+R2（2026-09-24, leaf specs-tree-v55f-2-batch-consent；A 列逐叶重登记）**: re-registered on the FINAL artifact — 585,732 → **591,946 B**（+6,214 B，+1.06%）— ' +
     '任务级批量授权叶：W1 边界先行（RL-06 / OT-⑩ 扩批量变体注入必红 + 特权 op 不入批）+ W2 计划/指纹/准入/回落/漂移/零明文/中止（`background/batch-plan.ts` NEW 落 **B 列**）+ W3 扩围二择（`ref-scope.ts` 选项/转值单源 + `sidepanel.ts` WIDEN 接线 + 批量留痕）：' +
     '`sidepanel.ts` A 列 +2,829 / `cards/auth.ts` +2,113（计划行 + 掩码 + 中止交代）/ `l1/ref-scope.ts` +532（扩围二择单源）/ `stream-model.ts` +455（`plan` 兄弟字段）/ `chat-state.ts` +285（`confirm` action 字段）；' +
@@ -598,7 +613,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 591_946,
+  finalArtifactBytes: 598_282,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -2344,6 +2359,38 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [585_732, 578_623, 573_424, 566_535],
     ceilingUncappedFormulaBytes: 621_543,
   },
+  {
+    id: 'ian-1-r1',
+    direction: 'raised',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-ian-1-free-input-next',
+    date: '2026-09-24',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU IAN-1 R1（2026-09-24，leaf specs-tree-ian-1-free-input-next；W1+W2 = TASK-IAN-101~116）',
+    reason:
+      '**IAN-1 R1 中间登记（越叶预算如实登记、不停机）：591,946 → 598,282 B（+6,336 B，+1.07%）**。' +
+      '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows`（Σ 模块 +6,336 + glue **0** == +6,336）：' +
+      '`sidepanel.ts` 111,308 → **113,824（+2,516）**（末端终端分发分支 + `openFreeInputCard` / `submitFreeInput` / 取消 + 手输留痕 + 空提交可读行 + 推荐卡终端透传）；' +
+      '`next-registry/providers.ts` 7,198 → **8,155（+957）**（free-input 终端 provider + 驱动者声明第 11 行）；' +
+      '`cards/askuser.ts` 9,136 → **10,080（+944）**（独立 requestId + 模型侧幂等纯查询 + Enter/Escape + 固化文案单源）；' +
+      '`recommend.ts` 6,053 → **6,783（+730）**（终端注入单点 + 零死端 floor + `terminal` 加法字段）；' +
+      '`cards/nextstep.ts` 1,506 → **1,970（+464）**（恒最末终端渲染；非 `.next-chip`）；' +
+      '`view-model.ts` 24,399 → **24,622（+223）**（引导改指流内入口）；`stream-plaintext.ts` 4,627 → **4,829（+202）**；' +
+      '`chat-state.ts` 18,132 → **18,235（+103）**（`nextstep` 终端字段 + 空卡判据）；`next-registry/ai-drive.ts` 1,669 → **1,768（+99）**（`MANUAL_DRIVER_ID` / `MANUAL_DRIVER_EVIDENCE` 单源）；' +
+      '`next-registry/dispatch.ts` 795 → **872（+77）**（集 A 8→9 + 终端文案单源）；`next-registry/ops.ts` 7,155 → **7,176（+21）**（`reachableOpIds` 只收真实注册 op）。' +
+      '**档位与绝对上限均未变**（`ceilTo50KB(598,282) = 614,400`、675,840）；生效上限 = `min(675,840, floor(598,282 × 1.05) = 628,196) = 628,196`。' +
+      '**EC-IAN-016 二态显式**：越**生效上限**（621,543）= **是**（598,282 > 621,543？否 —— 598,282 < 621,543 ⇒ **否**）；越**档位**（614,400）= **否**；越**绝对上限**（675,840）= **否** ⇒ 三档均未触发。' +
+      '⚠️ **越叶预算登记不停机**（ADR-IAN-010 §② 预算 +2.5~4.5 KB 被 +6,336 B 超越）；W3/R2 的 TASK-IAN-126 按全叶终态重登记五要素 + 逐模块 `ian1Rows`。' +
+      '`dist/content.js` 177,076 B 与 `dist/pick-layer.js` 34,358 B **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减**。',
+    baselineBeforeBytes: 591_946,
+    baselineAfterBytes: 598_282,
+    ceilingBeforeBytes: 621_543,
+    ceilingAfterBytes: 628_196,
+    assertionNonRemovalEntries: ['IAN1-E-VOL-1', 'V55F2-E-VOL-1'],
+    historyRetainedBytes: [591_946, 585_732],
+    ceilingUncappedFormulaBytes: 628_196,
+  },
 ] as const;
 
 /**
@@ -2390,7 +2437,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 累计：当前基线 − `baselineReferenceBytes`（**557,883 − 295,225 = 262,658**；
    * V5.5-1 review R1 修复轮为 557,761 − 295,225 = 262,536 再加本轮 +122）。
    */
-  deltaBytes: 296_721,
+  deltaBytes: 303_057,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 上一轮登记值`（`size-growth-evidence.test.ts` 直接机核该等式）。
    * 〖R4 缺陷修复轮（2026-09-22）〗最新一轮 = `r4-selector-fix` ⇒ 本字段 = `549,609 − 547,558 = **2,051**`
@@ -2406,7 +2453,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 6_214,
+  closeoutDeltaBytes: 6_336,
   newRequiredModuleBytes: 195_562,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
@@ -2418,7 +2465,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   // 〖V5.5-1 review R1 修复轮（2026-09-23）〗新增 +122 B 全部落在**既有模块的接线桶**
   //   （sidepanel.ts 99,566 → 99,688；glue 0，`unattributedHelperDeltaBytes` 不变）。
   // 桶和 = newRequiredModuleBytes 181,921 + wiringBytes 78,814 + 0 + 1,923 == 262,658 == `deltaBytes`。
-  wiringBytes: 99_057,
+  wiringBytes: 105_393,
   attributionShiftBytes: 0,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
@@ -2715,6 +2762,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     // 〖V5.5F-1 R1+R2（2026-09-24，leaf specs-tree-v55f-1-ref-context-and-anchor）〗**最新一轮** = 本组。
     v55f1R1R2Rows: 'v55f-1-r2',
     v55f2R1R2Rows: 'v55f-2-r2',
+    ian1R1Rows: 'ian-1-r1',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -3149,6 +3197,34 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as const,
   /** 〖V5.5F-2 R1+R2〗未归因运行时胶水 = 0 B（Σ 模块 +6,214 == 登记增量 +6,214）。 */
   v55f2R1R2UnattributedGlueBytes: 0,
+  /**
+   * 〖IAN-1 R1（2026-09-24，leaf `specs-tree-ian-1-free-input-next`；W1+W2 = TASK-IAN-101~116）〗
+   * 逐模块增量（**真实 `dist/build-meta.json`**，几何与 v55f-2 树一致 ⇒ 逐值可对账）：
+   * `sidepanel.ts` 111,308 → **113,824（+2,516）** / `providers.ts` 7,198 → **8,155（+957）** /
+   * `cards/askuser.ts` 9,136 → **10,080（+944）** / `recommend.ts` 6,053 → **6,783（+730）** /
+   * `cards/nextstep.ts` 1,506 → **1,970（+464）** / `view-model.ts` 24,399 → **24,622（+223）** /
+   * `stream-plaintext.ts` 4,627 → **4,829（+202）** / `chat-state.ts` 18,132 → **18,235（+103）** /
+   * `ai-drive.ts` 1,669 → **1,768（+99）** / `dispatch.ts` 795 → **872（+77）** /
+   * `ops.ts` 7,155 → **7,176（+21）**。
+   * Σ 模块 **+6,336** + 未归因胶水 **0** == 登记增量 **+6,336**。
+   * ⚠️ 本轮的**越叶预算**（ADR-IAN-010 §② 预算 +2.5~4.5 KB）按「登记不停机」如实登记；
+   * W3/R2 的 TASK-IAN-126 按全叶终态再登记（含 `ian1Rows` 逐模块行与 EC-IAN-016 二态）。
+   */
+  ian1R1Rows: [
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 111_308, afterBytes: 113_824, deltaBytes: 2_516 },
+    { module: 'src/ui/sidepanel/next-registry/providers.ts', beforeBytes: 7_198, afterBytes: 8_155, deltaBytes: 957 },
+    { module: 'src/ui/sidepanel/cards/askuser.ts', beforeBytes: 9_136, afterBytes: 10_080, deltaBytes: 944 },
+    { module: 'src/ui/sidepanel/recommend.ts', beforeBytes: 6_053, afterBytes: 6_783, deltaBytes: 730 },
+    { module: 'src/ui/sidepanel/cards/nextstep.ts', beforeBytes: 1_506, afterBytes: 1_970, deltaBytes: 464 },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 24_399, afterBytes: 24_622, deltaBytes: 223 },
+    { module: 'src/ui/sidepanel/stream-plaintext.ts', beforeBytes: 4_627, afterBytes: 4_829, deltaBytes: 202 },
+    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 18_132, afterBytes: 18_235, deltaBytes: 103 },
+    { module: 'src/ui/sidepanel/next-registry/ai-drive.ts', beforeBytes: 1_669, afterBytes: 1_768, deltaBytes: 99 },
+    { module: 'src/ui/sidepanel/next-registry/dispatch.ts', beforeBytes: 795, afterBytes: 872, deltaBytes: 77 },
+    { module: 'src/ui/sidepanel/next-registry/ops.ts', beforeBytes: 7_155, afterBytes: 7_176, deltaBytes: 21 },
+  ] as const,
+  /** 〖IAN-1 R1〗未归因运行时胶水 = 0 B（Σ 模块 +6,336 == 登记增量 +6,336）。 */
+  ian1R1UnattributedGlueBytes: 0,
   v551FixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 99_566, afterBytes: 99_688, deltaBytes: 122 },
   ] as const,
@@ -3251,6 +3327,19 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 106_714, afterBytes: 108_479, deltaBytes: 1_765, kind: 'wiring', requiredBy: 'FR-SGO-013/014/019 + FR-SGO-025/026/027 + FR-SGO-080/083/084（requestTurn 唯一载荷构建点 + confirm 面范围闸 + 范围留痕行 + l1(scope) seam）· ADR-SGO-001/002' },
     { module: 'src/ui/sidepanel/l1/ref-store.ts', beforeBytes: 6_169, afterBytes: 6_318, deltaBytes: 149, kind: 'wiring', requiredBy: 'FR-SGO-014/015（只读取用：isActiveRef 单源谓词 + activeValid 只读访问器；judge/dispatch/退役语义零改）' },
     { module: '../web-cli-base/dist/sensitive.js', beforeBytes: 938, afterBytes: 3_522, deltaBytes: 2_584, kind: 'wiring', requiredBy: 'FR-SGO-012/019（凭据形 textDigest 掩码复用 base 的 maskTextPayload 敏感面；非复制实现）' },
+    // 〖IAN-1 R1（2026-09-24, leaf specs-tree-ian-1-free-input-next；W1+W2）〗流内自由输入：11 行接线
+    // （Σ +6,336；逐轮归因见 `ian1R1Rows`，本组是 v3-1 树 → 当前树的累计说明）。
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 111_308, afterBytes: 113_824, deltaBytes: 2_516, kind: 'wiring', requiredBy: 'FR-IAN-011/016/020/021/022/023 + AC-IAN-003/004（末端终端分发分支 + openFreeInputCard / submitFreeInput / 取消 + 手输 driver=manual 留痕 + 让位语义槽外 + 空提交可读行 + 推荐卡 terminal 透传）· ADR-IAN-001/002' },
+    { module: 'src/ui/sidepanel/next-registry/providers.ts', beforeBytes: 7_198, afterBytes: 8_155, deltaBytes: 957, kind: 'wiring', requiredBy: 'FR-IAN-010/013/014（free-input 终端 provider：存在性单源 + 恒真 + 驱动者声明第 11 行）· ADR-IAN-001 §①' },
+    { module: 'src/ui/sidepanel/cards/askuser.ts', beforeBytes: 9_136, afterBytes: 10_080, deltaBytes: 944, kind: 'wiring', requiredBy: 'FR-IAN-011/015/017/019（askuser 第二语义分支：独立 requestId + 模型侧幂等纯查询 + Enter/Escape + 固化文案单源）· ADR-IAN-002 §①' },
+    { module: 'src/ui/sidepanel/recommend.ts', beforeBytes: 6_053, afterBytes: 6_783, deltaBytes: 730, kind: 'wiring', requiredBy: 'FR-IAN-010/013/014（终端注入单点 + 零死端 floor + terminal 加法字段；NEXTSTEP_PRIORITY 仍恰 4）· ADR-IAN-001 §①' },
+    { module: 'src/ui/sidepanel/cards/nextstep.ts', beforeBytes: 1_506, afterBytes: 1_970, deltaBytes: 464, kind: 'wiring', requiredBy: 'FR-IAN-012/014（恒最末终端渲染：非 .next-chip ⇒ 在飞不被禁用 ∧ 不进 MAX_CHIPS_PER_CARD 预算）· ADR-IAN-001 §①/§②' },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 24_399, afterBytes: 24_622, deltaBytes: 223, kind: 'wiring', requiredBy: 'FR-IAN-056（引导文案改指流内「自由输入…」入口）· ADR-IAN-005' },
+    { module: 'src/ui/sidepanel/stream-plaintext.ts', beforeBytes: 4_627, afterBytes: 4_829, deltaBytes: 202, kind: 'wiring', requiredBy: 'FR-IAN-016（卡内输入提交后的固化文案单源；只写事实、不回显用户文本 —— 法八）· ADR-IAN-002 §②' },
+    { module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 18_132, afterBytes: 18_235, deltaBytes: 103, kind: 'wiring', requiredBy: 'FR-IAN-013/014（nextstep 终端布尔字段 + 「空卡」判据重锚为「零 chip 且无终端」）· ADR-IAN-001 §①' },
+    { module: 'src/ui/sidepanel/next-registry/ai-drive.ts', beforeBytes: 1_669, afterBytes: 1_768, deltaBytes: 99, kind: 'wiring', requiredBy: 'FR-IAN-022/024（MANUAL_DRIVER_ID / MANUAL_DRIVER_EVIDENCE 单源；手输 ≠ AI 驱动可判）· ADR-IAN-002 §③' },
+    { module: 'src/ui/sidepanel/next-registry/dispatch.ts', beforeBytes: 795, afterBytes: 872, deltaBytes: 77, kind: 'wiring', requiredBy: 'FR-IAN-010/014（集 A 协议动作 8→9 + 终端文案唯一源；ACT_TO_OP 仍恰 6）· ADR-IAN-001 §②' },
+    { module: 'src/ui/sidepanel/next-registry/ops.ts', beforeBytes: 7_155, afterBytes: 7_176, deltaBytes: 21, kind: 'wiring', requiredBy: 'FR-IAN-010（reachableOpIds 只收真实注册 op ⇒ op.help 的「可用操作」不被终端污染）· ADR-IAN-001 §②' },
   ] as readonly GrowthAttributionRow[],
 } as const;
 

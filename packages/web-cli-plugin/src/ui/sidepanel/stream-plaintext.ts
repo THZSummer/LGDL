@@ -114,6 +114,8 @@ export const ASK_COPY = Object.freeze({
   secretWritten: '已写入（掩码 · 零明文 · {n} 位）',
   /** Cancelled (any reason) — verbatim shim C10 copy. */
   cancelled: '已取消（不代填默认值）',
+  /** ★ IAN-1（ADR-IAN-002 §② · 法八 / FIN-8）：只述事实、**不回显**用户文本。 */
+  freeInputSubmitted: '已提交（内容在对话中）',
   /** The system row for a user cancel (kept, though the card alone already traces). */
   cancelledUserSystem: '提问已由用户取消（未作答，不代填默认值）',
   /** The system row for the 60 s timeout projection (background ask bridge expiry). */

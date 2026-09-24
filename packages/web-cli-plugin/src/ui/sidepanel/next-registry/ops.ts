@@ -404,12 +404,15 @@ export const OPS_BY_ID: Readonly<Record<string, NextOp>> = Object.freeze(
  * The reachable op ids for a context = the **union of the chips** of every registered
  * provider whose `when(ctx)` holds. Derived on every call (never a literal list), so
  * 「候选列表硬编码」(R-V5-104) cannot happen without the gate failing.
+ *
+ * ★ IAN-1：`free-input` provider 的 chip 是集 A 协议动作（不是 opId）—— 本函数只产出
+ * **opId**，故只收真实注册的 chip（「可用操作（N）」仍是 op 清单）。
  */
 export function reachableOpIds(ctx: NextCtx): readonly string[] {
   const ids = new Set<string>();
   for (const p of resolveOrder()) {
     if (!p.when(ctx)) continue;
-    for (const chip of p.chips) ids.add(chip);
+    for (const chip of p.chips) if (OPS_BY_ID[chip]) ids.add(chip);
   }
   return Object.freeze([...ids]);
 }

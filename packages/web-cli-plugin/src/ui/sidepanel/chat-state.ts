@@ -178,7 +178,7 @@ type SidepanelActionBody =
    * HERE (not in the caller) so no producer can bypass them: `pending ⇒ no new card`
    * and `no chips ⇒ no card` (EC-CHAT-008).
    */
-  | { type: 'nextstep'; chips: readonly string[]; acts: readonly string[]; rule?: string };
+  | { type: 'nextstep'; chips: readonly string[]; acts: readonly string[]; rule?: string; terminal?: boolean };
 
 /**
  * Every action may carry `at` — the one clock the reducer is allowed to read
@@ -685,9 +685,10 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
     case 'nextstep': {
       // FR-CHAT-063: never mint a new card while a turn is pending. EC-CHAT-008:
       // never mint an empty card (「下一步：无」is a fake recommendation).
+      // ★ IAN-1: 「空」= 零 chip **且** 无末端终端 ⇒ floor 的「仅含终端」最小卡合法。
       if (state.pending) return state;
       const chips = action.chips.slice(0, 3);
-      if (chips.length === 0) return state;
+      if (chips.length === 0 && action.terminal !== true) return state;
       return push(state, {
         kind: 'nextstep',
         ts: at,
@@ -695,6 +696,7 @@ function streamBranch(state: SidepanelState, action: SidepanelAction, prev: Side
           chips,
           nextstepActs: action.acts.slice(0, 3),
           ...(action.rule ? { nextstepRule: action.rule } : {}),
+          ...(action.terminal === true ? { nextstepTerminal: true } : {}),
           // ⚠️ The rule id must NOT go through `label`: `risk-recovery` contains the
           // `sk-` + 8-char shape the secret scanner flags, and the label is a
           // user-facing string anyway (BLOCK-01 review 修复轮实测：产品路径产出的

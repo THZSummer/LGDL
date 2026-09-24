@@ -39,7 +39,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { ACT_TO_OP, OP_TO_ACT, SET_A_PROTOCOL_ACTIONS } from '../src/ui/sidepanel/next-registry/dispatch.js';
-import { builtinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
+import { builtinProviders, registerBuiltinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
+import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/ops.js';
 import { countProviders, registerNextProvider, resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';
 
 // Resolved from the PACKAGE ROOT: `npm test` compiles to `dist-test/`, so a
@@ -76,6 +77,7 @@ export const JUDGEMENTS: readonly Diff0Judgement[] = [
   { id: 'D0-4-four-op-hash-frozen', expectFailPattern: '四操作下分发器/注册表源文件哈希必须逐字节不变' },
   { id: 'D0-5-setA-setB-disjoint', expectFailPattern: '集 A / 集 B 的 action 字符串必须互斥（越集 ⇒ 判据必红）' },
   { id: 'D0-6-no-data-act-readback', expectFailPattern: '分发器不得回读 data-act 属性（分发依据必须是 opId）' },
+  { id: 'D0-7-two-set-chip-vocabulary', expectFailPattern: 'provider chips 必须落在两集词汇面内（opId ∪ ACT_TO_OP ∪ 集 A 协议动作）' },
 ];
 
 /**
@@ -300,7 +302,7 @@ test('D0-4 四操作哈希不变：注册 / 卸载 / 覆盖 / 重复 id 下四�
 });
 
 test('D0-5 两集互斥：集 A 协议动作与集 B 动作字符串无交集，且 ACT_TO_OP 恰 6 行', () => {
-  const a = [...SET_A_PROTOCOL_ACTIONS];
+  const a: readonly string[] = [...SET_A_PROTOCOL_ACTIONS];
   const b = Object.keys(ACT_TO_OP);
   const overlap = a.filter((x) => (b as readonly string[]).includes(x));
   assert.deepEqual(overlap, [], `${JUDGEMENTS[4].expectFailPattern}：${overlap.join(', ')}`);
@@ -309,15 +311,50 @@ test('D0-5 两集互斥：集 A 协议动作与集 B 动作字符串无交集，
     if (act === 'describe-submit') continue; // a non-chip alias, by design outside 恰 6
     assert.ok(b.includes(act), `集 B 的动作 ${act} 必须在 ACT_TO_OP 的 6 行内`);
   }
+  // ★ IAN-1（ADR-IAN-001 §② · TASK-IAN-106）—— 集 A **只增**（8 → 9）：新增的 `'free-input'`
+  // 是推荐卡末端终端的协议动作（不进 `ACT_TO_OP`）。判据力只增：既有 8 项逐项仍在 ∧ 新项必须
+  // 真的在集 A **声明处**可定位（否则终端的 `data-act` 就落不进唯一两集模型）。
+  assert.equal(a.length, 9, `${JUDGEMENTS[4].expectFailPattern}：集 A 必须恰 9 项（8 → 9，只增）`);
+  for (const act of ['answer', 'choose', 'cancel', 'approve', 'reject', 'audit', 'hover', 'reanchor']) {
+    assert.ok(a.includes(act), `集 A 的既有协议动作 ${act} 不得丢失（零删除）`);
+  }
+  assert.ok(a.includes('free-input'), `${JUDGEMENTS[4].expectFailPattern}：'free-input' 必须可在集 A 声明处定位`);
 });
 
-test('D0-7 前置：四个内置 provider 的 chips 全部是可分发的 opId（无悬空）', () => {
-  const known = new Set<string>([...Object.values(ACT_TO_OP), ...Object.keys(ACT_TO_OP)]);
+test('D0-7 前置：内置 provider 的 chips 全部落在两集模型 ∪ 已注册 opId 内（无悬空；非空转）', () => {
+  // ★ IAN-1（ADR-IAN-001 §① · TASK-IAN-106）—— **等价重锚（加严，零降级）**：
+  // 旧 `known` = opId ∪ `ACT_TO_OP` 值 ∪ `ACT_TO_OP` 键；现在**再并入集 A 协议动作** ——
+  // 理由是终端的 `data-act='free-input'` 由集 A 分发（与 `choose-other` / `reanchor` / `hover`
+  // 同构），它**不在** `ACT_TO_OP` 的 6 行内（「恰 6」逐字不动）。判据力只增：`'free-input'`
+  // 必须在集 A 声明处可定位（下方反证），两集之外的 chip 仍然判红。
+  registerBuiltinProviders();
+  // 旧判据的 `known`（ACT_TO_OP 键 ∪ 值）**漏掉** 7 个 op-direct chip（`op.llm-config` /
+  // `op.perm.request`）—— 原判据因 `resolveOrder()` 未曾注册而**空转**（恒真）。本锚点把它
+  // 变成真的机核：`known` 并入**已注册 opId 集**（`OPS_BY_ID`）+ 集 A 协议动作。
+  const known = new Set<string>([...Object.keys(OPS_BY_ID), ...Object.values(ACT_TO_OP), ...Object.keys(ACT_TO_OP), ...SET_A_PROTOCOL_ACTIONS]);
   for (const p of resolveOrder()) {
     for (const chip of p.chips) {
-      assert.ok(known.has(chip), `provider ${p.id} 的 chip ${chip} 既不是 opId 也不是可查表动作`);
+      assert.ok(known.has(chip), `provider ${p.id} 的 chip ${chip} 既不是 opId 也不是可查表动作 / 集 A 协议动作`);
     }
   }
+  // 前置非空转：本门禁确实判到了 IAN-1 的新词汇面（否则重锚是空转）。
+  const allChips = resolveOrder().flatMap((p) => p.chips);
+  assert.ok(allChips.includes('free-input'), 'free-input 终端的集 A 词汇必须真的被 provider 使用');
+});
+
+test('D0-7 反证：把 free-input 从集 A 移除 ⇒ D0-1 的「集 A 字面量在场」判据必红', () => {
+  const body = handleCardActionBody(read(SIDEPANEL_REL));
+  assert.ok(body, '前置：handleCardAction 必须可定位');
+  // 判据（与 D0-1 同形）：集 A 的每个动作都必须在分发器体内可定位。
+  const presentFor = (acts: readonly string[], src: string): string[] =>
+    acts.filter((act) => !new RegExp(`['"]${act}['"]`).test(src));
+  assert.deepEqual(presentFor(SET_A_PROTOCOL_ACTIONS, body as string), [], '真源码必须逐项在场');
+  // 反证：把 `'free-input'` 从真源码改名为别的字面量 ⇒ 该判据必须报出恰好它。
+  const forged = (body as string).replace(/'free-input'/g, "'free-input-renamed'");
+  assert.deepEqual(presentFor(SET_A_PROTOCOL_ACTIONS, forged), ['free-input'], JUDGEMENTS[4].expectFailPattern);
+  // 反证②：把 `'free-input'` 从集 A 声明处拿掉 ⇒ 它不再被要求在场（判据对象就是集 A 本身）。
+  const forgedSetA = [...SET_A_PROTOCOL_ACTIONS].filter((x) => x !== 'free-input');
+  assert.deepEqual(presentFor(forgedSetA, body as string), [], '集 A 少一项 ⇒ 该项不再被要求（判据非恒真）');
 });
 
 /* ────────────────────────────────────────────────────────────────────────────

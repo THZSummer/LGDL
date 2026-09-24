@@ -384,14 +384,16 @@ test('NP-5 isMutating：risk !== low ⇒ 改状态（快照）', () => {
   assert.equal(isMutating(OPS_BY_ID['op.turn']), false);
 });
 
-test('NP-6/7 ACT_TO_OP 恰 6 行 ∧ 集 A 恰 8 项 ∧ 两集键集不相交', () => {
+test('NP-6/7 ACT_TO_OP 恰 6 行 ∧ 集 A 恰 9 项 ∧ 两集键集不相交', () => {
   assert.deepEqual(Object.keys(ACT_TO_OP), ['next', 'repick', 'describe', 'authorize', 'rebind', 'help'], 'ACT_TO_OP 必须恰 6 行且逐字');
   assert.deepEqual(
     { ...ACT_TO_OP },
     { next: 'op.turn', repick: 'op.pick', describe: 'op.describe', authorize: 'op.authorize', rebind: 'op.rebind', help: 'op.help' },
   );
-  assert.equal(SET_A_PROTOCOL_ACTIONS.length, 8);
-  assert.deepEqual([...SET_A_PROTOCOL_ACTIONS], ['answer', 'choose', 'cancel', 'approve', 'reject', 'audit', 'hover', 'reanchor']);
+  // ★ IAN-1（ADR-IAN-001 §②）：集 A 8 → **9** —— 新增的 `'free-input'` 是推荐卡末端终端的协议
+  // 动作（不进 `ACT_TO_OP` ⇒ 上两行**逐字不变**）。判定方向只增不减：既有 8 项仍逐款在场。
+  assert.equal(SET_A_PROTOCOL_ACTIONS.length, 9);
+  assert.deepEqual([...SET_A_PROTOCOL_ACTIONS], ['answer', 'choose', 'cancel', 'approve', 'reject', 'audit', 'hover', 'reanchor', 'free-input']);
   const keys = new Set(Object.keys(ACT_TO_OP));
   for (const a of SET_A_PROTOCOL_ACTIONS) assert.ok(!keys.has(a), `两集模型：集 A 与 ACT_TO_OP 键集不得相交（${a}）`);
   assert.equal(CHIP_ACTION_ALIASES['describe-submit'], 'op.describe');
@@ -400,7 +402,7 @@ test('NP-6/7 ACT_TO_OP 恰 6 行 ∧ 集 A 恰 8 项 ∧ 两集键集不相交',
 test('NP-8 集 B per-op 分支 = 0（handleCardAction）', () => {
   const found = perOpBranches(SIDEPANEL_SRC, SET_B);
   assert.deepEqual(found, [], `集 B per-op 分支必须为 0（实测 ${found.join(', ')}）`);
-  // 集 A 分支必须仍在（8 项保留；`approve`/`reject` 为复合条件）。
+  // 集 A 分支必须仍在（9 项保留；`approve`/`reject` 为复合条件；`free-input` 为 IAN-1 终端）。
   for (const a of SET_A_PROTOCOL_ACTIONS) {
     assert.ok(new RegExp(`action === '${a}'`).test(SIDEPANEL_SRC), `集 A 的 '${a}' 判据必须保留`);
   }

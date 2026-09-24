@@ -32,7 +32,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { NEXT_MOUNT_POINTS, MOUNT_MODE } from '../src/ui/sidepanel/next-registry/definition.js';
-import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
+import { ACT_TO_OP, SET_A_PROTOCOL_ACTIONS } from '../src/ui/sidepanel/next-registry/dispatch.js';
 import {
   OBLIGATION_FAIL_SEMANTICS,
   OBLIGATION_OP_IDS,
@@ -146,13 +146,16 @@ export function mountProblems(rows: readonly (typeof OBLIGATION_ROWS)[number][])
   return problems;
 }
 
-/** ④ — every chip a registered provider hands out is a declared op (no dangling). */
+/** ④ — every chip a registered provider hands out is a declared op **or** a 集 A protocol action (no dangling). */
 export function chipProblems(providers: readonly { readonly id: string; readonly chips: readonly string[] }[]): string[] {
-  const known = new Set<string>(OBLIGATION_OP_IDS);
+  // ★ IAN-1（ADR-IAN-001 §①/§②）—— chip 的可分发词汇 = **两集模型**：opId（义务表 9 行）
+  // ∪ 集 A 协议动作（`handleCardAction` 的卡族动作）。判据方向只增不减：既有「chip 必须有
+  // 义务表行」逐条保留，新增的只是**合法的第二词汇面**（两集之外仍然判红）。
+  const known = new Set<string>([...OBLIGATION_OP_IDS, ...SET_A_PROTOCOL_ACTIONS]);
   const problems: string[] = [];
   for (const p of providers) {
     for (const chip of p.chips) {
-      if (!known.has(chip)) problems.push(`chips 悬空判据失败：provider ${p.id} 的 chip ${chip} 无义务表行`);
+      if (!known.has(chip)) problems.push(`chips 悬空判据失败：provider ${p.id} 的 chip ${chip} 无义务表行（且非集 A 协议动作）`);
     }
   }
   return problems;
@@ -203,11 +206,15 @@ test('OT-3 表尾明示契约义务：字面含 `diff = 0` 与 handleCardAction'
   assert.match(OBLIGATION_TAIL, TAIL_OBLIGATION, '导出的表尾常量必须与源文本同一条义务');
 });
 
-test('OT-4 chips 无悬空：内置 provider 的每枚 chip 都有义务表行（且与 ACT_TO_OP 同源）', () => {
+test('OT-4 chips 无悬空：内置 provider 的每枚 chip 都有义务表行（或集 A 协议动作；且与 ACT_TO_OP 同源）', () => {
   registerBuiltinProviders();
   const providers = resolveOrder();
   assert.ok(providers.length >= 5, '前置：内置 provider 必须已注册（否则本判据空转）');
   assert.deepEqual(chipProblems(providers), []);
+  // 前置非空转：两集词汇面都必须真的被生产 provider 用到（opId 面 + IAN-1 的集 A 面）。
+  const allChips = providers.flatMap((p) => p.chips);
+  assert.ok(allChips.some((c) => OBLIGATION_OP_IDS.includes(c)), 'opId 词汇面必须有真实使用');
+  assert.ok(allChips.some((c) => (SET_A_PROTOCOL_ACTIONS as readonly string[]).includes(c)), '集 A 词汇面必须有真实使用（IAN-1 终端 chip）');
   // The render alias vocabulary and the op vocabulary must agree on every value.
   for (const opId of Object.values(ACT_TO_OP)) {
     assert.ok(OBLIGATION_OP_IDS.includes(opId), `ACT_TO_OP 映射出的 ${opId} 必须在义务表内`);

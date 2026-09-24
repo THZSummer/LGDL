@@ -15,7 +15,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/",
       "name": "IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移",
       "leaf": true,
-      "phase": "tasked",
+      "phase": "builded",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 1,

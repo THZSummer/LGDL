@@ -36,7 +36,7 @@
 import { label } from './stream-plaintext.js';
 import type { NextCtx } from './next-registry/definition.js';
 import { OP_TO_ACT } from './next-registry/dispatch.js';
-import { registerBuiltinProviders } from './next-registry/providers.js';
+import { FREE_INPUT_PROVIDER_ID, registerBuiltinProviders } from './next-registry/providers.js';
 import { resolveOrder } from './next-registry/registry.js';
 
 // V5.5-1 TASK-V55-103 (ADR-V55-002 §1) — `RecommendTrigger` 的唯一类型定义在
@@ -320,12 +320,32 @@ export const RECOVERY_CHIP_TEXT: Readonly<Record<string, string>> = Object.freez
 
 
 export interface NextstepCandidate {
-  readonly rule: NextstepRuleId;
+  /**
+   * 产卡规则（∈ {@link NEXTSTEP_PRIORITY}）。★ IAN-1：**零死端 floor** 的「仅含终端」最小卡
+   * **不是**任何规则候选（无 chip、不争规则位）⇒ 该字段缺省；既有 4 规则的候选恒带值。
+   */
+  readonly rule?: NextstepRuleId;
   /** 1 = highest (index in {@link NEXTSTEP_PRIORITY} + 1). */
   readonly priority: number;
   readonly chips: readonly NextstepChip[];
   /** The digest-safe label persisted with the card (never a body). */
   readonly label: string;
+  /**
+   * ★ IAN-1（ADR-IAN-001 §① · FR-IAN-010/013/014）—— 末端「自由输入…」终端在场。
+   *
+   * **加法字段**（缺省 ⇒ 渲染与既有逐字节相同）：它不是新 kind / 新 chip，而是「推荐卡末端
+   * 是否带该终端」的机器可判存在性，来源 = 注册表 `free-input` provider 的 `when(ctx)`（单源）。
+   * `MAX_CHIPS_PER_CARD` 只约束 {@link chips}，终端**不进**该预算。
+   */
+  readonly terminal?: boolean;
+}
+
+/**
+ * ★ IAN-1：`candidateRules` 的产物（`rule` 必在）。零死端 floor 的「仅含终端」最小卡
+ * 不经规则表 ⇒ 不出现在这里 —— 「优先级来自规则表位置」的既有判据因此逐字不变。
+ */
+export interface NextstepRuleCandidate extends NextstepCandidate {
+  readonly rule: NextstepRuleId;
 }
 
 /** Why nothing was produced (`undefined` when a card was produced). */
@@ -353,7 +373,7 @@ function priorityOf(rule: NextstepRuleId): number {
   return NEXTSTEP_PRIORITY.indexOf(rule) + 1;
 }
 
-function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[]): NextstepCandidate {
+function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[]): NextstepRuleCandidate {
   const kept = Object.freeze(
     chips.slice(0, MAX_CHIPS_PER_CARD).map((c) => Object.freeze({ text: label([c.text]), act: c.act })),
   );
@@ -362,6 +382,32 @@ function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[]): Nextst
   // user-facing string anyway. The machine-readable id stays in `rule` (never persisted).
   return Object.freeze({ rule, priority: priorityOf(rule), chips: kept, label: label([NEXTSTEP_LABELS[rule]]) });
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ IAN-1（ADR-IAN-001 §① · EC-IAN-001）：终端 —— 存在性单源 + 恒最末 + 零死端 floor。
+ *   ① 存在性 = 注册表 `free-input` provider 的 `when(ctx)`（恒真；不在推荐器里写第二判断）；
+ *   ② 注入点 = 本处（选中卡之后；不进 `MAX_CHIPS_PER_CARD`，渲染层排在 `.next-chips` 之后）；
+ *   ③ floor = `candidateRules` 零候选且 !busy 且间隔已过 ⇒ 铸「仅含终端」最小卡；
+ *      `pending` / `interval` 两道硬门仍在前，`safety`（候选全被 deny）**不走 floor**。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 终端在场？—— 读注册表（单源）。 */
+function freeInputTerminal(ctx: NextCtx): boolean {
+  registerBuiltinProviders();
+  const provider = resolveOrder().find((p) => p.id === FREE_INPUT_PROVIDER_ID);
+  return provider ? provider.when(ctx) : false;
+}
+
+/** 「仅含终端」的最小推荐卡（零 chip / 零规则位；`terminal: true` 由渲染层消费）。 */
+function freeInputOnlyCard(): NextstepCandidate {
+  return Object.freeze({
+    priority: 0,
+    chips: Object.freeze([] as NextstepChip[]),
+    label: label(['下一步推荐']),
+    terminal: true,
+  });
+}
+
 
 /**
  * The 7-source pure context the registered providers read (V5-1, ADR-V5-001).
@@ -387,10 +433,10 @@ export function recommendCtx(input: RecommendInput): NextCtx {
  * providers); this function is the equivalent re-anchor of the old hand-written
  * table — the output shape and ordering are byte-for-byte the previous ones.
  */
-export function candidateRules(input: RecommendInput): readonly NextstepCandidate[] {
+export function candidateRules(input: RecommendInput): readonly NextstepRuleCandidate[] {
   registerBuiltinProviders();
   const ctx = recommendCtx(input);
-  const out: NextstepCandidate[] = [];
+  const out: NextstepRuleCandidate[] = [];
   const seen = new Set<string>();
   for (const p of resolveOrder()) {
     const rule = p.rule ?? p.id;
@@ -433,6 +479,10 @@ function passesSafety(c: NextstepCandidate, denied: ReadonlySet<string>): boolea
  *   ② idle interval not elapsed ⇒ nothing (anti-flicker);
  *   ③ no candidate survives the rules ⇒ nothing (EC-CHAT-008: 无候选不渲染);
  *   ④ every candidate is safety-filtered ⇒ nothing (fail-closed).
+ *
+ * ★ IAN-1: ③ 的**唯一例外** = 零死端 floor（`suppression === 'empty'` 且终端在场 ⇒ 仅含
+ * 终端的**最小**卡）。「下一步：无」式**空卡**仍被禁止（`chips.length === 0 ∧ !terminal`
+ * 由 reducer 再次拦住），`'safety'` 与 ①② 的语义一字未动。
  */
 export function recommendNextStep(input: RecommendInput): RecommendResult {
   if (input.session.busy) return Object.freeze({ cards: Object.freeze([]), suppression: 'pending' });
@@ -451,10 +501,21 @@ export function recommendNextStep(input: RecommendInput): RecommendResult {
       const key = completedActionKey(c.rule, c.chips, input.ref.latestRefNum);
       return key === undefined || !completed.has(key);
     });
+  // 终端存在性（单源）—— ① `pending` / ② `interval` 两道硬门之后才求值（不生成新卡的纪律不变）。
+  const terminal = freeInputTerminal(recommendCtx(input));
   if (rules.length === 0) {
     const raw = candidateRules(input);
-    return Object.freeze({ cards: Object.freeze([]), suppression: raw.length === 0 ? 'empty' : 'safety' });
+    if (raw.length === 0) {
+      // ③ 零死端 floor（EC-IAN-001）：无任何候选 ⇒ 仍可达「自由输入…」（仅含终端的最小卡）。
+      return Object.freeze({
+        cards: Object.freeze(terminal ? [freeInputOnlyCard()] : []),
+        ...(terminal ? {} : { suppression: 'empty' as const }),
+      });
+    }
+    // ④ 全部候选被安全边界拦下 ⇒ 照旧**不推荐**（fail-closed 逐字不变）。
+    return Object.freeze({ cards: Object.freeze([]), suppression: 'safety' });
   }
   const sorted = [...rules].sort((a, b) => a.priority - b.priority);
-  return Object.freeze({ cards: Object.freeze(sorted.slice(0, MAX_NEXTSTEP_CARDS_PER_ROUND)) });
+  const top = sorted.slice(0, MAX_NEXTSTEP_CARDS_PER_ROUND).map((c) => (terminal ? Object.freeze({ ...c, terminal: true }) : c));
+  return Object.freeze({ cards: Object.freeze(top) });
 }

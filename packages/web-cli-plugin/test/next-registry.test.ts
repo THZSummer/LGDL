@@ -253,10 +253,13 @@ test('NR-9 chips 悬空：setKnownOpIds 后未知 chip ⇒ loud', () => {
  * 既有 16 条判据一条不减；以下只**增**。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('NR-10（V5.5-1）：驱动者声明 10 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
+test('NR-10（V5.5-1）：驱动者声明 11 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
   const decls = Object.values(DRIVER_DECLS_SRC);
   const providerIds = new Set(builtinProviders().map((p) => p.id));
   assert.equal(decls.length, providerIds.size, `驱动者集合 ≡ provider 集合（实测 ${decls.length} vs ${providerIds.size}）`);
+  // ★ IAN-1：新面必须**真的**被双向包含判据覆盖（不得只把计数从 10 改成 11 就了事）。
+  assert.ok(providerIds.has('free-input'), 'free-input 终端必须在注册表内');
+  assert.ok(decls.some((d) => d.driverId === 'free-input'), 'free-input 必须有声明行（双向包含）');
   for (const d of decls) assert.ok(providerIds.has(d.driverId), `声明行 ${d.driverId} 必须在注册表内`);
   for (const id of providerIds) assert.ok(decls.some((d) => d.driverId === id), `注册表 ${id} 必须有声明行（双向包含，不得漂移）`);
   // 「答完之后谁会接手」必须在声明层可回答（FR-SELF-036 / ADR-V55-002 §4）。
@@ -301,5 +304,5 @@ test('NR-10 反证：声明表多一行 / 少一行 ⇒ 双向包含必红 → �
   const missing = decls.filter((d) => d.driverId !== 'ref-action');
   assert.equal(missing.length, decls.length - 1);
   assert.ok([...providerIds].some((id) => !missing.some((d) => d.driverId === id)), '少一行（注册表有表无）⇒ 必红');
-  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 10, '还原 PASS（声明行恰 10）');
+  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 11, '还原 PASS（声明行恰 11：IAN-1 追加 free-input 终端声明）');
 });

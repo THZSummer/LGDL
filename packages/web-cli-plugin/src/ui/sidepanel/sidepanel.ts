@@ -61,13 +61,15 @@ import {
 import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
 // V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/063/065）——「AI 自动成回合」的**唯一**
 // 按下入口（`op.turn` 槽；`requestTurn(` 调用点计数不变）。本文件只**接线**，判据在单源模块里。
-import { pressCandidate, driverSuppressedLine } from './next-registry/ai-drive.js';
+import { MANUAL_DRIVER_ID, MANUAL_DRIVER_EVIDENCE, driverSuppressedLine, driverTraceLine, pressCandidate } from './next-registry/ai-drive.js';
 // V5.5-3 TASK-V55-312/313/314（ADR-V55-009 §1/§2/§4 · FR-SELF-090~094 · AC-SELF-006）——
 // 护栏六常量单源 + 越限抑制 + 关断偏好。本文件只**接线**（阈值全在单源模块里）。
 import { loadProactivePref, proactivity } from './next-registry/guard.js';
 export type { RecommendTrigger } from './next-registry/drivers.js';
 import { providerById } from '../../llm/providers.js';
-import { dispatchChipAction } from './next-registry/dispatch.js';
+import { FREE_INPUT_LABEL, dispatchChipAction } from './next-registry/dispatch.js';
+// ★ IAN-1：卡内输入复用 `.ask-fallback` 家系 + **独立 requestId** 的模型侧幂等纯查询。
+import { FREE_INPUT_REQUEST_ID, openAskCardIdByRequest, setCardFallbackOpen } from './cards/askuser.js';
 import { createSystemChannelState, droppedSystemText, SYSTEM_COPY } from './system-events.js';
 import {
   REGISTERED_STRUCTURAL_HOSTS,
@@ -238,7 +240,19 @@ function cardDeps(): CardDeps {
  */
 function handleCardAction(cardId: string, action: string, value?: string): void {
   const requestId = requestIdForCard(cardId);
+  if (action === 'free-input') {
+    // ★ IAN-1（ADR-IAN-001 §②）：末端「自由输入…」终端（集 A 动作、不携 opId、不经 op 分发）
+    // —— 点开只**就地展开**卡内输入（`.ask-fallback` 先例，零第二 DOM 路径）。
+    openFreeInputCard();
+    return;
+  }
   if (action === 'answer') {
+    if (requestId === FREE_INPUT_REQUEST_ID) {
+      // ★ IAN-1（ADR-IAN-002 §②）：free-input 提交 = **手输回合**（按 requestId 路由，
+      // 绝不与 `op.describe` 的「本地成卡、不成回合」结算语义混用）。
+      submitFreeInput(value);
+      return;
+    }
     submitAskFor(requestId, value, false);
     return;
   }
@@ -247,6 +261,11 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
     return;
   }
   if (action === 'cancel') {
+    if (requestId === FREE_INPUT_REQUEST_ID) {
+      // free-input 卡**没有**后台桥（不是提问）⇒ 取消只在本地面板固化（零 SW 投递）。
+      cancelFreeInputCard();
+      return;
+    }
     submitAskFor(requestId, undefined, true);
     return;
   }
@@ -1207,10 +1226,11 @@ function installV3TestHooks(): void {
             type: 'nextstep',
             chips: card.chips.map((c) => c.text),
             acts: card.chips.map((c) => c.act),
-            rule: card.rule,
+            ...(card.rule ? { rule: card.rule } : {}),
+            ...(card.terminal ? { terminal: true } : {}),
           });
         }
-        return JSON.stringify({ produced: result.cards.length, rule: card?.rule ?? null, suppression: result.suppression ?? null });
+        return JSON.stringify({ produced: result.cards.length, rule: card?.rule ?? null, suppression: result.suppression ?? null, terminal: card?.terminal === true });
       },
       /** V4-4: the live `pending` gate (drives the chip availability sync). */
       setPending(value: boolean) {
@@ -2033,10 +2053,13 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
     type: 'nextstep',
     chips: card.chips.map((c) => c.text),
     acts: card.chips.map((c) => c.act),
-    rule: card.rule,
+    ...(card.rule ? { rule: card.rule } : {}),
+    // ★ IAN-1：末端「自由输入…」终端存在性透传（加法布尔字段；缺省 ⇒ 渲染逐字节不变）。
+    ...(card.terminal ? { terminal: true } : {}),
   });
   if (log && anchored) followToBottom(log);
-  return card.rule;
+  // ★ IAN-1：零死端 floor 的「仅含终端」最小卡**没有**规则 id（不是任何规则候选）⇒ 如实返回 null。
+  return card.rule ?? null;
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -2824,13 +2847,90 @@ function ingestCapture(facts: Record<string, unknown>, resolution: { status: str
 
 /** The still-open LOCAL text ask card (`ref-describe`), if any (BLOCK-03). */
 function textAskCardId(): string | undefined {
-  for (let i = state.stream.events.length - 1; i >= 0; i -= 1) {
-    const e = state.stream.events[i];
-    if (e.kind !== 'askuser' || e.payload.requestId !== 'ref-describe') continue;
-    const hasTerminal = state.stream.events.some((x) => x.cardId === e.cardId && x.terminal !== undefined);
-    if (!hasTerminal) return e.cardId;
+  // ★ IAN-1：查询实现收敛到 `cards/askuser.ts#openAskCardIdByRequest`（**单一**模型侧纯查询，
+  // 零第二份扫描）—— 本函数只固定它自己的语义身份（`ref-describe`）。
+  return openAskCardIdByRequest(state.stream.events, 'ref-describe');
+}
+
+/** ★ IAN-1：free-input 卡的存在性判定（同一模型侧纯查询 + **独立** requestId）。 */
+function freeInputCardId(): string | undefined {
+  return openAskCardIdByRequest(state.stream.events, FREE_INPUT_REQUEST_ID);
+}
+
+/** The `.ask-form` node of a rendered card (`data-card-key` = cardId). */
+function askFormNodeOf(cardId: string): HTMLElement | null {
+  const li = document.querySelector(`#stream [data-card-key="${cardId}"]`) as HTMLElement | null;
+  return (li?.querySelector('.ask-form') as HTMLElement | null) ?? null;
+}
+
+/**
+ * ★ IAN-1（ADR-IAN-002 §①）：点开「自由输入…」—— 已有卡（仍开）⇒ **复用** + 重展开 + focus
+ * （`setCardFallbackOpen` 的既有语义）；否则铸 `askuser` 卡（`askKind:'text'` 出生即展开）。
+ * 铸造**直接 append 事件**（与 `ensureTextAskCard` 同一先例：不抢 `state.ask` 单槽）；零新 id
+ * 家系（`.ask-fallback` 家族；`LEGACY_ASK_IDS` 的「最新开卡唯一铸造」保证 `#ask-input` 唯一）。
+ */
+function openFreeInputCard(): void {
+  const existing = freeInputCardId();
+  if (existing) {
+    const form = askFormNodeOf(existing);
+    if (form) {
+      setCardFallbackOpen(form, true);
+      return;
+    }
+    // 模型里有卡但 DOM 节点尚未渲染（极端：本函数在 render 前被调用）⇒ 走 render 后重取。
+    render();
+    const rendered = askFormNodeOf(existing);
+    if (rendered) setCardFallbackOpen(rendered, true);
+    return;
   }
-  return undefined;
+  const cardId = `q${state.stream.seq}`;
+  state = {
+    ...state,
+    stream: boundStreamEvents(
+      appendEvent(state.stream, {
+        kind: 'askuser',
+        ts: Date.now(),
+        cardId,
+        payload: { askKind: 'text', prompt: FREE_INPUT_LABEL, requestId: FREE_INPUT_REQUEST_ID },
+      }),
+      DEFAULT_STREAM_CAP,
+    ),
+  };
+  render();
+  const form = askFormNodeOf(cardId);
+  if (form) setCardFallbackOpen(form, true);
+}
+
+/** 空 / 纯空白提交或异常态的可读提示（复用既有 notice 通道，零新增 kind；EC-IAN-004）。 */
+const FREE_INPUT_EMPTY_TEXT = '未发送：输入为空（自由输入不会产生空回合）。';
+const FREE_INPUT_NO_ORIGIN_TEXT = '未发送：当前没有活跃站点（先绑定站点再输入）。';
+
+/**
+ * ★ IAN-1（ADR-IAN-002 §②③）—— **手输回合**。三条纪律（各有反证）：
+ *   ① 让位语义在 `op.turn` 槽**外**（`noteUserTurn`；槽内会锁住「答案后续流」）；
+ *   ② 提交经**唯一** `op.turn` 槽（不新增 `requestTurn` 直连 / 不新增集 B 分发入口）；
+ *   ③ 留痕两值可判：手输写 `driver=manual`，AI 自主按 `op.turn` 写其声明 id（零值：只写字段名）。
+ * 提交后本卡以 `answered` 固化，且**不回显**用户文本（法八：文本只走 `chat` `user` 载荷）。
+ */
+function submitFreeInput(value: string | undefined): void {
+  const text = (value ?? '').trim();
+  if (!text) {
+    dispatch({ type: 'notice', text: FREE_INPUT_EMPTY_TEXT });
+    return;
+  }
+  if (!state.activeOrigin) {
+    dispatch({ type: 'notice', text: FREE_INPUT_NO_ORIGIN_TEXT });
+    return;
+  }
+  proactivity.noteUserTurn();
+  dispatch({ type: 'notice', text: driverTraceLine(MANUAL_DRIVER_ID, 'manual', MANUAL_DRIVER_EVIDENCE) });
+  void dispatchOp('op.turn', { value: text });
+  dispatch({ type: 'ask-resolved', requestId: FREE_INPUT_REQUEST_ID, canceled: false });
+}
+
+/** free-input 卡的取消（本地固化；无后台桥 ⇒ 零 SW 投递；Escape / 「取消」按钮同此一路）。 */
+function cancelFreeInputCard(): void {
+  dispatch({ type: 'ask-resolved', requestId: FREE_INPUT_REQUEST_ID, canceled: true, reason: 'user' });
 }
 
 /**

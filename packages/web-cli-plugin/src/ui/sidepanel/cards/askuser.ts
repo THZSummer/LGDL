@@ -31,9 +31,30 @@
  * @module ui/sidepanel/cards/askuser
  */
 import { ASK_COPY } from '../stream-plaintext.js';
-import type { CardView } from '../stream-model.js';
+import type { CardView, StreamEvent } from '../stream-model.js';
 import { mountDecisionRegion } from './decision-region.js';
 import { CARD_TAG_LABELS, createCardShell, createFixedRegion, fixedText, type CardDeps } from './shared.js';
+
+/**
+ * ★ IAN-1（ADR-IAN-002 §①）：卡内输入的**独立 requestId**（`askuser` kind 的第二语义分支）。
+ * 与注册表 `free-input` provider id 同字面但**不同面**；**绝不**与 `ref-describe` 合流
+ * （那会把「自由输入」退化成「描述」—— 本地成卡、不成回合）。
+ */
+export const FREE_INPUT_REQUEST_ID = 'free-input';
+
+/**
+ * ★ IAN-1：按 `payload.requestId` 在**模型**上做**幂等纯查询**（仍开着的 ask 卡 id）——
+ * `free-input` 卡的唯一存在性判定（**零第二 DOM 路径**；展开 / focus 复用 `.ask-fallback`）。
+ */
+export function openAskCardIdByRequest(events: readonly StreamEvent[], requestId: string): string | undefined {
+  for (let i = events.length - 1; i >= 0; i -= 1) {
+    const e = events[i];
+    if (e.kind !== 'askuser' || e.payload.requestId !== requestId) continue;
+    const hasTerminal = events.some((x) => x.cardId === e.cardId && x.terminal !== undefined);
+    if (!hasTerminal) return e.cardId;
+  }
+  return undefined;
+}
 
 /**
  * The `#ask*` id family the OPEN card mints (the v3 selectors). I-04: this is also
@@ -112,6 +133,8 @@ export function answeredState(view: CardView): 'false' | 'true' | 'cancelled' {
 /** The固化 copy of an ask card, derived from its terminal state only (C7 / C10). */
 export function askFixedText(view: CardView): string {
   if (view.terminal === 'cancelled') return ASK_COPY.cancelled;
+  // ★ IAN-1（ADR-IAN-002 §② · 法八 / FIN-8）：固化只写事实，不回显用户文本。
+  if (view.payload.requestId === FREE_INPUT_REQUEST_ID) return ASK_COPY.freeInputSubmitted;
   // V5-2 TASK-V5-135 (ADR-V5-002 §2 / FR-ALLN-022, 法八): the masked card固化s the
   // **fact** — written / masked / a length CATEGORY — never the value, never a prefix.
   // The category (`8+` / `8-`) is what narrows the side channel (ADR-V5-010 §2).
@@ -249,6 +272,9 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   // the `type="password"` + `data-secret` variant of it, so the card family keeps one
   // construction (no second DOM path) and 3 clickables (≤ MAX_CLICKABLES_PER_CARD = 6).
   const isSecret = askKind === 'secret';
+  // ★ IAN-1（ADR-IAN-002 §① · FR-IAN-019）：同一个 text 形态（零第二 DOM 路径），只在键盘
+  // 路径上多两条「与点击等价」的语义：Enter = 提交 / Escape = 取消（按 requestId 路由）。
+  const isFreeInput = view.payload.requestId === FREE_INPUT_REQUEST_ID;
   // V5-2 TASK-V5-138 (ADR-V5-002 §2 / ADR-V5-004 §3 · FR-ALLN-043): the `form` card is
   // its OWN construction — a multi-select checkbox group + submit/cancel. It must NOT
   // also mount the text input / the decision region, otherwise 4 checkboxes + input +
@@ -277,6 +303,17 @@ function buildForm(view: CardView, deps: CardDeps, col: HTMLElement): void {
   }
   input.autocomplete = 'off';
   input.setAttribute('aria-label', '回答');
+  if (isFreeInput) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        deps.onCardAction?.(view.cardId, 'answer', input.value);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        deps.onCardAction?.(view.cardId, 'cancel');
+      }
+    });
+  }
   const submit = doc.createElement('button');
   submit.id = 'ask-submit';
   submit.type = 'button';

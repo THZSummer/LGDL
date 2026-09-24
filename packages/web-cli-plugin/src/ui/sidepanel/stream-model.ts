@@ -250,6 +250,9 @@ export interface StreamPayload {
   readonly nextstepActs?: readonly string[];
   /** V4-4: the recommendation rule id that produced the card (`risk-recovery` … ). */
   readonly nextstepRule?: string;
+  /** ★ IAN-1（ADR-IAN-001 §①）：推荐卡末端「自由输入…」终端在场（**加法布尔字段**）。
+   * 缺省 ⇒ 渲染逐字节不变；终端被渲染在 `.next-chips` 之后（不进 chips 预算 / 不被在飞禁用）。 */
+  readonly nextstepTerminal?: boolean;
   /** Short, already-sanitised label persisted to the digest (never the body). */
   readonly label?: string;
   /**
