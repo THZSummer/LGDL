@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-v55f-2-batch-consent",
   "version": "v0.11.1",
   "name": "V5.5F-2 任务级批量授权——写入计划（N 处 目标+原文→译文）+ 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次用户手势 + 计划外逐条回落 + 逐条审计零明文 + 中途可中止 + 特权 op 恒不入批 + 批量变体注入必红 + WIDEN ask-user 二择",
-  "phase": "reviewed",
+  "phase": "validated",
   "status": "tracked",
-  "workflow": "6.review",
-  "agent": "sddu-review",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "childrens": [],
@@ -55,7 +55,9 @@
     "xSgoLedgerLeaf2",
     "v55f2R1R2Rows",
     "review.md（C1~C36 策略清单）",
-    "review-report.md v1.0（R1）"
+    "review-report.md v1.0（R1）",
+    "validate.md",
+    "validate-report.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/spec.md",
@@ -64,7 +66,9 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/tasks.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/review.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/review-report.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/validate-report.md"
   ],
   "coversFr": [
     "FR-SGO-040~050",
@@ -157,6 +161,14 @@
       "agent": "sddu-review",
       "artifact": "review.md（C1~C36 策略清单）+ review-report.md v1.0（R1）",
       "note": "R1 审查：36 Cx / 33 ✅ / 3 ⚠️ / 0 ❌ / 0 BLOCK / 4 I（I-01 cards/index.ts 两条 import 并行的格式回归；I-02 confirm.ts fallback 未显式分支（文案未上屏 / planGate 状态推进）；I-03 batch-plan.ts BATCH_RENDER_MAX 死常量且与 AUTH_PLAN_RENDER_MAX 双声明；I-04 build.md R2 终值登记两小点：§9.2 supersession 40→42、§9.3 EC-SGO-022 生效上限 615,018→621,543）/ 5 O；亲注入 5 处承重（①AI 侧 markApproved ⇒ RL-06 扩批量 1 红；②op.authorize 入计划模块 ⇒ 特权不入批 1 红；③planEntryKey 归一化 ⇒ BC-2 1 红；④admitEntry 计划外放行 ⇒ BC-3 1 红；⑤去 WIDEN「整页」守卫 ⇒ L9-9 2 红；全部逐字节还原 sha 相同、复绿）；亲跑 npm test 1394/0 + node（supersession 42/0 · batch-consent 7/0 · law9 14/0 · op-three-tier 11/0 · capability-wiring 11/0 · s0-self-driven-chain 27/0 · op-wiring 14/0 · ref-context-in-turn 9/0 · gate-integrity 22/0 · host-registry 11/0）+ Chromium（s0-self-driven 70/0 · law8 52/0 · dead-end 53/0）；三冻结面 sha 双锚（content 177,076 / 52a82620… · pick-layer 34,358 / 77796bab…）+ base/判定链/op-table 零 diff + KIND_SET 40 + requestTurn( 2 + 12 kind 零宿主；体积五要素同源 591,946 / 621,543 / 675,840（越预算基线上界 5.5 KB 未越 +15% 6.3 KB，显式诚实登记）；结论 ✅ 通过（可进 validate）"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-24",
+      "agent": "sddu-validate",
+      "artifact": "validate.md v1.0（V1~V9 验证策略）+ validate-report.md v1.0（R1）",
+      "note": "R1 动态验证（对象 HEAD `c0bac99`，review I-01~I-04 微修后）：**结论 ✅ 通过 / 0 阻塞**。V1 门禁全量亲跑 `npm test` 1394/1394/0 + 逐 node 门禁复跑（supersession 42/0 · batch-consent 7/0 · op-three-tier 11/0 · capability-wiring 11/0 · host-registry 11/0 · gate-integrity 22/0 · s0-self-driven-chain 27/0 · law9 14/0 · ref-context-in-turn 9/0 · op-wiring 14/0）+ Chromium 串行（s0-self-driven 70/0（含 S0C-11/S0P-C6 批量面）· law8 52/0 · dead-end 53/0 · stream 76/0 · auth-chip 37/0 · ask-auth 78/0 · journey 171 · binding 192（首跑 KL-N-10 flake ⇒ 隔离复跑 PASS，如实登记））。V2 S0′ 批量段双面复刻：node S0P-B1~B3（正读 + 5 反证）+ Chromium S0C-11/S0P-C6（单卡 N 行 ∧ 一次手势 batch.gesture=user/results=N/N ∧ 二择走既有 askuser）。V3 安全边界行为级（自研探针 16/16）：一次手势承重（计划内二次写零再弹）· 指纹含文本对（改译文/尾随空格 ⇒ 回落，不归一化）· 漂移显式失败 · 特权恒不入批 · AI 代答必红。V4 扩围二择（探针 10/10 + ND-10 53/0）：整页 ⇒ out-of-scope-authorized + 留痕 + confirm 卡；拒绝/取消 ⇒ fail-closed 零死端；scopeWidenAuthorized=true 全仓恰 1 处（注释不计）且被真实点击值守卫。V5 fallback 分支（I-02 后）：计划外卡不挂计划行 ∧ BATCH_FALLBACK_TEXT 上屏 ∧ planGate 不推进（state 仍 pending）。V6 注入抽验 3 处（A AI 侧 markApproved( ⇒ supersession 41/1；B 特权标识入 batch-plan.ts ⇒ capability-wiring 10/1；C admitEntry 计划外改 admitted ⇒ batch-consent BC-3 6/1），均逐字节还原 sha 相同（ai-drive 28e7e49a… / batch-plan 9e54049f…）⇒ 复绿 42/0·11/0·7/0，git status 空。V7/V8/V9 独立复算：content.js 177,076/52a82620… · pick-layer.js 34,358/77796bab… · base/manifest/content src/policy/auto-authorize/op-table 零 diff · KIND_SET 40 · requestTurn( 恰 2 · CARD_TYPES 12 · 零宿主 · MAX_OPEN_ASKS 2 · ASK_CANCEL_REASONS 4 · 特权恰 2 恒 gesture；体积五要素同源 591,946/621,543/614,400/675,840/pending-author-line；两叶 Σ +13,323（叶1 +7,109 + 叶2 +6,214）在正常口径 9.5~14.5 KB；spec 零改动。FR 21/21=100% · NFR 10/10=100% · EC 10/10=100% · 人工面 M2/M3 = ⏳。O-01：build.md §9.2 op-three-tier 记 12/0（实测 11/0）、capability-wiring 记 10/0（实测 11/0），零判据影响，建议父收口订正。"
     }
   ]
 }
