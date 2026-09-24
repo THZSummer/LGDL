@@ -18,7 +18,7 @@ specs-tree-ian-1-free-input-next/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道） — 1. **`chips: ['free-input']` 触发两处 chips 词汇面重锚**（`driver-quadruple` DQ-2 / `ne... | ✅ 存在 |
+| build.md | 构建报告：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道） — 1. **§6-A-8（R1）「零死端 floor 只覆盖 `empty` 不覆盖 `safety`」——R2 处置 = 保 fail-closed 既有... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移） — src/ui/sidepanel/ | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-ian-1-free-input-next（IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移） — 父规范 §2.2~§2.5 的**新面根因**全部落在本叶：「自由输入」作为 next 选项的形态缺位（`Q-IAN-003`）；next 注册表已是可注... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [builded] |
