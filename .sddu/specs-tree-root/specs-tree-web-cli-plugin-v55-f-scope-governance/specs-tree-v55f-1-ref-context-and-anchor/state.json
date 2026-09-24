@@ -118,6 +118,27 @@
     "PD-SGO-005 批量计划生成路径（影响本叶读数接口形态）"
   ],
   "notes": "本叶 = F-34 首叶 / 底座叶，P0；执行序：先定读数（法九）再定法则，锚定包装先落写命令 set-text。父 FR 承载 ≈62 条切片。父 FR-SGO-002/005/024/014/019 为「共享面」，在本叶一次做完（体积 / 保护段 / 取代台账 / knownGap）。",
+  "closeout": {
+    "round": "v55f-1 叶收口（F-34 首叶 / 底座叶；父 specs-tree-web-cli-plugin-v55-f-scope-governance）",
+    "date": "2026-09-24",
+    "authorization": "编排器代作者决策（作者已授权编排器代行决策、SDDU 全流程自行调度）",
+    "author": "sddu-build",
+    "conclusion": "✅ 本叶完成：29/29 任务；review ✅ 通过（37 Cx / 0 BLOCK / 2 I / 6 O，I-01/I-02 于 6b9b982 微修闭环）；validate ✅ 通过（V1~V10 全绿 / 0 阻塞 / 1 无法执行（人工面 M1/M4）/ N-01 + O-01~O-03）。交付 = 引用事实进回合（chat type-only refs 7 字段 + 唯一构建点 + SW 系统段基座/追加段）+ 范围读数单源（法九四值）+ --ref <n> 锚定（plugin 侧包装，base 零 diff）+ S0′ 双面 + X-SGO 台账本叶段。",
+    "digitalLedger": {
+      "tasks": "29 / 29（TASK-V55F-101~129；W1~W4；S×2 / M×21 / L×6）",
+      "npmTest": "1330 → 1375 / 0（+45；R1 +22 / R2 +23）",
+      "sidepanelBytes": "578,623 → 585,732 B（+7,109 ≈ 6.94 KiB；预算 6.0~9.0 KB 未越；生效上限 607,554 → 615,018；档位 614,400 / 绝对上限 675,840 未动）",
+      "backgroundBytes": "1,617,969 → 1,627,424 B（R1 +3,044 / R2 +6,411；B 列不计账）",
+      "newGates": "3 node（ref-context-in-turn 9/0 · law9-scope-reading 12/0 · dom-ref-anchor 7/0）+ s0-self-driven Chromium 59 → 65/0 + s0-self-driven-chain 15 → 24/0；CHROMIUM_GATES === 9 不动",
+      "gateDeltas": "supersession 36 → 39 · gate-integrity 19 → 20 · law8 36 → 46 · insight-no-escalation 17 → 20 · l1 116 → 131 · page-input 118 → 125 · op-wiring 13 → 14；journey 171 / binding 192 保段",
+      "spikeGates": "SG-SGO-01（9/9）· SG-SGO-02（11/11）· SG-SGO-03（3/3）—— 三闸门全可行",
+      "frozenFaces": "content.js 177,076 B（sha 52a82620…）/ pick-layer.js 34,358 B（sha 77796bab…）逐字节零 diff；base / src/content / manifest / confirm.ts / 判定链 zeroDiffFiles 9 项零 diff"
+    },
+    "nItems": "review O-01~O-06 + validate N-01/O-01~O-03 + build 偏差 1~8 去重 → N-01~N-11；owner：父收口 9 / 叶2 已闭环 1（N-01 authorized 恒值）/ 人工面 1（N-11 M1/M4）；已闭环（非 N）3 = review I-01/I-02（6b9b982）+ build 偏差 1/6（R2）",
+    "manualFaces": "⏳ 未执行（headless 不可合成，不冒充 PASS）：M1 S0′「原地」语义遵从观感 · M4 SPA 锚定失败提示可理解度",
+    "handover": "owner=父收口 N-02~N-10（清册口径 / files.review / counts.supersession 滞后 / 两面分工 / refNum 读数 / 工具目录 / X-SGO-5 落点 / newTitle 重锚）· owner=人工面 N-11 · owner=叶2 已闭环 N-01",
+    "xSgoTerminal": "本叶段 xSgoLedger：4 superseded（X-SGO-1/2/3/5）+ 3 no-supersession（X-SGO-4/6/7）；X-SGO-4 属叶2（本叶如实登记「未发生」）⇒ 叶2 落地后终态 = 5 已发生（1/2/3/4/5）/ 2 未发生（6/7），详见父 closeout.md"
+  },
   "phaseHistory": [
     {
       "phase": "specified",
@@ -174,6 +195,14 @@
       "agent": "sddu-validate",
       "artifact": "validate.md v1.0（V1~V10 验证策略）+ validate-report.md v1.0（R1）",
       "note": "R1 动态验证（对象 HEAD 6b9b982，review I-01/I-02 微修后）：**结论 ✅ 通过 / 0 阻塞**。门禁全量亲跑 `npm test` 1375/1375/0 + 逐门禁复跑（law9 12/0 · ref-context-in-turn 9/0 · dom-ref-anchor 7/0 · s0-self-driven-chain 24/0 · gate-integrity 20/0 · supersession 39/0 · insight-no-escalation 20/0 · op-wiring 14/0 · l1-ref-validity 21/0）+ Chromium 串行（s0-self-driven 65/0（含 S0P-C1~C5，合成锚真 DOM 恰 1 命中 ∧ 注入第二节点⇒2）· law8 46/0（36 零降级）· l1 131/0 · page-input 125/0（首跑环境性 flake，清理 572 个陈旧 fixture 后隔离复跑绿））；自研 5 探针（法九 13/13 · --ref 16/16 · refs e2e 12/12 · S0′ node 14/14 · 红线/体积 20/20）；核心断言承重：S0P-4 注入 extraWrites（2>1）必红 · S0P-7 去注入 ⇒ no-ref 必红 + 真源改判红 + sha256 还原逐字节相同；prompt 行为级：四值可判 / authorized 纯输入 / 第二声明必红 / --ref 合成锚 + 失配 fail-closed 非静默 + risk 不放宽；2 处源码注入（法九真源改判 ⇒ law9 8/4 + s0p 19/5 红；删单节点闸 ⇒ dom-ref-anchor 5/2 红）逐字节还原（sha 9109b539… / f1363fed… 相同）复绿；红线终核：content.js 177,076 / sha 52a82620… · pick-layer.js 34,358 / sha 77796bab… · base/security/content src/manifest 零 diff · KIND_SET 40 · requestTurn( 2 · 特权手势恰 2（恒 gesture）· 12 kind 零宿主 · zeroDiffFiles 9；体积五要素同源 585,732 / 生效上限 615,018 / 档位 614,400 / 绝对上限 675,840 / pending-author-line，A 列 +7,109（预算 6.0~9.0 KB）· Σ rows+glue 39 == +7,109 · EC-SGO-022 三分支未触发；X-SGO rows 4 superseded（1/2/3/5）+ 3 no-supersession（4/6/7）∧ note 口径闭合（I-01 微修）；spec.md 零改动（零规格漂移）；人工面 M1/M4 = ⏳（不冒充 PASS）；F=0 / N=1（page-input 环境性 flake）/ O=3 / 阻塞 0。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-24",
+      "agent": "sddu-build",
+      "artifact": "build.md v3.0（收口段：N-01~N-11 归并 + 终态快照 + 交付物清单 + 终态对账 13 项 + 移交项 + 对账订正；零产品代码改动 ⇒ 终端状态保持 validated / completed）",
+      "note": "叶收口轮完成（2026-09-24，sddu-build，编排器代作者决策）：review O-01~O-06（6）+ validate N-01/O-01~O-03（4）+ build 偏差 1~8 去重归并为 **N-01~N-11**（owner：父收口 9 / 叶2 已闭环 1 / 人工面 1；已闭环非 N 3 = review I-01/I-02 @6b9b982 + build 偏差 1/6 @R2）；终态对账 13 项全 ✅（任务 29/29 · npm 1330 → 1375/0 · 体积 578,623 → 585,732（+7,109，预算内未跨档位）· 三冻结面逐字节零 diff · SG-SGO-01/02/03 全可行 · 保护段 journey 171 / binding 192 保段 · X-SGO 本叶段 4/3）；零产品代码改动（.sddu 外零触碰）。"
     }
   ]
 }

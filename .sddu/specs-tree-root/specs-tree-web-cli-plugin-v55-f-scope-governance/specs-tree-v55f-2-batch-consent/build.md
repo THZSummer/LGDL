@@ -112,8 +112,8 @@
 | `npm test`（全部 node 门禁） | 1375 / 0 | **1386 用例（提交前 1379/7 ⇒ 提交后 1380/6）** | +11 用例只增。**6 红 = 体积/红线 pin**（登记基线滞后产物 ⇒ **逐叶重登记属 W3 `TASK-V55F-216`**，R1 如实红并归因）；预提交的 1 条 worktree 漂移（`zeroDiffFiles` 巡检对未提交改动敏感）在提交后**自愈**（实测 `npm test-final.log` = 1380 pass / 6 fail） |
 | `batch-consent`（**新**） | — | **7 / 0** | BC-1~7 全绿（含 on-disk 注入反证） |
 | `test:supersession` | 39 / 0 | **40 / 0**（除体积红线③家族 → 归 §7 偏差 1） | RL-06 扩批量变体在册；X-SGO 台账（W3 `215`）未动 |
-| `op-three-tier` | 11 / 0 | **12 / 0** | `tierOf` 逐 op 不变；特权恒 gesture |
-| `capability-wiring` | 9 / 0 | **10 / 0** | `.request(` 计数不减（SW 0 / helper ≥1） |
+| `op-three-tier` | 10 / 0 | **11 / 0** | `tierOf` 逐 op 不变；特权恒 gesture（**订正**：baseline 10/0 ∧ R1 +1 ⇒ 11/0；原文「11/0 · 12/0」为抄录偏差，见 §10.1 I-04 / §11 对账订正） |
+| `capability-wiring` | 10 / 0 | **11 / 0** | `.request(` 计数不减（SW 0 / helper ≥1）（**订正**：baseline 10/0 ∧ R1 +1 ⇒ 11/0；原文「9/0 · 10/0」为抄录偏差，见 §10.1 I-04 / §11 对账订正） |
 | `host-registry` | 绿 | **绿** | 零宿主 / 12 kind / `MAX_OPEN_ASKS = 2` / `ASK_CANCEL_REASONS` 4 逐字 |
 | `test:gate-integrity` | 20 / 0 | **20 / 0** | 新门禁入受审集合；`CHROMIUM_GATES === 9` |
 | `test:law8`（法八四面） | 46 / 0 | **46 / 0** | **零降级**（计划行 `textContent` + 掩码；四面零正文） |
@@ -244,8 +244,8 @@
 | `npm test`（全部 node 门禁） | 1386（1380/6） | **1394（1394 / 0）** | **6 项体积/红线 pin 全部闭环**；+8 用例（213/214/215/216 只增） |
 | `batch-consent`（新） | 7 / 0 | **7 / 0** | BC-1~7 全绿 |
 | `test:supersession` | 40 / 0（除体积） | **42 / 0** | RL-06 扩批量变体在册；X-SGO 台账（215）落账（R2 新增叶2 台账 + `modifiedRanges` 两用例 ⇒ 40→42） |
-| `op-three-tier` | 12 / 0 | **12 / 0** | `tierOf` 逐 op 不变；特权恒 gesture |
-| `capability-wiring` | 10 / 0 | **10 / 0** | `.request(` 计数不减；批量不触达特权 op |
+| `op-three-tier` | 11 / 0 | **11 / 0** | `tierOf` 逐 op 不变；特权恒 gesture（**订正**：validate O-01 —— 实测 `grep -c '^test('` = 11；原文记 12/0） |
+| `capability-wiring` | 11 / 0 | **11 / 0** | `.request(` 计数不减；批量不触达特权 op（**订正**：validate O-01 —— 实测 `grep -c '^test('` = 11；原文记 10/0） |
 | `host-registry` | 绿 | **绿** | 零宿主 / 12 kind / `KIND_SET` 40 |
 | `test:gate-integrity` | 20 / 0 | **20 / 0** | `V55F2_NODE_GATE_FILES ≥1`；`CHROMIUM_GATES === 9` |
 | `test:law8`（法八四面） | 46 / 0 | **52 / 0**（+6） | 批量计划零明文 + 掩码；**零降级** |
@@ -346,5 +346,114 @@
 ### 10.3 下一步
 
 I-01~I-04 已在 review → validate 之间闭环，均为**非阻塞**项；A 列零字节、判据本体零改动 ⇒ 不触发新轮次，直接交 validate。
+
+
+---
+
+# 构建报告 v3.0（v55f-2 **收口段**：N 项归并 + 终态对账）
+
+> **文档定位**: SDDU 收口记录 —— 本叶 7 阶段流水线（build → review → validate 全通过）之后的**收口轮**：N 项归并登记 + 终态对账 + 交付物清单 + 移交项。**零产品代码改动**（`.sddu` 外零触碰）。
+> **输入**: `review-report.md` v1.0（R1；36 Cx / **0 BLOCK** / 4 I / **5 O**）+ `validate-report.md` v1.0（R1；V1~V9 全绿 / 0 阻塞 / 1 无法执行 / **N-01 + O-01~O-04**）+ 本叶 build.md v1.0~v2.1（偏差登记 1~3）+ §10（review 微修 I-01~I-04）+ 父 `plan.md` §8 / `ADR-SGO-004/005/006/007`（体积分列预算）
+> **版本**: v3.0（本叶 **close 终态**）
+> **更新时间**: 2026-09-24
+> **更新说明**: 收口轮 —— review **O-01~O-05**（5 项）+ validate **N-01 + O-01~O-04**（5 项）去重归并为 **N-01~N-10** 并逐条标注 owner（**本叶收口 / 父收口 / 人工面**）；**validate O-01 顺手订正落地**（§9.2 `op-three-tier` R2 终值 **12/0 → 11/0** · `capability-wiring` R2 终值 **10/0 → 11/0**；同族 §4 R1 基线/实测列一并订正为 10/0→11/0 · 10/0→11/0）；终态对账（任务 **16/16** · `npm test` **1375 → 1394 / 0** · 体积 **585,732 → 591,946 B（+6,214）** · 三冻结面零 diff · **X-SGO-4 已发生**）
+
+## 11. 终态快照（close 基线）
+
+| 项 | 终态读值（收口轮取自 build + review + validate 产物实测值） |
+|---|---|
+| 分支 / HEAD | `feature/web-cli-plugin` / **`c0bac99`**（本叶最后提交 = validate；review I-01~I-04 微修轮） |
+| 任务 | **16 / 16 completed**（W1~W3；TASK-V55F-201~216；S×1 / M×13 / L×2） |
+| 门禁（新增） | **1 枚新 node 门禁**：`batch-consent` **7/0**（BC-1~7）；`s0-self-driven` Chromium 面 **65 → 70/0**（`S0C-11` / `S0P-C6`，只加断言）；`s0-self-driven-chain` node 面 **24 → 27/0**（`S0P-B1~B3`）；`law9-scope-reading` **12 → 14/0**（`L9-9` 扩围）；`batch-consent` 纳入 `EXPECTED_AUDITED_FILES`（`gate-integrity` **20 → 22/0**）；**`CHROMIUM_GATES === 9` 逐字不动** |
+| `npm test`（node） | **1375 → 1394 / 0**（+19，只增不减；R1 +11 / R2 +8） |
+| 体积 | `dist/sidepanel.js` **585,732 → 591,946 B（+6,214 ≈ 6.07 KiB）**（A 列计账）；**越预算基线上界 5.5 KB，未越 +15% 上界 6.3 KB** ⇒ **显式诚实登记**（不删判据 / 不放宽容差）；B 列 `background.js` **1,627,424 → 1,635,850 B**（R1 +8,251 / 微修 +175，**不计账**） |
+| 生效上限 / 档位 / 绝对上限 | 生效上限 = `min(675,840, floor(591,946 × 1.05) = 621,543)` = **621,543 B**；档位 **614,400 B**（未动）；绝对上限 **675,840 B**（未动）；`authorConfirmation` = **`pending-author-line`**（**不伪称已确认**） |
+| 逐模块归因 | `SIDEPANEL_GROWTH_BREAKDOWN.v55f2R1R2Rows`：`sidepanel.ts` +2,829 · `cards/auth.ts` +2,113 · `l1/ref-scope.ts` +532 · `stream-model.ts` +455 · `chat-state.ts` +285 ⇒ Σ **+6,214** + glue **0** == **+6,214** |
+| 两叶 Σ | 叶1 **+7,109** + 叶2 **+6,214** = **+13,323 B ≈ 13.0 KiB**（父 `plan.md` §8 正常口径 **9.5~14.5 KB**，+15% 16.7 KB ⇒ 内） |
+| 冻结面（dist） | `dist/content.js` **177,076 B / sha `52a82620…b5f6`**、`dist/pick-layer.js` **34,358 B / sha `77796bab…575e`** —— **逐字节零 diff** |
+| 源码 / 不动面 | `packages/web-cli-base/**` · `manifest.json` · `src/content/**` · `security/policy.ts` · `security/auto-authorize.ts` · `shared/op-table.ts`（`tierOf` 单源）· `chat-runner.ts` —— **全零 diff**；`KIND_SET` **40** · `requestTurn(` **恰 2** · `CARD_TYPES` **12** ∧ 零宿主 · `MAX_OPEN_ASKS` **2** · `ASK_CANCEL_REASONS` **4** · 特权 op 恰 2 恒 `gesture` |
+| 取代台账（本叶段） | `docs/v4-supersession-ledger.json#xSgoLedgerLeaf2`：**X-SGO-4 = superseded（已发生）** + X-SGO-6/7 = no-supersession（读数承载 / 未发生）；`redlineRemap[]` 三条（RL-06 / OT-⑩ / law8「**扩覆盖非替换**」）+ 叶2 段 `leafBase 37e4e28` + 14 项 `modifiedRanges`；`test:supersession` **39 → 42/0** |
+| S0′ 批量段 | node `s0-self-driven-chain` **27/0**（`S0P-B1~B3` 正读 + 5 反证）· Chromium `s0-self-driven` **70/0**（`S0P-C6`：一条 `confirm-request{plan}` ⇒ 单张 auth 卡 N 行 ∧ 一次手势 ⇒ `batch.gesture=user ∧ batch.results=N/N` 零明文 ∧ 二择走既有 `askuser`）；样本单源 `test/ui/fixtures/s0-chain.mjs` |
+| 安全边界（R-SGO-001，唯一红线级） | 亲注入 **5 处**全部「红 ⇒ 逐字节还原 ⇒ sha 相同 ⇒ 复绿」：① AI 侧 `markApproved(` ⇒ `RL-06 扩批量` 1 红；② `op.authorize` 入计划模块 ⇒ `capability-wiring` 1 红；③ `planEntryKey` 归一化 ⇒ `BC-2` 1 红；④ `admitEntry` 计划外放行 ⇒ `BC-3` 1 红；⑤ 去 WIDEN「整页」点击守卫 ⇒ `L9-9` 2 红 |
+| 保护段 | `journey` **171 PASS**（`43054..58287` / sha `cc79f413…`）· `binding` **192 PASS**（`107780..115930` / sha `be9ad0e9…`）—— **保段**（两文件 `git diff` 零命中） |
+| 流水线结论 | review **✅ 通过**（R1：36 Cx / 0 BLOCK / 4 I → `c0bac99` 微修闭环 / 5 O）· validate **✅ 通过**（V1~V9 全绿；**0 阻塞 / 1 无法执行（人工面 M2/M3）**；FR 承载切片 21/21） |
+
+## 12. 交付物清单（本叶足迹；`git diff 6b9b982..c0bac99` 实测）
+
+**非 `.sddu` 变更面（28 文件 = 新增 2 + 修改 26）**
+
+| 操作 | 数量 | 文件 |
+|:--:|:--:|---|
+| **NEW（源码 1）** | 1 | `src/background/batch-plan.ts`（B 列：`buildPlan` / `planFingerprint` / `admitEntry` / `createBatchConsent` 单例） |
+| **NEW（门禁 1）** | 1 | `test/batch-consent.test.ts`（BC-1~7，新 node 门禁） |
+| **MODIFY（源码 10）** | 10 | `src/background/messaging.ts` · `service-worker.ts` · `src/security/{confirm,audit-sink}.ts` · `src/ui/sidepanel/{sidepanel,stream-model,chat-state}.ts` · `src/ui/sidepanel/cards/{auth,index}.ts` · `src/ui/sidepanel/l1/ref-scope.ts` |
+| **MODIFY（门禁 / fixture / 台账 16）** | 16 | `test/{supersession-ledger,op-three-tier,capability-wiring,gate-integrity,law9-scope-reading,s0-self-driven-chain,size-baseline,size-budget,size-growth-evidence,size-ruling-vol3}.test.ts` + `test/ui/{s0-self-driven,law8-plaintext,no-dead-end}.mjs` + `test/ui/fixtures/s0-chain.mjs` + `docs/{v4-supersession-ledger,v4-density-baseline}.json` |
+
+> 统计口径：**28 文件 = 新增 2（源码 1 + 门禁 1）+ 修改 26（源码 10 + 门禁/fixture 14 + 台账 2）**；`git diff --name-only 6b9b982..c0bac99 -- . ':(exclude).sddu/**'` 合计 **28**（`.sddu` 另行 10）。
+> **SDDU 产物（`.sddu` 内）**：`spec.md` · `plan.md` · `tasks.md` · `tasks.json` · `build.md`（本收口段）· `review.md` · `review-report.md` · `validate.md` · `validate-report.md` · `state.json` · `TREE.md`。
+
+## 13. N 项归并登记（review O-01~O-05 + validate N-01/O-01~O-04 → N-01~N-10）
+
+> **归并口径**：review **O 5 项**（O-01~O-05）→ 主体；validate **N-01 + O-01~O-04**（5 项）→ 主体；本叶 build **偏差登记 1~3** + §10 微修 去重并入（同源合并为一行）。**来源覆盖 = 全部逐条可回溯**（review O-03 ≡ I-02 余项；review O-05 ≡ build 偏差 1 的单位口径面；validate N-01 ≡ build 偏差 2 同族）。
+
+| 统一编号 | 来源 | 类型 / 严重度 | 内容摘要 | owner | 处置 |
+|:--:|:--:|:--:|---|---|---|
+| **N-01** | validate O-01 + build §9.2/§4 | 登记精度 / 低 | `build.md` §9.2（R2 终值）与 §4（R1 基线/实测）两处读数与实测不符：`op-three-tier` 记 **12/0**（实测 **11/0**）、`capability-wiring` 记 **10/0**（实测 **11/0**）；`grep -c '^test('` 实测 11 / 11，门禁实跑 11/0 · 11/0 | **本叶收口**（**本轮订正**） | 已订正（§9.2 两格 + 同族 §4 两行）为 **11/0 · 11/0**（基线 10/0 ∧ R1 +1）；**零代码 / 零判据影响**（`review-report` §0 早已按 11/0 · 11/0 如实记录） |
+| **N-02** | review O-01 | 估算口径 / 低 | `plan.md` §5.1/§5.2 文件影响清单为「≈11 项」估算；实产含清单未列的 `messaging.ts`（type-only wire）/ `audit-sink.ts` / `stream-model.ts` / `cards/index.ts` / `law9-scope-reading.test.ts` / `s0-self-driven-chain.test.ts`。均为 plan 已声明的**意图面**（type-only 载体 / 渲染字段 / 断言只增），属估算口径，非架构偏离 | **父收口** | 登记估算口径；实产清单以 §12 为准 |
+| **N-03** | review O-02 | 判据完备性 / 低 | `test/supersession-ledger.test.ts#BULK_CONSENT_AI_MODULES` 的「AI/SW 零写入面」判据为**列表式**（恰 4 个 AI/LLM 模块）；新增 AI 模块不会自动纳入。当前由「`markApproved/markRejected` 全仓**唯一**调用点为 `confirm.ts`」的结构事实兜底 | **父收口** | 登记完备性边界（风险可控，结构化兜底在外）；不改判据 |
+| **N-04** | review O-03（≡ I-02 余项） | 可读性 / 低 | `BATCH_REJECTED_TEXT` / `BATCH_DRIFT_TEXT` / `BATCH_FALLBACK_TEXT` 三文案**未上屏**（deny 面仅通用理由，除 I-02 已修的 fallback 面上屏外）；`EC-SGO-014`「显式失败」由 `deny` 满足（非静默放行），但用户看不到「漂移 / 已拒绝」的具体原因 | **父收口**（deferred） | 登记为可读性余项（I-02 已修 fallback 面）；后续轮次可选强化 |
+| **N-05** | review O-04 | 测试覆盖 / 低 | fallback **经 `confirm.ts` 桥的端到端路径**无专用用例（`BC-3` 只直测 `admitEntry`；桥侧由 Chromium `S0P-C6` 的「一条 `confirm-request{plan}`」间接覆盖）。 | **父收口**（deferred） | 登记测试覆盖缺位；建议后续补「计划外写经桥 ⇒ 出一张卡且不复用已批准」用例（I-02 后行为已由 validate V5 探针 4/4 实测） |
+| **N-06** | review O-05 + build 偏差 1 | 登记口径 / 低 | 体积单位口径混用（预算用十进制 KB：3.5~5.5 / 4.0~6.3；增量描述用 KiB：+3.22 / +6.07 KiB）—— 数值与结论自洽（6,214 B < 6,325 B），仅建议注明单位口径 | **父收口** | 登记单位口径（父总账统一以 **B + KiB** 双列）；不改判据 |
+| **N-07** | validate N-01 + build 偏差 2 | 环境性 flake / 低 | **环境性 flake 家族（KL-N-10）**：`test/ui/binding.mjs` 首跑阶段 1 `#8d/#8e` 处 `selector not found: #confirm-allow` + 诊断落盘 `CDP socket not open`（与 leaf1 `page-input` / `ask-auth` 同族）；`binding.mjs` **不在本叶变更面**（`git diff` 零命中）⇒ 清理陈旧 `/tmp/web-cli-*` fixture 后**隔离复跑 192/0 PASS** | **父收口** | 登记为环境性 flake 家族（并入 F-34 段统一条目；保段凭据 = `supersession` 42/0 + 保护段 sha 双命中）；**不伪称首跑绿** |
+| **N-08** | validate O-02 | 工具口径 / 低 | 采用编排器指定固定脚本目录（`/tmp/opencode/v4-gate-logs/v55f-2-validate/`）而非模板默认时间戳目录 | **父收口** | 与 v55f-1 / v5-2 等前例一致；脚本与日志同目录，可回溯；登记 |
+| **N-09** | validate O-03 | 安全兜底 / 信息 | 桥层「指纹漂移」经由桥**不可直接触达**（`planEntryOf` 由**当前** refs 重推导 ⇒ 目标不可解析时 `entry` 为空 ⇒ 回落普通单条卡 = 需新鲜手势，仍 fail-closed）；`drift` 仅在 `admitEntry` 层可达（`BC-4` 已覆盖） | **父收口** | 登记为结构性**安全兜底**（不是缺陷）；已由 validate V3 探针第 ③ 组实测（出普通单条卡、`plan===undefined`） |
+| **N-10** | validate O-04（无法执行项） | 人工面 / ⏳ | 人工面 **2 项** `⏳ 未执行`（headless 不可合成）：**M2** 42 连点疲劳体感（本 Feature 直接对标 `ty.md` 42 张卡的根因场景）· **M3** 批量计划卡真机可读性与可否决性 | **人工面** | 移交：待真机人工验收；**不冒充 PASS**（父 `AC-SGO-026`） |
+
+**已闭环（不入 N 编号，仅备查）**：review **I-01**（`cards/index.ts:56` 两条 import 并行的格式回归）→ **`c0bac99` 微修闭环**（拆回单行）；review **I-02**（`confirm.ts` `fallback` 未显式分支 ⇒ 文案未上屏 / 累计划行 / `planGate` 推进）→ **`c0bac99` 微修闭环**（独立分支 + `BATCH_FALLBACK_TEXT` 上屏 + 不推进 `planGate`，validate V5 探针 **4/4** 实测）；review **I-03**（`BATCH_RENDER_MAX` 死常量双声明）→ **`c0bac99` 微修闭环**（删除，展示上限单源保留 `AUTH_PLAN_RENDER_MAX`）；review **I-04**（`build.md` R2 终值登记两小点）→ **`c0bac99` 微修闭环**（supersession 42/0 · 生效上限 621,543）。
+
+**owner 分布**：**父收口 = 8**（N-02 / 03 / 04 / 05 / 06 / 07 / 08 / 09）· **本叶收口 = 1**（N-01，本轮订正落地）· **人工面 = 1**（N-10）。
+**严重度分布**：阻塞 **0** · 高 **0** · 低 / 信息 **10**（全部为登记项，**均不阻塞**）。
+
+## 14. 终态对账
+
+| 对账项 | 要求 | 终态实测 | 判定 |
+|---|---|---|:--:|
+| 任务 | 16 / 16 | **16 / 16 completed**（`TASK-V55F-201~216`；W1~W3） | ✅ |
+| 门禁（新） | 新增 ∧ 只增 | **1 枚新 node 门禁**（`batch-consent` 7/0）+ `s0-self-driven` Chromium **65 → 70/0** + `s0-self-driven-chain` node **24 → 27/0** + `law9-scope-reading` **12 → 14/0**；`gate-integrity` **22/0**；`CHROMIUM_GATES === 9` 逐字 | ✅ |
+| `npm test` | 只增不减 | **1375 → 1394 / 0**（+19）；validate 亲跑 1394/1394/0 | ✅ |
+| 体积 | 登记 ∧ 诚实 ∧ 未触 EC | **585,732 → 591,946 B（+6,214 ≈ 6.07 KiB）**；越预算基线上界 5.5 KB **显式登记** / 未越 +15% 上界 6.3 KB；生效上限 **621,543**；档位 **614,400** / 绝对上限 **675,840** 未跨；EC-SGO-022 三分支未触发；`pending-author-line` | ✅（越上界已显式登记） |
+| 三冻结面 | 零 diff | `content.js` **177,076 B / sha `52a82620…`** · `pick-layer.js` **34,358 B / sha `77796bab…`** **逐字节零 diff**；`sidepanel.js` **591,946 B** = 登记基线 | ✅ |
+| 载体不受撞 | `KIND_SET` 40 / `requestTurn(` 2 / 12 kind / 零宿主 | `KIND_SET` **40 逐字**（`question.plan` 为 type-only 扩展字段，非 kind）· `requestTurn(` **恰 2** · `CARD_TYPES` **12** · 零宿主 · `MAX_OPEN_ASKS` 2 · `ASK_CANCEL_REASONS` 4 · 特权恰 2 恒 `gesture` | ✅ |
+| 取代台账 | X-SGO-4 已发生 ∧ 6/7 如实 | `xSgoLedgerLeaf2`（X-SGO-4 superseded + 6/7 no-supersession）+ `redlineRemap[]` 三条（扩覆盖非替换）+ 14 项 `modifiedRanges`；`test:supersession` **42/0** | ✅ |
+| S0′ 批量段 | 核心断言承重 | node **27/0** + Chromium **70/0**；`S0P-B1~B3` 正读 + 5 反证必红；`S0P-C6` 单卡 N 行 ∧ 一次手势 `results=N/N` ∧ 二择走 `askuser` | ✅ |
+| 安全边界（R-SGO-001） | 亲注入承重 | 5 处注入全部「红 ⇒ sha 逐字节还原 ⇒ 复绿」（AI 代答 / 特权入批 / 归一化 / 计划外放行 / 去 WIDEN 守卫）；`scopeWidenAuthorized = true` 全仓**恰 1 处** ∧ 真实点击守卫 | ✅ |
+| 保护段 | 保段 | `journey` **171 PASS** · `binding` **192 PASS**（flake 由 `supersession` 42/0 + 保护段 sha 双命中兜底） | ✅ |
+| 规格漂移 | spec 零 diff | `git diff 850ae82..c0bac99 -- <leaf>/spec.md` = **0 命中**（spec 零改动） | ✅ |
+| ROADMAP | 零 diff（父收口统一登记） | `git diff 6b9b982..c0bac99 -- .sddu/specs-tree-root/ROADMAP.md` = **0** | ✅ |
+| 红线路径 | 零命中 | 28 变更文件中**禁令路径命中 0**（`packages/web-cli-base/**` / `src/content/**` / `manifest.json` / `dist/content.js` / `dist/pick-layer.js` / `policy.ts` / `auto-authorize.ts` / `op-table.ts` / `ROADMAP.md`） | ✅ |
+| `.sddu` 外触碰 | 收口轮零产品改动 | 收口轮仅改 `.sddu/**`（`build.md` / `state.json` / `TREE.md`）；产品源码零字节 | ✅ |
+
+## 15. 移交项（handover）
+
+| 移交对象 | 项 | 交接要点 |
+|---|---|---|
+| **父收口**（F-34 closeout） | **N-02~N-09**（除 N-01 / N-10） | ① plan 估算口径 / `BULK_CONSENT_AI_MODULES` 列表式 / 三文案可读性余项 / fallback 桥端到端用例缺位 / 体积单位口径 / 工具目录 / 桥层漂移兜底 —— 逐条**登记**（不改判据）；② **N-07 环境性 flake 家族**（binding；并入 F-34 段统一条目；保段凭据 = `supersession` 42/0 + 保护段 sha 双命中）；③ 叶累计体积 **+6,214 B**（越预算基线上界、未越 +15% 上界，显式登记）并入父总账；④ **X-SGO-4 已发生**（红线⑥ 扩覆盖批量）并入父取代台账终态；⑤ ROADMAP F-34 / v0.11.1 统一登记 |
+| **人工面** | **N-10** | M2 42 连点疲劳体感（对标 `ty.md` 根因场景）+ M3 批量计划卡真机可读性与可否决性 = **⏳ 未执行**（headless 不可合成，**不冒充 PASS**）；并列 v5 / v5.5 / 叶1 人工面清单 |
+| **叶1（v55f-1）** | — | 硬依赖已在叶1 validated 后满足；叶1 N-01（`authorized` 恒值）由本叶 WIDEN 二择落地**闭环**（`scopeWidenAuthorized = true` 真实点击守卫 + `L9-9` / `ND-10` 判据承重） |
+| **本叶（v55f-2）** | **N-01** | build.md 两处读数订正已在**本轮落地**（§9.2 + §4）；review I-01~I-04 已由 `c0bac99` 微修闭环；**无遗留指向本叶的动作** |
+
+## 16. 对账订正（不静默）
+
+1. **测试计数基线链**：`1375`（叶1 终值）→ `1386`（R1，提交后 1380/6）→ **`1394`（R2 终值）** → **`1394`（微修后不变）**；收口轮不改代码 ⇒ 终态口径 = `1394/0`（validate 亲跑同源）。
+2. **体积终态口径**：R1 **589,033**（+3,301）→ R2 **591,946**（累计 +6,214）；越预算基线上界已显式登记（§9.5 偏差 1）；生效上限 **621,543**；档位 / 绝对上限**未动**（未跨档位）。
+3. **两处读数订正（N-01，本轮落地）**：§9.2 R2 终值 `op-three-tier` **12/0 → 11/0**、`capability-wiring` **10/0 → 11/0**；同族 §4 R1 基线/实测 `op-three-tier` **11/0·12/0 → 10/0·11/0**、`capability-wiring` **9/0·10/0 → 10/0·11/0**（实测 `grep -c '^test('` = 11 / 11）；**零代码 / 零判据影响**。
+4. **文件统计口径**：以 §12 的 `git diff 6b9b982..c0bac99` 实测为准 —— **28 = 新增 2 + 修改 26**（`.sddu` 另行 10）。
+5. **`state.json` 终态确认**：本叶 `phase = validated` / `status = completed`（**归一**：原 `status: tracked` 与 `phase: validated` 不一致 ⇒ 本轮订正为 `completed`，与叶1 及父 children 镜像同源）；本轮追加 `closeout` 记录与 `phaseHistory` 一条**收口记录**（agent `sddu-build`，artifact = 本收口段）。
+
+## 修订记录（v3.0）
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v3.0 | **收口段**（review O-01~O-05 + validate N-01/O-01~O-04 → **N-01~N-10** 归并 + owner 分布（父收口 8 / 本叶收口 1 / 人工面 1）· 终态快照 · 交付物清单 · 终态对账 13 项 · 移交项 · 对账订正 5 条；**含 validate O-01 订正落地**（§9.2 + §4 两处读数 → 11/0 · 11/0）；零产品代码改动，`.sddu` 外零触碰） | 2026-09-24 | SDDU Build Agent |
 
 

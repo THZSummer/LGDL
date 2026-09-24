@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-scope-governance",
   "version": "v5.5.1",
   "name": "web-cli-plugin「范围治理（scope governance）：引用即范围」—— ① 引用事实进回合（id / 序号 / 文本摘要 / 选择器 / data-wcli-ref 标记注入系统段）② 范围法则（引用存在 ⇒ 任务范围默认限定于引用目标；扩大范围必须先征询）③ 工具面 ref 锚定（dom set-text --ref <n>；单节点保证；失配 / 失效非静默）④ 任务级批量授权（AI 先出写入计划 ⇒ 一次 consent 覆盖整批；逐条审计保留零明文；中途可中止；非批次仍逐条）",
-  "phase": "tasked",
-  "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -15,26 +15,26 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-1-ref-context-and-anchor/",
       "name": "V5.5F-1 范围底座：引用事实进回合 + 范围读数（法九）+ ref 锚定",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 1,
       "dependsOn": [],
-      "note": "首叶 / 底座叶（P0）。交付：chat type-only 引用事实载荷（KIND_SET 40 不动）+ 系统段基座/追加段 + 范围读数单源（in-scope / out-of-scope-authorized / out-of-scope-unauthorized / no-ref）+ 法九机核门禁（双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片）+ dom set-text --ref <n> → [data-wcli-ref=\"ref_n\"]（plugin 侧包装；base 零 diff 不解冻；单节点保证；失配 fail-closed 非静默）+ 留痕扩范围读数字段名 + S0′ 全链机器化（含双向反证）+ X-SGO-1/2/3/5 等价重锚（X-SGO-7 未发生）+ 门禁治理 + 体积分列预算逐叶重登记。承载父 FR ≈62 条切片。不做批量授权（叶2）、不做读命令 --ref（PD-SGO-001）。"
+      "note": "首叶 / 底座叶（P0）。交付：chat type-only 引用事实载荷（KIND_SET 40 不动）+ 系统段基座/追加段 + 范围读数单源（in-scope / out-of-scope-authorized / out-of-scope-unauthorized / no-ref）+ 法九机核门禁（双向反证 + 注入必红 + 三段控制禁恒真 + 真源切片）+ dom set-text --ref <n> → [data-wcli-ref=\"ref_n\"]（plugin 侧包装；base 零 diff 不解冻；单节点保证；失配 fail-closed 非静默）+ 留痕扩范围读数字段名 + S0′ 全链机器化（含双向反证）+ X-SGO-1/2/3/5 等价重锚（X-SGO-7 未发生）+ 门禁治理 + 体积分列预算逐叶重登记。承载父 FR ≈62 条切片。不做批量授权（叶2）、不做读命令 --ref（PD-SGO-001）。**终态（2026-09-24 收口）**：29/29 · npm test 1330 → 1375/0 · sidepanel 578,623 → 585,732 B（+7,109）· 3 新 node 门禁 + s0 59→65 · SG-SGO-01/02/03 全可行 · review ✅ 0 BLOCK / validate ✅ 0 阻塞 · HEAD `6b9b982` · N-01~N-11 归并（父收口 9 / 叶2 已闭环 1 / 人工面 1）。"
     },
     {
       "featureKey": "specs-tree-v55f-2-batch-consent",
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/specs-tree-v55f-2-batch-consent/",
       "name": "V5.5F-2 任务级批量授权",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 2,
       "dependsOn": [
         "specs-tree-v55f-1-ref-context-and-anchor"
       ],
-      "note": "末叶（P0，承载唯一红线级风险 R-SGO-001）。交付：写入计划 → 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次真实用户手势 + 计划外逐条回落 + 特权 op 恒不入批 + 批量卡复用 auth kind（type-only 载荷）+ 逐条审计零明文（正文仅 UI 渲染面 + 掩码）+ 中途可中止 + WIDEN ask-user 二择 + 批量变体注入必红（RL-06 / OT-⑩ 扩）+ S0′ 批量分支断言 + X-SGO-4/6 等价重锚。承载父 FR ≈21 条切片。硬依赖叶1（范围读数 + 锚定解析）。"
+      "note": "末叶（P0，承载唯一红线级风险 R-SGO-001）。交付：写入计划 → 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次真实用户手势 + 计划外逐条回落 + 特权 op 恒不入批 + 批量卡复用 auth kind（type-only 载荷）+ 逐条审计零明文（正文仅 UI 渲染面 + 掩码）+ 中途可中止 + WIDEN ask-user 二择 + 批量变体注入必红（RL-06 / OT-⑩ 扩）+ S0′ 批量分支断言 + X-SGO-4/6 等价重锚。承载父 FR ≈21 条切片。硬依赖叶1（范围读数 + 锚定解析）。**终态（2026-09-24 收口）**：16/16 · npm test 1375 → 1394/0 · sidepanel 585,732 → 591,946 B（+6,214，越预算基线上界未越 +15% 上界，显式登记）· 1 新 node 门禁（batch-consent）+ s0 65→70 · X-SGO-4 已发生 · review ✅ 0 BLOCK / validate ✅ 0 阻塞 · HEAD `c0bac99` · status tracked → completed 归一 · N-01~N-10 归并（父收口 8 / 本叶收口 1 / 人工面 1，含 validate O-01 两处读数订正）。"
     }
   ],
   "leaf": false,
@@ -156,8 +156,19 @@
     "featureIdOccupancy": "measured-zero（ROADMAP grep -c F-34 = 0；全仓 *.md/*.json/*.ts（排除 node_modules/.git）0 命中）",
     "versionSlot": "v0.11.1",
     "versionSlotOccupancy": "measured-zero（ROADMAP grep -c v0.11.1 = 0；全仓 0 命中）",
-    "registered": false,
-    "registrationOwner": "closeout（ROADMAP 留给收口；本阶段零 diff）"
+    "registered": true,
+    "registration": "done-on-closeout（2026-09-24 父收口：ROADMAP v1.31.0 登记 F-34 / v0.11.1）",
+    "registrationOwner": "closeout（ROADMAP 留给收口；spec/plan/tasks 阶段零 diff）",
+    "namingSemantics": "v0.11.1 = v0.11.0（F-33 v5.5）主题的 **patch 级跟进轮**（范围治理：引用即范围）；S0′ = ty.md 原案重放",
+    "roadmapDocVersion": "1.31.0（收口轮登记后；登记前实测 1.30.0）",
+    "f29Section": "untouched（F-29 A2A 候选未立项未排期；v1.31.0 登记后 F-29 区段前后字节相等，sha 0a46b55e… 核验相等）",
+    "touchPoints": [
+      "头部 v1.31.0 素材增补行（F-34 · v5.5.1「范围治理：引用即范围」· 目录指向 · 关键数字 · 过程价值）",
+      "§二 新增 v0.11.1 段（v1.31.0 追加注 + 「v0.11.1 同批 Feature（F-34）」详段 + Feature 表行）",
+      "版本总览表追加 v0.11.1（F-34）行（既有 v0.11.0（F-33）行与更早各行逐字保留）",
+      "文档版本 1.30.0 → 1.31.0 + 修订记录行 v1.31.0",
+      "F-29 区段一字未动（## 未来方向候选（未立项）→ ## 修订记录 整区间字节相等，sha 0a46b55e… 核验相等）"
+    ]
   },
   "domainBaseline": {
     "branch": "feature/web-cli-plugin",
@@ -222,6 +233,56 @@
     "编排约数与实测差异已登记（§0.2）"
   ],
   "notes": "本轮 discovery 零产品运行时验证（未跑 npm test / Chromium / build）。ty.md 原地提交入库（不移动；R6 记录与 size-baseline 按该路径引用它）。叶拆分建议 2 叶：v55f-1 范围底座（引用事实进回合 + 范围法则 + 工具面 ref 锚定 + 范围读数 + 端到端样板）→ v55f-2 批量授权；若两叶共享底座不可分割可退化为单叶 + 内部分组。完成协议：phase → discovered / status → tracked；ROADMAP 零 diff（登记留给收口）。 | spec 阶段（2026-09-23）：产出 spec.md（父级完整规范）+ 2 叶（specs-tree-v55f-1-ref-context-and-anchor / specs-tree-v55f-2-batch-consent，各含 spec.md + state.json）；O-SGO-001~009 全部裁决；父 Feature = 轻量规范容器（不承接 build/review/validate，phase 将走 planned → tasked）；每叶承接 build/review/validate。spec 阶段零产品运行时验证，.sddu 外零触碰，ROADMAP 零 diff。",
+  "closeout": {
+    "round": "v55-f-scope-governance 父收口（整体收口，第 1 轮）",
+    "date": "2026-09-24",
+    "authorization": "编排器代作者决策（继承 F-30 / F-31 / F-32 / F-33 父收口先例；作者已授权编排器代行决策、SDDU 全流程自行调度）",
+    "author": "sddu-build",
+    "conclusion": "✅ F-34 完成：父（轻量规范容器）+ 2 叶全部收口，两叶 phase=validated / status=completed（各 7/7 全闭环）；主题达成 = 范围治理「引用即范围」——① **引用事实进回合**（chat type-only refs 7 字段 + 唯一构建点 + SW 系统段基座/追加段；requestTurn( 仍恰 2；零引用逐字等于基座）；② **范围法则双轨**（机制范围读数四值 = 唯一判据（法九机核）+ 提示词 = 引导）；③ **--ref <n> 锚定**（plugin 侧包装，base 零 diff；单节点保证；失配 fail-closed 非静默）；④ **任务级批量授权**（计划指纹 + 一次真实手势 + 计划外逐条回落 + 特权恒不入批 + 零明文 + 中途可中止 + WIDEN 二择）；⑤ **S0′（ty.md 原案重放）双面**（node + Chromium；改写处数 ≤ 引用数机核；双向反证）。关键数字：content.js 177,076 B / pick-layer.js 34,358 B 逐字节未动；sidepanel.js 578,623 → 591,946 B（+13,323）；npm test 1330 → 1394（+64）；新门禁 4 + 升级 12；无升档未触 EC（档 614,400 / 生效 621,543 / 绝对 675,840 / authorConfirmation 保持 pending-author-line）。本轮为纯文档 / 状态收口：零 src / 零 test / 零两叶产物实义改动，不跑构建 / 门禁 / Chromium；数字一律取自两叶 build/validate 产物实测值；不合 main、不发布。",
+    "containerDiscipline": "父 Feature 为轻量规范容器（depth=1；不承接 build/review/validate、不产出可执行 tasks，仅总览型 tasks.md/tasks.json）。**本轮按收口指令将父终态标记为 phase=validated / status=completed / workflow=7.validate / agent=sddu-validate —— 与 F-30~F-32『父 phase 保持 tasked / status tracked』先例不同，与 F-33 先例一致，此处如实登记该差异供作者复核（如需回归先例可一行改回 tasked/tracked）**。",
+    "artifacts": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/closeout.md"
+    ],
+    "digitalLedger": {
+      "npmTest": "1330 → 1394（F-34 段 +64：1330 → 叶1 1375 → 叶2 1394）",
+      "sidepanelBytes": "578,623 → 591,946（+13,323 ≈ 13.0 KiB；逐叶 +7,109 → +6,214；父 plan §8 正常口径 9.5~14.5 KB 内；未升档未触 EC）",
+      "frozenFaces": "content.js 177,076 B（sha 52a82620…）/ pick-layer.js 34,358 B（sha 77796bab…）逐字节零 diff；base / src/content / manifest / 判定链 zeroDiffFiles 9 项零 diff",
+      "newGates": "4（node：ref-context-in-turn 9 / law9-scope-reading 12→14 / dom-ref-anchor 7 / batch-consent 7）+ s0-self-driven Chromium 面 59 → 65 → 70；CHROMIUM_GATES === 9 未动",
+      "gateDeltas": "supersession 37 → 39 → 42 · gate-integrity 19 → 20 → 22 · law8 36 → 46 → 52 · dead-end 49 → 53 · insight-no-escalation 17 → 20 · op-wiring 13 → 14 · l1 116 → 131 · page-input 118 → 125 · s0-self-driven-chain 15 → 24 → 27 · gate-integrity 新门禁入受审集合；journey 171 / binding 192 保段",
+      "spikeGates": "SG-SGO-01（9/9）· SG-SGO-02（11/11）· SG-SGO-03（3/3）= 3/3 可行（plan 未命名、tasks 阶段新增先验闸门）"
+    },
+    "volumeTierUpgrades": "**无升档**（本 Feature 段）：档位保持 614,400 / 绝对上限 675,840 / 生效上限 floor(591,946×1.05) = 621,543；未跨档位、未触 EC-SGO-022 三分支；authorConfirmation.status 保持 pending-author-line（承接 v55 两次升档的未闭合义务，本 Feature 未新增升档）",
+    "budgetSettlement": "逐叶：叶1 +7,109（预算 6.0~9.0 KB，未越上界 10.35 KB）· 叶2 +6,214（预算基线上界 5.5 KB **越**、+15% 上界 6.3 KB **未越** ⇒ 显式诚实登记）；合计 +13,323 B ≈ 13.0 KiB（正常口径 9.5~14.5 KB / +15% 16.7 KB 内）",
+    "processProblems": "① 两轮 pin 红延至收口轮闭环的设计权衡（F-34 每叶 R1「只测不登记」⇒ 体积/红线 pin 如实红、R2 逐叶重登记一次闭环；非放宽、非静默降档）· ② 叶2 越预算基线上界未越 +15%（显式登记不停机）· ③ 环境 flake 家族（KL-N-10：leaf1 page-input 572 陈旧 fixture / binding CDP / ask-auth 795 陈旧 profile；leaf2 binding flake；均隔离复跑绿，如实登记不伪称首跑绿）· ④ 对抗面（两叶 validate 注入抽验逐字节还原 + 亲注入承重）",
+    "handover": {
+      "ownerParent": [
+        "叶1 N-02~N-10（9；清册口径 / files.review / counts.supersession 滞后 / 两面分工 / refNum 读数 / 工具目录 / X-SGO-5 落点 / newTitle 重锚）",
+        "叶2 N-02~N-09（8；plan 估算口径 / BULK_CONSENT_AI_MODULES 列表式 / 三文案可读性 / fallback 桥用例 / 体积单位口径 / binding flake / 脚本目录 / 桥层漂移兜底）"
+      ],
+      "ownerManual": [
+        "叶1 N-11（M1 语义遵从观感 / M4 SPA 锚定失败提示可理解度）",
+        "叶2 N-10（M2 42 连点疲劳体感 / M3 批量计划卡真机可读性与可否决性）"
+      ],
+      "closedInLeaf": [
+        "叶1：review I-01/I-02（6b9b982）+ build 偏差 1/6（R2）",
+        "叶2：review I-01~I-04（c0bac99）+ N-01（build.md 两处读数订正，本轮落地）"
+      ],
+      "deferred": [
+        "读命令 --ref 扩展（PD-SGO-001，叶1 out-of-scope）",
+        "每回合重观测（PD-SGO-002）",
+        "引用表字段扩展 semanticPath/origin/navSeq（PD-SGO-003）",
+        "范围读数入流内可见面（PD-SGO-004）",
+        "批量计划生成路径 / 指纹文本对比较口径 / 批量卡条目上限展示策略（PD-SGO-005/006/007）",
+        "BATCH_REJECTED_TEXT / BATCH_DRIFT_TEXT 未上屏（叶2 N-04）",
+        "fallback 桥端到端用例缺位（叶2 N-05）",
+        "authorConfirmation pending-author-line（承接 v55 两次升档，未闭合义务）",
+        "F-29 A2A 未立项未排期（ROADMAP 区段一字未动）"
+      ]
+    },
+    "manualFaces": "⏳ 未执行（headless 不可合成，不冒充 PASS）：叶1 M1/M4 + 叶2 M2/M3 = **4 项**；并列 v5 / v5.5 人工面清单（零改写）",
+    "xSgoTerminal": "X-SGO 终态 = **5 已发生（X-SGO-1/2/3/4/5）+ 2 未发生（X-SGO-6 以读数承载词汇未扩张 / X-SGO-7 未发生，requestTurn( 仍恰 2）**。叶1 台账曾以「4 superseded（1/2/3/5）+ 3 no-supersession（4/6/7）」登记（X-SGO-4 属叶2，如实登记「未发生」）；**叶2 X-SGO-4 落地后**（redlineRemap[] 三条：RL-06 / OT-⑩ / law8「扩覆盖非替换」）收为 5/2；test:supersession 37 → 42/0",
+    "roadmapRegistration": "ROADMAP v1.31.0 登记 F-34（v0.11.1 patch 主题「范围治理：引用即范围」）；只增不改，F-29 区段一字未动（sha 0a46b55e… 核验相等）；文档版本 1.30.0 → 1.31.0"
+  },
   "phaseHistory": [
     {
       "phase": "discovered",
@@ -253,6 +314,14 @@
       "agent": "sddu-tasks",
       "artifact": "tasks.md + tasks.json v1.0（父总览 + 2 叶 45 任务 / 7 波）",
       "note": "F-34 tasks：父 tasks.md/tasks.json（总览型，0 可执行任务）+ 2 叶 tasks.md/tasks.json：v55f-1 29 任务 / 4 波（TASK-V55F-101~129；S×2 / M×21 / L×6）、v55f-2 16 任务 / 3 波（TASK-V55F-201~216；S×1 / M×13 / L×2），合计 45 / 7 波（S×3 / M×34 / L×8）。含跨切红线 N-SGO-001~030 + X-SGO-1~7 + T1~T13 → 任务映射；体积分列预算逐叶分摊（A 列 Σ 9.5~14.5 KB / +15% 16.7 KB ≤ 余量 28,931 ⇒ 正常不触发升档、B 列 Σ 8.0~13.0 KB 不计账、2.8× 最坏预置 EC-SGO-022）+ 逐叶收口重登记点；共享面「恰一次」（体积 / 保护段 / 取代台账 / knownGap / 人工面）；S0′ 双面三层落点（样本单源 + node S0P-1~8 + Chromium→批量段 S0P-B1~B3）；3 个 spikeGate（SG-SGO-01/02/03，plan 未命名、按编排器任务书登记为 tasks 阶段新增先验闸门）；新增 4 门禁（ref-context-in-turn / law9-scope-reading / dom-ref-anchor / batch-consent）、升级 12 门禁、门禁守恒 26 项 + e2e（npm test ≥1330 / CHROMIUM_GATES === 9）；停机规则 10 条；build/review/validate 二维时序；未落地/待测点 13 项（含 S0′ 批量段编号冲突显式裁决 S0P-B1~B3）。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-24",
+      "agent": "sddu-build",
+      "artifact": "closeout.md v1.0（全 Feature 总账）+ 两叶 build.md 收口段（v3.0）+ ROADMAP v1.31.0 登记",
+      "note": "F-34 父收口（编排器代作者决策）：两叶 N 归并（叶1 N-01~N-11 / 叶2 N-01~N-10；含叶2 validate O-01 两处读数订正落地）+ 父 closeout.md 新建（主题达成对照 + 数字总账 npm 1330→1394 / sidepanel 578,623→591,946 / 新门禁 4 + 升级 12 + S0′ 双面 + 体积未升档未触 EC + 过程真问题 + 人工面 4 项 ⏳ + deferred + 建议下一步）+ 父 state.json → validated/completed（如实登记与 F-30~F-32『父 phase 保持 tasked』先例的差异，与 F-33 先例一致）+ children 两叶终态镜像（validated/completed）+ ROADMAP v1.31.0 登记 F-34（v0.11.1 patch 主题；只增不改，F-29 区段字节未动 sha 0a46b55e… 核验相等）。纪律：只改 .sddu/** 与 ROADMAP.md；零产品代码（packages/ 零 diff），未跑门禁 / 构建 / Chromium；不合 main、不发布。"
     }
   ],
   "spec": {

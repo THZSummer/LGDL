@@ -4,7 +4,7 @@
   "version": "v0.11.1",
   "name": "V5.5F-2 任务级批量授权——写入计划（N 处 目标+原文→译文）+ 计划指纹（目标集合 ∧ 动作类型 ∧ 文本对）+ 一次用户手势 + 计划外逐条回落 + 逐条审计零明文 + 中途可中止 + 特权 op 恒不入批 + 批量变体注入必红 + WIDEN ask-user 二择",
   "phase": "validated",
-  "status": "tracked",
+  "status": "completed",
   "workflow": "7.validate",
   "agent": "sddu-validate",
   "depth": 2,
@@ -113,6 +113,27 @@
     "PD-SGO-001 读命令 --ref（属叶1 后置项）"
   ],
   "notes": "本叶 = F-34 末叶，P0，承载唯一红线级风险 R-SGO-001；硬依赖叶1。执行序：边界先行（RL-06 / OT-⑩ 批量变体注入必红 + 特权不入批先落）→ 计划载体 → 指纹与回落 → 零明文 → 中止 → WIDEN → S0′ 批量分支 → 台账/门禁/体积。父 FR 承载 ≈21 条切片。",
+  "closeout": {
+    "round": "v55f-2 叶收口（F-34 末叶；父 specs-tree-web-cli-plugin-v55-f-scope-governance）",
+    "date": "2026-09-24",
+    "authorization": "编排器代作者决策（作者已授权编排器代行决策、SDDU 全流程自行调度）",
+    "author": "sddu-build",
+    "conclusion": "✅ 本叶完成：16/16 任务；review ✅ 通过（36 Cx / 0 BLOCK / 4 I / 5 O，I-01~I-04 于 c0bac99 微修闭环）；validate ✅ 通过（V1~V9 全绿 / 0 阻塞 / 1 无法执行（人工面 M2/M3）/ N-01 + O-01~O-04）。交付 = 任务级批量授权（计划指纹 + 一次真实手势 + 计划外逐条回落 + 中途可中止 + 特权恒不入批 + 复用 auth kind）+ WIDEN ask-user 二择 + S0′ 批量段双面 + X-SGO-4 落地。承载唯一红线级风险 R-SGO-001（批量不得成为 AI 代答 consent 的外衣）。",
+    "digitalLedger": {
+      "tasks": "16 / 16（TASK-V55F-201~216；W1~W3；S×1 / M×13 / L×2）",
+      "npmTest": "1375 → 1394 / 0（+19；R1 +11 / R2 +8）",
+      "sidepanelBytes": "585,732 → 591,946 B（+6,214 ≈ 6.07 KiB；预算基线上界 5.5 KB 越、+15% 上界 6.3 KB 未越 ⇒ 显式诚实登记；生效上限 → 621,543；档位 614,400 / 绝对上限 675,840 未动）",
+      "backgroundBytes": "1,627,424 → 1,635,850 B（R1 +8,251 / 微修 +175；B 列不计账）",
+      "newGates": "1 node（batch-consent 7/0）+ s0-self-driven Chromium 65 → 70/0 + s0-self-driven-chain 24 → 27/0 + law9 12 → 14/0；CHROMIUM_GATES === 9 不动",
+      "gateDeltas": "supersession 39 → 42 · gate-integrity 20 → 22 · law8 46 → 52 · dead-end 49 → 53 · op-three-tier 11/0 · capability-wiring 11/0 · host-registry 11/0 · op-wiring 14/0；journey 171 / binding 192 保段",
+      "frozenFaces": "content.js 177,076 B（sha 52a82620…）/ pick-layer.js 34,358 B（sha 77796bab…）逐字节零 diff；base / manifest / src/content / policy.ts / auto-authorize.ts / op-table.ts 零 diff"
+    },
+    "nItems": "review O-01~O-05 + validate O-01~O-04 + N-01 去重 → N-01~N-10；owner：本叶收口 1（N-01 build.md §9.2 两格订正，本轮落地）/ 父收口 8 / 人工面 1（M2/M3）；已闭环（非 N）4 = review I-01~I-04（c0bac99）",
+    "correctedInCloseout": "validate O-01 订正：build.md §9.2 `op-three-tier` R2 终值 12/0 → 11/0 · `capability-wiring` R2 终值 10/0 → 11/0（实测值与 validate-report §6 O-01 一致；零判据影响）",
+    "manualFaces": "⏳ 未执行（headless 不可合成，不冒充 PASS）：M2 42 连点疲劳体感 · M3 批量计划卡真机可读性与可否决性",
+    "handover": "owner=父收口 N-02~N-09（plan 估算口径 / BULK_CONSENT_AI_MODULES 列表式 / 三文案未上屏 / fallback 桥端到端用例 / 体积单位口径 / binding flake / 脚本目录 / 桥层漂移兜底）· owner=人工面 N-10 · owner=本叶收口 N-01",
+    "xSgoTerminal": "本叶段 xSgoLedgerLeaf2：X-SGO-4 = superseded（**已发生**，redlineRemap[] 扩断言：RL-06 / OT-⑩ / law8 三类「扩覆盖非替换」）/ X-SGO-6 = no-supersession（以读数承载、词汇未扩张）/ X-SGO-7 = no-supersession（requestTurn( 仍恰 2）⇒ 全仓终态 = 5 已发生（1/2/3/4/5）/ 2 未发生（6/7）"
+  },
   "phaseHistory": [
     {
       "phase": "specified",
@@ -169,6 +190,14 @@
       "agent": "sddu-validate",
       "artifact": "validate.md v1.0（V1~V9 验证策略）+ validate-report.md v1.0（R1）",
       "note": "R1 动态验证（对象 HEAD `c0bac99`，review I-01~I-04 微修后）：**结论 ✅ 通过 / 0 阻塞**。V1 门禁全量亲跑 `npm test` 1394/1394/0 + 逐 node 门禁复跑（supersession 42/0 · batch-consent 7/0 · op-three-tier 11/0 · capability-wiring 11/0 · host-registry 11/0 · gate-integrity 22/0 · s0-self-driven-chain 27/0 · law9 14/0 · ref-context-in-turn 9/0 · op-wiring 14/0）+ Chromium 串行（s0-self-driven 70/0（含 S0C-11/S0P-C6 批量面）· law8 52/0 · dead-end 53/0 · stream 76/0 · auth-chip 37/0 · ask-auth 78/0 · journey 171 · binding 192（首跑 KL-N-10 flake ⇒ 隔离复跑 PASS，如实登记））。V2 S0′ 批量段双面复刻：node S0P-B1~B3（正读 + 5 反证）+ Chromium S0C-11/S0P-C6（单卡 N 行 ∧ 一次手势 batch.gesture=user/results=N/N ∧ 二择走既有 askuser）。V3 安全边界行为级（自研探针 16/16）：一次手势承重（计划内二次写零再弹）· 指纹含文本对（改译文/尾随空格 ⇒ 回落，不归一化）· 漂移显式失败 · 特权恒不入批 · AI 代答必红。V4 扩围二择（探针 10/10 + ND-10 53/0）：整页 ⇒ out-of-scope-authorized + 留痕 + confirm 卡；拒绝/取消 ⇒ fail-closed 零死端；scopeWidenAuthorized=true 全仓恰 1 处（注释不计）且被真实点击值守卫。V5 fallback 分支（I-02 后）：计划外卡不挂计划行 ∧ BATCH_FALLBACK_TEXT 上屏 ∧ planGate 不推进（state 仍 pending）。V6 注入抽验 3 处（A AI 侧 markApproved( ⇒ supersession 41/1；B 特权标识入 batch-plan.ts ⇒ capability-wiring 10/1；C admitEntry 计划外改 admitted ⇒ batch-consent BC-3 6/1），均逐字节还原 sha 相同（ai-drive 28e7e49a… / batch-plan 9e54049f…）⇒ 复绿 42/0·11/0·7/0，git status 空。V7/V8/V9 独立复算：content.js 177,076/52a82620… · pick-layer.js 34,358/77796bab… · base/manifest/content src/policy/auto-authorize/op-table 零 diff · KIND_SET 40 · requestTurn( 恰 2 · CARD_TYPES 12 · 零宿主 · MAX_OPEN_ASKS 2 · ASK_CANCEL_REASONS 4 · 特权恰 2 恒 gesture；体积五要素同源 591,946/621,543/614,400/675,840/pending-author-line；两叶 Σ +13,323（叶1 +7,109 + 叶2 +6,214）在正常口径 9.5~14.5 KB；spec 零改动。FR 21/21=100% · NFR 10/10=100% · EC 10/10=100% · 人工面 M2/M3 = ⏳。O-01：build.md §9.2 op-three-tier 记 12/0（实测 11/0）、capability-wiring 记 10/0（实测 11/0），零判据影响，建议父收口订正。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-24",
+      "agent": "sddu-build",
+      "artifact": "build.md v3.0（收口段：N-01~N-10 归并 + 终态快照 + 交付物清单 + 终态对账 13 项 + 移交项 + 对账订正；含 §9.2 两格订正）",
+      "note": "叶收口轮完成（2026-09-24，sddu-build，编排器代作者决策）：review O-01~O-05（5）+ validate O-01~O-04 + N-01（4）去重归并为 **N-01~N-10**（owner：本叶收口 1 / 父收口 8 / 人工面 1；已闭环非 N 4 = review I-01~I-04 @c0bac99）；**validate O-01 顺手订正落地**（build.md §9.2 `op-three-tier` 12/0 → 11/0 · `capability-wiring` 10/0 → 11/0，零判据影响）；终态对账 13 项全 ✅（任务 16/16 · npm 1375 → 1394/0 · 体积 585,732 → 591,946（+6,214，越预算基线上界未越 +15% 上界，显式登记）· 三冻结面/base/manifest/判定链零 diff · X-SGO-4 已发生 · 保护段 journey 171 / binding 192 保段）；状态归一 `status: tracked → completed`（与 phase=validated 对齐，父 children 镜像同源）；零产品代码改动（.sddu 外零触碰）。"
     }
   ]
 }
