@@ -1,0 +1,116 @@
+{
+  "feature": "IAN-2 废除 #composer + 法四修订：DOM 真退役 + 判据重锚（父：specs-tree-web-cli-plugin-v55-f-input-as-next）",
+  "featureKey": "specs-tree-ian-2-abolish-composer",
+  "version": "v0.11.2",
+  "name": "IAN-2 废除 #composer + 法四修订——#composer/#input/#send DOM 真退役（非 hidden）+ CSS 退役 + 双写者（syncComposerVisibility）/ fallbackOpen 锁存 / 设置态漏调护栏一并消解 + 测试钩子 / NEVER_FOLDABLE / 兼容读取面登记退役 + 四处兜底收敛终态（去「双 reveal」）+ #send-reason / sendDisabled / draft / 引导重锚 + 法四原地修订（old→new 逐字 + 台账；不升格法十）+ 18 门禁逐一处置 + 2 保护段逐段决策 + 体积净负增量重登记 + S0''-B 终态样板",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 2,
+  "dependsOn": [
+    "specs-tree-ian-1-free-input-next"
+  ],
+  "createdAt": "2026-09-24",
+  "updatedAt": "2026-09-24",
+  "description": "本叶 = F-35 的末叶 / 拆除叶（依赖叶1 已建立流内输入面 ⇒ 拆旧面后仍必有流内输入可用），交付「把那块本就自相矛盾的流外面真退役 + 把立法与门禁强度同步重锚」的那一层：#composer/#input/#send DOM 真退役（非 hidden）+ 6 条 CSS 规则退役 + 双写者消解（删 syncComposerVisibility 及两个调用点；l0.revealFallback/hideFallback 只操作卡内 .ask-fallback）+ fallbackOpen 历史锁存删除 + 设置态漏调护栏随面消解（三区 CSS 逐字不变）+ 测试钩子 __v3.testing.revealFallback/hideFallback 重锚（或台账退役）+ NEVER_FOLDABLE 移除 composer + 兼容读取面登记退役（PRESERVED 移除三项 + #composer 入 RETIRED_CONTAINER_IDS，13 → ≥14）+ 四处兜底入口收敛终态（停止附带 reveal 流外面；卡内为唯一兜底输入载体）+ #send-reason 保留但断言重锚（状态提示 ≠ 输入面）+ sendDisabled/sendDisabledReason/draft 重锚 + 首装引导改指 + 法四原地修订（old→new 逐字：输入按需出现：无常驻输入框… → 输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面；三处一致；不升格法十）+ supersession 台账 old→new（老 redlineRemap ≥3 保留）+ 法四机核门禁 test/law4-input-as-next.test.ts + requestTurn( 重锚恰 1 + R6 入口/回填载体唯一化 + TA-4 重锚（删回填仍必红）+ 18 门禁逐一处置（node 10 + Chromium 8，三态齐）+ 2 保护段逐段决策（journey 43054..58287 / sha cc79f413…；binding 107780..115930 / sha be9ad0e9…；keep 字节中立或八步取代 + 台账）+ S0''-B 终态样板 + 体积净负增量收口重登记（五要素 + V3-VOL-3 三值）+ 冻结面零容差。本叶不新建流内面（叶1 已交付）、不新增 kind、不改 base/content/pick-layer/判定链/SW 队列本体、不升格法十。",
+  "scope": {
+    "in": [
+      "#composer/#input/#send DOM 真退役（非 hidden）+ CSS 退役（6 条规则）+ 陈旧注释同步",
+      "双写者消解：删 syncComposerVisibility（sidepanel.ts:2884-2891）及调用点（:2245 / :3616）；l0.revealFallback/hideFallback（l0/shell.ts:90-105）只操作卡内 .ask-fallback",
+      "fallbackOpen 历史锁存删除（sidepanel.ts:2883 + :2896 + :856）",
+      "设置态漏调消解（openL2View('settings') 提前 return 路径无需护栏；body.settings-open 三区 CSS 逐字不变）",
+      "测试钩子 __v3.testing.revealFallback/hideFallback 重锚（只操作卡内）或台账退役；无死写点",
+      "NEVER_FOLDABLE 移除 'composer'；计数（12 − 1 + 3 = 14）同步且非恒真",
+      "兼容读取面登记退役：host-registry PRESERVED 移除 #composer/#input/#send；#composer 入 RETIRED_CONTAINER_IDS（13 → ≥14）；density-thresholds:775 反证重锚为非恒真",
+      "四处兜底入口收敛终态（去「双 reveal」）；卡内 .ask-fallback = 唯一兜底输入载体；describe 有值相语义不变",
+      "#send-reason 保留于 #region-statusbar（状态提示 ≠ 输入面）+ 判据重锚（非恒真）；sendDisabled/sendDisabledReason/AskFlowView 重锚到流内输入面（禁用仅异常态；在飞不硬禁用）",
+      "设置 ⇄ chat draft 重锚到流内载体（或显式退役 + 台账）；首装引导 ONBOARDING_TEXTS[4] 改指流内 next 项",
+      "法四原地修订（v4-chat/spec.md:116 / :225 / :385 三处一致）+ supersession 台账 old→new + 法四机核门禁 test/law4-input-as-next.test.ts",
+      "requestTurn( 重锚恰 1（唯一生产输入提交点 = op.turn 槽）+ 反证；R6 入口 / 回填载体唯一化；TA-4 重锚（删回填仍必红）",
+      "18 门禁逐一处置（node 10 + Chromium 8；保留 / 等价重锚 / 显式取代三态齐）+ 2 保护段逐段决策 + 取代台账终态",
+      "S0''-B 终态样板（流外零输入面 + 旧面零可达）+ 反证；体积净负增量收口重登记；冻结面零容差（content.js 177,076 / pick-layer.js 34,358 / KIND_SET 40）"
+    ],
+    "out": [
+      "流内「自由输入…」新面 / 卡内输入实现 / op.turn 槽接线 / 手输 driver 两值（叶1 已交付）",
+      "新增 kind / 常驻输入框 / 新 op / 新驱动时机",
+      "升格「法十」/ 改写法四以外的上游法则",
+      "base / content / pick-layer / 判定链 / turn-queue.ts 本体",
+      "F-34 / F-33 / F-32 / R6 / v5 / v4.5 产物改写（唯一授权例外 = 法四三处原地修订 + 台账）",
+      "删除任何断言 / 降级阈值 / 静默改写保护段",
+      "外部竞品调研 / F-29 变更"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md",
+    "upstreamLeaf": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/state.json"
+  ],
+  "coversFr": [
+    "FR-IAN-040~049",
+    "FR-IAN-050~056（收敛终态 + 重锚）",
+    "FR-IAN-060~064",
+    "FR-IAN-021",
+    "FR-IAN-031（唯一化侧）",
+    "FR-IAN-032（唯一化侧）",
+    "FR-IAN-034",
+    "FR-IAN-070",
+    "FR-IAN-072",
+    "FR-IAN-073",
+    "FR-IAN-074",
+    "FR-IAN-080~091",
+    "FR-IAN-100~106（终态）",
+    "FR-IAN-112~115（终态侧）"
+  ],
+  "coversAc": [
+    "AC-IAN-001",
+    "AC-IAN-003",
+    "AC-IAN-005",
+    "AC-IAN-006",
+    "AC-IAN-007",
+    "AC-IAN-008",
+    "AC-IAN-009",
+    "AC-IAN-010",
+    "AC-IAN-011~017",
+    "AC-IAN-018~027"
+  ],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/spec.md（父规范 v1.0）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md（叶1 v1.0 —— 强依赖：流内输入面必须先建立）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md（问题清单 Q-IAN-001~018 / X-IAN-1~11）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md（法四三处：:116 / :225 / :385 —— 唯一授权原地修订对象）",
+      "F-34 specs-tree-web-cli-plugin-v55-f-scope-governance（v0.11.1 两叶 validated；门禁基线 / 体积登记 / 取代台账先例，只读复用）",
+      "docs/v4-supersession-ledger.json#protectedSupersession（保护段活跃 pin）"
+    ],
+    "downstream": [
+      "F-35 父收口（体积总账 + 取代台账终态 + ROADMAP v0.11.2 登记留收口）"
+    ]
+  },
+  "openPoints": [
+    "PD-IAN-006 设置 ⇄ chat draft 保持的重锚 vs 显式退役最终二择",
+    "PD-IAN-007 四处兜底入口收敛终态是否需删除 revealAskFallback 的 l0?.revealFallback() 调用（还是保留调用但 shell 只操作卡内）",
+    "PD-IAN-008 RETIRED_CONTAINER_IDS 扩容后 length 判据精确新下界（13 → 14 或 15）",
+    "PD-IAN-009 journey / binding 保护段最终决策（keep 字节中立 vs 八步显式取代）"
+  ],
+  "notes": "本叶 = F-35 末叶 / 拆除叶，P0，交付顺序 2/2，强依赖叶1（流内输入面）。执行序 8 步：先停引（四处收敛 + 停止附带 reveal 流外面）→ DOM/CSS 退役 → 写者消解 → 登记退役 → 重锚（#send-reason / sendDisabled / draft / 引导）→ 立法（法四 + 台账 + 门禁）→ 通道唯一化（requestTurn( 恰 1 + R6 + TA-4）→ 门禁治理 + 保护段 + S0''-B + 体积净负重登记。关键纪律：断言零删除零降级（唯一例外 = 保护段显式取代 + 台账）；「真退役」≠ hidden（DOM 零命中）；法四 = 原地修订（不升格法十）+ old→new 台账；体积叶2 = 目标净负增量 −2.5~−1.0 KB（父 §5.11.1），须逐模块归因（不得跨叶混算）。完成协议：phase → specified / status → tracked；state.json 由 spec Agent 直接写入（sddu_update_state 等价物）；ROADMAP 零 diff。",
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-spec",
+      "artifact": "specs-tree-ian-2-abolish-composer/spec.md v1.0",
+      "note": "初始创建（叶规范）：承载父 FR ≈40 条切片（ABOL / CONV 终态 / LAW4 / R6Q 唯一化侧 / S0'' 终态侧 / SUPERSEDE 080~091 / GATE 终态 / VOL 终态侧）；交付 9 项；执行序 8 步（先停引再删面）；风险 11 条；开放问题 4 条。强依赖叶1 流内输入面。法四原地修订（三处 + old→new 台账，不升格法十）。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none。"
+    }
+  ]
+}

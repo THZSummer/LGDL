@@ -1,0 +1,116 @@
+{
+  "feature": "IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移（父：specs-tree-web-cli-plugin-v55-f-input-as-next）",
+  "featureKey": "specs-tree-ian-1-free-input-next",
+  "version": "v0.11.2",
+  "name": "IAN-1 流内自由输入 next 通道——推荐区按需最末项「自由输入…」+ 点开就地展开卡内输入（.ask-fallback 先例）+ 提交复用 op.turn 槽（唯一生产输入提交点）+ 手输/AI 驱动留痕 driver 两值可判 + 让位语义保留 + R6 双入口并存（旧 composer 入口保留可用）+ 流内草稿回填支持 + a11y focus + 零死端",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 1,
+  "dependsOn": [],
+  "createdAt": "2026-09-24",
+  "updatedAt": "2026-09-24",
+  "description": "本叶 = F-35 的首叶 / 底座叶，交付「把自由输入搬进流内 next 闭环」的那一层：流内「自由输入…」next 项（next provider 产出；按需最末项；不常驻；不新增 kind）、点开就地展开卡内输入（复用/扩展 .ask-fallback 先例，askuser.ts:71-86,263-300）、卡内输入提交经 op.turn 槽（bindPanelOps.turn → requestTurn；唯一生产输入提交点）、手输与 AI 驱动留痕 driver 两值可判（next-registry/ai-drive.ts 零值纪律保持）、手输让位语义（proactivity.noteUserTurn）保留且不移入 requestTurn 内部、零死端（无其他候选时仍可达）、R6 双入口并存（新增流内入口 ∧ 旧 composer 入口保留可用 —— 中间态保护）、流内草稿回填支持（busy-rejected 回填流内输入；不覆盖新输入；卡收起 ⇒ 重新展开）、四处兜底入口的流内载体内接线（只 reveal 卡内 .ask-fallback）、a11y focus 落卡内、S0''-A 中间态样板（双入口均可提交 + 反证）、新 node 门禁 test/free-input-next.test.ts、体积叶1 收口重登记（正增量）。本叶不做 #composer DOM 真退役 / 双写者与锁存消解（叶2）、不做法四原地修订（叶2）、不做 requestTurn( 重锚恰 1 的落地（叶2）、不做 18 门禁重锚终态与 2 保护段决策（叶2）。",
+  "scope": {
+    "in": [
+      "流内「自由输入…」next 项（provider 产出；按需最末项；data-act 经 ACT_TO_OP 单源；不常驻）",
+      "点开就地展开卡内输入（复用/扩展 .ask-fallback 家系；不新增常驻输入框 / 不新增 kind）",
+      "卡内输入提交复用 op.turn 槽（bindPanelOps.turn → requestTurn；不新增注册表外直连）",
+      "手输 / AI 驱动留痕 driver 两值可判（不含值）；注入必红",
+      "手输让位语义（noteUserTurn）保留于手输路径；不得移入 requestTurn 内部",
+      "零死端（无其他候选时「自由输入…」仍可达）",
+      "R6 双入口并存（新增流内入口 ∧ composer 入口保留可用）—— 中间态保护",
+      "流内草稿回填支持（busy-rejected → 流内输入；不覆盖新输入；卡收起 ⇒ 重新展开）",
+      "四处兜底入口的流内载体内接线（只 reveal 卡内 .ask-fallback）",
+      "a11y：展开即 focus 卡内输入；Tab 序可达 + 键盘可提交 + 取消可达",
+      "S0''-A 中间态样板（双入口均可提交 + 反证）",
+      "新 node 门禁 test/free-input-next.test.ts（双向反证 + 真源切片 + 禁恒真）",
+      "门禁对账表骨架 + 取代台账叶1 段 + 体积叶1 收口重登记（正增量）"
+    ],
+    "out": [
+      "#composer / #input / #send DOM 真退役 + 双写者 / fallbackOpen 锁存 / 设置态护栏消解（叶2）",
+      "四处兜底入口收敛终态（去「双 reveal」）+ #send-reason/sendDisabled/draft/引导重锚（叶2）",
+      "法四原地修订 + supersession 台账（叶2）",
+      "requestTurn( 重锚恰 1 的落地（叶2；本叶只保证新增点经 op.turn 槽）",
+      "18 门禁重锚终态 + 2 保护段逐段决策 + 取代台账终态（叶2）",
+      "新增 kind / 常驻输入框 / 新 op / 新驱动时机",
+      "base / content / pick-layer / 判定链 / SW 队列本体（turn-queue.ts 零 diff）"
+    ]
+  },
+  "artifacts": {
+    "spec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
+    "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/spec.md",
+    "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md"
+  },
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/state.json"
+  ],
+  "coversFr": [
+    "FR-IAN-001~007",
+    "FR-IAN-010~019",
+    "FR-IAN-020~025",
+    "FR-IAN-030",
+    "FR-IAN-031（叶1 侧）",
+    "FR-IAN-032（叶1 侧）",
+    "FR-IAN-033",
+    "FR-IAN-050",
+    "FR-IAN-052",
+    "FR-IAN-070",
+    "FR-IAN-071",
+    "FR-IAN-072",
+    "FR-IAN-074",
+    "FR-IAN-086（叶1 侧）",
+    "FR-IAN-100~106（骨架）",
+    "FR-IAN-110~115（叶1 侧）"
+  ],
+  "coversAc": [
+    "AC-IAN-001",
+    "AC-IAN-002",
+    "AC-IAN-003",
+    "AC-IAN-004",
+    "AC-IAN-006",
+    "AC-IAN-007",
+    "AC-IAN-009",
+    "AC-IAN-014",
+    "AC-IAN-016",
+    "AC-IAN-017",
+    "AC-IAN-018~025",
+    "AC-IAN-027"
+  ],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/spec.md（父规范 v1.0）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md（问题清单 Q-IAN-001~018 / X-IAN-1~11）",
+      "F-34 specs-tree-web-cli-plugin-v55-f-scope-governance（v0.11.1 两叶 validated；法九 / 引用载荷 / --ref 锚定 / 批量授权 / 门禁基线 / 体积登记，只读复用）",
+      "F-33/F-32/F-31/F-30 产物（驱动者层 / next 注册表契约 v2 / op 三档 / 宿主时间序化 / 三区；只读复用）",
+      "R6 74d76c1（有界队列 / 草稿回填；只读复用，产物零改写）"
+    ],
+    "downstream": [
+      "specs-tree-ian-2-abolish-composer（依赖本叶已建立流内输入面与唯一通道再拆旧面）"
+    ]
+  },
+  "openPoints": [
+    "PD-IAN-001 「自由输入…」触发的精确候选集合 / 与其他 provider 产出次序",
+    "PD-IAN-002 卡内输入是否复用既有 #ask-* id 家系 vs 同 kind 内第二渲染分支（不新增 kind 前提不变）",
+    "PD-IAN-003 手输 driver 字段的精确取值字面量与承载面",
+    "PD-IAN-004 「自由输入…」与「其他…（我来描述）」同卡并存的互斥披露口径",
+    "PD-IAN-005 是否需新 data-act 名（须满足「不新增 kind」前提）"
+  ],
+  "notes": "本叶 = F-35 首叶 / 底座叶，P0，交付顺序 1/2，无上游叶依赖。执行序 7 步：先立新面（provider + 卡内输入）→ 通道与手输语义（op.turn 槽 + driver 两值 + 让位语义）→ R6 双入口与回填 → 兜底载体内接线 → a11y → 新门禁 + S0''-A + 反证 → 体积叶1 重登记 + 门禁治理骨架。关键纪律：#composer 本叶【不删】（中间态保护，S0''-A 双入口必绿）；requestTurn( 计数本叶【不变】（重锚恰 1 由叶2 落地）；法四本叶【不动】（叶2 修订）。体积叶1 = 正增量 +2.5~4.5 KB（父 §5.11.1）。完成协议：phase → specified / status → tracked；state.json 由 spec Agent 直接写入（sddu_update_state 等价物）；ROADMAP 零 diff。",
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-24",
+      "agent": "sddu-spec",
+      "artifact": "specs-tree-ian-1-free-input-next/spec.md v1.0",
+      "note": "初始创建（叶规范）：承载父 FR ≈44 条切片（GOV / FIM / CHAN / R6Q 叶1 侧 / CONV 050 与 052 / S0'' 中间态侧 / SUPERSEDE 086 叶1 侧 / GATE 骨架 / VOL 叶1 侧）；交付 8 项；执行序 7 步（先立新面）；风险 11 条；开放问题 5 条。父 §11 DC-IAN-001~011 全部适用。零产品代码改动、零运行时验证、routing.v1 = local_or_compute → none。"
+    }
+  ]
+}
