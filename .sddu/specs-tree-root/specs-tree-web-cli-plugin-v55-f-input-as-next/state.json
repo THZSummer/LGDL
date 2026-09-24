@@ -1,0 +1,243 @@
+{
+  "feature": "specs-tree-web-cli-plugin-v55-f-input-as-next",
+  "featureKey": "specs-tree-web-cli-plugin-v55-f-input-as-next",
+  "version": "v0.11.2",
+  "name": "web-cli-plugin「输入即 next（input-as-next）：废除流外独立输入框，自由文本输入成为流内 next 的一个选项」—— ① 自由输入 next 形态（流内输入行/卡内输入，提交走 op.turn 槽）② #composer 废除面（DOM 真退役 + 双写者/锁存/设置态漏隐藏消解 + R6 排队/草稿回填迁移 + a11y focus）③ 四处兜底入口收敛到卡内 .ask-fallback ④ 法四修订（输入即 next：流外零输入面）+ supersession 台账 + 密度/l0/journey/insight/binding 判据重锚",
+  "phase": "discovered",
+  "status": "tracked",
+  "workflow": "0.discovery",
+  "agent": "sddu-discovery",
+  "depth": 1,
+  "parent": null,
+  "childrens": [],
+  "leaf": false,
+  "createdAt": "2026-09-24",
+  "updatedAt": "2026-09-24",
+  "description": "立项来源 = 作者裁决（2026-09-24，立法级，逐字：「不能打破 all-in-chat/next。既然由 next/chat 驱动用户选择/输入，那自然输入框也是在 chat 里面的 next 里面的一个选项，不应该存在单独的输入框」）+ 编排器已完成的只读诊断（#composer 显隐「与历史相关而非与状态相关」的三处缺陷：D-A 双写者 syncComposerVisibility vs l0.revealFallback/hideFallback；D-B fallbackOpen 锁存无生产复位；D-C 设置态漏隐藏）+ 上游 F-34 closeout（v0.11.1 / sidepanel 591,946 B / pending-author-line）。核心事实：#composer（index.html:1419-1422）是唯一「自由文本→回合」面且住在流外（v4.5 出流，host-registry.ts:114-145 保留为兼容读取面），与 all-in-chat/next 主线矛盾；四处兜底入口全部收敛到 revealAskFallback→卡内 .ask-fallback，而 #composer 只被附带 reveal（无独立入口）；R6 有界队列/草稿回填的唯一用户入口是 composer submit（requestTurn 恰 2 的第二处）。",
+  "scope": {
+    "core": [
+      "「自由输入」next 的形态：自由文本输入成为流内 next 的一个选项（形态 = 开放点 O-IAN-002；候选：推荐区按需最多末项「自由输入…」/ 点开就地展开卡内输入（.ask-fallback 先例）/ 提交复用 op.turn 槽 = requestTurn）",
+      "#composer 废除面：#composer/#input/#send 真退役（DOM 移除，非 hidden）+ 双写者/fallbackOpen 锁存/设置态漏隐藏一并消解 + 测试钩子 hideFallback + NEVER_FOLDABLE/兼容读取面登记退役 + a11y focus 重锚",
+      "R6 排队/草稿回填迁移：SW 有界队列语义（TURN_QUEUE_MAX=1 / drain / queued / busy-rejected）保留；入口迁到流内输入；busy-rejected 草稿回填载体迁到流内输入（不丢原话 / 不覆盖新输入 / 有可读行）",
+      "四处兜底入口收敛到流内：decision-region.ts:169 / sidepanel.ts:1513 / :3650 / :3788 全部只 reveal 卡内 .ask-fallback，停止附带 reveal 流外 #composer；卡内 .ask-fallback 成为唯一兜底输入载体",
+      "法四修订（输入即 next）：新法条文本「自由文本输入是流内 next 的一个选项；流外零输入面」+ supersession 台账（法四原文 old→new 登记）+ 判据重锚清单（密度/l0/journey/insight/binding/density-thresholds/op-wiring/turn-arbitration/settings/host-registry）",
+      "状态提示面去留（#send-reason / buttonStates.sendDisabled / sendDisabledReason）+ a11y focus 流"
+    ],
+    "incidental": [
+      "判据与保护段处置：journey 42766..54004（sha 6b45c3fa…）+ binding 107780..115930 两个保护段逐段决策 + 哈希变更台账留痕",
+      "首装引导文案 ONBOARDING_TEXTS[4]「在输入框输入指令并发送」改指流内 next 输入选项",
+      "e2e/binding 诊断面 DIAG_SELECTORS / 真实键入 #input/#send 重锚",
+      "体积分列预算与叶拆分"
+    ],
+    "nonGoals": [
+      "「只修 D-A/B/C 三缺陷、保留 #composer」的路径（作者裁决 = 废面；诊断证据只作现状底座，不重复立项为缺陷快修）",
+      "F-34 / F-33 / F-32 / R6 / v4 产物改写（D7；并列新主题）",
+      "src/content/**（content.js 177,076 B）与 pick-layer.js（34,358 B）语义改动（零容差冻结）",
+      "packages/web-cli-base/** 改动（test/insight-no-escalation.test.ts:147 机核零 diff）",
+      "判定链（security/policy.ts / auto-authorize.ts）与 zeroDiffFiles 冻结面触碰",
+      "SW 有界队列裁决逻辑本身（turn-queue.ts 三分支；R6 已闭环）",
+      "法八（零明文）放宽；12 kind 新增；零宿主判据回退",
+      "特权 op（op.authorize / op.perm.request）发起方式；F-29（A2A）状态变更；安装期静态权限 / 存储加密 / 会话分组收编 op"
+    ]
+  },
+  "artifacts": [
+    "discovery.md",
+    "state.json"
+  ],
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/state.json"
+  ],
+  "coversIssues": [
+    "Q-IAN-001 母问题：流外独立输入框与 all-in-chat/next 主线自相矛盾（#composer 是唯一自由文本→回合面且住在流外）",
+    "Q-IAN-002 #composer 显隐不可判（与历史相关）：D-A 双写者 / D-B fallbackOpen 锁存无生产复位 / D-C 设置态漏隐藏 + CSS 不含 #composer",
+    "Q-IAN-003 「自由输入」作为 next 选项的形态缺位（无 provider/chip/流内输入；chip 不承接任意文本）",
+    "Q-IAN-004 R6 排队/草稿回填语义绑定在 composer 上（唯一用户入口 = composer submit；回填载体 = #input）",
+    "Q-IAN-005 法四只禁「常驻」未禁「流外按需」（法四默许 #composer 这个例外）",
+    "Q-IAN-006 门禁只增不减 vs 删除面的张力（node 10 文件 + Chromium 8 门禁 + 2 保护段钉了 #composer）",
+    "Q-IAN-007 四处兜底入口载体收敛未完成（全部到卡内 .ask-fallback，但附带 reveal 流外 #composer → 双输入面）",
+    "Q-IAN-008 #send-reason / sendDisabled 状态提示去留与重锚未定",
+    "Q-IAN-009 设置视图 ⇄ chat 草稿保持依赖 #input 读写",
+    "Q-IAN-010 a11y focus 流断裂风险（#input 是既有 focus 目标）",
+    "Q-IAN-011 首装引导文案 ONBOARDING_TEXTS[4] 指向将被废除的面",
+    "Q-IAN-012 #composer 兼容读取面退役牵动 e2e/binding 诊断面（DIAG_SELECTORS / 真实键入）",
+    "Q-IAN-013 体积：距档位仅 22,454 B（591,946 / 614,400；pending-author-line）；删面负增量 vs 输入卡正增量净值不明",
+    "Q-IAN-014 op.turn 的 auto 档与用户手输语义边界（手输不得退化为 AI 可代答通道）",
+    "Q-IAN-015 requestTurn( 恰 2 门禁与废除面的张力（删 composer 提交点 ⇒ 计数降 1）",
+    "Q-IAN-016 法四修订载体未定（原地修订 vs 立法新法条 + supersede）",
+    "Q-IAN-017 流内输入卡的可访问性与法八/零明文口径",
+    "Q-IAN-018 环境性 flake 家族被误读为回归（KL-N-10）"
+  ],
+  "coversGaps": [
+    "外部竞品调研未执行（O-IAN-010）",
+    "门禁计数 / 体积值引自 F-34 closeout（本轮零产品运行时验证，未复跑）",
+    "作者除 §0.1 裁决原话外未给出进一步实现约束（形态/载体/门禁处置全部登记为开放点）"
+  ],
+  "dependencies": {
+    "upstream": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-scope-governance/**（F-34 v0.11.1 两叶 validated + closeout 总账；体积/门禁基线）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-self-driven/**（F-33 v5.5；驱动者层 / 法七扩展 / 护栏）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v5-all-in-next/**（F-32 v5 主题 all-in-next / next 注册表契约 v2 / op 三档）",
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md（法一 / 法四 / 法七；:116,:225,:385 / :308,:489）",
+      ".sddu/specs-tree-root/ROADMAP.md（v1.31.0；F-35 / v0.11.2 本轮实测零占用）",
+      "packages/web-cli-plugin/docs/r6-ty-experience-fix-2026-09-23.md（R6 排队/草稿回填现状底座）"
+    ],
+    "downstream": [
+      "@sddu-spec（基于 discovery.md 定义需求）"
+    ]
+  },
+  "roadmap": {
+    "featureId": "F-35",
+    "featureIdOccupancy": "measured-zero（全仓 *.md/*.json/*.ts/*.mjs（排除 node_modules/.git）0 命中）",
+    "versionSlot": "v0.11.2",
+    "versionSlotOccupancy": "measured-zero（全仓 0 命中）",
+    "registered": false,
+    "registration": "pending-closeout（ROADMAP 登记留给收口；本阶段 ROADMAP 零 diff）",
+    "registrationOwner": "closeout",
+    "namingSemantics": "v0.11.2 = v0.11.0（F-33 v5.5）主题的 patch 级跟进轮（承 F-34 v0.11.1 先例）；树名承 v55-f- 惯例",
+    "roadmapDocVersion": "1.31.0（本轮实测）",
+    "f29Section": "untouched（F-29 A2A 候选未立项未排期，保持原样不动）"
+  },
+  "domainBaseline": {
+    "branch": "feature/web-cli-plugin",
+    "head": "ce29665",
+    "headSubject": "fix(web-cli-plugin): R7——--ref schema 嵌套修正+解析层回归+引导边界",
+    "sidepanelBaselineBytes": 591946,
+    "sidepanelEffectiveCeilingBytes": 621543,
+    "tierBytes": 614400,
+    "absoluteCeilingBytes": 675840,
+    "tierRemainingBytes": 22454,
+    "contentJsBytes": 177076,
+    "pickLayerJsBytes": 34358,
+    "kindSetSize": 40,
+    "authorConfirmation": "pending-author-line（未闭合义务，承接 v5.5 两次升档；本 Feature 若触发升档须走 EC 显式路径 + 作者一行）",
+    "npmTestCount": 1394,
+    "gates": "l0 248 · density 242 · journey 171 · insight 118 · binding 192 · page-input 125 · CHROMIUM_GATES === 9",
+    "source": "F-34 closeout.md / state.json#closeout + ROADMAP v1.31.0（门禁计数本轮引用，未复跑）"
+  },
+  "composerDependencySurface": {
+    "domAndCss": [
+      "index.html:1419-1422（form#composer / input#input / button#send）",
+      "index.html:577-598（CSS #composer/#input/#send）",
+      "index.html:670-672（body.settings-open 隐藏三区，不含 #composer —— D-C）",
+      "index.html:1414-1418（v4.5 出流注释）"
+    ],
+    "writers": [
+      "sidepanel.ts:2884-2891（syncComposerVisibility 护栏 writer）",
+      "l0/shell.ts:90-105（revealFallback/hideFallback 无条件直写 writer —— D-A）",
+      "sidepanel.ts:2883（fallbackOpen 锁存 —— D-B）",
+      "sidepanel.ts:2893-2898（revealAskFallback）",
+      "sidepanel.ts:2312（text ask 直开）",
+      "sidepanel.ts:2245 / :3616（sync 调用点）/ :3607-3613（settings 路径漏调 —— D-C）"
+    ],
+    "entryAndRead": [
+      "sidepanel.ts:3749-3760（composer submit → requestTurn）",
+      "sidepanel.ts:850-858（测试钩子 revealFallback/hideFallback）",
+      "sidepanel.ts:1337-1341（settingsViewSwitch draft #input）",
+      "sidepanel.ts:2394-2423（renderSendReason → #send-reason）",
+      "sidepanel.ts:3980-3991（busy-rejected 草稿回填 #input）",
+      "view-model.ts:298-315 / :384-400 / :404-423（sendDisabledReason / buttonStates / AskFlowView）",
+      "view-model.ts:350（ONBOARDING_TEXTS[4] 指向 #input）",
+      "disclosure.ts:164（NEVER_FOLDABLE 含 composer）",
+      "host-registry.ts:114-145 / :235 / :295-321（退役宿主值 / PRESERVED 兼容读取面 / send-reason 保留）"
+    ],
+    "fallbackEntries": [
+      "cards/decision-region.ts:163-170（末项「其他…（我来描述）」）",
+      "sidepanel.ts:1512-1515（op.describe 无值相）",
+      "sidepanel.ts:3650（L1 面板 revealFallback）",
+      "sidepanel.ts:3786-3789（bindPanelOps.describe 空值 / 有值 submitDescribe）",
+      "附带点：sidepanel.ts:2895 → l0/shell.ts:98-99（无条件 reveal 流外 #composer）"
+    ],
+    "gatesPinned": {
+      "node": [
+        "op-wiring.test.ts:128-133（requestTurn( 恰 2）",
+        "turn-arbitration.test.ts:49,60（TA-4 busy-rejected 回填 #input 必红）",
+        "r6-ty-experience-fix.test.ts:169-173（在飞不硬禁用 composer）",
+        "sidepanel-view.test.ts:115-120,281,657-659",
+        "density-thresholds.test.ts:115-116,141,389-409,754-776,787-814,864",
+        "host-registry.test.ts:191,260,282,313",
+        "supersession-ledger.test.ts:1452（redlineRemap ≥3 含 composer 贴底）",
+        "insight-tree-hierarchy.test.ts:527,656-657（journey 保护段显式取代先例）",
+        "settings.test.ts:191（composer draft restored）",
+        "size-baseline.ts:560,1279,1504-1506,2237,3098,3177,3246"
+      ],
+      "chromium": [
+        "insight.mjs:18-19,70,128,358,423,461-471,655,818",
+        "journey.mjs:668,843-885（保护段 42766..54004）,1088,1106,1338,1367",
+        "l0.mjs:18,228,321,375-376,1076-1095,1321",
+        "binding.mjs:49,59,69,115,905,1034-1038,1094-1096（保护段 107780..115930）",
+        "recommendation.mjs:146-161,261,296",
+        "s0-self-driven.mjs:900-902",
+        "l1.mjs / hardening.mjs（间接）"
+      ],
+      "protectionSegments": [
+        "journey 42766..54004（#15a~#15q；sha256 6b45c3fa…）",
+        "binding 107780..115930"
+      ]
+    }
+  },
+  "openPoints": [
+    "O-IAN-001 命名与版本位（推荐：specs-tree-web-cli-plugin-v55-f-input-as-next / F-35 / v0.11.2；ROADMAP 登记留收口）",
+    "O-IAN-002 「自由输入」next 形态（推荐：推荐区按需最多末项；点开就地展开卡内输入（.ask-fallback 先例）；提交复用 op.turn 槽；不新增常驻输入框 / 不新增 kind）",
+    "O-IAN-003 #composer 废除面处置（推荐：DOM 真退役 + 删双写者/锁存 + l0.reveal/hideFallback 只操作卡内 + 测试钩子退役 + NEVER_FOLDABLE/读取面退役 + a11y focus 落卡内）",
+    "O-IAN-004 R6 排队/草稿回填去向（推荐：保留 SW 队列语义；入口迁流内；回填载体迁流内，不覆盖新输入）",
+    "O-IAN-005 四处兜底入口统一形态（推荐：全部统一到卡内 .ask-fallback；停止附带 reveal 流外面）",
+    "O-IAN-006 状态栏 #send-reason / sendDisabled 去留（推荐：保留但重锚到流内输入 disabled reason）",
+    "O-IAN-007 法四修订载体（推荐：原地修订 + 台账 old→new；可选升格法十 + supersede 法四）",
+    "O-IAN-008 requestTurn( 恰 2 门禁重锚（推荐：显式取代 X-IAN-6 → 恰 1 生产输入提交点（经 op.turn 槽））",
+    "O-IAN-009 体积预算与叶拆分（推荐：先分列预算 + 缓冲校验；2 叶依存序）",
+    "O-IAN-010 是否外部竞品调研（推荐不需要）",
+    "O-IAN-011 op.turn auto 档与手输语义边界（推荐：手输与 AI 驱动回合在留痕/档位显式区分，注入必红）"
+  ],
+  "riskPreRegistration": [
+    "R-IAN-001 门禁/保护段重锚纪律被破坏（高；先出逐条重锚清单再动面；old→new + 强度不降 + 台账留痕）",
+    "R-IAN-002 R6 排队/草稿回填回归（高；入口迁移 + 回填载体迁移，语义不变，TA-4 必绿）",
+    "R-IAN-003 requestTurn( 恰 2 门禁与废除面冲突（高；显式取代 X-IAN-6）",
+    "R-IAN-004 op.turn auto 档 vs 用户手输语义混淆（高；红线⑥精神，注入必红）",
+    "R-IAN-005 体积越档位（中高；距档 22,454 B；先预算，升档须作者一行）",
+    "R-IAN-006 法四修订 supersession 台账不完整（中高；老 remap ≥3 保留 + 新增 old→new）",
+    "R-IAN-007 法八（零明文）被输入卡撞破（中高；输入文本仅走 chat user 载荷；固化不回显值）",
+    "R-IAN-008 KIND_SET 40 / 12 kind / 零宿主被撞（高；复用 askuser kind）",
+    "R-IAN-009 a11y focus 流断裂（中）",
+    "R-IAN-010 e2e/binding 诊断面牵动（中高）",
+    "R-IAN-011 #send-reason / buttonStates 耦合面误删（中）",
+    "R-IAN-012 环境性 flake 被误读为回归（KL-N-10；低—中）",
+    "R-IAN-013 方案先行（中高；开放点全部登记）"
+  ],
+  "supersessionCandidates": [
+    "X-IAN-1 法四「输入按需出现：无常驻输入框；text 输入框只在卡内」→「输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面」（已发生：本轮立项裁决；条文落地待 spec）",
+    "X-IAN-2 #composer/#input/#send「保留（兼容读取面）」→ 入退役面（host-registry.ts:144-146 + density-thresholds.test.ts:115-116,768）",
+    "X-IAN-3 #composer 不得入 RETIRED_CONTAINER_IDS 反证 → 入退役容器册（density-thresholds.test.ts:775）",
+    "X-IAN-4 <form id=\"composer\" hidden> + body 尾断言 → 等价重锚「流外零输入面」（density-thresholds/sidepanel-view/journey #15c/l0 ③⑪/insight #I-08b/binding）",
+    "X-IAN-5 #I-08 composer 贴底 / #I-09 FAB∩composer → 随元素退役消解或重锚（insight.mjs）",
+    "X-IAN-6 requestTurn( 恰 2 → 重锚（op-wiring.test.ts:128-133）",
+    "X-IAN-7 busy-rejected 草稿回填 #input → 重锚到流内输入（turn-arbitration.test.ts TA-4）",
+    "X-IAN-8 设置⇄chat 草稿保持 #input → 重锚（sidepanel.ts:1337-1341 / settings.test.ts:191）",
+    "X-IAN-9 NEVER_FOLDABLE 含 composer → 退役（disclosure.ts:164）",
+    "X-IAN-10 ONBOARDING_TEXTS[4]「在输入框输入指令并发送」→ 改指流内 next 输入选项（view-model.ts:350）",
+    "X-IAN-11 binding.mjs DIAG_SELECTORS 含 composer / 真实键入 #input+#send → 重锚到流内输入"
+  ],
+  "assumptions": [
+    "A-IAN-001 #composer 是唯一「自由文本→发起回合」流外面——已证（静态）",
+    "A-IAN-002 四处兜底入口全部收敛到 revealAskFallback；#composer 只被附带 reveal（无独立入口）——已证",
+    "A-IAN-003 「输入发生在卡内」已有可用先例（.ask-fallback + focus + 互斥披露）——已证",
+    "A-IAN-004 SW 有界队列语义与输入面位置解耦——部分已证，实现面待验证",
+    "A-IAN-005 #composer DOM 退役是负增量，净值可能不升档——待验证（先预算）",
+    "A-IAN-006 门禁可只增不减地完成（所有被删断言有等价/更强重锚）——逐条可行性待 spec 裁决",
+    "A-IAN-007 流内输入不新增 kind / 不新增宿主 / 不破法八——待验证",
+    "A-IAN-008 手输复用 op.turn 槽不侵蚀「AI 不得代答手势/consent」红线——待验证",
+    "A-IAN-009 冻结面零触碰（content.js / pick-layer.js / KIND_SET 40 / base 零 diff）——待验证",
+    "A-IAN-010 本轮 .sddu 外零触碰——已遵守"
+  ],
+  "pendingObligations": [
+    "authorConfirmation.status = pending-author-line（档位 614,400 / 绝对上限 675,840）—— 承接 v5.5 两次升档，未闭合义务，不得伪称已确认",
+    "本 Feature 若触发升档 ⇒ 走 EC 显式路径 + 作者一行",
+    "ROADMAP 登记（F-35 / v0.11.2）留给收口（本阶段 ROADMAP 零 diff）"
+  ],
+  "evidenceGaps": [
+    "外部竞品调研未执行",
+    "门禁计数 / 体积值引自 F-34 closeout（本轮未复跑 npm test / Chromium / build）",
+    "作者除 §0.1 裁决原话外未给出进一步实现约束"
+  ],
+  "notes": "本轮 discovery 零产品运行时验证（未跑 npm test / Chromium / build）；零受管 Provider 调用（routing.v1 = local_or_compute → none）。诊断证据（D-A/B/C）只作现状底座引用，不重开为缺陷快修。叶拆分建议 2 叶（依存序）：ian-1 流内「自由输入…」next 通道（新面 + 通道 + R6 迁移 + a11y）→ ian-2 废除 #composer（DOM 真退役 + 双写者/锁存消解 + 四处兜底收敛 + 法四修订/台账 + 判据与保护段重锚 + 体积重登记）；先立新面再拆旧面（交付序安全）。完成协议：phase → discovered / status → tracked；state.json 由 discovery Agent 直接写入（sddu_update_state 等价物），ROADMAP 零 diff。"
+}
