@@ -1,0 +1,555 @@
+{
+  "meta": {
+    "feature": "IAN-2 废除 #composer + 法四修订：DOM 真退役 + 判据重锚（父：specs-tree-web-cli-plugin-v55-f-input-as-next）",
+    "featureKey": "specs-tree-ian-2-abolish-composer",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-25",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（3 波执行序 + §2 停引→删面 8 步 + §4 17 项设计定案 + §5 文件影响 ~20 项 + §6 风险 16 条 + §7 交付物 9 项）+ 父 plan.md v1.0（跨切契约 + ADR-IAN-004~010 + §2.4 六条设计任务定案 + §7.2 分列预算 + §7.3 6 波骨架 + §7.4 体积可行性结论）",
+    "sourceSpec": "父 spec.md v1.0（80 FR / 14 NFR / 18 EC / 27 AC / 20 NG / §12 X-IAN-1~11 / §13 N-IAN-001~028 / §9.5 18 门禁 + 计数基线 / §14.3 FR→叶 覆盖矩阵）+ 本叶 spec.md v1.0（承载父 FR ≈38 条切片 / 13 AC 锚点）",
+    "taskCount": 25,
+    "waveCount": 3,
+    "complexity": { "S": 0, "M": 20, "L": 5 },
+    "typeBreakdown": { "implementation": 8, "gate": 13, "spike": 1, "doc": 3, "human": 0, "other": 0 },
+    "numbering": {
+      "namespace": "TASK-IAN-2xx",
+      "globalBlock": "TASK-IAN-201~225",
+      "conflictCheck": "与 TASK-001~040 / TASK-2xx~3xx / TASK-4xx / TASK-5xx~8xx / TASK-V45-1xx / TASK-V5-1xx / TASK-V55-1xx~320 / TASK-V55F-1xx~2xx / TASK-IAN-1xx（叶1）零冲突"
+    },
+    "templateDeviation": {
+      "id": "agent 模板 §5.4 / §8（建议 5~15 任务）",
+      "actual": 25,
+      "reason": "① 父 plan.md §7.3 估 ~24；② 过并破坏「每任务独立可验证」（尤其「18 门禁三态逐条」「保护段两段决策」不可并）；③ 与 F-34 叶2（16）/ v5.5-2（16）同量级但本叶含 18 门禁重锚 + 立法台账 + 2 保护段，故略高；④ 25 = 可原子执行单元"
+    },
+    "spikeGateDeviation": {
+      "note": "父 plan.md / ADR-IAN-004~010 未命名 spikeGate 代号；本轮按编排器任务书指定的 SG-IAN-03 落为先验闸门；探针产物不落版本库（test/_spike/ 探毕删除）",
+      "codes": ["SG-IAN-03"]
+    },
+    "hardDependency": {
+      "on": "specs-tree-ian-1-free-input-next",
+      "mustBe": "validated（全绿）",
+      "reason": "叶1 未 validated 前启动 ⇒ 出现「无输入可用」窗口（R-IAN-901 / N-IAN-027）",
+      "blocker": "BLK-IAN-9"
+    },
+    "waveOrderingRefinement": {
+      "item": "op-wiring 重锚（requestTurn( 恰 2→1）由父 plan.md §7 的 W2 前移至 W1（TASK-IAN-205）",
+      "reason": "sidepanel.ts:3749 composer submit 监听绑定 $('composer')，DOM 移除必然要求同轮删除监听 + requestTurn(input.value) 调用 ⇒ 物理计数 W1 已变 1；FR-IAN-091「取代与判据重锚不得拆轮」+ 每波收口门禁绿",
+      "unchanged": "步6 的 R6 唯一化 + TA-4 重锚仍在 W2（TASK-IAN-210/211）；ADR-IAN-004 八步语义与顺序不变"
+    },
+    "commitIntervals": {
+      "A": { "wave": "W1", "content": "拆除：停引 → DOM/CSS 退役 → 写者消解 → 钩子重锚 → op-wiring 重锚（同轮）→ 登记退役", "atomic": true },
+      "B": { "wave": "W2", "content": "重锚与唯一化：四兜底收敛 + #send-reason/sendDisabled/draft/引导 + R6 唯一化 + node 门禁重锚", "atomic": true },
+      "C": { "wave": "W3", "content": "立法 / 门禁 / 保护段 / 验收：法四修订 + 台账 + 法四门禁 + journey 八步 + binding keep + S0''-B + 体积净负（收口轮·终局）", "atomic": true }
+    },
+    "volumeBudgetBytes": -2500,
+    "volumeUpperBoundBytes": -1000,
+    "volumeStrictColA": "-1.2 ~ +0.3 KB（严格口径：index.html 的 DOM/CSS 退役经 build.mjs:95 copyFile 进 dist/sidepanel.html，不进 sidepanel.js 账本）",
+    "volumeCaliber": "A 列（sidepanel.js）目标净负 −2.5~−1.0 KB；B 列 0（不计账）；逐模块归因 + 收口重登记 = TASK-IAN-224（含两叶 Σ）；非负须如实登记（FR-IAN-115 / R-IAN-908）"
+  },
+  "redlineLegend": {
+    "frozen": {
+      "F1": "dist/content.js 177,076 B / 52a82620…（零容差）；dist/pick-layer.js 34,358 B / 77796bab…（零容差）",
+      "F2": "KIND_SET 40 项逐字不增；12 kind 契约不动；REGISTERED_STRUCTURAL_HOSTS === []",
+      "F3": "packages/web-cli-base/** 零 diff；判定链 policy.ts / auto-authorize.ts 零触碰（zeroDiffFiles pin）；manifest.json 零 diff",
+      "F4": "保护段：journey 43054..58287 / cc79f413…（八步取代）；binding 107780..115930 / be9ad0e9…（keep 字节中立）",
+      "F5": "turn-queue.ts 零 diff；特权 op 恒 gesture，SW 永不 .request(；法八四面零明文；RETIRED_HOST_ATTRS 宿主值 4 项逐字"
+    },
+    "thresholds": {
+      "T-a": "sidepanel.js 生效上限 621,543 = floor(591,946×1.05)；档位 614,400（距档 22,454）；绝对上限 675,840；SIDEPANEL_CEILING_CAP 保持 record-only",
+      "T-b": "authorConfirmation = pending-author-line（未闭合义务，不得伪称已确认）",
+      "T-c": "op-wiring：requestTurn( 恰 2 → 恰 1（唯一生产输入提交点 = op.turn 槽）+ 反证；maybeRecommend 1/7 · nextAfterSettle 1/10 不变",
+      "T-d": "CHROMIUM_GATES === 9 不动；不新增 Chromium 门禁文件（S0''-B Chromium 面只加断言）"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-IAN-201", "TASK-IAN-202", "TASK-IAN-203", "TASK-IAN-204", "TASK-IAN-205", "TASK-IAN-206"], "strategy": "201 ∥ 202（文件不相交，皆先于 203）→ 203 → 204 ∥ 205（205 只须后于 203）→ 206", "interval": "A" },
+    { "wave": 2, "tasks": ["TASK-IAN-207", "TASK-IAN-208", "TASK-IAN-209", "TASK-IAN-210", "TASK-IAN-211", "TASK-IAN-212"], "strategy": "207 ∥ 208 ∥ 209（文件不相交）→ 210 → 211 → 212（回归 + 反证还原）", "interval": "B" },
+    { "wave": 3, "tasks": ["TASK-IAN-213", "TASK-IAN-214", "TASK-IAN-215", "TASK-IAN-216", "TASK-IAN-217", "TASK-IAN-218", "TASK-IAN-219", "TASK-IAN-220", "TASK-IAN-221", "TASK-IAN-222", "TASK-IAN-223", "TASK-IAN-224", "TASK-IAN-225"], "strategy": "213 先验闸门最前（SG-IAN-03）；214 ∥ 215 → 216 → 217 → 218 → 219（保护段严格串行）；220 ∥ 221；222 → 223；224 → 225（末位收口）", "interval": "C（收口轮·终局）" }
+  ],
+  "criticalPath": [
+    "TASK-IAN-201", "TASK-IAN-202", "TASK-IAN-203", "TASK-IAN-205", "TASK-IAN-207", "TASK-IAN-208",
+    "TASK-IAN-210", "TASK-IAN-211", "TASK-IAN-213", "TASK-IAN-214", "TASK-IAN-215", "TASK-IAN-216",
+    "TASK-IAN-217", "TASK-IAN-218", "TASK-IAN-219", "TASK-IAN-222", "TASK-IAN-223", "TASK-IAN-224", "TASK-IAN-225"
+  ],
+  "independentParallelGroups": [
+    { "group": "Q1", "members": ["TASK-IAN-201", "TASK-IAN-202"], "note": "l0/shell.ts 与 index.html 不相交（皆须先于 203）" },
+    { "group": "Q2", "members": ["TASK-IAN-204", "TASK-IAN-205"], "note": "sidepanel.ts 钩子与 op-wiring.test.ts 不相交（205 只须后于 203）" },
+    { "group": "Q3", "members": ["TASK-IAN-207", "TASK-IAN-208", "TASK-IAN-209"], "note": "sidepanel.ts / l0 收敛 of view-model + density 门禁 与 compose 文件不相交（Chromium 复跑仍串行）" },
+    { "group": "Q4", "members": ["TASK-IAN-214", "TASK-IAN-215"], "note": "v4-chat/spec.md 与 v4-supersession-ledger.json 不相交" },
+    { "group": "Q5", "members": ["TASK-IAN-220", "TASK-IAN-221"], "note": "Chromium mjs 与 gate-integrity.test.ts 不相交（221 只须后于 216）" }
+  ],
+  "tasks": [
+    {
+      "id": "TASK-IAN-201", "wave": 1, "complexity": "M", "type": "implementation",
+      "title": "停引：l0/shell.ts revealFallback/hideFallback 去流外 composer.hidden 写点（保留调用）",
+      "deps": [],
+      "fr": ["FR-IAN-042", "FR-IAN-051", "FR-IAN-052"], "ac": ["AC-IAN-006"], "adr": ["ADR-IAN-004", "ADR-IAN-005"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/shell.ts" }],
+      "acceptance": [
+        "revealFallback/hideFallback 只操作卡内 .ask-fallback（setAskFallbackOpen / setCardFallbackOpen），**不再写** composer.hidden",
+        "保留 revealAskFallback 对 l0?.revealFallback() 的调用（PD-IAN-007：保留调用、让 shell 只操作卡内 ⇒ 调用链零流外面）",
+        "四处兜底入口展开的是卡内输入；反证「重新级联 ⇒ 双输入面 ⇒ 必红」",
+        "陈留注释（l0/shell.ts:96-99）同步"
+      ],
+      "gate": "test:l0"
+    },
+    {
+      "id": "TASK-IAN-202", "wave": 1, "complexity": "M", "type": "implementation",
+      "title": "DOM / CSS 退役：index.html 删 form/input/button + 6 条 CSS + 出流注释",
+      "deps": ["TASK-IAN-201"],
+      "fr": ["FR-IAN-040", "FR-IAN-041", "FR-IAN-044"], "ac": ["AC-IAN-005"], "adr": ["ADR-IAN-004"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/index.html" }],
+      "acceptance": [
+        "删 <form id=composer>（含 #input / #send）+ 6 条 CSS（#composer / #input / #input::placeholder / #input:disabled / #send / #send:hover）+ 出流注释",
+        "三 id 零命中（真退役，非 hidden）；无死 CSS 规则",
+        "body.settings-open 三区 CSS（:670-672）**逐字不变**（diff = 0）",
+        "**严格口径登记**：DOM/CSS 退役经 build.mjs:95 copyFile 进 dist/sidepanel.html，**不进** sidepanel.js 账本（ADR-IAN-010 §③）"
+      ],
+      "gate": "density-thresholds"
+    },
+    {
+      "id": "TASK-IAN-203", "wave": 1, "complexity": "L", "type": "implementation",
+      "title": "写者消解：删 syncComposerVisibility / fallbackOpen / #send writer / composer submit 监听 + 陈留注释",
+      "deps": ["TASK-IAN-201", "TASK-IAN-202"],
+      "fr": ["FR-IAN-042", "FR-IAN-043", "FR-IAN-048"], "ac": ["AC-IAN-005"], "adr": ["ADR-IAN-004"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }],
+      "acceptance": [
+        "删 syncComposerVisibility()（:2884-2891）及调用点（render :2245 / openL2View :3616）；删 let fallbackOpen（:2883）及全部读写（:2896 / :856）",
+        "删 ($('send')).disabled writer（:2270）；删 composer submit 监听（:3749-3760，含 requestTurn(input.value) 调用）",
+        "settings 提前 return（:3607-3613）保留原结构、无需护栏（面不存在）",
+        "标识符 / 函数零命中；三缺陷（D-A/B/C）结构性消解；陈留注释（:1107-1108 / stream-render.ts:66-71）同步"
+      ],
+      "gate": "op-wiring"
+    },
+    {
+      "id": "TASK-IAN-204", "wave": 1, "complexity": "M", "type": "implementation",
+      "title": "测试钩子重锚（__v3.testing.revealFallback/hideFallback → 只操作卡内）",
+      "deps": ["TASK-IAN-203"],
+      "fr": ["FR-IAN-045"], "ac": ["AC-IAN-014"], "adr": ["ADR-IAN-004"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }],
+      "acceptance": [
+        "revealFallback() → revealAskFallback()；hideFallback() → l0?.hideFallback()（只 setAskFallbackOpen(false)）",
+        "删 fallbackOpen = false; syncComposerVisibility(); 两行（不自持锁存）⇒ 无死写点 / 空转钩子",
+        "钩子仍驱动卡内展开 / 收起（行为可判）"
+      ],
+      "gate": "test:l0"
+    },
+    {
+      "id": "TASK-IAN-205", "wave": 1, "complexity": "M", "type": "gate",
+      "title": "test/op-wiring.test.ts 等价重锚（requestTurn( 恰 2 → 恰 1 + 反证）",
+      "deps": ["TASK-IAN-203"],
+      "fr": ["FR-IAN-021", "FR-IAN-085", "FR-IAN-100"], "ac": ["AC-IAN-003", "AC-IAN-018"], "adr": ["ADR-IAN-002", "ADR-IAN-008"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/op-wiring.test.ts" }],
+      "acceptance": [
+        "OP_CALLSITE_SET.op.turn.callSites 2→1；requestTurn( 判据恰 1（唯一生产输入提交点 = op.turn 槽）",
+        "expectFailPattern 更新：注入第 2 个 requestTurn( 调用点 ⇒ requestTurnProblems 必红",
+        "maybeRecommend 1 定义 / 7 调用点、nextAfterSettle 1 定义 / 10 调用点原判据不改",
+        "**与 DOM/写者删除同轮**（FR-IAN-091；波次细化见 tasks.json meta.waveOrderingRefinement）"
+      ],
+      "gate": "op-wiring"
+    },
+    {
+      "id": "TASK-IAN-206", "wave": 1, "complexity": "M", "type": "implementation",
+      "title": "登记退役：NEVER_FOLDABLE 14→13 + RETIRED_CONTAINER_IDS 13→16 + 注释同步",
+      "deps": ["TASK-IAN-203"],
+      "fr": ["FR-IAN-046", "FR-IAN-047"], "ac": ["AC-IAN-005", "AC-IAN-009"], "adr": ["ADR-IAN-004", "ADR-IAN-005"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/host-registry.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/stream-render.ts" }
+      ],
+      "acceptance": [
+        "disclosure.ts：NEVER_FOLDABLE 删 'composer'（14→13）+ :147 注释算术（12−1+3=14）订正",
+        "host-registry.ts：PRESERVED 去三项；RETIRED_CONTAINER_IDS 追加 #composer/#input/#send（13→16）；RETIRED_HOST_ATTRS 宿主值 4 项**逐字保留**（data-host 值 ≠ 容器 id）",
+        "RETIRED_HOST_DISPOSITIONS 派生只增 3 条去向 + 反证元数据",
+        "stream-render.ts 陈留注释同步（无「保留 #composer」类矛盾）"
+      ],
+      "gate": "host-registry"
+    },
+    {
+      "id": "TASK-IAN-207", "wave": 2, "complexity": "M", "type": "implementation",
+      "title": "四处兜底收敛终态（E1~E4 只展开卡内；op.describe 有值相逐字不变）",
+      "deps": ["TASK-IAN-203"],
+      "fr": ["FR-IAN-050", "FR-IAN-051", "FR-IAN-052"], "ac": ["AC-IAN-006"], "adr": ["ADR-IAN-005"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/l0/shell.ts" }
+      ],
+      "acceptance": [
+        "E1~E4 全部只 reveal 卡内 .ask-fallback；revealAskFallback 调用链零流外面（无「双 reveal」）",
+        "op.describe 有值相 ⇒ submitDescribe（本地结算、不成回合）逐字不变；反证「有值相发回合 ⇒ 必红」",
+        "「唯一载体」判据非恒真：任一兜底入口触发后可见输入面恰 1 个（卡内）且三 id 不在 DOM"
+      ],
+      "gate": "test:l0"
+    },
+    {
+      "id": "TASK-IAN-208", "wave": 2, "complexity": "M", "type": "implementation",
+      "title": "view-model.ts 重锚族（sendDisabled 仅异常态 + draft 重锚 + 引导改指）",
+      "deps": ["TASK-IAN-207"],
+      "fr": ["FR-IAN-054", "FR-IAN-055", "FR-IAN-056"], "ac": ["AC-IAN-012", "AC-IAN-013", "AC-IAN-015"], "adr": ["ADR-IAN-005"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts" }],
+      "acceptance": [
+        "buttonStates.sendDisabled 语义保留（!hasOrigin 仅异常态）；AskFlowView.sendDisabled 重锚到流内输入面（在飞不硬禁用）",
+        "draft：settingsViewSwitch.getDraft/setDraft 读写 free-input 卡 #ask-input（无卡 ⇒ '' / 空写零副作用；空安全，EC-IAN-011）",
+        "ONBOARDING_TEXTS[4] 改指流内 next 项；sendDisabledReason 可读原因保留（无活跃站点 / 未绑定）"
+      ],
+      "gate": "settings"
+    },
+    {
+      "id": "TASK-IAN-209", "wave": 2, "complexity": "M", "type": "gate",
+      "title": "#send-reason 保留 + 判据重锚（在 #region-statusbar 内、非恒真）",
+      "deps": ["TASK-IAN-207"],
+      "fr": ["FR-IAN-053"], "ac": ["AC-IAN-011"], "adr": ["ADR-IAN-005"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/density-thresholds.test.ts" }],
+      "acceptance": [
+        "#send-reason 仍在 #region-statusbar 内（状态提示 ≠ 输入面）；host-registry:295-321 保留要素逐字不动",
+        "判据「在状态栏内 + 单写 + 离开状态栏必红」三条逐条保留（非恒真）；反证：#send-reason 移出状态栏 ⇒ 必红",
+        "计数 ≥242（只增）"
+      ],
+      "gate": "test:density"
+    },
+    {
+      "id": "TASK-IAN-210", "wave": 2, "complexity": "M", "type": "implementation",
+      "title": "R6 唯一化（入口 / 回填载体唯一到流内）+ TA-4 重锚",
+      "deps": ["TASK-IAN-208", "TASK-IAN-209"],
+      "fr": ["FR-IAN-031", "FR-IAN-032", "FR-IAN-033", "FR-IAN-034"], "ac": ["AC-IAN-007", "AC-IAN-017"], "adr": ["ADR-IAN-003"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }],
+      "acceptance": [
+        "删 #input 回填（:3984-3991）⇒ 唯一载体 = 卡内输入；TA-4 判据等价重锚（freeInput.value = rejected ∧ length===0），**删回填仍必红**保留",
+        "queued / busy-rejected 留痕（QUEUED_TURN_TEXT / BUSY_REJECTED_*）逐字保留；叶1 双载体消解",
+        "turn-queue.ts 裁决逻辑 diff = 0"
+      ],
+      "gate": "turn-arbitration"
+    },
+    {
+      "id": "TASK-IAN-211", "wave": 2, "complexity": "M", "type": "gate",
+      "title": "node 门禁重锚族（turn-arbitration / r6-ty / sidepanel-view / settings / density / host-registry / l0-disclosure）",
+      "deps": ["TASK-IAN-210"],
+      "fr": ["FR-IAN-100", "FR-IAN-104"], "ac": ["AC-IAN-018"], "adr": ["ADR-IAN-008"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/turn-arbitration.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/sidepanel-view.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/settings.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/density-thresholds.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/host-registry.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/l0-disclosure.test.ts" }
+      ],
+      "acceptance": [
+        "ADR-IAN-008 #2/#3/#4/#5/#6/#9 逐条等价重锚（old→new 定位 + 反证）",
+        "density :389-409 → 三 id 不存在 ∧ body flex 列保留；:754 宿主值逐字；:769/:775 → 「必须入册」（13→16）；:776 → 不存在",
+        "host-registry 容器册 = 16 + TEST_RETIRED_CONTAINER_IDS 同步 .sort() 比照；sidepanel-view :281 / :657-659 等价重锚",
+        "l0-disclosure NEVER_FOLDABLE.length 14→13（非恒真）；settings :191 draft 载体重锚；全部计数 ≥ 基线"
+      ],
+      "gate": "host-registry"
+    },
+    {
+      "id": "TASK-IAN-212", "wave": 2, "complexity": "M", "type": "gate",
+      "title": "W2 回归 + 反证还原记录（npm test 串行 + sha256 前后相同）",
+      "deps": ["TASK-IAN-211"],
+      "fr": ["FR-IAN-101", "FR-IAN-106"], "ac": ["AC-IAN-019", "AC-IAN-023"], "adr": ["ADR-IAN-008"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/（仅记录 / 微调；不新增门禁文件）" }],
+      "acceptance": [
+        "本波触碰的 node 门禁逐条复跑全绿；计数 ≥ 基线；断言零删除零降级",
+        "反证族实跑记录：注入 ⇒ FAIL（expectFailPattern）⇒ 逐字节还原（sha256 前后相同）⇒ PASS",
+        "门禁严格串行；KL-N-10 隔离复跑 ≥2 + 日志全量（仍红如实记录）"
+      ],
+      "gate": "op-wiring"
+    },
+    {
+      "id": "TASK-IAN-213", "wave": 3, "complexity": "M", "type": "spike",
+      "title": "SG-IAN-03 journey 八步取代预演（段内 composer 清单 + 替换前后字节账）", "spikeGate": "SG-IAN-03",
+      "deps": ["TASK-IAN-206", "TASK-IAN-212"],
+      "fr": ["FR-IAN-103"], "ac": ["AC-IAN-021"], "adr": ["ADR-IAN-007"],
+      "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-ian-03-probe.mjs（探毕删除）" }],
+      "acceptance": [
+        "journey 段 43054..58287 内 composer / #input / #send 引用**逐条清单**（≥10 处，含 #15c 的 composerExists 等布尔 + 几何读面）；替换前后字节账可算",
+        "binding 段 107780..115930 内零命中确认；段前改写**等长补偿**预演（startAnchor 仍 = 107780 可算）",
+        "结论 ∈ {可行/不可行}；探针产物不落版本库；冲突时按停止规则上报（禁静默改段）"
+      ],
+      "gates": ["TASK-IAN-218", "TASK-IAN-219"],
+      "stoppingRule": "binding 段前等长补偿不可行 ⇒ binding 改走八步取代（ADR-IAN-007 逃生口）；journey 段内清单与 ADR-IAN-007 冲突 ⇒ 暂停上报"
+    },
+    {
+      "id": "TASK-IAN-214", "wave": 3, "complexity": "M", "type": "doc",
+      "title": "法四三处原地修订（v4-chat/spec.md:116 / :225 / :385 逐字 old→new）",
+      "deps": ["TASK-IAN-213"],
+      "fr": ["FR-IAN-060", "FR-IAN-061", "FR-IAN-080"], "ac": ["AC-IAN-008"], "adr": ["ADR-IAN-006"],
+      "files": [{ "op": "MODIFY", "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md" }],
+      "acceptance": [
+        "先以 git show 读三处原文逐字 + 记录落点行号；三处**同轮**改为 new 口径（语义逐字等价，措辞可因体例微调）",
+        "old 逐字 =「输入按需出现：无常驻输入框…」；new 逐字 =「输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面」",
+        "**三处一致（半修即红）**；不升格法十；唯一授权上游改写面（N-IAN-005 例外）"
+      ],
+      "gate": "law4-input-as-next"
+    },
+    {
+      "id": "TASK-IAN-215", "wave": 3, "complexity": "M", "type": "doc",
+      "title": "台账：xIanLedger（X-IAN-1~11）+ redlineRemap 6→7 + journey 新 pin / binding keep + modifiedRanges",
+      "deps": ["TASK-IAN-214"],
+      "fr": ["FR-IAN-062", "FR-IAN-082", "FR-IAN-091", "FR-IAN-102"], "ac": ["AC-IAN-008", "AC-IAN-020"], "adr": ["ADR-IAN-006", "ADR-IAN-007"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }],
+      "acceptance": [
+        "新增 xIanLedger 段：X-IAN-1~11 逐条 { old 逐字 / new 逐字 / 理由 / 日期 / 落点 file:line / status }（superseded / no-supersession，不留空）",
+        "redlineRemap[] 追加一条（composer 贴底/出流 → 流外零输入面）；老 6 条**逐字保留**（长度 6→7，≥3 断言不动）",
+        "journey：history 新节 + 新 pin + supersessionChain + modifiedRanges + redlineRemap（四处同步）；binding：段外逐行登记 keep",
+        "knownGap 一致性；老条目（v3/v4/v5/v5.5/F-34）一律保留不动"
+      ],
+      "gate": "test:supersession"
+    },
+    {
+      "id": "TASK-IAN-216", "wave": 3, "complexity": "L", "type": "gate",
+      "title": "test/law4-input-as-next.test.ts 新门禁（L4-1~6 + 双向反证 + 三段控制 + 真源切片）",
+      "deps": ["TASK-IAN-214"],
+      "fr": ["FR-IAN-049", "FR-IAN-064"], "ac": ["AC-IAN-005", "AC-IAN-008"], "adr": ["ADR-IAN-006", "ADR-IAN-008"],
+      "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/test/law4-input-as-next.test.ts" }],
+      "acceptance": [
+        "L4-1 DOM 零命中（读生产真源 index.html + 运行时 DOM：三 id 均 null）；L4-2 三 id ∈ RETIRED_CONTAINER_IDS（长度 = 16）",
+        "L4-3 默认屏零可见输入框（真源切片：index.html 静态半 + 运行时 hidden 祖先闭包）；L4-4 流内输入卡存在可用（可展开 + focus）",
+        "L4-5 三段控制禁恒真（ok / violated / n/a 逐态可达，n/a 不冒充 ok）；L4-6 真源切片（不读测试自建常量、不自我裁决）",
+        "反证：注入 <form id=composer hidden> ⇒ 必红；移除后逐字节还原（sha256）⇒ 绿；移出入册 ⇒ 必红"
+      ],
+      "gate": "law4-input-as-next"
+    },
+    {
+      "id": "TASK-IAN-217", "wave": 3, "complexity": "M", "type": "gate",
+      "title": "test/supersession-ledger.test.ts + insight-tree-hierarchy.test.ts 重锚 / 保留",
+      "deps": ["TASK-IAN-215", "TASK-IAN-216"],
+      "fr": ["FR-IAN-062", "FR-IAN-100"], "ac": ["AC-IAN-020", "AC-IAN-018"], "adr": ["ADR-IAN-006", "ADR-IAN-008"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts" }
+      ],
+      "acceptance": [
+        "老 redlineRemap ≥3（:1452）逐字保留；新增 X-IAN-1 一致性判据 + journey 新 pin 链判据 + binding keep 判据（:930-1015 同款链判据）",
+        "insight-tree-hierarchy :527/:656-657 先例引用**保留** + 本轮 journey 取代登记",
+        "计数 ≥42（只增）；反证：老 remap 被改写 ⇒ 必红；链不连续 ⇒ 必红"
+      ],
+      "gate": "test:supersession"
+    },
+    {
+      "id": "TASK-IAN-218", "wave": 3, "complexity": "L", "type": "gate",
+      "title": "journey 保护段八步显式取代（#15c 同编号等价改写 + 新 pin 四处同步 + RP-V4-08 反证）",
+      "deps": ["TASK-IAN-213", "TASK-IAN-217"],
+      "fr": ["FR-IAN-103", "FR-IAN-083"], "ac": ["AC-IAN-021"], "adr": ["ADR-IAN-007"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/journey.mjs" }],
+      "acceptance": [
+        "#15a~#15q 保持编号；**#15c 同编号等价改写**为「三 id 均不在 DOM ∧ 默认屏零可见 input/textarea/select/[contenteditable] ∧ 流内 free-input 卡输入存在可展开」；**不得只删不断言**",
+        "几何读面 composerGapToBottom **消解并显式登记**（元素不存在；不得静默 null 通过）+ 新增流内输入卡几何等价读面",
+        "八步齐：①记录 old ②逐段决策 ③等价改写 ④modifiedRanges[] ⑤新 pin ⑥计数守恒只增 ⑦redlineRemap 追加 ⑧RP-V4-08 反证实跑（段内 1 byte ⇒ sha 红；段外 1 byte ⇒ 不红；删 1 断言 ⇒ 计数下界 FAIL；还原 ⇒ PASS）",
+        "test:journey ≥171（计数只增）"
+      ],
+      "gate": "test:journey"
+    },
+    {
+      "id": "TASK-IAN-219", "wave": 3, "complexity": "L", "type": "gate",
+      "title": "binding 保护段 keep 字节中立（段前等长补偿 ⇒ startAnchor 仍 =107780 + 三反证）",
+      "deps": ["TASK-IAN-213", "TASK-IAN-218"],
+      "fr": ["FR-IAN-090", "FR-IAN-103"], "ac": ["AC-IAN-021"], "adr": ["ADR-IAN-007"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/binding.mjs" }],
+      "acceptance": [
+        "DIAG_SELECTORS 去 'composer' + 真实键入 #input/#send → 卡内输入（真实键入路径等价，**不删路径**）；#send.disabled → #send-reason 保留 + 在飞可提交",
+        "段 107780..115930 **段内零字节**（sha be9ad0e9… 双绿）；段前改写用等长注释/空行抵消 ⇒ startAnchor 仍 = **107780**",
+        "段外改写逐行登记 modifiedRanges[]；三反证（段内 1 byte ⇒ sha 红；段前 +1 byte 不补偿 ⇒ startByte 红；登记行改一字 ⇒ hunk↔台账红）",
+        "逃生口：等长补偿不可行 ⇒ 改走八步取代（台账）；test:binding ≥192"
+      ],
+      "gate": "test:binding"
+    },
+    {
+      "id": "TASK-IAN-220", "wave": 3, "complexity": "M", "type": "gate",
+      "title": "Chromium 门禁等价重锚族（insight / l0 / recommendation / s0-self-driven + l1/hardening 保留确认）",
+      "deps": ["TASK-IAN-216", "TASK-IAN-219"],
+      "fr": ["FR-IAN-083", "FR-IAN-084", "FR-IAN-100"], "ac": ["AC-IAN-010", "AC-IAN-018"], "adr": ["ADR-IAN-008"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/insight.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/l0.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/recommendation.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs" }
+      ],
+      "acceptance": [
+        "insight（≥118）：#I-08/#I-09 几何消解 + 显式登记（不得静默 null）；:127-129 法四 → 默认屏零可见输入框；:461-467 兜底展开 → 卡内输入可见",
+        "l0（≥248）：③ → 三 id 零命中 ∧ 默认屏零可见输入框；⑪ → #ask-fallback 可见 ∧ #composer 不存在；:1321 → 输入面单一",
+        "recommendation（≥72）：末端项存在 / 不填输入 / 不越预算；s0-self-driven（≥70）：驱动卡内输入 + op.turn 槽",
+        "l1（≥131）/ hardening（≥24）：**保留**（若因删面需微调 ⇒ 等价重锚 + 台账）；**只加断言不加文件**（CHROMIUM_GATES === 9）"
+      ],
+      "gate": "test:insight"
+    },
+    {
+      "id": "TASK-IAN-221", "wave": 3, "complexity": "M", "type": "gate",
+      "title": "test/gate-integrity.test.ts 下界只增 law4-input-as-next（+ 叶1 free-input-next）",
+      "deps": ["TASK-IAN-216"],
+      "fr": ["FR-IAN-105"], "ac": ["AC-IAN-022"], "adr": ["ADR-IAN-008"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" }],
+      "acceptance": [
+        "EXPECTED_AUDITED_FILES 只增 `law4-input-as-next`（并确认叶1 `free-input-next` 已在册）；下界 = 前值 + 2",
+        "既有下界逐字保留；CHROMIUM_GATES === 9 逐字不动；不新增 Chromium 门禁文件",
+        "计数 ≥19（只增）"
+      ],
+      "gate": "gate-integrity"
+    },
+    {
+      "id": "TASK-IAN-222", "wave": 3, "complexity": "L", "type": "gate",
+      "title": "S0''-B 终态样板（node + Chromium；元素不存在非 hidden 机核 + 注入必红 + 逐字节还原）",
+      "deps": ["TASK-IAN-218", "TASK-IAN-220"],
+      "fr": ["FR-IAN-070", "FR-IAN-073", "FR-IAN-074"], "ac": ["AC-IAN-001", "AC-IAN-027"], "adr": ["ADR-IAN-009"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs" }
+      ],
+      "acceptance": [
+        "S0''-B 终态：三 id DOM 零命中（非 hidden）∧ 唯一输入面 = 卡内 ∧ 法四新条文 ∧ driver 两值可判 ∧ 零新增载体（KIND_SET 40 / 12 kind / 零宿主）",
+        "「元素不存在非 hidden」机核：注入 <form id=composer hidden> ⇒ 法四门禁 + host-registry 退役判据必红；移除后逐字节还原（sha256）⇒ 绿",
+        "body 尾断言等价重锚为「三 id 不存在 ∧ body 仍 flex 列」；样本单源（s0-chain.mjs）；**只加断言不加文件**",
+        "人工面 M3（键盘手感 / 焦点流转）/ M4（读屏）逐项 ⏳ 未执行，不得冒充 PASS"
+      ],
+      "gate": "s0-self-driven"
+    },
+    {
+      "id": "TASK-IAN-223", "wave": 3, "complexity": "M", "type": "gate",
+      "title": "红线守账巡检（三冻结面 / KIND_SET / 12 kind 零宿主 / base / 判定链 / manifest / 法八 / 特权）+ KL-N-10 隔离复跑",
+      "deps": ["TASK-IAN-222"],
+      "fr": ["FR-IAN-112", "FR-IAN-017", "FR-IAN-025", "FR-IAN-106"], "ac": ["AC-IAN-024", "AC-IAN-023"], "adr": ["ADR-IAN-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/insight-no-escalation.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/law8-plaintext.mjs" }
+      ],
+      "acceptance": [
+        "content.js 177,076 B / 52a82620…；pick-layer.js 34,358 B / 77796bab…；KIND_SET 40 / 12 kind / 零宿主",
+        "manifest.json 零 diff；packages/web-cli-base/** 零 diff；判定链 zeroDiffFiles pin 绿；turn-queue.ts diff = 0",
+        "特权 op 恒 gesture + SW 永不 .request(；test:law8 ≥36（零降级）；留痕零用户内容值扫描零命中",
+        "KL-N-10 隔离复跑 ≥2 + 日志全量（仍红如实记录不阻塞收口）"
+      ],
+      "gate": "insight-no-escalation"
+    },
+    {
+      "id": "TASK-IAN-224", "wave": 3, "complexity": "M", "type": "doc",
+      "title": "体积叶2 净负重登记（五要素 + 三值 + 逐模块行 + 两叶 Σ + 严格口径如实 + EC-IAN-016 二态）",
+      "deps": ["TASK-IAN-223"],
+      "fr": ["FR-IAN-110", "FR-IAN-113", "FR-IAN-114", "FR-IAN-115"], "ac": ["AC-IAN-025"], "adr": ["ADR-IAN-010"],
+      "files": [
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-budget.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-growth-evidence.test.ts" },
+        { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts" }
+      ],
+      "acceptance": [
+        "A 列本叶**净负**实测登记（目标 −2.5~−1.0 KB；**严格口径 −1.2~+0.3 KB**）+ 五要素 + 时间线只追加",
+        "V3-VOL-3 三值同源前移；**两叶 Σ 对照**；逐模块归因（ian2Rows：sidepanel / l0/shell / disclosure / host-registry / view-model / askuser + 未归因；Σ 逐模块 Δ + 未归因 == 登记增量）",
+        "**严格口径 DOM/CSS 不计账显式登记**（build.mjs:95 copyFile 独立产物）；若实测非负 ⇒ 显式登记「为什么删面没有净负」+ 重新校准（FR-IAN-115 / R-IAN-908）；不得搬码规避",
+        "EC-IAN-016 二态显式；authorConfirmation = pending-author-line（不得伪称）；test:size-ruling-vol3 ≥12"
+      ],
+      "gate": "test:size-ruling-vol3"
+    },
+    {
+      "id": "TASK-IAN-225", "wave": 3, "complexity": "M", "type": "doc",
+      "title": "18 门禁三态对账 + 人工面 M3/M4 登记 + 叶2 交接口（终局收口）",
+      "deps": ["TASK-IAN-224", "TASK-IAN-221"],
+      "fr": ["FR-IAN-100", "FR-IAN-104", "FR-IAN-074"], "ac": ["AC-IAN-018", "AC-IAN-023", "AC-IAN-027"], "adr": ["ADR-IAN-008", "ADR-IAN-009"],
+      "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/（对账记录 / 台账微调；不新增门禁文件）" }],
+      "acceptance": [
+        "18 门禁三态齐逐条对账（保留 / 等价重锚 / 显式取代 + 台账）+ 间接面对账（notify-tools / settings-help / system-merge / parity baseline-catalog）无遗漏；断言计数只增无减少项",
+        "人工面 M3（卡内输入键盘手感 / 焦点流转）/ M4（读屏可用性）逐项 ⏳ 未执行（不得冒充 PASS）",
+        "叶2 全门禁串行全绿 + e2e PASS + 交接口（build/review/validate）+ 体积两叶 Σ 终值"
+      ],
+      "gate": "gate-integrity"
+    }
+  ],
+  "spikeGates": [
+    {
+      "code": "SG-IAN-03", "task": "TASK-IAN-213", "leaf": "specs-tree-ian-2-abolish-composer", "wave": "W3",
+      "topic": "journey 八步取代预演 —— 段内 composer 引用清单 + 替换前后字节账（+ binding 段前等长补偿预演）",
+      "gates": ["TASK-IAN-218", "TASK-IAN-219"],
+      "stoppingRule": "binding 段前等长补偿不可行 ⇒ binding 改走八步取代（ADR-IAN-007 逃生口）；journey 段内清单与 ADR-IAN-007 冲突 ⇒ 暂停上报"
+    }
+  ],
+  "gateConservation": {
+    "baselineSource": "父 spec.md §9.5 + ADR-IAN-008 §①（引自 F-34 closeout，本轮未复跑）",
+    "npmTestBaseline": 1394,
+    "chromiumGates": "=== 9（不动）",
+    "gates": [
+      { "gate": "npm test", "baseline": 1394, "expected": ">=1394", "owners": ["TASK-IAN-212", "TASK-IAN-225"] },
+      { "gate": "op-wiring", "baseline": "requestTurn( 恰 2", "expected": "恰 1（等价重锚）+ 反证", "owners": ["TASK-IAN-205"] },
+      { "gate": "turn-arbitration", "baseline": 6, "expected": ">=6（唯一化 + 删回填仍必红）", "owners": ["TASK-IAN-210", "TASK-IAN-211"] },
+      { "gate": "r6-ty-experience-fix", "baseline": "族内", "expected": ">=基线", "owners": ["TASK-IAN-211"] },
+      { "gate": "sidepanel-view", "baseline": "族内", "expected": ">=基线（三 id 不存在 / 流内可提交）", "owners": ["TASK-IAN-211"] },
+      { "gate": "density-thresholds", "baseline": 242, "expected": ">=242（容器册 16；#send-reason 非恒真）", "owners": ["TASK-IAN-206", "TASK-IAN-209", "TASK-IAN-211"] },
+      { "gate": "host-registry", "baseline": 11, "expected": ">=11（容器册 13→16）", "owners": ["TASK-IAN-206", "TASK-IAN-211"] },
+      { "gate": "l0-disclosure", "baseline": "族内", "expected": ">=基线（NEVER_FOLDABLE 14→13）", "owners": ["TASK-IAN-206", "TASK-IAN-211"] },
+      { "gate": "settings", "baseline": "族内", "expected": ">=基线（draft 载体重锚）", "owners": ["TASK-IAN-208", "TASK-IAN-211"] },
+      { "gate": "supersession-ledger", "baseline": 42, "expected": ">=42（老 remap 保留 + X-IAN-1 + journey 新 pin + binding keep）", "owners": ["TASK-IAN-215", "TASK-IAN-217"] },
+      { "gate": "insight-tree-hierarchy", "baseline": "族内", "expected": ">=基线（先例引用保留 + 取代登记）", "owners": ["TASK-IAN-217"] },
+      { "gate": "size-baseline", "baseline": "族内", "expected": ">=基线（叶2 净负五要素 + 三值 + 两叶 Σ）", "owners": ["TASK-IAN-224"] },
+      { "gate": "law4-input-as-next", "baseline": 0, "expected": "NEW", "owners": ["TASK-IAN-216", "TASK-IAN-221"] },
+      { "gate": "test:insight", "baseline": 118, "expected": ">=118（几何消解 + 法四断言 + 卡内输入）", "owners": ["TASK-IAN-220"] },
+      { "gate": "test:journey", "baseline": 171, "expected": ">=171（#15c 等价重锚 + 八步取代）", "owners": ["TASK-IAN-218"] },
+      { "gate": "test:l0", "baseline": 248, "expected": ">=248（③⑪ → 卡内唯一输入面）", "owners": ["TASK-IAN-201", "TASK-IAN-204", "TASK-IAN-220"] },
+      { "gate": "test:binding", "baseline": 192, "expected": ">=192（诊断面重锚 + keep 字节中立）", "owners": ["TASK-IAN-219", "TASK-IAN-220"] },
+      { "gate": "test:recommendation", "baseline": 72, "expected": ">=72（不填输入）", "owners": ["TASK-IAN-220"] },
+      { "gate": "s0-self-driven", "baseline": 70, "expected": ">=70（S0''-B 只加断言）", "owners": ["TASK-IAN-220", "TASK-IAN-222"] },
+      { "gate": "test:l1", "baseline": 131, "expected": ">=131（保留）", "owners": ["TASK-IAN-220"] },
+      { "gate": "test:hardening", "baseline": 24, "expected": ">=24（保留）", "owners": ["TASK-IAN-220"] },
+      { "gate": "test:law8", "baseline": 36, "expected": ">=36（零降级）", "owners": ["TASK-IAN-223"] },
+      { "gate": "insight-no-escalation", "baseline": "base 零 diff", "expected": "绿（三冻结面 + 判定链）", "owners": ["TASK-IAN-223"] },
+      { "gate": "test:gate-integrity", "baseline": 19, "expected": ">=19（下界只增 law4-input-as-next）", "owners": ["TASK-IAN-221", "TASK-IAN-225"] },
+      { "gate": "test:dead-end / test:auth-chip / test:stream / test:ask-auth", "baseline": "49 / 37 / 76 / 78", "expected": ">=基线", "owners": ["TASK-IAN-225"] },
+      { "gate": "test:size-ruling-vol3", "baseline": 12, "expected": ">=12（叶2 净负重登记）", "owners": ["TASK-IAN-224"] },
+      { "gate": "e2e", "baseline": "PASS", "expected": "PASS", "owners": ["TASK-IAN-225"] }
+    ],
+    "newGates": [
+      { "gate": "law4-input-as-next", "file": "test/law4-input-as-next.test.ts", "owners": ["TASK-IAN-216", "TASK-IAN-221"] }
+    ],
+    "upgradedGates": [
+      { "gate": "op-wiring", "upgrade": "requestTurn( 恰 2→1（唯一生产输入提交点 = op.turn 槽）+ 注入第 2 点必红", "owners": ["TASK-IAN-205"] },
+      { "gate": "turn-arbitration", "upgrade": "回填载体唯一化到流内（删回填仍必红）", "owners": ["TASK-IAN-210", "TASK-IAN-211"] },
+      { "gate": "r6-ty-experience-fix / sidepanel-view", "upgrade": "在飞不硬禁用 → 流内输入面；三 id 不存在", "owners": ["TASK-IAN-211"] },
+      { "gate": "density-thresholds", "upgrade": ":389-409 → 三 id 不存在；:769/:775 → 「必须入册」（13→16）；#send-reason 非恒真", "owners": ["TASK-IAN-206", "TASK-IAN-209", "TASK-IAN-211"] },
+      { "gate": "host-registry", "upgrade": "RETIRED_CONTAINER_IDS 13→16 + TEST_RETIRED_CONTAINER_IDS 同步；宿主值 4 项逐字", "owners": ["TASK-IAN-206", "TASK-IAN-211"] },
+      { "gate": "supersession-ledger / insight-tree-hierarchy", "upgrade": "老 remap 保留 6→7 + X-IAN-1 + journey 新 pin 链 + binding keep + 先例引用 + 取代登记", "owners": ["TASK-IAN-215", "TASK-IAN-217"] },
+      { "gate": "settings / l0-disclosure", "upgrade": "draft 载体重锚；NEVER_FOLDABLE 14→13（非恒真）", "owners": ["TASK-IAN-208", "TASK-IAN-206", "TASK-IAN-211"] },
+      { "gate": "insight.mjs / l0.mjs / recommendation.mjs", "upgrade": "几何消解 + 法四断言 + ③⑪ + 不填输入（只加断言）", "owners": ["TASK-IAN-220"] },
+      { "gate": "journey.mjs", "upgrade": "#15c 同编号等价改写 + 保护段八步新 pin（计数只增）", "owners": ["TASK-IAN-218"] },
+      { "gate": "binding.mjs", "upgrade": "诊断面重锚 + 真实键入等价 + 段前等长补偿 keep", "owners": ["TASK-IAN-219", "TASK-IAN-220"] },
+      { "gate": "s0-self-driven.mjs / s0-self-driven-chain", "upgrade": "S0''-B 终态 + 元素不存在非 hidden 机核；只加断言不加文件", "owners": ["TASK-IAN-220", "TASK-IAN-222"] },
+      { "gate": "gate-integrity", "upgrade": "EXPECTED_AUDITED_FILES 只增 law4-input-as-next（+ 叶1 free-input-next）；CHROMIUM_GATES === 9", "owners": ["TASK-IAN-221", "TASK-IAN-225"] },
+      { "gate": "size-* / test:size-ruling-vol3", "upgrade": "叶2 净负五要素 + 三值同源 + 逐模块行（ian2Rows）+ 两叶 Σ + 严格口径登记 + EC-IAN-016 二态", "owners": ["TASK-IAN-224"] }
+    ],
+    "sizeOnlyIncrease": "全部门禁计数 ≥ 基线（唯一例外 = 保护段显式取代 + 台账留痕：journey 八步取代 + 计数守恒只增）"
+  },
+  "checkpoint": {
+    "id": "CP-IAN-2",
+    "after": "W1~W3（TASK-IAN-225）",
+    "criteria": "#composer/#input/#send DOM 零命中（真退役非 hidden）+ CSS 退役无死规则 + 双写者/锁存/设置态护栏结构性消解 + 钩子只操作卡内；NEVER_FOLDABLE 13 / RETIRED_CONTAINER_IDS 16 / RETIRED_HOST_ATTRS 宿主值 4 项逐字；四处兜底收敛终态（唯一载体非恒真）+ #send-reason 保留非恒真 + sendDisabled 仅异常态 + draft 重锚（空安全）+ 引导改指；requestTurn( 恰 1 + 反证；R6 唯一化 + TA-4 重锚（删回填仍必红）；法四三处一致（半修即红）+ xIanLedger X-IAN-1~11 + 老 redlineRemap（6→7，老 6 条逐字保留）；法四机核门禁 law4-input-as-next（L4-1~6 + 双向反证 + 三段控制 + 真源切片）入下界；18 门禁三态齐 + 断言计数只增 + CHROMIUM_GATES === 9；journey 八步显式取代（新 pin 四处同步 + RP-V4-08 反证）+ binding keep 字节中立（startAnchor 仍 =107780 + 三反证）；S0''-B 终态 + 注入必红 + 逐字节还原；体积叶2 净负重登记（严格口径 DOM/CSS 不计账如实）+ 两叶 Σ + EC-IAN-016 二态；人工面 M3/M4 ⏳ 未执行；e2e PASS"
+  },
+  "blockers": [
+    { "id": "BLK-IAN-3", "type": "spike-gate", "task": "TASK-IAN-218 / 219", "desc": "SG-IAN-03（TASK-IAN-213）结论 = 保护段字节账不可行 ⇒ binding 改走八步取代 / journey 改走 keep（须重开 ADR-IAN-007 裁决，不得静默）" },
+    { "id": "BLK-IAN-9", "type": "cross-leaf", "task": "TASK-IAN-201（本叶首任务）", "desc": "叶间硬串行：本叶以叶1（specs-tree-ian-1-free-input-next）全绿（validated）为前置（R-IAN-901 / N-IAN-027）" }
+  ],
+  "stoppingRules": [
+    { "no": 1, "trigger": "dist/content.js ≠ 177,076 B / 52a82620… 或 dist/pick-layer.js ≠ 34,358 B / 77796bab…", "action": "立即停机（N-IAN-001/002 零容差）" },
+    { "no": 2, "trigger": "manifest.json / packages/web-cli-base/** 出现 diff", "action": "停机（N-IAN-007 / T4 / T5）" },
+    { "no": 3, "trigger": "KIND_SET 新增任一字符串 / 12 kind / 零宿主被撞", "action": "停机（N-IAN-003/004/010 / R-IAN-008）" },
+    { "no": 4, "trigger": "第二输入载体 / 第二 requestTurn( 直连调用点出现", "action": "停机（N-IAN-021/022 / R-IAN-907）" },
+    { "no": 5, "trigger": "判定链（policy.ts / auto-authorize.ts）内容哈希变化", "action": "停机（N-IAN-018 / T3）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）", "action": "停机；重写注入点（FR-IAN-101）" },
+    { "no": 7, "trigger": "SG-IAN-03 结论 = 不可行 / 不可构造", "action": "被闸门任务不得开工（见 blockers）" },
+    { "no": 8, "trigger": "体积越绝对上限或静默改档位 / authorConfirmation", "action": "停机（硬墙）；升档须显式登记（ADR-IAN-010 / EC-IAN-016）" },
+    { "no": 9, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 10, "trigger": "「真退役」被实现成 hidden / display:none / 迟挂载", "action": "停机（N-IAN-025 / R-IAN-902）；法四门禁重写" },
+    { "no": 11, "trigger": "法四三处只改一处（半修）；或老 redlineRemap 被改写 / 删断言充当重锚；或保护段静默改段", "action": "停机（N-IAN-005/006/012/015 / R-IAN-006/918/920）" },
+    { "no": 12, "trigger": "体积非负却谎报净负；或为凑净负把 A 列改动搬 B 列规避", "action": "停机（FR-IAN-115 / R-IAN-908）" }
+  ],
+  "unfilledPoints": [
+    { "id": "IAN-P-004", "topic": "V3-VOL-3 档位升档的作者一句外部确认（跨叶共享）", "status": "pending-author-line", "owner": "TASK-IAN-224", "rule": "不得伪称已确认（N-IAN-013）" },
+    { "id": "IAN-P-005", "topic": "SG-IAN-03 字节账：binding 段前等长补偿是否可行（逃生口 = 八步）", "status": "pending-measurement", "owner": "TASK-IAN-213", "rule": "禁预填；实测字节为准，冲突回写 ADR-IAN-007 对应行（台账同轮）" },
+    { "id": "IAN-P-006", "topic": "A 列（叶2）实测净增（严格口径是否净负）+ 两叶 Σ + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-IAN-224", "rule": "禁预填；若非负须显式登记「为什么删面没有净负」+ 重新校准（FR-IAN-115 / R-IAN-908）" },
+    { "id": "IAN-P-007", "topic": "人工面 M3（卡内输入真机键盘手感 / 焦点流转）/ M4（读屏可用性）", "status": "pending-human", "owner": "TASK-IAN-222", "rule": "逐项 ⏳ 未执行 / PASS，不得冒充 PASS" },
+    { "id": "IAN-P-008", "topic": "法四三处修订的最终措辞（体例微调后语义逐字等价）", "status": "resolved-plan", "owner": "TASK-IAN-214", "rule": "old/new 逐字入台账（ADR-IAN-006）；不得升格法十" },
+    { "id": "IAN-P-009", "topic": "叶2 波次细化：op-wiring 重锚前移至 W1（与 DOM/写者删除同轮）", "status": "resolved-tasks", "owner": "TASK-IAN-205", "rule": "tasks 显式裁决（FR-IAN-091 同轮 + 每波收口门禁绿）" },
+    { "id": "IAN-P-010", "topic": "KL-N-10 家族 flake（page-input 陈旧 fixture / binding CDP / ask-auth 陈旧 profile）", "status": "pending-measurement", "owner": "TASK-IAN-223 / TASK-IAN-225", "rule": "隔离复跑 ≥2 + 日志全量；仍红如实记录不阻塞收口（EC-IAN-015 / R-IAN-012）" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "F-35 末叶 / 拆除叶任务：25 任务 / 3 波（TASK-IAN-201~225；S×0 / M×20 / L×5）。执行序承「停引 → 删面」8 步：W1 拆除（停引 → DOM/CSS 退役 → 写者消解 → 钩子重锚 → op-wiring 重锚同轮 → 登记退役）→ W2 重锚与唯一化（四兜底收敛 + #send-reason/sendDisabled/draft/引导 + R6 唯一化 + node 门禁重锚）→ W3 立法/门禁/保护段/验收（法四修订 + 台账 + 法四门禁 + 18 门禁收口 + journey 八步取代 + binding keep + S0''-B + 体积净负重登记）。1 个 spikeGate（SG-IAN-03 journey 八步字节账预演）；1 个新 node 门禁（law4-input-as-next，入 gate-integrity 下界只增）；S0''-B 落 W3（TASK-IAN-222）。**硬依赖叶1 validated（BLK-IAN-9）**。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+}

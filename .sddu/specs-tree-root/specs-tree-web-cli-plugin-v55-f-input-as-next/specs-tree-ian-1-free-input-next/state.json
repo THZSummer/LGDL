@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-ian-1-free-input-next",
   "version": "v0.11.2",
   "name": "IAN-1 流内自由输入 next 通道——推荐区按需最末项「自由输入…」+ 点开就地展开卡内输入（.ask-fallback 先例）+ 提交复用 op.turn 槽（唯一生产输入提交点）+ 手输/AI 驱动留痕 driver 两值可判 + 让位语义保留 + R6 双入口并存（旧 composer 入口保留可用）+ 流内草稿回填支持 + a11y focus + 零死端",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
+  "workflow": "4.tasks",
   "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
@@ -14,7 +14,7 @@
   "deliveryOrder": 1,
   "dependsOn": [],
   "createdAt": "2026-09-24",
-  "updatedAt": "2026-09-24",
+  "updatedAt": "2026-09-25",
   "description": "本叶 = F-35 的首叶 / 底座叶，交付「把自由输入搬进流内 next 闭环」的那一层：流内「自由输入…」next 项（next provider 产出；按需最末项；不常驻；不新增 kind）、点开就地展开卡内输入（复用/扩展 .ask-fallback 先例，askuser.ts:71-86,263-300）、卡内输入提交经 op.turn 槽（bindPanelOps.turn → requestTurn；唯一生产输入提交点）、手输与 AI 驱动留痕 driver 两值可判（next-registry/ai-drive.ts 零值纪律保持）、手输让位语义（proactivity.noteUserTurn）保留且不移入 requestTurn 内部、零死端（无其他候选时仍可达）、R6 双入口并存（新增流内入口 ∧ 旧 composer 入口保留可用 —— 中间态保护）、流内草稿回填支持（busy-rejected 回填流内输入；不覆盖新输入；卡收起 ⇒ 重新展开）、四处兜底入口的流内载体内接线（只 reveal 卡内 .ask-fallback）、a11y focus 落卡内、S0''-A 中间态样板（双入口均可提交 + 反证）、新 node 门禁 test/free-input-next.test.ts、体积叶1 收口重登记（正增量）。本叶不做 #composer DOM 真退役 / 双写者与锁存消解（叶2）、不做法四原地修订（叶2）、不做 requestTurn( 重锚恰 1 的落地（叶2）、不做 18 门禁重锚终态与 2 保护段决策（叶2）。",
   "scope": {
     "in": [
@@ -47,11 +47,15 @@
     "parentSpec": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/spec.md",
     "discovery": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md",
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/plan.md",
-    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/plan.md"
+    "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/state.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json"
   ],
   "coversFr": [
     "FR-IAN-001~007",
@@ -121,6 +125,14 @@
       "agent": "sddu-plan",
       "artifact": "specs-tree-ian-1-free-input-next/plan.md v1.0",
       "note": "叶1 plan：执行序 3 波（形态与末端项 / 通道与手输 / R6 与回填与验收）；定案映射父 ADR-IAN-001/002/003/008/009/010；12 项设计定案；文件影响 15 项；新增 node 门禁 test/free-input-next.test.ts；风险 15 条；交付物 8 项。叶1 零删面、零改上游；中间态双入口并存（S0-A）。零 src/test 改动、零门禁/构建、未调用受管 Provider。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-25",
+      "agent": "sddu-tasks",
+      "artifact": "specs-tree-ian-1-free-input-next/tasks.md + tasks.json v1.0",
+      "note": "tasks 阶段（2026-09-25）：IAN-1 叶 tasks.md/tasks.json —— 27 任务 / 3 波（TASK-IAN-101~127；S×4 / M×19 / L×4）。2 个 spikeGate（SG-IAN-01/02）；1 个新 node 门禁 free-input-next（FIN-1~8，入 gate-integrity 下界只增）；S0''-A 双面（node TASK-IAN-123 + Chromium TASK-IAN-124，样本单源 s0-chain.mjs 扩展）；体积叶1 正增量重登记 TASK-IAN-126。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
     }
   ],
   "openPointsRuled": [
@@ -130,5 +142,25 @@
     "PD-IAN-004 = 二者属不同卡的终端；无同卡并存（ADR-IAN-001）",
     "PD-IAN-005 = data-act='free-input' 为集 A 协议动作（不进 ACT_TO_OP）（ADR-IAN-001）"
   ],
-  "openPointsDeferred": []
+  "openPointsDeferred": [],
+  "tasks": {
+    "tasks": 27,
+    "waves": 3,
+    "range": "TASK-IAN-101~127",
+    "complexity": {
+      "S": 4,
+      "M": 19,
+      "L": 4
+    },
+    "spikeGates": [
+      "SG-IAN-01（TASK-IAN-101）",
+      "SG-IAN-02（TASK-IAN-108）"
+    ],
+    "newGates": [
+      "test/free-input-next.test.ts"
+    ],
+    "checkpoint": "CP-IAN-1",
+    "volume": "A 列 +2.5~+4.5 KB（正增量）；收口重登记 TASK-IAN-126",
+    "note": "27 任务 / 3 波：W1 形态与末端项（provider + 注入/floor + 终端渲染 + D0-5/D0-7 重锚 + SG-IAN-01）→ W2 通道与手输（卡内语义分支 + op.turn 槽 + driver + 让位 + a11y + SG-IAN-02 + FIN-1~6 骨架）→ W3 R6 双入口/流内回填 + FIN-7/8 + S0''-A 双面 + 体积叶1 正增量重登记。关键纪律：#composer 本叶不删；requestTurn( 本叶仍恰 2；法四本叶不动。"
+  }
 }

@@ -20,7 +20,9 @@ specs-tree-web-cli-plugin-v55-f-input-as-next/
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v55-f-input-as-next
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v0.11.2「输入即 next：废除流外独立输入框」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」）
-├── state.json          # 状态文件 (🟢 tracked [planned])
+├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── tasks.json          # 任务清单 (机器可读)
+├── tasks.md          # 任务分解：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」；父 Feature 统领性任务总览）
 ├── specs-tree-ian-1-free-input-next/          # 父规范 §2.2~§2.5 的**新面根因**全部落在本叶：「自由输入」作为 next 选项的形态缺
 └── specs-tree-ian-2-abolish-composer/          # 父规范 §2.2~§2.5 的**废面根因**全部落在本叶：`
 ```
@@ -41,14 +43,16 @@ specs-tree-web-cli-plugin-v55-f-input-as-next/
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v55-f-input-as-next — web-cli-plugin「**输入即 next（input-as-next）**」问题挖掘报告 —— 把作者裁决（**废除流外独立输入框；自由文本输入... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v0.11.2「输入即 next：废除流外独立输入框」；父 Feature 统领性技术方案） — v5（F-32）把「一切操作皆 next 流内闭环」立法；v5.5（F-33）把「下一步由谁按」转移到系统 / AI 侧；F-34（v5.5.1）把「下一... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」） — web-cli-plugin v5.5.2「输入即 next（input-as-next）：废除流外独立输入框」需求规范 —— 把作者裁决（**废除流外独... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [planned] |
+| state.json | 状态文件 | 🟢 tracked [tasked] |
+| tasks.json | 任务清单（机器可读） | ✅ 存在 |
+| tasks.md | 任务分解：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」；父 Feature 统领性任务总览） — `npm test` **1394** · `op-wiring`（`requestTurn(` 恰 2→**恰 1**）· `turn-arbitrat... | ✅ 存在 |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 设计 (3/7) |
-| Status | 🟢 tracked [planned] |
+| Phase | 任务分解 (4/7) |
+| Status | 🟢 tracked [tasked] |
 
 ## 上级目录
 - [返回上级](../TREE.md)

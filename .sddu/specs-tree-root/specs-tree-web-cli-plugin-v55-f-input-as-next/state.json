@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-input-as-next",
   "version": "v0.11.2",
   "name": "web-cli-plugin「输入即 next（input-as-next）：废除流外独立输入框，自由文本输入成为流内 next 的一个选项」—— ① 自由输入 next 形态（流内输入行/卡内输入，提交走 op.turn 槽）② #composer 废除面（DOM 真退役 + 双写者/锁存/设置态漏隐藏消解 + R6 排队/草稿回填迁移 + a11y focus）③ 四处兜底入口收敛到卡内 .ask-fallback ④ 法四修订（输入即 next：流外零输入面）+ supersession 台账 + 密度/l0/journey/insight/binding 判据重锚",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
+  "workflow": "4.tasks",
   "agent": "sddu-plan",
   "depth": 1,
   "parent": null,
@@ -15,7 +15,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/",
       "name": "IAN-1 流内自由输入 next 通道：新面 + 通道 + 迁移",
       "leaf": true,
-      "phase": "planned",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 1,
@@ -27,7 +27,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/",
       "name": "IAN-2 废除 #composer + 法四修订：DOM 真退役 + 判据重锚",
       "leaf": true,
-      "phase": "planned",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 2,
@@ -39,7 +39,7 @@
   ],
   "leaf": false,
   "createdAt": "2026-09-24",
-  "updatedAt": "2026-09-24",
+  "updatedAt": "2026-09-25",
   "description": "立项来源 = 作者裁决（2026-09-24，立法级，逐字：「不能打破 all-in-chat/next。既然由 next/chat 驱动用户选择/输入，那自然输入框也是在 chat 里面的 next 里面的一个选项，不应该存在单独的输入框」）+ 编排器已完成的只读诊断（#composer 显隐「与历史相关而非与状态相关」的三处缺陷：D-A 双写者 syncComposerVisibility vs l0.revealFallback/hideFallback；D-B fallbackOpen 锁存无生产复位；D-C 设置态漏隐藏）+ 上游 F-34 closeout（v0.11.1 / sidepanel 591,946 B / pending-author-line）。核心事实：#composer（index.html:1419-1422）是唯一「自由文本→回合」面且住在流外（v4.5 出流，host-registry.ts:114-145 保留为兼容读取面），与 all-in-chat/next 主线矛盾；四处兜底入口全部收敛到 revealAskFallback→卡内 .ask-fallback，而 #composer 只被附带 reveal（无独立入口）；R6 有界队列/草稿回填的唯一用户入口是 composer submit（requestTurn 恰 2 的第二处）。",
   "scope": {
     "core": [
@@ -87,7 +87,9 @@
     "ADR-IAN-009-s0pp-dual-face-validation.md",
     "ADR-IAN-010-volume-split-budget.md",
     "specs-tree-ian-1-free-input-next/plan.md",
-    "specs-tree-ian-2-abolish-composer/plan.md"
+    "specs-tree-ian-2-abolish-composer/plan.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/discovery.md",
@@ -109,7 +111,13 @@
     "ADR-IAN-009-s0pp-dual-face-validation.md",
     "ADR-IAN-010-volume-split-budget.md",
     "specs-tree-ian-1-free-input-next/plan.md",
-    "specs-tree-ian-2-abolish-composer/plan.md"
+    "specs-tree-ian-2-abolish-composer/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json"
   ],
   "coversIssues": [
     "Q-IAN-001 母问题：流外独立输入框与 all-in-chat/next 主线自相矛盾（#composer 是唯一自由文本→回合面且住在流外）",
@@ -398,6 +406,14 @@
       "agent": "sddu-plan",
       "artifact": "plan.md v1.0 + ADR-IAN-001~010（10 条正文）+ 2 叶 plan.md v1.0",
       "note": "plan 阶段（2026-09-24）：产出父 plan.md + 2 叶 plan.md + ADR-IAN-001~010 共 10 条正文。定案：①「自由输入…」= 新 provider free-input（when 恒真）+ recommendNextStep 单点注入为推荐卡恒最末终端项 + 无候选 floor 铸卡（零死端）；data-act=free-input 为集 A 卡族协议动作（SET_A_PROTOCOL_ACTIONS 8→9），不进 ACT_TO_OP（仍恰 6）；NEXTSTEP_PRIORITY 与 MAX_CHIPS_PER_CARD 逐字不动。② 卡内输入 = askuser kind 内第二语义分支（独立 requestId=free-input，复用 .ask-fallback 家系）；提交经 op.turn 槽（requestTurn( 叶1 仍 2 / 叶2 恰 1）。③ 手输 driver = MANUAL_DRIVER_ID='manual'（ai-drive.ts 单源，与声明驱动者 id 域不相交，同值必红）；让位语义在手输路径、槽外。④ R6：终端非 .next-chip ⇒ 在飞可用；回填载体从 #input 迁卡内（仅当为空 + 卡收起重展开）；turn-queue.ts 零 diff。⑤ ian-2 执行序 = 停引 → 删面（8 步）；NEVER_FOLDABLE 14→13；RETIRED_CONTAINER_IDS 13→16；draft 重锚（PD-006）。⑥ 法四原地修订三处（.sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md:116/225/385）+ old→new 台账；X-IAN-1~11 逐条处置（11/11 已发生）。⑦ 保护段：journey 43054..58287 = 八步显式取代（段内 #15c 语义互斥）；binding 107780..115930 = keep 字节中立（段内零读面）。⑧ 18 门禁三态齐 + 2 新 node 门禁（free-input-next / law4-input-as-next）入 gate-integrity 下界只增；CHROMIUM_GATES===9 不动。⑨ S0'' 双面验证（终态 10 步 + 中间态保护 + 元素不存在非 hidden 机核）。⑩ 体积分列预算：A 列 ian-1 +2.5~4.5 KB / ian-2 −2.5~−1.0 KB（目标净负；严格口径 −1.2~+0.3 KB 显式登记）；Σ×1.15 ≤ 距档 22,454 ⇒ 不触发升档；2.8× 最坏 ≈15.4 KB 仍不触发；EC-IAN-016 预置。PD-IAN-001~009 全部裁决。plan 阶段零 src/test/dist/docs/design/ROADMAP 改动、零门禁/构建/Chromium、未调用受管 Provider（routing.v1 = local_or_compute → none）。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-25",
+      "agent": "sddu-tasks",
+      "artifact": "tasks.md + tasks.json v1.0（父总览 + 2 叶 52 任务 / 6 波）",
+      "note": "tasks 阶段（2026-09-25）：产出父 tasks.md/tasks.json（总览型，0 可执行任务）+ 2 叶 tasks.md/tasks.json —— ian-1 27 任务 / 3 波（TASK-IAN-101~127；S×4 / M×19 / L×4）、ian-2 25 任务 / 3 波（TASK-IAN-201~225；S×0 / M×20 / L×5）；Σ 52 任务 / 6 波（S×4 / M×39 / L×9）。3 个 spikeGate（SG-IAN-01 op.turn 槽承载自由输入 / SG-IAN-02 askuser 第二语义分支不破载体 / SG-IAN-03 journey 八步字节账预演）；新增 2 node 门禁（free-input-next / law4-input-as-next 入 gate-integrity 下界只增）、升级 16 组既有门禁；18 门禁三态逐条落任务；S0''-A（叶1 TASK-IAN-123/124）+ S0''-B（叶2 TASK-IAN-222）；体积分列（叶1 +2.5~4.5 KB / 叶2 目标净负，EC-IAN-016 逐分支任务化）。tasks 级波次细化：叶2 op-wiring 重锚（恰 2→1）前移至 W1 与删面同轮（FR-IAN-091 + 每波收口门禁绿）。两叶硬串行（叶2 待叶1 validated）。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
     }
   ],
   "planDecisions": {
@@ -441,5 +457,50 @@
     "ADR-IAN-008-gate-reanchor-list.md",
     "ADR-IAN-009-s0pp-dual-face-validation.md",
     "ADR-IAN-010-volume-split-budget.md"
-  ]
+  ],
+  "tasks": {
+    "totalTasks": 52,
+    "totalWaves": 6,
+    "complexity": {
+      "S": 4,
+      "M": 39,
+      "L": 9
+    },
+    "leaves": {
+      "specs-tree-ian-1-free-input-next": {
+        "tasks": 27,
+        "waves": 3,
+        "range": "TASK-IAN-101~127",
+        "complexity": {
+          "S": 4,
+          "M": 19,
+          "L": 4
+        }
+      },
+      "specs-tree-ian-2-abolish-composer": {
+        "tasks": 25,
+        "waves": 3,
+        "range": "TASK-IAN-201~225",
+        "complexity": {
+          "S": 0,
+          "M": 20,
+          "L": 5
+        }
+      }
+    },
+    "spikeGates": [
+      "SG-IAN-01（TASK-IAN-101）",
+      "SG-IAN-02（TASK-IAN-108）",
+      "SG-IAN-03（TASK-IAN-213）"
+    ],
+    "newGates": [
+      "test/free-input-next.test.ts",
+      "test/law4-input-as-next.test.ts"
+    ],
+    "checkpoints": [
+      "CP-IAN-1（叶1）",
+      "CP-IAN-2（叶2）"
+    ],
+    "serialRule": "叶间硬串行：ian-2 于 ian-1 validated 后启动（R-IAN-901 / N-IAN-027）"
+  }
 }

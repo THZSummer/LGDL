@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-ian-2-abolish-composer",
   "version": "v0.11.2",
   "name": "IAN-2 废除 #composer + 法四修订——#composer/#input/#send DOM 真退役（非 hidden）+ CSS 退役 + 双写者（syncComposerVisibility）/ fallbackOpen 锁存 / 设置态漏调护栏一并消解 + 测试钩子 / NEVER_FOLDABLE / 兼容读取面登记退役 + 四处兜底收敛终态（去「双 reveal」）+ #send-reason / sendDisabled / draft / 引导重锚 + 法四原地修订（old→new 逐字 + 台账；不升格法十）+ 18 门禁逐一处置 + 2 保护段逐段决策 + 体积净负增量重登记 + S0''-B 终态样板",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
+  "workflow": "4.tasks",
   "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
@@ -16,7 +16,7 @@
     "specs-tree-ian-1-free-input-next"
   ],
   "createdAt": "2026-09-24",
-  "updatedAt": "2026-09-24",
+  "updatedAt": "2026-09-25",
   "description": "本叶 = F-35 的末叶 / 拆除叶（依赖叶1 已建立流内输入面 ⇒ 拆旧面后仍必有流内输入可用），交付「把那块本就自相矛盾的流外面真退役 + 把立法与门禁强度同步重锚」的那一层：#composer/#input/#send DOM 真退役（非 hidden）+ 6 条 CSS 规则退役 + 双写者消解（删 syncComposerVisibility 及两个调用点；l0.revealFallback/hideFallback 只操作卡内 .ask-fallback）+ fallbackOpen 历史锁存删除 + 设置态漏调护栏随面消解（三区 CSS 逐字不变）+ 测试钩子 __v3.testing.revealFallback/hideFallback 重锚（或台账退役）+ NEVER_FOLDABLE 移除 composer + 兼容读取面登记退役（PRESERVED 移除三项 + #composer 入 RETIRED_CONTAINER_IDS，13 → ≥14）+ 四处兜底入口收敛终态（停止附带 reveal 流外面；卡内为唯一兜底输入载体）+ #send-reason 保留但断言重锚（状态提示 ≠ 输入面）+ sendDisabled/sendDisabledReason/draft 重锚 + 首装引导改指 + 法四原地修订（old→new 逐字：输入按需出现：无常驻输入框… → 输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面；三处一致；不升格法十）+ supersession 台账 old→new（老 redlineRemap ≥3 保留）+ 法四机核门禁 test/law4-input-as-next.test.ts + requestTurn( 重锚恰 1 + R6 入口/回填载体唯一化 + TA-4 重锚（删回填仍必红）+ 18 门禁逐一处置（node 10 + Chromium 8，三态齐）+ 2 保护段逐段决策（journey 43054..58287 / sha cc79f413…；binding 107780..115930 / sha be9ad0e9…；keep 字节中立或八步取代 + 台账）+ S0''-B 终态样板 + 体积净负增量收口重登记（五要素 + V3-VOL-3 三值）+ 冻结面零容差。本叶不新建流内面（叶1 已交付）、不新增 kind、不改 base/content/pick-layer/判定链/SW 队列本体、不升格法十。",
   "scope": {
     "in": [
@@ -52,11 +52,15 @@
     "upstreamLeaf": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
     "plan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/plan.md",
     "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/plan.md",
-    "upstreamLeafPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/plan.md"
+    "upstreamLeafPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/plan.md",
+    "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.md",
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/spec.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/state.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json"
   ],
   "coversFr": [
     "FR-IAN-040~049",
@@ -122,6 +126,14 @@
       "agent": "sddu-plan",
       "artifact": "specs-tree-ian-2-abolish-composer/plan.md v1.0",
       "note": "叶2 plan：执行序 8 步（停引→删面→写者消解→登记退役→重锚→唯一化→立法→门禁/保护段/验收）；定案映射父 ADR-IAN-002~010；17 项设计定案；文件影响 ~20 项；新增 node 门禁 test/law4-input-as-next.test.ts；风险 16 条；交付物 9 项。强依赖叶1 已 validated。法四三处原地修订 + old→new 台账；journey 八步取代 / binding keep；NEVER_FOLDABLE 14→13；RETIRED_CONTAINER_IDS 13→16；requestTurn( 恰 1；体积净负重登记（非负则如实说明）。零 src/test 改动、零门禁/构建、未调用受管 Provider。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-25",
+      "agent": "sddu-tasks",
+      "artifact": "specs-tree-ian-2-abolish-composer/tasks.md + tasks.json v1.0",
+      "note": "tasks 阶段（2026-09-25）：IAN-2 叶 tasks.md/tasks.json —— 25 任务 / 3 波（TASK-IAN-201~225；S×0 / M×20 / L×5）。1 个 spikeGate（SG-IAN-03 journey 八步字节账）；1 个新 node 门禁 law4-input-as-next（L4-1~6，入 gate-integrity 下界只增）；18 门禁三态逐条重锚；journey 八步取代 + binding keep 字节中立；S0''-B 终态样板 TASK-IAN-222；体积叶2 净负重登记 TASK-IAN-224（含两叶 Σ）。波次细化：op-wiring 重锚前移至 W1（与删面同轮）。硬依赖叶1 validated。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
     }
   ],
   "openPointsRuled": [
@@ -130,5 +142,24 @@
     "PD-IAN-008 = RETIRED_CONTAINER_IDS 13→16；RETIRED_HOST_ATTRS 逐字不动（ADR-IAN-005）",
     "PD-IAN-009 = journey=八步取代；binding=keep 字节中立（ADR-IAN-007）"
   ],
-  "openPointsDeferred": []
+  "openPointsDeferred": [],
+  "tasks": {
+    "tasks": 25,
+    "waves": 3,
+    "range": "TASK-IAN-201~225",
+    "complexity": {
+      "S": 0,
+      "M": 20,
+      "L": 5
+    },
+    "spikeGates": [
+      "SG-IAN-03（TASK-IAN-213）"
+    ],
+    "newGates": [
+      "test/law4-input-as-next.test.ts"
+    ],
+    "checkpoint": "CP-IAN-2",
+    "volume": "A 列目标净负 −2.5~−1.0 KB（严格口径 −1.2~+0.3 KB）；收口重登记 TASK-IAN-224（含两叶 Σ）",
+    "note": "25 任务 / 3 波：W1 拆除（停引 → DOM/CSS 退役 → 写者消解 → 钩子重锚 → op-wiring 重锚同轮 → 登记退役）→ W2 重锚与唯一化（四兜底收敛 + #send-reason/sendDisabled/draft/引导 + R6 唯一化 + node 门禁重锚）→ W3 立法/门禁/保护段/验收（法四修订 + 台账 + 法四门禁 + journey 八步 + binding keep + S0''-B + 体积净负）。波次细化：op-wiring 重锚前移至 W1（与删面同轮）。硬依赖叶1 validated。"
+  }
 }
