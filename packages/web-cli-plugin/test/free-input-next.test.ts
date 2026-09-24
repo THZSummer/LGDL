@@ -32,6 +32,8 @@ import { listDriverDecls, serviceOfCtxField } from '../src/ui/sidepanel/next-reg
 import { registerBuiltinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
 import { resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';
 import { recommendNextStep, type RecommendInput } from '../src/ui/sidepanel/recommend.js';
+import { FREE_INPUT_REQUEST_ID, askFixedText } from '../src/ui/sidepanel/cards/askuser.js';
+import { ASK_COPY } from '../src/ui/sidepanel/stream-plaintext.js';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel: string): string => readFileSync(join(PKG, rel), 'utf8');
@@ -57,6 +59,10 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'FIN-5-yield-semantics-outside-slot', expectFailPattern: '让位语义必须在 requestTurn 函数体之外（手输路径）' },
   { id: 'FIN-6-empty-submit-not-silent', expectFailPattern: '空 / 纯空白提交必须不产生空回合且不静默（有可读行）' },
   { id: 'FIN-0-zero-new-carrier', expectFailPattern: '零新增载体（KIND_SET 40 / 12 kind / 零宿主 / 终端不经 ACT_TO_OP）' },
+  // ★ IAN-1 R2（TASK-IAN-121 · FR-IAN-033 / FR-IAN-018）：场景门禁补全（只增，不改既有七条）。
+  { id: 'FIN-7-backfill-no-overwrite', expectFailPattern: '回填不覆盖：仅当输入处为空 / 卡收起重展开 / 卡不存在按需铸造（双载体并存，删掉即红）' },
+  { id: 'FIN-8-law8-input-payload', expectFailPattern: '法八：输入文本仅走 chat user 载荷 ∧ 卡固化不回显值（四面零明文）' },
+  { id: 'FIN-9-tri-state-control', expectFailPattern: '三段控制：ok / violated / n/a 逐态可达（n/a 不冒充 ok，禁恒真）' },
 ];
 
 /* ── 工具（与 `test/r6-ty-experience-fix` 同口径的切片 / 注释剥离）──────────────── */
@@ -367,8 +373,162 @@ test('FIN-0 载体：终端文案单源 ∧ 卡内输入复用既有 requestId �
   assert.ok(!/requestId: 'ref-describe'[\s\S]{0,80}free-input/.test(ask), '两个语义身份不得合流');
 });
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ IAN-1 R2（**TASK-IAN-121** · ADR-IAN-003 §2 · ADR-IAN-008 §② · FR-IAN-033 / 018 / 064 ·
+ * AC-IAN-016/019）—— 场景门禁补全：**FIN-7**（回填不覆盖：仅当为空 / 卡收起重展开 / 卡不存在
+ * 按需铸造；双载体并存）+ **FIN-8**（法八：输入文本仅走 `chat` `user` 载荷 ∧ 卡固化不回显值）
+ * + **FIN-9**（三段控制 ok / violated / n/a 逐态可达，`n/a` 不冒充 `ok`）。
+ *
+ * 真源切片：判据读**生产模块**（`sidepanel.ts` 切片 ∧ `askuser.ts#askFixedText` 真调用），
+ * 不读测试自建常量；每条判据含 `expectFailPattern` + 独立反证（禁恒真）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 顶层声明体切片（截到**列 0** 的 `\n}`；内层块缩进 ⇒ 不误截多行 `if {}` 块）。 */
+export function topLevelBody(source: string, decl: string): string {
+  const at = source.indexOf(decl);
+  if (at < 0) return '';
+  const end = source.indexOf('\n}', at);
+  return end < 0 ? source.slice(at) : source.slice(at, end + 2);
+}
+
+/**
+ * **FIN-7 判据本体**（回填不覆盖）。`panelSource` = `sidepanel.ts` 源文本。
+ * 五条：① 写回被拒原话（不丢）② 仅当卡内输入为空（不覆盖）③ 卡收起 ⇒ 重展开
+ * ④ 卡不存在 ⇒ 按需铸造 ⑤ 流外 `#input` 回填**仍在**（双载体并存）。
+ */
+export function backfillProblems(panelSource: string): string[] {
+  const problems: string[] = [];
+  const body = topLevelBody(panelSource, 'function restoreFreeInputDraft(');
+  const fail = JUDGEMENTS[7].expectFailPattern;
+  if (body.length === 0) {
+    problems.push(`${fail}：流内回填体必须可定位（否则判据空转）`);
+    return problems;
+  }
+  if (!/input\.value\s*=\s*rejected/.test(body)) problems.push(`${fail}：必须写回被拒原话（不丢）`);
+  if (!/input\.value\.length\s*>\s*0\s*\)\s*return false/.test(body)) problems.push(`${fail}：仅当卡内输入为空（不覆盖用户新输入）`);
+  if (!/setCardFallbackOpen\(form,\s*true\)/.test(body)) problems.push(`${fail}：卡收起必须重展开（+ focus）`);
+  if (!/openFreeInputCard\(\)/.test(body)) problems.push(`${fail}：卡不存在必须按需铸造并回填`);
+  // ⑤ 双载体并存（叶1）：流外 `#input` 回填逐字保留（不得因迁卡内而删）。
+  if (!/draftInput\.value\.length\s*===\s*0/.test(panelSource) || !/draftInput\.value\s*=\s*rejected/.test(panelSource)) {
+    problems.push(`${fail}：流外 #input 回填必须逐字保留（双载体并存）`);
+  }
+  return problems;
+}
+
+test('FIN-7 回填不覆盖：卡在仅当为空 / 卡收起重展开 / 卡不存在按需铸造 / 双载体并存', () => {
+  assert.deepEqual(backfillProblems(SIDEPANEL), [], JUDGEMENTS[7].expectFailPattern);
+  // 反证①：去掉「仅当为空」守卫 ⇒ 必红（复现「回填覆盖非空」）。
+  const overwrite = SIDEPANEL.replace('if (input.value.length > 0) return false;', 'void 0;');
+  assert.notEqual(overwrite, SIDEPANEL, '前置：不覆盖守卫锚点必须存在');
+  assert.ok(backfillProblems(overwrite).some((p) => p.includes('不覆盖')), '回填覆盖非空 ⇒ 必红');
+  // 反证②：删「卡收起重展开」⇒ 必红。
+  const noReopen = SIDEPANEL.replace('  setCardFallbackOpen(form, true);\n  // 作用域限定', '  void 0;\n  // 作用域限定');
+  assert.notEqual(noReopen, SIDEPANEL, '前置：重展开锚点必须存在');
+  assert.ok(backfillProblems(noReopen).some((p) => p.includes('重展开')), '卡收起不重展开 ⇒ 必红');
+  // 反证③：删「卡不存在按需铸造」⇒ 必红。
+  const noMint = SIDEPANEL.replace('if (!freeInputCardId()) openFreeInputCard();', 'if (!freeInputCardId()) return false;');
+  assert.notEqual(noMint, SIDEPANEL, '前置：按需铸造锚点必须存在');
+  assert.ok(backfillProblems(noMint).some((p) => p.includes('按需铸造')), '卡不存在不铸造 ⇒ 必红');
+  // 反证④：删流外 `#input` 回填（双载体退化为单载体）⇒ 必红。
+  const noInput = SIDEPANEL.replace('if (restoredInput) draftInput.value = rejected;', '');
+  assert.notEqual(noInput, SIDEPANEL, '前置：流外回填锚点必须存在');
+  assert.ok(backfillProblems(noInput).some((p) => p.includes('双载体并存')), '删流外载体 ⇒ 必红');
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(backfillProblems(SIDEPANEL), []);
+});
+
+/** FIN-8 行为哨兵（绝不得出现在任何固化 / 载荷回显面）。 */
+export const FIN8_SENTINEL = 'FIN8-哨兵-原地翻译-9c3f';
+
+/**
+ * **FIN-8 判据本体**（法八）。真源切片：
+ *   · `submitFreeInput` **只**经 `op.turn` 槽（不另成 assistant/command/tool 载荷、不把文本当 notice 正文）；
+ *   · 卡固化文案**单源**且**不含**回显占位符（`{answer}` 等）；
+ *   · `askuser.ts#askFixedText` **真调用**（free-input 分支）⇒ 固化文本不含用户文本。
+ */
+export function law8Problems(panelSource: string, fixedCopy: string, fixedTextOfFreeInput: string): string[] {
+  const problems: string[] = [];
+  const fail = JUDGEMENTS[8].expectFailPattern;
+  const submit = topLevelBody(panelSource, 'function submitFreeInput(');
+  if (submit.length === 0) {
+    problems.push(`${fail}：提交体必须可定位（否则判据空转）`);
+    return problems;
+  }
+  if (!/dispatchOp\('op\.turn',\s*\{\s*value:\s*text\s*\}\)/.test(submit)) {
+    problems.push(`${fail}：输入文本必须只经 op.turn 槽（chat user 载荷）`);
+  }
+  if (/dispatch\(\{\s*type:\s*'(?:assistant|command|tool)'/.test(submit)) {
+    problems.push(`${fail}：不得另成 assistant/command/tool 载荷`);
+  }
+  if (/dispatch\(\{\s*type:\s*'notice',\s*text:\s*text/.test(submit) || /type:\s*'system',\s*text/.test(submit)) {
+    problems.push(`${fail}：不得把用户文本当 notice / system 行正文`);
+  }
+  if (/input\.value/.test(submit)) {
+    problems.push(`${fail}：提交体不得读 DOM 值作第二载荷（值只作槽参数）`);
+  }
+  if (/\{(?:answer|value)\}|\$\{[^}]*answer[^}]*\}/.test(fixedCopy)) {
+    problems.push(`${fail}：卡固化文案不得含回显占位符`);
+  }
+  if (fixedTextOfFreeInput.includes(FIN8_SENTINEL)) {
+    problems.push(`${fail}：卡固化不得回显用户文本`);
+  }
+  return problems;
+}
+
+test('FIN-8 法八：输入文本仅走 chat user 载荷 ∧ 卡固化不回显值（真源切片）', () => {
+  // 真源切片：`askFixedText` 是生产模块的真函数（free-input 分支 ⇒ 单源固化文案，不回显）。
+  const fixed = askFixedText({ terminal: 'answered', payload: { requestId: FREE_INPUT_REQUEST_ID, answer: FIN8_SENTINEL }, ts: 0 } as never);
+  assert.equal(fixed, ASK_COPY.freeInputSubmitted, 'free-input 固化必须读单源文案（不是 answeredPrefix + 值）');
+  assert.equal(fixed.includes(FIN8_SENTINEL), false, '固化不得回显用户文本');
+  assert.deepEqual(law8Problems(SIDEPANEL, ASK_COPY.freeInputSubmitted, fixed), [], JUDGEMENTS[8].expectFailPattern);
+  // 反证①：提交改走 assistant 行（文本落流内明文）⇒ 必红。
+  const forged = SIDEPANEL.replace("void dispatchOp('op.turn', { value: text });", "dispatch({ type: 'assistant', text });");
+  assert.notEqual(forged, SIDEPANEL, '前置：提交注入锚点必须存在');
+  assert.ok(law8Problems(forged, ASK_COPY.freeInputSubmitted, fixed).length > 0, '文本落流内明文 ⇒ 必红');
+  // 反证②：固化文案改成回显值（`answeredPrefix + answer`）⇒ 必红（另一分支的形态）。
+  const echoing = askFixedText({ terminal: 'answered', payload: { requestId: 'ref-describe', answer: FIN8_SENTINEL }, ts: 0 } as never);
+  assert.ok(echoing.includes(FIN8_SENTINEL), '对照：普通 answer 卡确实回显（说明 free-input 分支是真特例）');
+  assert.ok(
+    law8Problems(SIDEPANEL, ASK_COPY.freeInputSubmitted, echoing).some((p) => p.includes('回显')),
+    'free-input 固化回显值 ⇒ 必红',
+  );
+  // 还原 ⇒ 全绿。
+  assert.deepEqual(law8Problems(SIDEPANEL, ASK_COPY.freeInputSubmitted, fixed), []);
+});
+
+/* ── FIN-9 三段控制（ok / violated / n/a）────────────────────────────────────── */
+
+export type TriState = 'ok' | 'violated' | 'n/a';
+
+/**
+ * **三段控制**（承 `driver-terminals` 先例）：判定读数 `true` ⇒ `ok`；`false` ⇒ `violated`；
+ * **读不到**（`undefined`，证据面不可达）⇒ `n/a` —— `n/a` **既不冒充 `ok` 也不冒充 `violated`**
+ * （禁把「判据空转」当通过）。
+ */
+export function triState(reading: boolean | undefined): TriState {
+  if (reading === undefined) return 'n/a';
+  return reading ? 'ok' : 'violated';
+}
+
+test('FIN-9 三段控制：ok / violated / n/a 逐态可达（n/a 不冒充 ok，禁恒真）', () => {
+  // ok：生产事实通过。
+  assert.equal(triState(backfillProblems(SIDEPANEL).length === 0), 'ok', '生产事实 ⇒ ok');
+  // violated：注入「回填覆盖非空」⇒ 同一判据 red ⇒ violated。
+  const overwrite = SIDEPANEL.replace('if (input.value.length > 0) return false;', 'void 0;');
+  assert.notEqual(overwrite, SIDEPANEL, '前置：注入锚点必须存在');
+  assert.equal(triState(backfillProblems(overwrite).length === 0), 'violated', '注入 ⇒ violated');
+  // n/a：判据体不可定位（证据面不可达）⇒ n/a（**不**冒充 ok）。
+  assert.equal(triState(undefined), 'n/a', '读不到 ⇒ n/a');
+  assert.notEqual(triState(undefined), 'ok', 'n/a 不得冒充 ok');
+  assert.notEqual(triState(undefined), 'violated', 'n/a 不得冒充 violated');
+  // 禁恒真：三段互斥且可达（把「读不到」当通过是恒真形态 ⇒ 本判据必须能把它判出来）。
+  const states: TriState[] = [triState(true), triState(false), triState(undefined)];
+  assert.deepEqual(states, ['ok', 'violated', 'n/a'], '三段必须逐态可达');
+  assert.equal(new Set(states).size, 3, '三段互斥（禁两态混池）');
+});
+
 test('FIN 元判据：每条 judgement 都声明非占位 expectFailPattern', () => {
-  assert.equal(JUDGEMENTS.length, 7, '判据表必须覆盖 FIN-0~FIN-6');
+  assert.equal(JUDGEMENTS.length, 10, '判据表必须覆盖 FIN-0~FIN-9（只增：R1 七条 + R2 三条）');
   for (const j of JUDGEMENTS) {
     assert.ok(j.expectFailPattern.trim().length >= 8, `${j.id}: expectFailPattern 不得为空/占位`);
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);

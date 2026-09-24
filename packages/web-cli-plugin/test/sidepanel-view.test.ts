@@ -121,6 +121,81 @@ test('button states: authorize/revoke/send are consistent with the bound-origin 
   );
 });
 
+// ── ★ IAN-1（TASK-IAN-120 · FR-IAN-030/054 · ADR-IAN-003 §1）────────────────
+//
+// R6「在飞不硬禁用」判据的**等价重锚**：叶1 新增**流内**输入面后，「在飞可提交」必须同时
+// 落在流外 composer（原断言，逐字保留）与**流内**终端/卡内输入（本断言）**两处**。
+// 判据不在 `buttonStates` 上（那是流外面），而在**终端 class 单源**与**提交体的异常态硬拒**上：
+//   · 终端 class = `.next-terminal`（故意不是 `.next-chip`）⇒ 既有在飞同步器 `syncNextstepPending`
+//     **不会**禁用它；同 class ⇒ 在飞被硬禁用 ⇒ 必红；
+//   · 流内提交体 `submitFreeInput` 只保留异常态硬拒（无活跃站点），**不得**按 `pending` 门控
+//     （与 `requestTurn` 的 R6 口径同源）。
+// ────────────────────────────────────────────────────────────────────────────
+
+/** 流内输入面「在飞不硬禁用」的判据本体（纯函数，注入式 ⇒ 反证可打在源码文本上）。 */
+export function streamInputFaceProblems(nextstepSrc: string, sidepanelSrc: string): string[] {
+  const problems: string[] = [];
+  const terminal = /export const NEXT_TERMINAL_CLASS = '([^']+)'/.exec(nextstepSrc)?.[1];
+  const chip = /export const NEXT_CHIP_CLASS = '([^']+)'/.exec(nextstepSrc)?.[1];
+  if (terminal !== 'next-terminal') {
+    problems.push(`流内终端 class 必须单源为 'next-terminal'（实测 ${String(terminal)}）`);
+  }
+  if (terminal !== undefined && terminal === chip) {
+    problems.push('流内终端不得与 `.next-chip` 同 class（否则在飞被 `syncNextstepPending` 硬禁用）');
+  }
+  const sync = /export function syncNextstepPending\(([\s\S]*?)\n\}/.exec(nextstepSrc)?.[1] ?? '';
+  if (sync.length === 0) {
+    problems.push('在飞同步器切片必须可定位（否则判据空转）');
+  } else if (/NEXT_TERMINAL_CLASS|next-terminal/.test(sync)) {
+    problems.push('在飞同步器不得把流内终端纳入禁用面（`pending` 只压 `.next-chip`）');
+  }
+  const submit = /function submitFreeInput\(([\s\S]*?)\n\}/.exec(sidepanelSrc)?.[1] ?? '';
+  if (submit.length === 0) {
+    problems.push('流内提交体切片必须可定位（否则判据空转）');
+  } else {
+    if (/buttonStates\(|state\.pending/.test(submit)) problems.push('流内提交不得经 `buttonStates` / `state.pending` 的在飞门控');
+    if (!/if \(!state\.activeOrigin\)/.test(submit)) {
+      problems.push('流内提交仅异常态硬拒（无活跃站点）—— 否则在飞被硬禁用');
+    }
+  }
+  return problems;
+}
+
+test('★ IAN-1（TASK-IAN-120）：在飞不硬禁用**流内**输入面（终端非 .next-chip ∧ 提交不按 pending 门控）', () => {
+  const nextstepSrc = read('../../src/ui/sidepanel/cards/nextstep.ts');
+  const sidepanelSrc = read('../../src/ui/sidepanel/sidepanel.ts');
+  assert.deepEqual(streamInputFaceProblems(nextstepSrc, sidepanelSrc), [], '流内输入面在飞可提交（与流外 composer 同口径）');
+  // 反证一：把终端 class 改成 `.next-chip`（在飞被硬禁用）⇒ 必红。
+  const sameClass = nextstepSrc.replace("export const NEXT_TERMINAL_CLASS = 'next-terminal';", "export const NEXT_TERMINAL_CLASS = 'next-chip';");
+  assert.notEqual(sameClass, nextstepSrc, '前置：终端 class 注入锚点必须存在');
+  assert.ok(
+    streamInputFaceProblems(sameClass, sidepanelSrc).some((p) => p.includes('同 class')),
+    '终端与 .next-chip 同 class ⇒ 必红',
+  );
+  // 反证二：把流内提交改成按 pending 门控 ⇒ 必红（复现 R6 硬拒缺陷的流内变体）。
+  const gated = sidepanelSrc.replace(
+    'function submitFreeInput(value: string | undefined): void {',
+    'function submitFreeInput(value: string | undefined): void {\n  if (state.pending) return;',
+  );
+  assert.notEqual(gated, sidepanelSrc, '前置：提交体注入锚点必须存在');
+  assert.ok(
+    streamInputFaceProblems(nextstepSrc, gated).some((p) => p.includes('在飞门控')),
+    '流内提交按 pending 门控 ⇒ 必红',
+  );
+  // 反证三：在飞同步器把终端也压上 ⇒ 必红。
+  const syncGreedy = nextstepSrc.replace(
+    'const chips = container.querySelectorAll<HTMLButtonElement>(`button.${NEXT_CHIP_CLASS}`);',
+    'const chips = container.querySelectorAll<HTMLButtonElement>(`button.${NEXT_CHIP_CLASS}, button.${NEXT_TERMINAL_CLASS}`);',
+  );
+  assert.notEqual(syncGreedy, nextstepSrc, '前置：同步器注入锚点必须存在');
+  assert.ok(
+    streamInputFaceProblems(syncGreedy, sidepanelSrc).some((p) => p.includes('禁用面')),
+    '在飞同步器压终端 ⇒ 必红',
+  );
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(streamInputFaceProblems(nextstepSrc, sidepanelSrc), []);
+});
+
 // ── F-5 / F-4 ─────────────────────────────────────────────────────────────
 
 test('empty log: placeholder text is provided and only used when there are no entries', () => {

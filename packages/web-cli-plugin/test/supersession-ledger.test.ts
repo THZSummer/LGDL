@@ -2709,3 +2709,128 @@ test('V5.5F-2 RL-06 扩批量变体：AI 代答计划 / 建议即同意 / 自动
   }
   assert.deepEqual(bulkConsentProxyProblems({ answeredByAi: [], suggestedAsConsent: [], autoExpanded: [] }), [], '还原 ⇒ PASS');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * IAN-1 **TASK-IAN-127**（ADR-IAN-003 §2 · ADR-IAN-008 §② · ADR-IAN-009 §② ·
+ * FR-IAN-100/102 · AC-IAN-018/020）—— **X-IAN-1~7 台账骨架 + 本叶门禁对账骨架**。
+ *
+ * 叶1 只立骨架（终态由叶2 `specs-tree-ian-2-abolish-composer` 收口）：**已发生取代**
+ * （等价重锚，非放宽）与**未发生取代**（如实登记）逐条给出可定位 counterCheck 与非套话解释；
+ * 门禁对账逐项 old→new 且断言零删除零降级。反证：非法 decision / 缺条 / counterCheck 悬空 /
+ * 断言数非零 / 缺 before-after ⇒ 必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XIianRow {
+  readonly id: string;
+  readonly decision: string;
+  readonly owner: string;
+  readonly counterCheck: string;
+  readonly evidence: string;
+}
+
+/** X-IAN-1~7 台账判据（注入 `exists` ⇒ 反证可打在判据上）。 */
+export function xIianLedgerProblems(rows: readonly XIianRow[], exists: (rel: string) => boolean): string[] {
+  const p = 'X-IAN-1~7 取代台账骨架一致性：逐条登记 + decision 显式 + counterCheck 可定位';
+  const problems: string[] = [];
+  const expected = ['X-IAN-1', 'X-IAN-2', 'X-IAN-3', 'X-IAN-4', 'X-IAN-5', 'X-IAN-6', 'X-IAN-7'];
+  const ids = rows.map((r) => r.id);
+  for (const id of expected) if (!ids.includes(id)) problems.push(`${p}：${id} 必须逐条登记（不得留空）`);
+  for (const r of rows) {
+    if (!['superseded', 'no-supersession'].includes(r.decision)) {
+      problems.push(`${p}：${r.id} 的 decision="${r.decision}" 非法（只允许 superseded / no-supersession）`);
+    }
+    if ((r.owner ?? '').trim().length < 4) problems.push(`${p}：${r.id} 必须写明 owner（哪一叶落地）`);
+    if ((r.evidence ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的解释必须非套话（≥20 字符）`);
+    const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
+    if (refs.length === 0) problems.push(`${p}：${r.id} 的 counterCheck 必须指向真实门禁文件`);
+    for (const ref of refs) {
+      if (!exists(ref) && !exists(`packages/web-cli-plugin/${ref}`)) {
+        problems.push(`${p}：${r.id} 的 counterCheck 悬空（${ref} 不存在）`);
+      }
+    }
+  }
+  if (!rows.some((r) => r.decision === 'no-supersession')) {
+    problems.push(`${p}：至少一条必须是**未发生取代**（如实登记「未发生」不得留空）`);
+  }
+  if (!rows.some((r) => r.decision === 'superseded')) {
+    problems.push(`${p}：至少一条必须是**已发生取代**（等价重锚，不得伪造「零取代」）`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段 · IAN-1): X-IAN-1~7 逐条登记 ∧ 「未发生取代」如实 ∧ counterCheck 可定位', () => {
+  const v4 = readV4Ledger() as unknown as { xIianLedger?: { rows?: readonly XIianRow[]; leaf?: string; adr?: string } };
+  const rows = v4.xIianLedger?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xIianLedgerProblems(rows, existsRel), [], 'X-IAN 台账骨架一致性未通过');
+  assert.equal(v4.xIianLedger?.leaf, 'specs-tree-ian-1-free-input-next');
+  assert.match(String(v4.xIianLedger?.adr ?? ''), /ADR-IAN-00[239]/);
+  // X-IAN-7（叶1 侧：回填载体双载体并存）必须显式登记（本叶收口骨架的决定性条目）。
+  const x7 = rows.find((r) => r.id === 'X-IAN-7');
+  assert.ok(x7, 'X-IAN-7 必须登记（回填载体双载体并存）');
+  assert.match(String(x7?.evidence ?? ''), /流内/, 'X-IAN-7 必须写明流内载体');
+  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 缺条 ⇒ 同一判据必红。
+  assert.ok(xIianLedgerProblems(rows.map((r) => (r.id === 'X-IAN-7' ? { ...r, decision: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')));
+  assert.ok(
+    xIianLedgerProblems(rows.map((r) => (r.id === 'X-IAN-4' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')),
+  );
+  assert.ok(xIianLedgerProblems(rows.filter((r) => r.id !== 'X-IAN-5'), existsRel).some((x) => x.includes('X-IAN-5')));
+  assert.deepEqual(xIianLedgerProblems(rows, existsRel), []);
+});
+
+interface XIianGateRow {
+  readonly gate: string;
+  readonly before: string;
+  readonly after: string;
+  readonly assertionsRemoved: number;
+  readonly reason: string;
+}
+
+/** 本叶门禁对账骨架判据（注入式 ⇒ 反证可打）。 */
+export function xIianGateReconciliationProblems(rows: readonly XIianGateRow[]): string[] {
+  const p = 'IAN-1 门禁对账骨架一致性';
+  const problems: string[] = [];
+  if (rows.length < 8) problems.push(`${p}：至少登记 8 个本叶触碰的门禁（骨架不得空转，实测 ${rows.length}）`);
+  for (const r of rows) {
+    if ((r.gate ?? '').trim().length === 0) problems.push(`${p}：gate 必填`);
+    if ((r.before ?? '').trim().length === 0 || (r.after ?? '').trim().length === 0) {
+      problems.push(`${p}：${r.gate} 必须显式 old→new（before / after 均非空）`);
+    }
+    if (r.assertionsRemoved !== 0) {
+      problems.push(`${p}：${r.gate} 断言零删除零降级（实测 removed=${r.assertionsRemoved}）`);
+    }
+    if ((r.reason ?? '').trim().length < 20) problems.push(`${p}：${r.gate} 理由必须非套话（≥20 字符）`);
+  }
+  if (!rows.some((r) => r.before.includes('（不存在）'))) {
+    problems.push(`${p}：必须登记本叶**新增**门禁（before = （不存在））`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段 · IAN-1): 本叶门禁对账骨架逐项 old→new ∧ 断言零删除零降级', () => {
+  const v4 = readV4Ledger() as unknown as { xIianGateReconciliation?: { rows?: readonly XIianGateRow[]; leaf?: string } };
+  const rows = v4.xIianGateReconciliation?.rows ?? [];
+  assert.deepEqual(xIianGateReconciliationProblems(rows), [], 'IAN-1 门禁对账骨架未通过');
+  assert.equal(v4.xIianGateReconciliation?.leaf, 'specs-tree-ian-1-free-input-next');
+  // 本叶决定性门禁必须逐项在册（新增门禁 + 4 枚等价重锚 + 2 枚体积 + 本台账）。
+  for (const gate of ['free-input-next', 'turn-arbitration', 'r6-ty-experience-fix', 'gate-integrity', 's0-self-driven', 'supersession-ledger']) {
+    assert.ok(rows.some((r) => r.gate.includes(gate)), `门禁对账必须登记 ${gate}`);
+  }
+  // 反证：断言数非零 / 缺 before-after / 少于 8 行 ⇒ 必红。
+  assert.ok(xIianGateReconciliationProblems(rows.map((r) => ({ ...r, assertionsRemoved: 1 }))).some((x) => x.includes('零删除')));
+  assert.ok(xIianGateReconciliationProblems(rows.map((r) => ({ ...r, before: '' }))).some((x) => x.includes('old→new')));
+  assert.ok(xIianGateReconciliationProblems(rows.slice(0, 3)).some((x) => x.includes('至少登记 8 个')));
+  assert.deepEqual(xIianGateReconciliationProblems(rows), []);
+});
+
+test('ledger(V4 段 · IAN-1): R2-W3 叶段已追加 ∧ leafBase 互不相同 ∧ 登记非空转', () => {
+  const v4 = readV4Ledger();
+  const leaves = v4.leafBases ?? [];
+  const r2 = leaves.find((l) => l.leaf.includes('ian-1-free-input-next(R2-W3)'));
+  assert.ok(r2, 'R2-W3 叶段必须追加（不得覆盖 R1 段）');
+  assert.equal(r2?.leafBase, 'e76f455');
+  assert.ok(leaves.some((l) => l.leaf.includes('ian-1-free-input-next(R1-W1W2)')), 'R1 叶段必须逐字保留');
+  assert.equal(new Set(leaves.map((l) => l.leafBase)).size, leaves.length, 'leafBase 必须互不相同');
+  const registered = (r2?.registeredUncoveredLines ?? []).reduce((s, r) => s + r.registeredUncoveredLines.length, 0);
+  assert.ok(registered > 0, 'R2 叶段的逐字登记不得为空（否则换段判据空转）');
+});

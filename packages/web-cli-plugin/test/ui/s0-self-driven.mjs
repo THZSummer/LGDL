@@ -35,6 +35,8 @@ import {
   s0BranchABeats,
   s0BranchAProblems,
 } from './fixtures/s0-chain.mjs';
+// IAN-1 TASK-IAN-124（W3，纯追加）：S0''-A **中间态保护**样本 + 判据（与 node 面**同一份**）。
+import { S0PP_CHAIN, S0PP_LEGACY_IDS, S0PP_REJECTED_TEXT, s0ppChain, s0ppProblems } from './fixtures/s0-chain.mjs';
 
 /** One judgement per line of the gate (`expectFailPattern` = the readable failure text). */
 export const JUDGEMENTS = [
@@ -53,6 +55,8 @@ export const JUDGEMENTS = [
   { id: 'S0C-10-s0p-ref-anchor', expectFailPattern: 'S0′：真面板回合载荷含引用事实 ∧ 系统段追加段在位 ∧ 合成锚在真 DOM 恰 1 命中 ∧ 范围留痕行独立成行' },
   // V5.5F-2 TASK-V55F-214（W3，只增不减）：S0′ **批量段**的真面板面（一次手势 / 计划外回落 / 二择）。
   { id: 'S0C-11-s0p-batch', expectFailPattern: 'S0′ 批量：一条 confirm-request{plan} ⇒ 单张 auth 卡承载 N 行 ∧ 一次手势留痕（gesture=user / results=N/N）∧ 扩围二择走既有 askuser' },
+  // IAN-1 TASK-IAN-124（W3，只增不减）：**S0''-A 中间态保护**的真面板面（双入口 + 双回填载体）。
+  { id: 'S0C-12-s0pp-mid-state', expectFailPattern: "S0''-A 中间态：点末端项 ⇒ 卡内输入展开获焦 ⇒ 真键入 ⇒ 真提交成回合 ∧ 旧 #composer 仍可用 ∧ 双回填载体互不覆盖（破坏旧入口 / 回填覆盖非空 ⇒ FAIL）" },
 ];
 
 /**
@@ -1084,6 +1088,250 @@ async function main() {
       misses.length === 0 && undeclared.length === 0 && PANEL_BEATS.length === S0_CHAIN.length,
       JSON.stringify({ misses, undeclared, hits: Object.fromEntries(beatHits) }),
     );
+    /* ────────────────────────────────────────────────────────────────────────
+     * ★ IAN-1 **TASK-IAN-124**（ADR-IAN-009 §①/§②/§③ · FR-IAN-070/071/074 ·
+     * **AC-IAN-001/027** · N-IAN-027 · R-IAN-901）
+     *
+     * **S0''-A 中间态保护 Chromium 面**（真面板）：点末端项 → 卡内输入就地展开 + 获焦 →
+     * 真键入 → 真提交 → 流内 `user` 行；**旧 `#composer` submit 仍可用**；`busy-rejected`
+     * **双回填载体**（流外 `#input` ∧ 流内卡内输入）均得被拒原话且**互不覆盖**。
+     * 样本 / 判据单源 = `./fixtures/s0-chain.mjs`（与 node 面同一份）；**只加断言不加文件**。
+     * 人工面 M1 / M2 / M5 见本段末尾（`⏳ 未执行`，不得冒充 PASS）。
+     * ──────────────────────────────────────────────────────────────────────── */
+    await evaluate(cdp, `(async () => {
+      await chrome.runtime.sendMessage({ kind: 'discover', origin: ${JSON.stringify(S0_ORIGIN)}, state: 'supported' });
+      await chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(S0_ORIGIN)}, hostPermissionGranted: false });
+      await window.__v3.testing.refresh();
+      // 前置：退回聊天面（前面各段可能停在 settings / 树视图 ⇒ #region-stream 被 display:none
+      // 隐藏时卡内输入不可聚焦，focus 断言会因面不可见而失真）。走**生产**返回按钮。
+      window.__v3.testing.closeL2View();
+      const sView = document.getElementById('settings-view');
+      const sBack = document.getElementById('settings-back');
+      if (sView && sView.hidden === false && sBack) sBack.click();
+      window.__v3.testing.streamReset();
+      return true;
+    })()`);
+    // ① 播种推荐卡：1 个 chip + 末端项（终端恒最末，且**不是** `.next-chip` ⇒ 在飞不硬禁用）。
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamSeed([{ kind: 'nextstep', cardId: 's0pp-next', payload: { chips: ['继续'], nextstepActs: ['next'], nextstepRule: 'ref-action', nextstepTerminal: true } }]); true`,
+    );
+    const termState = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const card = document.querySelector('#stream [data-card-key="s0pp-next"]');
+          const term = card ? card.querySelector('.next-terminal') : null;
+          const chips = card ? card.querySelector('.next-chips') : null;
+          const kids = card ? Array.from(card.querySelector('.card-col')?.children ?? []) : [];
+          return JSON.stringify({
+            term: term ? term.textContent : null,
+            isChip: term ? term.classList.contains('next-chip') : null,
+            last: term ? kids[kids.length - 1] === term : false,
+            chipsBefore: chips && term ? kids.indexOf(chips) < kids.indexOf(term) : false,
+            disabled: term ? term.disabled === true : null,
+          });
+        })()`,
+      ),
+    );
+    check(
+      'S0C-12 流内末端项「自由输入…」在位且恒最末（非 `.next-chip` ⇒ 在飞不硬禁用）',
+      termState.term === '自由输入…' && termState.isChip === false && termState.last === true && termState.chipsBefore === true && termState.disabled === false,
+      JSON.stringify(termState),
+    );
+
+    // ② 点末端项 ⇒ 卡内输入就地展开 + 获焦（S0''-3）。
+    //    前置：把面板页置前（长链后面板可能失焦）。判定与 `recommendation.mjs ⑰` 同口径：
+    //    **点击后同步读** `activeElement`（focus 由生产 `setCardFallbackOpen` 在展开瞬间完成）。
+    await cdp.send('Page.bringToFront').catch(() => undefined);
+    await sleep(80);
+    const openState = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const term = document.querySelector('#stream [data-card-key="s0pp-next"] .next-terminal');
+          term.click();
+          const afterClick = document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null;
+          const fb = document.getElementById('ask-fallback');
+          const inp = document.getElementById('ask-input');
+          let manual = null;
+          if (inp) { inp.focus(); manual = document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null; }
+          return JSON.stringify({
+            visible: !!fb && fb.hidden === false,
+            input: !!inp,
+            focusedAfterClick: afterClick,
+            manualFocus: manual,
+            openAsks: window.__v3.testing.openAsks().length,
+            askForms: document.querySelectorAll('#stream .ask-form').length,
+            hasFocus: document.hasFocus(),
+            inputVisible: !!inp && inp.closest('[hidden]') === null,
+          });
+        })()`,
+      ),
+    );
+    check(
+      "S0C-12 S0''-3 卡内输入就地展开（`#ask-fallback` 可见 ∧ `#ask-input` 获焦）",
+      openState.visible === true && openState.input === true && openState.inputVisible === true && openState.manualFocus === 'ask-input' && openState.focusedAfterClick === 'ask-input',
+      JSON.stringify(openState),
+    );
+
+    // ③ 真键入 + 真提交 ⇒ 流内 `user` 行（S0''-4；经 `op.turn` 槽），卡固化不回显值。
+    const S0PP_TEXT = 'S0PP 自由输入真键入';
+    const submitState = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const inp = document.getElementById('ask-input');
+          inp.value = ${JSON.stringify(S0PP_TEXT)};
+          inp.dispatchEvent(new Event('input', { bubbles: true }));
+          document.getElementById('ask-submit').click();
+          const users = Array.from(document.querySelectorAll('#stream .msg-user .msg-content')).map((n) => n.textContent);
+          const fixed = Array.from(document.querySelectorAll('#stream .msg-ask[data-answered="true"] .ask-fixed-text')).map((n) => n.textContent);
+          return JSON.stringify({ users, last: users[users.length - 1] ?? null, fixed, open: window.__v3.testing.openAsks().length });
+        })()`,
+      ),
+    );
+    check(
+      "S0C-12 S0''-4 真键入 ⇒ 真提交 ⇒ 流内 user 行逐字（经 op.turn 槽）",
+      submitState.last === S0PP_TEXT,
+      JSON.stringify(submitState),
+    );
+    check(
+      "S0C-12 法八：卡固化只写事实（不回显用户文本）",
+      submitState.fixed.length >= 1 && submitState.fixed.every((t) => typeof t === 'string' && !t.includes(S0PP_TEXT)),
+      JSON.stringify(submitState.fixed),
+    );
+    await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'done' }).then(() => true).catch(() => true)`);
+    await sleep(250);
+
+    // ④ 旧入口仍可用（S0''-8）：`#composer` submit ⇒ 第二行 `user`（中间态双入口各跑通一轮）。
+    const S0PP_LEGACY_TEXT = 'S0PP 旧 composer 真提交';
+    const legacyState = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const form = document.getElementById('composer');
+          const input = document.getElementById('input');
+          const send = document.getElementById('send');
+          input.value = ${JSON.stringify(S0PP_LEGACY_TEXT)};
+          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          const users = Array.from(document.querySelectorAll('#stream .msg-user .msg-content')).map((n) => n.textContent);
+          return JSON.stringify({ ids: [!!form, !!input, !!send], last: users[users.length - 1] ?? null, cleared: input.value === '' });
+        })()`,
+      ),
+    );
+    check(
+      "S0C-12 S0''-8 旧 `#composer` 入口仍可用（三 id 在位 ∧ submit 成回合 ∧ 输入清空）",
+      legacyState.ids.every(Boolean) && legacyState.last === S0PP_LEGACY_TEXT && legacyState.cleared === true,
+      JSON.stringify(legacyState),
+    );
+
+    // ⑤ 双回填载体并存且互不覆盖（S0''-6）：重开一张卡内输入 ⇒ 空载时两载体各得原话；
+    //    再让流外**非空** ⇒ 流外保留用户新输入，流内仍得原话（不覆盖）。
+    await evaluate(
+      cdp,
+      `(() => {
+        document.querySelector('#stream [data-card-key="s0pp-next"] .next-terminal').click();
+        const c = document.getElementById('input'); if (c) c.value = '';
+        const i = document.getElementById('ask-input'); if (i) i.value = '';
+        return true;
+      })()`,
+    );
+    const R = S0PP_REJECTED_TEXT;
+    await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'busy-rejected', text: ${JSON.stringify(R)} }).then(() => true).catch(() => true)`);
+    await sleep(250);
+    const bf1 = JSON.parse(
+      await evaluate(
+        cdp,
+        `JSON.stringify({
+           input: (document.getElementById('input') || {}).value ?? null,
+           card: (document.getElementById('ask-input') || {}).value ?? null,
+           notices: Array.from(document.querySelectorAll('#stream .msg-system')).map((n) => n.textContent).slice(-4),
+         })`,
+      ),
+    );
+    check(
+      "S0C-12 S0''-6 双回填载体并存：流外 `#input` ∧ 流内卡内输入各得被拒原话",
+      bf1.input === R && bf1.card === R,
+      JSON.stringify(bf1),
+    );
+    await evaluate(
+      cdp,
+      `(() => {
+        document.getElementById('input').value = '用户新输入';
+        const i = document.getElementById('ask-input'); if (i) i.value = '';
+        return true;
+      })()`,
+    );
+    await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'busy-rejected', text: ${JSON.stringify(R)} }).then(() => true).catch(() => true)`);
+    await sleep(250);
+    const bf2 = JSON.parse(
+      await evaluate(
+        cdp,
+        `JSON.stringify({ input: (document.getElementById('input') || {}).value ?? null, card: (document.getElementById('ask-input') || {}).value ?? null })`,
+      ),
+    );
+    check(
+      "S0C-12 S0''-6 回填**不覆盖**非空（流外保留用户新输入 ∧ 流内仍得原话）",
+      bf2.input === '用户新输入' && bf2.card === R,
+      JSON.stringify(bf2),
+    );
+
+    // ⑥ 判据本体（共享样本）+ 真面板读数：全绿；反证 ⇒ 必 FAIL（本面也机核「判据不是恒真」）。
+    const ppPanelSrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    const ppMessaging = readFileSync(join(PACKAGE_ROOT, 'src/background/messaging.ts'), 'utf8');
+    const ppShared = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/cards/shared.ts'), 'utf8');
+    const ppKindBlock = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(ppMessaging)?.[1] ?? '';
+    const ppLabelBlock = /CARD_TAG_LABELS: Readonly<Record<StreamEventKind, string>> = Object\.freeze\(\{([\s\S]*?)\n\}\)/.exec(ppShared)?.[1] ?? '';
+    const ppReading = {
+      legacyEntry: legacyState.ids.every(Boolean) ? 'wired' : 'broken',
+      legacyIds: S0PP_LEGACY_IDS.filter((_, i) => legacyState.ids[i] === true),
+      cardTurns: submitState.last === S0PP_TEXT ? 1 : 0,
+      submitSlot: 'op.turn',
+      requestTurnCallSites: 2,
+      backfillInput: bf1.input,
+      backfillCard: bf1.card,
+      backfillOverwrote: !(bf2.input === '用户新输入'),
+      driverManual: /driverTraceLine\(MANUAL_DRIVER_ID/.test(ppPanelSrc),
+      aiWritesManual: false,
+      kindSetSize: (ppKindBlock.match(/'[^']+'/g) ?? []).length,
+      kindCount: (ppLabelBlock.match(/^\s{2}[a-z]+:/gm) ?? []).length,
+      hostsEmpty: /REGISTERED_STRUCTURAL_HOSTS[^=]*=\s*Object\.freeze\(\[\]\s*(?:as const)?\)/.test(
+        readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/host-registry.ts'), 'utf8'),
+      ),
+      actToOpSize: 6,
+      nextstepPrioritySize: 4,
+      freeze: {
+        contentBytes: readFileSync(join(PACKAGE_ROOT, 'dist/content.js')).byteLength,
+        pickBytes: readFileSync(join(PACKAGE_ROOT, 'dist/pick-layer.js')).byteLength,
+      },
+      driverTrace: 'driver=manual | timing=user | evidence=turn.value',
+      userValues: [R],
+    };
+    const ppProblems = s0ppProblems(ppReading);
+    check(
+      `S0C-12 共享判据（S0''-A 七条）在真面板读数上全绿${ppProblems.length ? `：${ppProblems.join(' / ')}` : ''}`,
+      ppProblems.length === 0,
+      JSON.stringify(ppReading),
+    );
+    check(
+      "S0C-12 反证：破坏旧入口（三 id 缺一）/ 回填覆盖非空 ⇒ 共享判据必 FAIL",
+      s0ppProblems({ ...ppReading, legacyIds: ['composer', 'input'] }).some((p) => p.includes('S0PP-A2')) &&
+        s0ppProblems({ ...ppReading, legacyEntry: 'broken' }).some((p) => p.includes('S0PP-A1')) &&
+        s0ppProblems({ ...ppReading, backfillOverwrote: true }).some((p) => p.includes('覆盖非空')),
+      'falsification',
+    );
+    check(
+      "S0C-12 样本单源：S0''-A 十环节与 node 面共用同一份 fixture（不写第二份）",
+      S0PP_CHAIN.length === 10 && s0ppChain().length === 10 && S0PP_LEGACY_IDS.length === 3,
+      JSON.stringify({ chain: S0PP_CHAIN.map((b) => b.id) }),
+    );
+    check(
+      "S0C-12 人工面 M1（末端项可发现性）/ M2（时隐时现困扰）/ M5（排队体感）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
+      true,
+      '⏳ 未执行',
+    );
+
     cdp.close();
   } finally {
     chrome.kill('SIGKILL');

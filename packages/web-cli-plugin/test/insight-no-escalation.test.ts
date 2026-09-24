@@ -19,6 +19,12 @@ import { fileURLToPath } from 'node:url';
 import { PLUGIN_RISK_DEFAULTS } from '../src/security/policy.js';
 import { AUTO_AUTH_DEFAULTS, decideAutoAuthorization } from '../src/security/auto-authorize.js';
 import type { ToolRisk } from '@lgdl/web-cli-base';
+// ★ IAN-1 TASK-IAN-125（只增 import）：红线巡检扩面读的真实单源模块。
+import { ACT_TO_OP, SET_A_PROTOCOL_ACTIONS } from '../src/ui/sidepanel/next-registry/dispatch.js';
+import { REGISTERED_STRUCTURAL_HOSTS } from '../src/ui/sidepanel/host-registry.js';
+import { NEXTSTEP_PRIORITY } from '../src/ui/sidepanel/recommend.js';
+import { CARD_TAG_LABELS } from '../src/ui/sidepanel/cards/shared.js';
+import { OP_TIERS, tierOfId } from '../src/shared/op-table.js';
 
 const insightDir = fileURLToPath(new URL('../../src/insight', import.meta.url));
 const treeDir = fileURLToPath(new URL('../../src/ui/tree', import.meta.url));
@@ -500,4 +506,45 @@ test('V55F-1 红线巡检：`zeroDiffFiles` 不动面逐项零 diff（解冻是�
   // 另按 pathspec 复核 manifest.json 与 base 零 diff（与既有断言互补）。
   assert.equal(gitDrift(['manifest.json']), '', 'manifest.json 必须零 diff');
   assert.equal(gitDrift(['../web-cli-base']), '', 'packages/web-cli-base/** 必须零 diff');
+});
+
+// ---------------------------------------------------------------------------
+// ★ IAN-1 **TASK-IAN-125**（ADR-IAN-002 · ADR-IAN-010 · FR-IAN-112 / 017 / 025 ·
+// AC-IAN-024 / 009 / 004）—— **红线巡检扩面（只增巡检；既有判据逐字不动）**。
+//
+// 叶1 新增流内输入面触碰的红线面按**当前产物 / 真源单源**逐条复核：
+//   · 零新增载体：`KIND_SET` 40 逐字 ∧ 12 kind ∧ `REGISTERED_STRUCTURAL_HOSTS === []`；
+//   · 计数红线：`ACT_TO_OP` 恰 6（终端 `free-input` 不得进表）∧ `NEXTSTEP_PRIORITY` 恰 4；
+//   · 特权面：特权 op 恒 `gesture`（`auto` 档零特权）∧ **SW 永不** `chrome.permissions.request(`；
+//   · 三冻结面 / `manifest.json` / `packages/web-cli-base/**` 已由上面 V55F-1 判据复核（不重复声明）。
+// ---------------------------------------------------------------------------
+
+test('V55F-1 红线巡检（IAN-1 扩面）：零新增载体 + 计数红线 + 特权恒 gesture ∧ SW 永不 permissions.request(', () => {
+  // ① 零新增载体：KIND_SET 40 逐字。
+  const messaging = readPluginFile('src/background/messaging.ts');
+  const kindBlock = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(messaging)?.[1] ?? '';
+  assert.equal((kindBlock.match(/'[^']+'/g) ?? []).length, 40, 'IAN-1：KIND_SET 必须逐字 40 项（零新增 kind）');
+  // ② 12 kind 契约（`CARD_TAG_LABELS` 是 kind 的渲染标签单源）。
+  assert.equal(Object.keys(CARD_TAG_LABELS).length, 12, 'IAN-1：12 kind 契约不动');
+  // ③ 零宿主（真源模块读值，不读文本）。
+  assert.deepEqual([...REGISTERED_STRUCTURAL_HOSTS], [], 'IAN-1：REGISTERED_STRUCTURAL_HOSTS 必须仍为空');
+  // ④ ACT_TO_OP 恰 6 ∧ 终端 `free-input` 不得进表（终端是集 A 协议动作，不经 op 分发）。
+  assert.equal(Object.keys(ACT_TO_OP).length, 6, 'IAN-1：ACT_TO_OP 必须仍恰 6');
+  assert.equal(Object.prototype.hasOwnProperty.call(ACT_TO_OP, 'free-input'), false, 'IAN-1：终端不得进 ACT_TO_OP');
+  assert.ok((SET_A_PROTOCOL_ACTIONS as readonly string[]).includes('free-input'), 'IAN-1：终端必须在集 A 声明（非第二表）');
+  // ⑤ NEXTSTEP_PRIORITY 恰 4（终端不在推荐规则表内 ⇒ candidateRules 恒跳过）。
+  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'IAN-1：NEXTSTEP_PRIORITY 必须仍恰 4');
+  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('free-input'), false, 'IAN-1：终端不是第 5 条推荐规则');
+  // ⑥ 特权 op 恒 gesture ∧ 提交槽 `op.turn` 仍是 auto（输入面不触达特权 op）。
+  assert.deepEqual([...OP_TIERS], ['auto', 'confirm', 'gesture'], 'IAN-1：三档词表逐字');
+  for (const id of ['op.authorize', 'op.perm.request']) {
+    assert.equal(tierOfId(id), 'gesture', `IAN-1：特权 ${id} 必须恒 gesture（输入面不得触达）`);
+  }
+  assert.equal(tierOfId('op.turn'), 'auto', 'IAN-1：提交槽 op.turn 仍是 auto 档（唯一回合入口，非特权）');
+  // ⑦ SW 永不 `chrome.permissions.request(`（原生弹窗只能由面板在用户手势下发起）。
+  const sw = readPluginFile('src/background/service-worker.ts');
+  assert.equal(/permissions\.request\s*\(/.test(sw), false, 'IAN-1：SW 永不直接 permissions.request（恒由面板手势发起）');
+  // 反证：把 `permissions.request(` 注入 SW ⇒ 同一判据必红（判据非恒真）。
+  assert.equal(/permissions\.request\s*\(/.test(`${sw}\nchrome.permissions.request({ origins: ['x'] });`), true, '注入 ⇒ 必红');
+  assert.equal(/permissions\.request\s*\(/.test('permissions.request( // 注释）'), true, '对照：注释形态仍被判据看到（故真源不得出现该字面）');
 });

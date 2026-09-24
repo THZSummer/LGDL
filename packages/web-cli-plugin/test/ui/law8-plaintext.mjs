@@ -511,6 +511,76 @@ async function main() {
     const res9 = JSON.parse(await evaluate(cdp, SCAN_1));
     check('⑨ (PASS 段) 还原后零命中', res9.hits.length === 0, JSON.stringify(res9.hits));
 
+    // ── ⑩ ★ IAN-1 **TASK-IAN-125**（ADR-IAN-002 §②/§③ · FR-IAN-018 · AC-IAN-016）────
+    //    **自由输入提交（流内卡内输入）= 手输回合**的零明文面：输入文本**只**出现在
+    //    `chat` `user` 载荷（流内 user 行是合法载体）∧ **不得**出现在 `CardView.payload` /
+    //    其它卡面 ∧ 卡固化不回显值 ∧ 留痕 driver 行零用户内容值 ∧ digest / 审计 / DOM 属性零命中。
+    console.log('\n▶ ⑩ 自由输入提交（流内卡内输入）的零明文面 + 卡固化不回显');
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(
+      cdp,
+      `window.__v3.testing.streamSeed([{ kind: 'nextstep', cardId: 'l8-free', payload: { chips: ['继续'], nextstepActs: ['next'], nextstepRule: 'ref-action', nextstepTerminal: true } }]); true`,
+    );
+    const l8Free = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           document.querySelector('#stream [data-card-key="l8-free"] .next-terminal').click();
+           const inp = document.getElementById('ask-input');
+           inp.value = ${JSON.stringify(SENTINEL)};
+           inp.dispatchEvent(new Event('input', { bubbles: true }));
+           document.getElementById('ask-submit').click();
+           const users = Array.from(document.querySelectorAll('#stream [data-msg-type="user"] .msg-content')).map((n) => n.textContent || '');
+           const fixed = Array.from(document.querySelectorAll('#stream .msg-ask[data-answered="true"] .ask-fixed-text')).map((n) => n.textContent || '');
+           const trace = Array.from(document.querySelectorAll('#stream .msg-notice, #stream .msg-system')).map((n) => n.textContent || '');
+           return JSON.stringify({ users, fixed, trace });
+         })()`,
+      ),
+    );
+    check('⑩ 前置：流内提交真的成回合（`user` 行逐字 = 用户原话）', l8Free.users.some((t) => t.includes(SENTINEL)), JSON.stringify(l8Free.users.map((t) => t.slice(0, 12))));
+    check('⑩ 卡固化**不回显**值（只写事实；哨兵零命中）', l8Free.fixed.length >= 1 && l8Free.fixed.every((t) => !t.includes(SENTINEL)), JSON.stringify(l8Free.fixed));
+    check('⑩ 留痕 driver 行零用户内容值（哨兵零命中）', l8Free.trace.every((t) => !t.includes(SENTINEL)), JSON.stringify(l8Free.trace.map((t) => t.slice(0, 24))));
+    // ① 流内文本面：哨兵**只**允许出现在 `user` 行（chat user 载荷载体）。
+    //    payload 面恰 1 命中（= 该 user 回合载荷；第二命中即泄漏 ⇒ 反证见下）。
+    const l8FreeScan = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+           const S = ${JSON.stringify(SENTINEL)};
+           const payloads = window.__v3.testing.payloads();
+           const payloadHits = payloads.filter((p) => JSON.stringify(p).includes(S)).length;
+           const others = [];
+           for (const li of document.querySelectorAll('#stream > li')) {
+             if (li.getAttribute('data-msg-type') === 'user') continue;
+             if ((li.textContent || '').includes(S) || (li.innerHTML || '').includes(S)) others.push(li.getAttribute('data-msg-type'));
+           }
+           const userHasSentinel = Array.from(document.querySelectorAll('#stream [data-msg-type="user"]')).some((r) => (r.textContent || '').includes(S));
+           return JSON.stringify({ payloadHits, userHasSentinel, others, payloadCount: payloads.length });
+         })()`,
+      ),
+    );
+    check(
+      `⑩-① 自由输入：文本只骑 \`chat\` \`user\` 载体（payload 面恰 1 命中 ∧ 非 user 卡面零命中）`,
+      l8FreeScan.payloadHits === 1 && l8FreeScan.userHasSentinel === true && l8FreeScan.others.length === 0,
+      JSON.stringify(l8FreeScan),
+    );
+    const f2z = JSON.parse(await evaluate(cdp, SCAN_2));
+    const f3z = JSON.parse(await evaluate(cdp, SCAN_3));
+    const f4z = JSON.parse(await evaluate(cdp, SCAN_4));
+    check(`⑩-② 自由输入：digest 零明文（${f2z.keys.length} 键）`, f2z.hits.length === 0, JSON.stringify(f2z.hits));
+    check('⑩-③ 自由输入：审计面（渲染 + 存储）零明文', f3z.hits.length === 0, JSON.stringify(f3z.hits));
+    check('⑩-④ 自由输入：DOM value + 全部属性零明文', f4z.hits.length === 0, JSON.stringify(f4z.hits));
+    // 反证（判据非恒真）：注入含哨兵的卡 payload ⇒ 同一扫描必命中 ⇒ 还原零命中。
+    await evaluate(cdp, `window.__v3.testing.streamSeed([{ kind: 'ai', cardId: 'l8-free-evil', payload: { text: ${JSON.stringify(SENTINEL)} } }]); true`);
+    const inj10 = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => { const payloads = window.__v3.testing.payloads(); return JSON.stringify({ hits: payloads.filter((p) => JSON.stringify(p).includes(${JSON.stringify(SENTINEL)})).length }); })()`,
+      ),
+    );
+    check('⑩ (FAIL 段) 自由输入零明文判据非恒真：注入含哨兵 payload ⇒ payload 命中数 1 → ≥2', inj10.hits >= 2, JSON.stringify(inj10));
+    await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
+
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

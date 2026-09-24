@@ -2934,6 +2934,38 @@ function cancelFreeInputCard(): void {
 }
 
 /**
+ * ★ IAN-1 R2（**TASK-IAN-118** · ADR-IAN-003 §2 · FR-IAN-032/033 · EC-IAN-003）——
+ * `busy-rejected` 的**流内**回填载体（叶1：与流外 `#input` **双载体并存**，两者互不覆盖）。
+ *
+ * 三分支（与 tasks 逐字）：
+ *   ① **卡在（仍开）** ⇒ **仅当卡内输入为空**才写值（不覆盖用户新输入；非空只留痕）；
+ *   ② **卡收起**（`.ask-fallback` 被折叠）⇒ **重展开** + focus（`setCardFallbackOpen` 既有语义）；
+ *   ③ **卡不存在**（从未铸造 / 已固化）⇒ **按需铸造** free-input 卡并回填。
+ *
+ * 返回是否真的回填（可读行据此在「放回」/「未覆盖」之间取词）。
+ * 判据（`FIN-7` ∧ `TA-4`）：写入点必须**仅当为空**（`input.value.length === 0`）；删掉本函数体 ⇒ 必红。
+ * 零第二 DOM 路径：卡内输入即 `.ask-fallback` 家系（`#ask-input` 由**本卡**的 `.ask-form` 作用域取）。
+ */
+function restoreFreeInputDraft(rejected: string): boolean {
+  if (rejected.length === 0) return false;
+  if (!freeInputCardId()) openFreeInputCard();
+  const cardId = freeInputCardId();
+  if (!cardId) return false;
+  const form = askFormNodeOf(cardId);
+  if (!form) return false;
+  // ② 收起 ⇒ 重展开（幂等：已展开时重复调用无副作用）。
+  setCardFallbackOpen(form, true);
+  // 作用域限定**本卡**的 `.ask-form`（不许命中别的开卡；`#ask*` 家系归最新开卡）。
+  const input = form.querySelector('input') as HTMLInputElement | null;
+  if (!input) return false;
+  // ① 不覆盖：卡内输入非空 ⇒ 只留痕（用户新输入优先，原话仍在流内 `user` 行）。
+  if (input.value.length > 0) return false;
+  input.value = rejected;
+  input.focus();
+  return true;
+}
+
+/**
  * V4-3: ensure the free-text ask card exists (the ONE owner of「用文字描述…」).
  *
  * BLOCK-03 (v4-4 review): extracted so both the reveal path and the `ref` card's
@@ -4010,11 +4042,16 @@ function wire(): void {
    *   · `busy-rejected` ⇒ 「正在处理上一条，未发送」+ **把被拒原话放回 `#input`**
    *     （仅当输入框为空 —— 用户新输入**不被覆盖**；原话也仍在流内 `user` 行里，
    *      因此任何情况下都**没有**静默丢失）。
+   *   ★ IAN-1 R2（TASK-IAN-118 · FR-IAN-032/033）：`busy-rejected` 在**流外** `#input` 之上
+   *     再加**流内**载体（`.ask-fallback` 家系；「仅当为空」同一语义；卡收起 ⇒ 重展开；
+   *     卡不存在 ⇒ 按需铸造）。两载体**互不覆盖**（叶1 并存期），三种结果各有可读行。
    * 载体 = 既有 `system`/notice 行（**零新增 kind**）。
    * ──────────────────────────────────────────────────────────────────────────── */
   const QUEUED_TURN_TEXT = '已排队：上一条回合结束后自动发送。';
   const BUSY_REJECTED_RESTORED_TEXT = '正在处理上一条，未发送；已把你这句放回输入框。';
   const BUSY_REJECTED_KEPT_TEXT = '正在处理上一条，未发送；输入框已有内容未覆盖。';
+  /** ★ IAN-1 R2：流内载体单独回填时的可读行（既有两条文案**逐字保留**，本条为只增）。 */
+  const BUSY_REJECTED_CARD_TEXT = '正在处理上一条，未发送；已把你这句放回流内输入。';
 
   chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
     const msg = raw as PluginMessage;
@@ -4085,11 +4122,18 @@ function wire(): void {
         // V5.5-3 TASK-V55-310（R-V55-107）：拒绝后把**被拒原话**回填 `#input` —— 仅在输入框
         // 为空时（**不覆盖**用户新输入；非空时只留痕，原话仍在流内 `user` 行）。判据：
         // 「拒绝后 `#input.value === 被拒文本` 且存在可读行」；删掉回填 ⇒ FAIL。
+        // ★ IAN-1 R2（TASK-IAN-118 · FR-IAN-032/033）：**双载体并存** —— 流外载体逐字保留，
+        // 流内载体（`restoreFreeInputDraft`）同级回填；两载体各自「仅当为空」⇒ 互不覆盖；
+        // 三种结果（流外已放回 / 仅流内已放回 / 均未覆盖）各有可读行。
         const draftInput = $('input') as HTMLInputElement;
         const rejected = text;
-        const restored = rejected.length > 0 && draftInput.value.length === 0;
-        if (restored) draftInput.value = rejected;
-        dispatch({ type: 'notice', text: restored ? BUSY_REJECTED_RESTORED_TEXT : BUSY_REJECTED_KEPT_TEXT });
+        const restoredInput = rejected.length > 0 && draftInput.value.length === 0;
+        if (restoredInput) draftInput.value = rejected;
+        const restoredCard = restoreFreeInputDraft(rejected);
+        dispatch({
+          type: 'notice',
+          text: restoredInput ? BUSY_REJECTED_RESTORED_TEXT : restoredCard ? BUSY_REJECTED_CARD_TEXT : BUSY_REJECTED_KEPT_TEXT,
+        });
       }
       else if (variant === 'done') {
         dispatch({ type: 'pending', value: false });

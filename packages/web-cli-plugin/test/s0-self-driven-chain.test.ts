@@ -54,6 +54,10 @@ import {
   loadProactivePref,
 } from '../src/ui/sidepanel/next-registry/guard.js';
 import { bindPanelOps } from '../src/ui/sidepanel/next-registry/ops.js';
+// ── IAN-1 TASK-IAN-123（W3，纯追加 import）────────────────────────────────────
+// S0''-A 的**新入口真实回合**：经生产 `op.turn` 槽（`dispatchOp` → `runOp` → `bindPanelOps.turn`）。
+import { dispatchOp } from '../src/ui/sidepanel/next-registry/pipeline.js';
+import { NEXTSTEP_PRIORITY } from '../src/ui/sidepanel/recommend.js';
 // ── V5.5F-1 TASK-V55F-123（W4，纯追加 import）────────────────────────────────
 // S0′ 范围内核（`ty.md` 原案重放）的**真源切片**：读数单源 + 系统段追加段 + `--ref` 包装层。
 import { refContextSegment, validateRefPayload } from '../src/background/ref-context.js';
@@ -139,6 +143,14 @@ interface S0Module {
   readonly S0P_B_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
   readonly s0pBProblems: (reading?: Record<string, unknown>) => readonly string[];
   readonly s0pBChain: () => readonly { readonly id: string; readonly label: string }[];
+  /** IAN-1 TASK-IAN-123：S0''-A **中间态保护**（双入口 + 双回填载体）样本 + 判据（双面共用）。 */
+  readonly S0PP_CHAIN: readonly { readonly id: string; readonly label: string }[];
+  readonly S0PP_LEGACY_IDS: readonly string[];
+  readonly S0PP_BACKFILL_CARRIERS: readonly string[];
+  readonly S0PP_REJECTED_TEXT: string;
+  readonly S0PP_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly s0ppChain: () => readonly { readonly id: string; readonly label: string }[];
+  readonly s0ppProblems: (reading?: Record<string, unknown>) => readonly string[];
 }
 const s0 = (await import(S0_FIXTURE)) as unknown as S0Module;
 const s2 = (await import(S2_FIXTURE)) as unknown as { readonly S2_CHAIN: readonly { readonly id: string }[] };
@@ -150,6 +162,8 @@ const { S0_A_BEATS, S0_A_GUARD_REASONS, S0_A_ON_CHAIN_REASONS, S0_A_SLOT, s0Bran
 const { S0P_ANCHOR_SELECTOR, S0P_BEATS, S0P_ITEMS, S0P_REF_NUM, s0PChain, s0pProblems } = s0;
 /** V5.5F-2 TASK-V55F-214（W3，纯追加解构）：S0′ 批量段样本与判据（双面共用同一份）。 */
 const { S0P_B_BEATS, S0P_B_ITEMS, s0pBChain, s0pBProblems } = s0;
+/** IAN-1 TASK-IAN-123（W3，纯追加解构）：S0''-A 中间态保护样本与判据（双面共用同一份）。 */
+const { S0PP_BACKFILL_CARRIERS, S0PP_CHAIN, S0PP_ITEMS, S0PP_LEGACY_IDS, S0PP_REJECTED_TEXT, s0ppChain, s0ppProblems } = s0;
 
 export interface Judgement {
   readonly id: string;
@@ -1026,4 +1040,213 @@ test('S0P-B 真源切片：批量段判据走生产模块（batch-plan.ts）∧ 
   assert.equal(S0P_ITEMS.length, 8, '既有 S0P-1~8 逐字保留');
   assert.equal(S0_CHAIN.length, 10, '既有 S0_CHAIN 10 环节逐字保留');
   for (const j of S0P_B_JUDGEMENTS) assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 不得占位`);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * IAN-1 **TASK-IAN-123**（ADR-IAN-009 §①/§②/§③ · FR-IAN-070/071/072 · **AC-IAN-001** ·
+ * N-IAN-027 · R-IAN-901 / R-IAN-909）
+ *
+ * **S0''-A 中间态保护 node 面**：`ian-1` 立新流内入口后，**旧 composer 入口仍可用**
+ * （双入口各跑通一轮）+ `busy-rejected` **双回填载体**均可判且互不覆盖。样本 / 判据单源 =
+ * `test/ui/fixtures/s0-chain.mjs`（**与 Chromium 面同一份**）。
+ *
+ * 真源切片（**不**用假 provider / 桩）：
+ *   · 新入口**真回合** = 生产 `op.turn` 槽（`bindPanelOps` + `dispatchOp` → `runOp`）；
+ *   · 旧入口 / 双回填 / driver / 红线 = 生产源码切片（真值读取，非第二份实现）。
+ * ⚠️ 诚实边界：node 面无 DOM，故「旧入口跑通一轮」在此为**接线判据**（三 id 在位 ∧ 提交链
+ * 接线）；**真 DOM 双回合**由 Chromium 面（`s0-self-driven.mjs`）承载。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** S0''-A 七条判据（`expectFailPattern` 从共享样本**单源**取，不写第二份文案）。 */
+export const S0PP_JUDGEMENTS: readonly S0PJudgement[] = S0PP_ITEMS.map((i) => ({
+  id: i.id,
+  expectFailPattern: i.expectFailPattern,
+}));
+
+const INDEX_HTML_REL = 'src/ui/sidepanel/index.html';
+const NEXTSTEP_CARD_REL = 'src/ui/sidepanel/cards/nextstep.ts';
+const AI_DRIVE_REL_IAN1 = 'src/ui/sidepanel/next-registry/ai-drive.ts';
+const MESSAGING_REL = 'src/background/messaging.ts';
+const SHARED_CARDS_REL = 'src/ui/sidepanel/cards/shared.ts';
+const HOST_REGISTRY_REL = 'src/ui/sidepanel/host-registry.ts';
+
+/** 旧入口三 id 是否在真面板 HTML 在位（三缺一 ⇒ ian-1 破坏旧入口）。 */
+export function legacyIdsOf(html: string): string[] {
+  return S0PP_LEGACY_IDS.filter((id) => new RegExp(`id="${id}"`).test(html));
+}
+
+/** 旧 composer submit → 唯一回合入口（`requestTurn(input.value)`）是否仍接线。 */
+export function legacyEntryWired(panelSrc: string): boolean {
+  const at = panelSrc.indexOf("$('composer').addEventListener('submit'");
+  if (at < 0) return false;
+  const slice = panelSrc.slice(at, at + 1200);
+  return /requestTurn\(input\.value\)/.test(slice);
+}
+
+/** `KIND_SET` 成员数（从生产源抽取；不得空转）。 */
+export function ian1KindSetSize(messaging: string): number {
+  const block = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(messaging)?.[1] ?? '';
+  return [...block.matchAll(/'[^']+'/g)].length;
+}
+
+/** `requestTurn(` 调用点（注释 / import / 定义行除外）——叶1 仍恰 2。 */
+export function ian1CallSites(source: string, name: string): number {
+  let n = 0;
+  for (const raw of source.split('\n')) {
+    const t = raw.trim();
+    if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) continue;
+    if (!new RegExp(`${name}\\s*\\(`).test(raw)) continue;
+    if (/^\s*import\b/.test(raw)) continue;
+    if (new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`).test(raw)) continue;
+    if (new RegExp(`^\\s*(?:export\\s+)?const\\s+${name}\\s*=`).test(raw)) continue;
+    n += 1;
+  }
+  return n;
+}
+
+/** `CARD_TAG_LABELS` 的 kind 数（12 kind 契约）。 */
+export function ian1KindCount(shared: string): number {
+  const block = /CARD_TAG_LABELS: Readonly<Record<StreamEventKind, string>> = Object\.freeze\(\{([\s\S]*?)\n\}\)/.exec(shared)?.[1] ?? '';
+  return [...block.matchAll(/^\s{2}[a-z]+:/gm)].length;
+}
+
+/** S0''-A 的 node 面读数（生产真值构建 ⇒ 反向注入打在判据上）。 */
+async function s0ppNodeReading(): Promise<Record<string, unknown>> {
+  const panelSrc = readSrc(SIDEPANEL_REL);
+  const html = readSrc(INDEX_HTML_REL);
+  // ① 新入口**真回合**：经生产 `op.turn` 槽（`bindPanelOps.turn` ↔ `runOp`）。
+  let turned: string | undefined;
+  bindPanelOps({ turn: (text) => void (turned = text) });
+  const outcome = await dispatchOp('op.turn', { value: S0PP_REJECTED_TEXT });
+  const cardTurns = turned !== undefined && outcome.ok !== false ? 1 : 0;
+  // ② 旧入口接线 + 三 id 在位。
+  const htmlIds = legacyIdsOf(html);
+  const wired = legacyEntryWired(panelSrc);
+  // ③ 双回填载体（生产源码切片：流外 `draftInput.value = rejected` ∧ 流内 `input.value = rejected`）。
+  const hasInputBackfill = /draftInput\.value\s*=\s*rejected/.test(panelSrc);
+  const hasCardBackfill = /input\.value\s*=\s*rejected/.test(panelSrc);
+  const overwrote = !/input\.value\.length\s*>\s*0/.test(panelSrc);
+  // ④ driver 两值。
+  const submitSlice = panelSrc.slice(panelSrc.indexOf('function submitFreeInput('), panelSrc.indexOf('function submitFreeInput(') + 1200);
+  const driverManual = /driverTraceLine\(MANUAL_DRIVER_ID/.test(submitSlice);
+  const press = readSrc(AI_DRIVE_REL_IAN1);
+  const pressAt = press.indexOf('export function pressCandidate(');
+  const pressBody = pressAt < 0 ? '' : press.slice(pressAt, pressAt + 2400);
+  // 「AI 路径不写 manual」判的是 **AI 按下体**（不是模块声明处：`MANUAL_DRIVER_ID` 的**单源**
+  // 就在 `ai-drive.ts`，故整源包含它属正常）。
+  const aiWritesManual = /MANUAL_DRIVER_ID/.test(pressBody);
+  // ⑤ 红线 + 冻结面（只读双锚）。
+  return {
+    legacyEntry: wired ? 'wired' : 'broken',
+    legacyIds: htmlIds,
+    cardTurns,
+    submitSlot: turned !== undefined ? 'op.turn' : null,
+    requestTurnCallSites: ian1CallSites(panelSrc, 'requestTurn'),
+    backfillInput: hasInputBackfill ? S0PP_REJECTED_TEXT : null,
+    backfillCard: hasCardBackfill ? S0PP_REJECTED_TEXT : null,
+    backfillOverwrote: overwrote,
+    driverManual,
+    aiWritesManual,
+    kindSetSize: ian1KindSetSize(readSrc(MESSAGING_REL)),
+    kindCount: ian1KindCount(readSrc(SHARED_CARDS_REL)),
+    hostsEmpty: /REGISTERED_STRUCTURAL_HOSTS[^=]*=\s*Object\.freeze\(\[\]\s*(?:as const)?\)/.test(readSrc(HOST_REGISTRY_REL)),
+    actToOpSize: Object.keys(ACT_TO_OP).length,
+    nextstepPrioritySize: NEXTSTEP_PRIORITY.length,
+    freeze: {
+      contentBytes: readFileSync(join(PKG, 'dist/content.js')).byteLength,
+      pickBytes: readFileSync(join(PKG, 'dist/pick-layer.js')).byteLength,
+    },
+    driverTrace: 'driver=manual | timing=user | evidence=turn.value',
+    userValues: [S0PP_REJECTED_TEXT],
+  };
+}
+
+test("S0PP-A node 面：双入口并存（旧 composer 三 id 在位 ∧ 新入口经 op.turn 槽成回合）+ 双回填载体", async () => {
+  assert.equal(S0PP_CHAIN.length, 10, "S0''-A 十环节（ADR-IAN-009 §① 的叶1 切片）");
+  assert.equal(S0PP_ITEMS.length, 7, "S0''-A 恰 7 条必判项");
+  const reading = await s0ppNodeReading();
+  assert.deepEqual(s0ppProblems(reading), [], "S0''-A node 面必判项必须全绿");
+  // 逐拍登记机核（登记 ⇔ 读数；id 逐序取自共享样本，不写第二份）。
+  assert.deepEqual(
+    s0ppChain().map((b) => b.id),
+    S0PP_CHAIN.map((b) => b.id),
+    "S0''-A 逐拍 id 必须与共享样本逐序一致",
+  );
+  // 真读数明细（非恒真）：新入口真的把原话交到回合入口。
+  assert.equal(reading.cardTurns, 1, "新卡内输入必须真的成 1 回合");
+  assert.equal(reading.submitSlot, 'op.turn');
+  assert.deepEqual(reading.legacyIds, [...S0PP_LEGACY_IDS], '旧入口三 id 必须全部在位');
+  assert.equal(reading.legacyEntry, 'wired');
+});
+
+test("S0PP-A 反证族：破坏旧入口 / 回填覆盖非空 / 在飞禁用终端 / 撞红线 ⇒ 必红 → 还原 PASS", async () => {
+  const clean = await s0ppNodeReading();
+  assert.deepEqual(s0ppProblems(clean), [], '基线必须全绿');
+  // 反证①：ian-1 破坏旧入口（三 id 任一不可用）⇒ 必红（N-IAN-027 / R-IAN-901）。
+  assert.ok(
+    s0ppProblems({ ...clean, legacyIds: ['composer', 'input'] }).some((p) => p.includes('S0PP-A2') && p.includes('#send')),
+    '旧入口三 id 缺一 ⇒ 必红',
+  );
+  // 反证②：旧入口断线（composer submit 不再调 requestTurn）⇒ 必红。
+  const broken = readSrc(SIDEPANEL_REL).replace('if (requestTurn(input.value)) {', 'if (false) {');
+  assert.notEqual(broken, readSrc(SIDEPANEL_REL), '前置：旧入口注入锚点必须存在');
+  assert.equal(legacyEntryWired(broken), false, '断线后接线判据必须为 false（判据非恒真）');
+  assert.ok(
+    s0ppProblems({ ...clean, legacyEntry: 'broken' }).some((p) => p.includes('S0PP-A1')),
+    '旧入口断线 ⇒ 必红',
+  );
+  // 反证③：回填覆盖非空 ⇒ 必红（复现「回填覆盖用户新输入」）。
+  assert.ok(
+    s0ppProblems({ ...clean, backfillOverwrote: true }).some((p) => p.includes('S0PP-A4') && p.includes('覆盖非空')),
+    '回填覆盖非空 ⇒ 必红',
+  );
+  // 反证④：新入口不经 op.turn 槽（自造第二回合入口）⇒ 必红。
+  assert.ok(
+    s0ppProblems({ ...clean, submitSlot: 'op.ghost' }).some((p) => p.includes('S0PP-A3')),
+    '第二回合入口 ⇒ 必红',
+  );
+  // 反证⑤：双载体退化为单载体（流内不回填）⇒ 必红。
+  assert.ok(
+    s0ppProblems({ ...clean, backfillCard: null }).some((p) => p.includes('S0PP-A4')),
+    '流内载体缺失 ⇒ 必红',
+  );
+  // 反证⑥：撞红线（KIND_SET 41 / ACT_TO_OP 7 / 冻结面漂移）⇒ 各必红。
+  assert.ok(s0ppProblems({ ...clean, kindSetSize: 41 }).some((p) => p.includes('S0PP-A6')), 'KIND_SET 越界 ⇒ 必红');
+  assert.ok(s0ppProblems({ ...clean, actToOpSize: 7 }).some((p) => p.includes('S0PP-A6')), 'ACT_TO_OP 越界 ⇒ 必红');
+  assert.ok(
+    s0ppProblems({ ...clean, freeze: { contentBytes: 177077, pickBytes: 34358 } }).some((p) => p.includes('S0PP-A7')),
+    '冻结面漂移 ⇒ 必红',
+  );
+  // 反证⑦：留痕含用户内容值（法八）⇒ 必红。
+  assert.ok(
+    s0ppProblems({ ...clean, driverTrace: `driver=manual | note=${S0PP_REJECTED_TEXT}` }).some((p) => p.includes('法八')),
+    '留痕含用户内容值 ⇒ 必红',
+  );
+  // 还原 ⇒ 全绿（判据不是恒真）。
+  assert.deepEqual(s0ppProblems(await s0ppNodeReading()), []);
+});
+
+test("S0PP-A 真源切片：新入口经生产 op.turn 槽（零第二回合入口）∧ 既有 S0/S0′ 环节逐字保留", () => {
+  const panelSrc = readSrc(SIDEPANEL_REL);
+  // 旧入口与 op 槽**共用**唯一 `requestTurn`（叶1 仍恰 2：composer submit + op.turn 槽）。
+  assert.match(panelSrc, /makeMessage\('chat',\s*\{\s*user:\s*trimmed/, '唯一回合入口必须仍发 chat user 载荷');
+  assert.equal(ian1CallSites(panelSrc, 'requestTurn'), 2, '叶1 唯一回合入口仍恰 2（composer submit + op.turn 槽）');
+  // 新入口提交体经 `dispatchOp('op.turn')`（不新增直连）。
+  const submitSlice = panelSrc.slice(panelSrc.indexOf('function submitFreeInput('), panelSrc.indexOf('function submitFreeInput(') + 1200);
+  assert.match(submitSlice, /dispatchOp\('op\.turn',\s*\{\s*value:\s*text\s*\}\)/, '新入口必须经生产 op.turn 槽');
+  assert.equal(/requestTurn\s*\(/.test(submitSlice), false, '新入口不得新增 requestTurn( 直连');
+  // 双回填载体在**同一** busy-rejected 分支（互不覆盖）。
+  assert.match(panelSrc, /restoreFreeInputDraft\(rejected\)/, '流内回填必须真的接线');
+  assert.match(panelSrc, /draftInput\.value\s*=\s*rejected/, '流外回填必须逐字保留');
+  // 既有两条链的样本逐字保留（禁因本叶改名 / 换序）。
+  assert.equal(S0_CHAIN.length, 10, 'S0 十环节不动');
+  assert.equal(S0PP_CHAIN.length, 10, "S0''-A 十环节（本叶新增）");
+  assert.notDeepEqual(
+    S0PP_CHAIN.map((b) => b.id),
+    S0_CHAIN.map((b) => b.id),
+    "S0''-A 与 S0 不得是同一条链（两组 id 独立）",
+  );
+  for (const j of S0PP_JUDGEMENTS) {
+    assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 不得占位`);
+  }
 });

@@ -268,6 +268,12 @@ export const EXPECTED_AUDITED_FILES = [
   // 不动（本叶零新增 Chromium 门禁文件：S0′ 批量段走既有 `test/ui/s0-self-driven.mjs`，
   // 只加断言不加文件）。`V55F2_NODE_GATE_FILES` 下界声明见 W3（TASK-V55F-216）。
   'test/batch-consent.test.ts',
+  // ── IAN-1（leaf `specs-tree-ian-1-free-input-next`）叶1 新 node 门禁 ────────────────
+  // W1/W2（TASK-IAN-116）落地 `free-input-next`（FIN-0~6），W3（TASK-IAN-121/123）扩到
+  // FIN-0~9 + S0''-A node 面。**只追加** ⇒ 改名 / 删除仍 FAIL；`CHROMIUM_GATES.length === 9`
+  // 逐字不动（本叶零新增 Chromium 门禁文件：S0''-A 的 Chromium 面走既有
+  // `test/ui/s0-self-driven.mjs`，只加断言不加文件）。
+  'test/free-input-next.test.ts',
 ] as const;
 
 /**
@@ -330,6 +336,15 @@ export const V552_NODE_GATE_FILES = ['test/onboarding-deterministic.test.ts'] as
  * `CHROMIUM_GATES === 9` 逐字不动）。
  */
 export const V55F2_NODE_GATE_FILES = ['test/batch-consent.test.ts'] as const;
+
+/**
+ * IAN-1（leaf `specs-tree-ian-1-free-input-next`）—— **流内自由输入 next 通道叶**的新增 node 门禁。
+ *
+ * 叶1（TASK-IAN-116/121/123）落地 **1** 枚新 node 门禁 `free-input-next`（FIN-0~9 + S0''-A node 面）；
+ * 叶2 再 +1（`law4-input-as-next`）。**只增不减**：R1 的 `V5_*` / `V551_*` / `V552_*` / `V553_*` /
+ * `V55F_*` 下界逐字保留；`CHROMIUM_GATES === 9` 逐字不动（本叶零新增 Chromium 门禁文件）。
+ */
+export const IAN1_NODE_GATE_FILES = ['test/free-input-next.test.ts'] as const;
 
 /** V5.5F-2 W3 收口轮**实际改动、承载新判据**的受判门禁（只增不减；含叶1 的法九门禁重锚）。 */
 export const V55F2_W3_AUDITED_FILES = [
@@ -1105,6 +1120,48 @@ test('元判据（V5.5F-1）：范围底座叶的三枚新 node 门禁逐项在�
   }
   assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本叶零新增 Chromium 门禁文件）');
   console.log(`  ℹ V5.5F-1 新门禁受审：${V55F1_NODE_GATE_FILES.length}/${V55F1_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
+/**
+ * ★ IAN-1 **TASK-IAN-122**（ADR-IAN-008 §② · FR-IAN-105 · AC-IAN-022）—— 叶1 新 node 门禁
+ * `free-input-next` **只增**进受审下界（目录扫描 ∧ 下界声明双命中）。
+ *
+ * 既有下界（`V5_*` / `V551_*` / `V552_*` / `V553_*` / `V55F_*`）**逐字保留**；
+ * `CHROMIUM_GATES === 9` 逐字不动（本叶零新增 Chromium 门禁文件）。
+ */
+test('元门禁（IAN-1）：`free-input-next` 由 JUDGEMENTS 标记纳入受审集合（下界 ≥1，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of IAN1_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    if ((text.match(/expectFailPattern\s*:/g) ?? []).length < 3) problems.push(`${file}: 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  assert.deepEqual(problems, [], `IAN-1 新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  assert.ok(IAN1_NODE_GATE_FILES.length >= 1, 'IAN-1 叶1 新增 node 门禁下界不得低于 1（free-input-next；叶2 再 +1）');
+  // 反证：未在受审集合的门禁必须被判红（判据非恒真）。
+  const forgedProblems: string[] = [];
+  for (const file of [...IAN1_NODE_GATE_FILES, 'test/ghost-gate.test.ts']) {
+    if (!discovered.includes(file)) forgedProblems.push(`${file}: 未被目录扫描纳入`);
+  }
+  assert.ok(forgedProblems.length > 0, '未在受审集合的门禁必须被判红（判据非恒真）');
+  // 既有下界逐字保留（本次只增 ⇒ 不得因追加而脱离受审集合）。
+  for (const file of [
+    ...V5_NEW_GATE_FILES,
+    ...V551_NODE_GATE_FILES,
+    ...V552_NODE_GATE_FILES,
+    ...V553_NODE_GATE_FILES,
+    ...V55F1_NODE_GATE_FILES,
+    ...V55F2_NODE_GATE_FILES,
+  ]) {
+    assert.ok(discovered.includes(file), `${file} 不得脱离受审集合`);
+    assert.ok((EXPECTED_AUDITED_FILES as readonly string[]).includes(file), `${file} 必须仍在下界声明里（只增不减）`);
+  }
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本叶零新增 Chromium 门禁文件）');
+  console.log(`  ℹ IAN-1 新门禁受审：${IAN1_NODE_GATE_FILES.length}/${IAN1_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
 });
 
 test('元门禁反证（合成夹具）：N-01 中间语句绕过 / N-02 注释满足有界性 必须被判红', () => {
