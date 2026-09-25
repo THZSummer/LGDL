@@ -38,6 +38,37 @@ const PANEL_REL = 'src/ui/sidepanel/sidepanel.ts';
 /** 法四涉及的三个流外面 id（真退役目标）。 */
 export const LAW4_RETIRED_IDS = ['composer', 'input', 'send'] as const;
 
+// ── ★ IAN-2 review R1 BLOCK-01：法四**原地修订** old→new 逐字台账 + 「三处一致」机核 ──
+//
+// O-IAN-007 裁决 = 原地修订（非静默改写）：`v4-chat/spec.md` 的**法四三处**
+// (`:116` 法则表 / `:225` FR-CHAT-014 / `:385` AC-CHAT-007) 必须同轮改成同一新条文；
+// `old` 逐字 / `new` 逐字 / 理由 / 日期 / 三锚（file:line）登记在
+// `docs/v4-supersession-ledger.json#law4InplaceRevision`。**三处只改一处（半修）⇒ 必红**。
+export const LAW4_OLD_VERBATIM =
+  '输入按需出现：无常驻输入框；ask-user text 输入框只在问题卡内出现，卡内还有「其他…（我来描述）」兜底';
+export const LAW4_NEW_VERBATIM = '输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面';
+/** 三处共同的核心句（逐字；L4-7 在每锚行上比对它）。 */
+export const LAW4_CORE_SENTENCE = '自由文本输入是流内 next 的一个选项；**流外零输入面**';
+/** 三处一致锚行号（1-indexed）。 */
+export const LAW4_ANCHOR_LINES = [116, 225, 385] as const;
+const V4_CHAT_SPEC_REL = '.sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md';
+const V4_LEDGER_REL = 'docs/v4-supersession-ledger.json';
+
+export interface Law4Anchor {
+  readonly file: string;
+  readonly line: number;
+}
+export interface Law4Revision {
+  readonly id?: string;
+  readonly old?: string;
+  readonly new?: string;
+  readonly reason?: string;
+  readonly date?: string;
+  readonly coreSentence?: string;
+  readonly counterCheck?: string;
+  readonly anchors?: readonly Law4Anchor[];
+}
+
 export interface Law4Judgement {
   readonly id: string;
   readonly expectFailPattern: string;
@@ -49,6 +80,10 @@ export const JUDGEMENTS: readonly Law4Judgement[] = [
   { id: 'L4-4-stream-input-usable', expectFailPattern: '法四 L4-4：流内 free-input 卡必须存在可用（可展开 + 可聚焦）' },
   { id: 'L4-5-tri-state', expectFailPattern: '法四 L4-5：三段控制 ok / violated / n/a 逐态可达（n/a 不冒充 ok）' },
   { id: 'L4-6-true-source', expectFailPattern: '法四 L4-6：判据必须读生产真源（不读测试自建常量、不自我裁决）' },
+  {
+    id: 'L4-7-three-way-consistency',
+    expectFailPattern: '法四 L4-7：`v4-chat/spec.md` 三处（:116/:225/:385）必须同轮改成同一新条文（半修 ⇒ 必红）∧ 台账 old→new 逐字',
+  },
 ];
 
 /** 三态：`ok` = 判据通过；`violated` = 判据失败；`n/a` = 证据面不可达（**不**冒充 ok）。 */
@@ -193,6 +228,50 @@ export function law4Problems(reading: Law4Reading): string[] {
   return problems;
 }
 
+/**
+ * ★ IAN-2 review R1 **BLOCK-01** —— 法四「三处一致」机核（纯函数 ⇒ 反证可打在真实源文本上）。
+ *
+ * 判据（读 `.sddu/.../v4-chat/spec.md` 三锚行 + 台账 `law4InplaceRevision`）：
+ *   · 台账条目存在，且 `old` / `new` / `coreSentence` 逐字匹配（ADR-IAN-006 §①）；
+ *   · `reason` 非套话 / `date` 合法 / `counterCheck` 非空；
+ *   · `anchors` 行号 == `[116, 225, 385]` 且文件都是 `v4-chat/spec.md`；
+ *   · 每个锚行**都必须**含核心句 `LAW4_CORE_SENTENCE`（三处改一处 / 缺一处 ⇒ 半修必红）。
+ *
+ * `specLines(line)` 返回该 1-indexed 行的文本（越界 ⇒ `undefined`）。
+ */
+export function law4ConsistencyProblems(
+  revision: Law4Revision | undefined,
+  specLines: (line: number) => string | undefined,
+): string[] {
+  const p = J('L4-7-three-way-consistency').expectFailPattern;
+  const problems: string[] = [];
+  if (!revision) return [`${p}：台账缺法四条目（\`${V4_LEDGER_REL}#law4InplaceRevision\`）`];
+  if (revision.old !== LAW4_OLD_VERBATIM) problems.push(`${p}：old 逐字不符（必须等于台账登记旧条文）`);
+  if (revision.new !== LAW4_NEW_VERBATIM) problems.push(`${p}：new 逐字不符（必须等于法四新条文）`);
+  if ((revision.coreSentence ?? '') !== LAW4_CORE_SENTENCE) problems.push(`${p}：coreSentence 与三处核心句逐字不符`);
+  if ((revision.reason ?? '').trim().length < 20) problems.push(`${p}：reason 必须非套话（≥20 字符）`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(revision.date ?? ''))) problems.push(`${p}：date 缺失或不合法（${revision.date}）`);
+  if ((revision.counterCheck ?? '').trim().length === 0) problems.push(`${p}：counterCheck 不得为空`);
+  const anchors = revision.anchors ?? [];
+  const lines = anchors.map((a) => a.line).sort((a, b) => a - b);
+  if (JSON.stringify(lines) !== JSON.stringify([...LAW4_ANCHOR_LINES])) {
+    problems.push(`${p}：三锚行号必须恰为 [${LAW4_ANCHOR_LINES.join(', ')}]（实测 [${lines.join(', ')}]）`);
+  }
+  if (anchors.length === 0) problems.push(`${p}：anchors 不得为空（必须登记三处落点 file:line）`);
+  for (const a of anchors) {
+    if (!String(a.file ?? '').endsWith('v4-chat/spec.md')) problems.push(`${p}：锚点文件必须是 v4-chat/spec.md（${a.file}）`);
+    const text = specLines(a.line);
+    if (text === undefined) {
+      problems.push(`${p}：锚点 ${a.file}:${a.line} 不存在（行号漂移）`);
+      continue;
+    }
+    if (!text.includes(LAW4_CORE_SENTENCE)) {
+      problems.push(`${p}：${a.file}:${a.line} 缺法四新条文核心句（半修 / 未修 ⇒ 必红）`);
+    }
+  }
+  return problems;
+}
+
 /** 生产真值读数（node 面；Chromium 面另有运行时 DOM 判据）。 */
 function productionReading(): Law4Reading {
   return {
@@ -255,4 +334,50 @@ test('法四反证③：默认屏注入可见 `<input>` ⇒ L4-3 必红（零可
     '默认屏可见输入框 ⇒ L4-3 必红',
   );
   assert.deepEqual(law4Problems(clean), []);
+});
+
+test('法四 L4-7：三处一致（`v4-chat/spec.md` :116/:225/:385 + 台账 old→new 逐字）∧ 半修必红', () => {
+  const revision = (
+    JSON.parse(readFileSync(join(PKG, V4_LEDGER_REL), 'utf8')) as { law4InplaceRevision?: Law4Revision }
+  ).law4InplaceRevision;
+  const specText = readFileSync(join(PKG, '..', '..', V4_CHAT_SPEC_REL), 'utf8');
+  const specArr = specText.split('\n');
+  const specLines = (line: number): string | undefined => (line >= 1 && line <= specArr.length ? specArr[line - 1] : undefined);
+
+  // 生产事实 ⇒ 全绿（三处核心句逐字一致 + 台账 old/new 逐字）。
+  assert.deepEqual(law4ConsistencyProblems(revision, specLines), [], '法四三处一致机核必须全绿');
+  assert.equal(revision?.id, 'X-IAN-1', '法四条目 id 必须 = X-IAN-1（父 §12 编号）');
+  // 非恒真：三锚行号确实落在 spec 真源内且含新条文。
+  for (const line of LAW4_ANCHOR_LINES) {
+    assert.ok((specLines(line) ?? '').includes(LAW4_CORE_SENTENCE), `前置：spec.md:${line} 必须含法四新条文`);
+  }
+
+  // ── 反证①：**半修**（只回退一处到旧条文）⇒ 必红（核心判据）──────────────
+  const reverted = (line: number): string | undefined => {
+    const text = specLines(line);
+    return line === LAW4_ANCHOR_LINES[1] ? (text ?? '').replace(LAW4_CORE_SENTENCE, '输入按需出现：无常驻输入框') : text;
+  };
+  const halfFix = law4ConsistencyProblems(revision, reverted);
+  assert.ok(halfFix.some((x) => x.includes(`:${LAW4_ANCHOR_LINES[1]}`)), '三处只改一处（半修）⇒ 必红');
+
+  // ── 反证②：锚点行号漂移 ⇒ 必红 ──────────────────────────────────────────
+  const drifted: Law4Revision = {
+    ...revision,
+    anchors: (revision?.anchors ?? []).map((a, i) => (i === 0 ? { ...a, line: 117 } : a)),
+  };
+  assert.ok(
+    law4ConsistencyProblems(drifted, specLines).some((x) => x.includes('三锚行号')),
+    '锚点行号漂移 ⇒ 必红',
+  );
+
+  // ── 反证③：台账 old / new / coreSentence 空字段或错字 ⇒ 必红 ─────────────
+  assert.ok(law4ConsistencyProblems({ ...revision, old: '' }, specLines).some((x) => x.includes('old 逐字')));
+  assert.ok(law4ConsistencyProblems({ ...revision, new: '其他' }, specLines).some((x) => x.includes('new 逐字')));
+  assert.ok(law4ConsistencyProblems({ ...revision, anchors: [] }, specLines).some((x) => x.includes('anchors')));
+
+  // ── 反证④：台账条目整体缺失 ⇒ 必红 ─────────────────────────────────────
+  assert.ok(law4ConsistencyProblems(undefined, specLines).some((x) => x.includes('缺法四条目')));
+
+  // 还原 ⇒ 绿（判据非恒真）。
+  assert.deepEqual(law4ConsistencyProblems(revision, specLines), []);
 });

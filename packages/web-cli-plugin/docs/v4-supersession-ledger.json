@@ -33,6 +33,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -1700,6 +1701,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -2757,6 +2759,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -3764,6 +3767,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -4800,6 +4804,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -5870,6 +5875,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -6540,6 +6546,7 @@
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
           "packages/web-cli-plugin/test/s2-deadend-chain.test.ts",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -7069,6 +7076,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -7474,6 +7482,7 @@
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
           "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -7933,6 +7942,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -8352,6 +8362,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -8774,6 +8785,7 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -9160,6 +9172,7 @@
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
           "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel-view.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
@@ -9470,12 +9483,27 @@
         },
         {
           "file": "packages/web-cli-plugin/test/supersession-ledger.test.ts",
-          "count": 3,
-          "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
+          "count": 18,
+          "reason": "★ IAN-2 review R1 修复轮：本叶段删除面在 R1 登记（3 行）基础上追加修复轮改写行（§IAN-1 台账改名 L1-SUP-* + mapsToParent + X-IAN 并集机核），逐字登记合计 18 行（R1 的 3 行 + 修复轮 15 行）；等价重锚，判据只增不删。",
           "registeredUncoveredLines": [
+            "  { id: 'RL-07-requestturn-2', expectFailPattern: '红线⑦：`requestTurn(` 调用点仍恰 2（AI 经既有 `op.turn` 槽）' },",
             "  // ⑦ `requestTurn(` 仍恰 2。",
             "  items['RL-07-requestturn-2'] = askTurn === 2 ? [] : [`requestTurn( 实测 ${askTurn} 处 ≠ 2`];",
-            "  { id: 'RL-07-requestturn-2', expectFailPattern: '红线⑦：`requestTurn(` 调用点仍恰 2（AI 经既有 `op.turn` 槽）' },"
+            " * FR-IAN-100/102 · AC-IAN-018/020）—— **X-IAN-1~7 台账骨架 + 本叶门禁对账骨架**。",
+            " * 断言数非零 / 缺 before-after ⇒ 必红。",
+            "/** X-IAN-1~7 台账判据（注入 `exists` ⇒ 反证可打在判据上）。 */",
+            "  const p = 'X-IAN-1~7 取代台账骨架一致性：逐条登记 + decision 显式 + counterCheck 可定位';",
+            "  const expected = ['X-IAN-1', 'X-IAN-2', 'X-IAN-3', 'X-IAN-4', 'X-IAN-5', 'X-IAN-6', 'X-IAN-7'];",
+            "test('ledger(V4 段 · IAN-1): X-IAN-1~7 逐条登记 ∧ 「未发生取代」如实 ∧ counterCheck 可定位', () => {",
+            "  assert.deepEqual(xIianLedgerProblems(rows, existsRel), [], 'X-IAN 台账骨架一致性未通过');",
+            "  // X-IAN-7（叶1 侧：回填载体双载体并存）必须显式登记（本叶收口骨架的决定性条目）。",
+            "  const x7 = rows.find((r) => r.id === 'X-IAN-7');",
+            "  assert.ok(x7, 'X-IAN-7 必须登记（回填载体双载体并存）');",
+            "  assert.match(String(x7?.evidence ?? ''), /流内/, 'X-IAN-7 必须写明流内载体');",
+            "  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 缺条 ⇒ 同一判据必红。",
+            "  assert.ok(xIianLedgerProblems(rows.map((r) => (r.id === 'X-IAN-7' ? { ...r, decision: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')));",
+            "    xIianLedgerProblems(rows.map((r) => (r.id === 'X-IAN-4' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')),",
+            "  assert.ok(xIianLedgerProblems(rows.filter((r) => r.id !== 'X-IAN-5'), existsRel).some((x) => x.includes('X-IAN-5')));"
           ]
         },
         {
@@ -9714,7 +9742,7 @@
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 20,
-        "registeredLines": 381,
+        "registeredLines": 396,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
       }
@@ -9739,11 +9767,13 @@
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
           "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/settings.test.ts",
           "packages/web-cli-plugin/test/sidepanel.test.ts",
           "packages/web-cli-plugin/test/size-attribution.mjs",
           "packages/web-cli-plugin/test/size-baseline.ts",
           "packages/web-cli-plugin/test/size-budget.test.ts",
           "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "packages/web-cli-plugin/test/supersession-ledger.test.ts",
           "packages/web-cli-plugin/test/ui/binding.mjs",
           "packages/web-cli-plugin/test/ui/density-metrics.mjs",
           "packages/web-cli-plugin/test/ui/density.mjs",
@@ -13710,6 +13740,21 @@
       "oldRange": null,
       "newRange": null,
       "reason": "★ IAN-2（ADR-IAN-005 §④）设置返回后 draft 读数重锚：由退役的 `#input` 改为流内 free-input 卡 `#ask-input`（保留原行作守卫回退）；「草稿仍在」语义逐字保留。"
+    },
+    {
+      "id": "IAN2FIX-E-SETTINGS-1",
+      "file": "packages/web-cli-plugin/test/settings.test.ts",
+      "gate": "settings",
+      "oldId": "composer-draft-wording",
+      "oldTitle": "'composer draft restored');",
+      "newId": "in-card-draft-wording",
+      "newTitle": "'in-card draft restored');",
+      "replacementExists": true,
+      "modificationType": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "oldRange": null,
+      "newRange": null,
+      "reason": "★ IAN-2 review R1 I-02（等价重锚，非放宽）：断言文案由旧口径 'composer draft restored' 改为流内口径 'in-card draft restored'（纯文案，断言结构不变；mock 本身 carrier-agnostic，载体已重锚 #ask-input）。"
     }
   ],
   "modifiedRanges": [
@@ -19333,58 +19378,74 @@
     "adr": "ADR-IAN-002（卡内输入与回合通道）/ ADR-IAN-003（R6 队列与草稿迁移）/ ADR-IAN-009（S0″ 双面验证）",
     "registeredOn": "2026-09-25",
     "registeredBy": "SDDU build（IAN-1 R1+R2；W1+W2+W3 = TASK-IAN-101~127）",
-    "note": "X-IAN-1~7 **逐条登记骨架**：叶1 只立骨架（终态由叶2 `specs-tree-ian-2-abolish-composer` 收口）。**已发生取代**（等价重锚，非放宽）与**未发生取代**（如实登记，不得留空）逐条给出可定位 counterCheck 与非套话解释。",
+    "note": "本段为**叶1 内部序号**（`L1-SUP-1~7`），**不是**父 `../spec.md §12` 的 `X-IAN-1~11`；每行以 `mapsToParent` 显式登记与父 §12 的对应（`null` = 父 §12 无同义项）。『父 §12 X-IAN-1~11 逐条收口』见 `xIianLedgerFull`（X-IAN-1~7）+ `xIianLedgerLeaf2`（X-IAN-8~11）。",
     "rows": [
       {
-        "id": "X-IAN-1",
+        "id": "L1-SUP-1",
         "decision": "no-supersession",
         "owner": "specs-tree-ian-1-free-input-next（叶1）",
         "counterCheck": "`test/op-wiring.test.ts`（`op.turn` 槽仍恰 1 调用点 ∧ `requestTurn(` 恰 2）∧ `test/free-input-next.test.ts` FIN-3",
-        "evidence": "回合发起通道**未取代**：`op.turn` 槽与 `requestTurn(` 计数逐字不变（叶1 只保证新增点经槽，重锚恰 1 由叶2 落地）。"
+        "evidence": "回合发起通道**未取代**：`op.turn` 槽与 `requestTurn(` 计数逐字不变（叶1 只保证新增点经槽，重锚恰 1 由叶2 落地）。",
+        "mapsToParent": null,
+        "mapsToParentNote": "回合通道：op.turn 槽仍恰 1 调用点"
       },
       {
-        "id": "X-IAN-2",
+        "id": "L1-SUP-2",
         "decision": "no-supersession",
         "owner": "specs-tree-ian-1-free-input-next（叶1）",
         "counterCheck": "`test/insight-no-escalation.test.ts`（特权 op 恒 gesture ∧ SW 永不 permissions.request）",
-        "evidence": "特权 op 面**未取代**：输入面不触达 `op.authorize` / `op.perm.request`（恒 gesture），`op.turn` 仍 auto 档。"
+        "evidence": "特权 op 面**未取代**：输入面不触达 `op.authorize` / `op.perm.request`（恒 gesture），`op.turn` 仍 auto 档。",
+        "mapsToParent": null,
+        "mapsToParentNote": "特权 op：恒 gesture ∧ SW 永不 permissions.request"
       },
       {
-        "id": "X-IAN-3",
+        "id": "L1-SUP-3",
         "decision": "no-supersession",
         "owner": "specs-tree-ian-1-free-input-next（叶1）",
         "counterCheck": "`test/free-input-next.test.ts` FIN-0 ∧ `test/host-registry.test.ts`",
-        "evidence": "载体面**未取代**：零新增 kind / 零新增宿主（`KIND_SET` 40 ∧ 12 kind ∧ `REGISTERED_STRUCTURAL_HOSTS === []`）。"
+        "evidence": "载体面**未取代**：零新增 kind / 零新增宿主（`KIND_SET` 40 ∧ 12 kind ∧ `REGISTERED_STRUCTURAL_HOSTS === []`）。",
+        "mapsToParent": "X-IAN-2",
+        "mapsToParentNote": "载体面零新增 kind/host（与父 X-IAN-2 退役面相关）"
       },
       {
-        "id": "X-IAN-4",
+        "id": "L1-SUP-4",
         "decision": "superseded",
         "owner": "specs-tree-ian-1-free-input-next（叶1）",
         "counterCheck": "`test/free-input-next.test.ts` FIN-1 ∧ `test/next-dispatch-diff0.test.ts` D0-5",
-        "evidence": "推荐面**等价重锚**：`SET_A_PROTOCOL_ACTIONS` 8 → 9（新增 `free-input`，集 A 只增），`ACT_TO_OP` 仍恰 6（终端不进表）；既有 8 项零删除。"
+        "evidence": "推荐面**等价重锚**：`SET_A_PROTOCOL_ACTIONS` 8 → 9（新增 `free-input`，集 A 只增），`ACT_TO_OP` 仍恰 6（终端不进表）；既有 8 项零删除。",
+        "mapsToParent": null,
+        "mapsToParentNote": "推荐面：集 A 8 → 9，ACT_TO_OP 仍恰 6"
       },
       {
-        "id": "X-IAN-5",
+        "id": "L1-SUP-5",
         "decision": "superseded",
         "owner": "specs-tree-ian-1-free-input-next（叶1）",
         "counterCheck": "`test/free-input-next.test.ts` FIN-2 ∧ `test/ui/no-dead-end.mjs`",
-        "evidence": "零死端**等价重锚**：无任何候选（`suppression==empty`）⇒ 铸「仅含终端」最小卡；`pending`/`interval`/`safety` 三道既有硬门逐字不变（fail-closed 不放松）。"
+        "evidence": "零死端**等价重锚**：无任何候选（`suppression==empty`）⇒ 铸「仅含终端」最小卡；`pending`/`interval`/`safety` 三道既有硬门逐字不变（fail-closed 不放松）。",
+        "mapsToParent": null,
+        "mapsToParentNote": "零死端：无候选 ⇒ 铸最小卡"
       },
       {
-        "id": "X-IAN-6",
+        "id": "L1-SUP-6",
         "decision": "no-supersession",
         "owner": "specs-tree-ian-1-free-input-next（叶1）",
         "counterCheck": "`test/ui/law8-plaintext.mjs` ⑩ ∧ `test/turn-arbitration.test.ts`",
-        "evidence": "SW 有界队列语义**未取代**：`turn-queue.ts` 零 diff（`TURN_QUEUE_MAX=1` / 三路径 / 溢出明确拒绝逐字不变）。"
+        "evidence": "SW 有界队列语义**未取代**：`turn-queue.ts` 零 diff（`TURN_QUEUE_MAX=1` / 三路径 / 溢出明确拒绝逐字不变）。",
+        "mapsToParent": null,
+        "mapsToParentNote": "SW 有界队列语义保留（turn-queue 零 diff）"
       },
       {
-        "id": "X-IAN-7",
+        "id": "L1-SUP-7",
         "decision": "superseded",
         "owner": "specs-tree-ian-1-free-input-next（叶1；终态由叶2 收紧）",
         "counterCheck": "`test/turn-arbitration.test.ts` TA-8 ∧ `test/free-input-next.test.ts` FIN-7 ∧ `test/ui/s0-self-driven.mjs` S0C-12",
-        "evidence": "草稿回填**双载体并存**（叶1 中间态）：既有 `#input` 回填逐字保留 ∧ 新增**流内**卡内输入回填（仅当为空 ⇒ 不覆盖 / 卡收起 ⇒ 重展开 / 卡不存在 ⇒ 按需铸造）；两载体互不覆盖。叶2 将收敛为唯一载体并收紧本条。"
+        "evidence": "草稿回填**双载体并存**（叶1 中间态）：既有 `#input` 回填逐字保留 ∧ 新增**流内**卡内输入回填（仅当为空 ⇒ 不覆盖 / 卡收起 ⇒ 重展开 / 卡不存在 ⇒ 按需铸造）；两载体互不覆盖。叶2 将收敛为唯一载体并收紧本条。",
+        "mapsToParent": "X-IAN-7",
+        "mapsToParentNote": "草稿回填双载体并存（终态由叶2 唯一化）"
       }
-    ]
+    ],
+    "numberingPolicy": "leaf-scoped-prefix:L1-SUP-*；父 §12 编号仅在 xIianLedgerFull / xIianLedgerLeaf2 使用（禁 ID 冲突）",
+    "renameNote": "★ IAN-2 review R1 BLOCK-02 修复：原 `X-IAN-1~7` 与父 §12 语义冲突 ⇒ 改名 `L1-SUP-1~7` + 逐行 `mapsToParent`；老登记文本（decision/owner/counterCheck/evidence）逐字保留。"
   },
   "xIianGateReconciliation": {
     "leaf": "specs-tree-ian-1-free-input-next",
@@ -19476,42 +19537,96 @@
     "adr": "ADR-IAN-004（废除 #composer 执行序）/ ADR-IAN-006（法四修订与取代台账）",
     "registeredOn": "2026-09-25",
     "registeredBy": "SDDU build（IAN-2 R1+R2；W04~W06 = TASK-IAN-201~225）",
-    "note": "X-IAN-8~11 **逐条登记终态**（叶2 = 拆除叶；四条均已发生取代，且均为等价重锚 / 载体迁移，非放宽）。每条给出可定位 counterCheck 与非套话解释；断言只升不降由各自的判据文件机核。",
+    "note": "X-IAN-8~11 **逐条登记终态**（叶2 = 拆除叶；四条均已发生取代，且均为等价重锚 / 载体迁移，非放宽）。每行含 `old` 逐字 / `new` 逐字 / `date` / `anchors`（落点 file:line）与可定位 `counterCheck`；与 `xIianLedgerFull`（X-IAN-1~7）并集 = 父 §12 X-IAN-1~11。",
     "rows": [
       {
         "id": "X-IAN-8",
         "decision": "superseded",
         "owner": "specs-tree-ian-2-abolish-composer（叶2）",
         "counterCheck": "`test/settings.test.ts`（draft 载体）∧ `test/turn-arbitration.test.ts` TA-4",
-        "evidence": "设置 ⇄ chat 的 draft `#input` 读写**重锚**到流内 free-input 卡 `#ask-input`（空安全；卡不存在 ⇒ 按需铸造）；流外 `#input` 写点必须零命中（回填仍必红）。"
+        "evidence": "设置 ⇄ chat 的 draft `#input` 读写**重锚**到流内 free-input 卡 `#ask-input`（空安全；卡不存在 ⇒ 按需铸造）；流外 `#input` 写点必须零命中（回填仍必红）。",
+        "old": "设置 ⇄ chat 草稿保持 `#input`（`sidepanel.ts:1337-1341` / `settings.test.ts:191`）",
+        "new": "draft 载体**重锚**到流内 free-input 卡 `#ask-input`（空安全；卡不存在 ⇒ 按需铸造）；流外 `#input` 写点零命中（回填仍必红）",
+        "date": "2026-09-25",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/src/ui/settings/view-switch.ts",
+            "line": 7,
+            "role": "carrier-agnostic 注释重锚"
+          },
+          {
+            "file": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts",
+            "line": 1362,
+            "role": "getDraft/setDraft 读写卡内 #ask-input"
+          }
+        ],
+        "reason": "设置 ⇄ chat 的 draft `#input` 读写**重锚**到流内 free-input 卡 `#ask-input`（空安全；卡不存在 ⇒ 按需铸造）；流外 `#input` 写点必须零命中（回填仍必红）。（old→new 逐字见 old/new 字段）"
       },
       {
         "id": "X-IAN-9",
         "decision": "superseded",
         "owner": "specs-tree-ian-2-abolish-composer（叶2）",
         "counterCheck": "`test/l0-disclosure.test.ts` ∧ `src/ui/sidepanel/disclosure.ts`",
-        "evidence": "`NEVER_FOLDABLE` 移除 `'composer'`（14 → **13**）：元素已不存在 ⇒ 无需「永不折叠」保护；断言为**非恒真**（集合不含 composer 且长度恰 13）。"
+        "evidence": "`NEVER_FOLDABLE` 移除 `'composer'`（14 → **13**）：元素已不存在 ⇒ 无需「永不折叠」保护；断言为**非恒真**（集合不含 composer 且长度恰 13）。",
+        "old": "`NEVER_FOLDABLE` 含 `'composer'`（`disclosure.ts:164` + `:69,147`）",
+        "new": "`NEVER_FOLDABLE` 移除 `'composer'`（14 → **13**）：元素不存在 ⇒ 无需「永不折叠」保护；断言**非恒真**（集合不含 composer 且长度恰 13）",
+        "date": "2026-09-25",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/src/ui/sidepanel/disclosure.ts",
+            "line": 154,
+            "role": "NEVER_FOLDABLE 去 composer（13）"
+          }
+        ],
+        "reason": "`NEVER_FOLDABLE` 移除 `'composer'`（14 → **13**）：元素已不存在 ⇒ 无需「永不折叠」保护；断言为**非恒真**（集合不含 composer 且长度恰 13）。（old→new 逐字见 old/new 字段）"
       },
       {
         "id": "X-IAN-10",
         "decision": "superseded",
         "owner": "specs-tree-ian-2-abolish-composer（叶2）",
         "counterCheck": "`test/sidepanel-view.test.ts` ∧ `test/onboarding-deterministic.test.ts`",
-        "evidence": "首装引导「在输入框输入指令并发送」**改指**流内 next「自由输入…」（`view-model.ts`）；引导不断言已退役元素 id，改判流内入口可达。"
+        "evidence": "首装引导「在输入框输入指令并发送」**改指**流内 next「自由输入…」（`view-model.ts`）；引导不断言已退役元素 id，改判流内入口可达。",
+        "old": "首装引导「在**输入框**输入指令并发送」（`view-model.ts:350`）",
+        "new": "引导「**改指**流内 next『自由输入…』项」：`ONBOARDING_TEXTS[4]` 指向卡末「自由输入…」入口；引导不断言已退役元素 id",
+        "date": "2026-09-25",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts",
+            "line": 356,
+            "role": "引导改指流内入口"
+          }
+        ],
+        "reason": "首装引导「在输入框输入指令并发送」**改指**流内 next「自由输入…」（`view-model.ts`）；引导不断言已退役元素 id，改判流内入口可达。（old→new 逐字见 old/new 字段）"
       },
       {
         "id": "X-IAN-11",
         "decision": "superseded",
         "owner": "specs-tree-ian-2-abolish-composer（叶2）",
         "counterCheck": "`test/ui/binding.mjs` ∧ `test/binding-wiring.test.ts`",
-        "evidence": "`binding.mjs` `DIAG_SELECTORS` 去 `composer` + 真实键入路径重锚到流内 free-input 卡（`#ask-input`/`#ask-submit`，**路径不删**）；**保护段 keep 字节中立**：段 `107780..115930` 段内零字节、sha `be9ad0e9…` 双绿、`startAnchor` 仍 = 107780（段前等长补偿）。"
+        "evidence": "`binding.mjs` `DIAG_SELECTORS` 去 `composer` + 真实键入路径重锚到流内 free-input 卡（`#ask-input`/`#ask-submit`，**路径不删**）；**保护段 keep 字节中立**：段 `107780..115930` 段内零字节、sha `be9ad0e9…` 双绿、`startAnchor` 仍 = 107780（段前等长补偿）。",
+        "old": "`binding.mjs` `DIAG_SELECTORS` 含 `composer` + 真实键入 `#input`/`#send`（`:115,905,1034-1096`）",
+        "new": "诊断面**重锚**流内输入（`DIAG_SELECTORS` 去 `composer`、加 `ask-input`）；真实键入路径重锚 `#ask-input`/`#ask-submit`（**路径不删**）；**保护段 keep 字节中立**（sha `be9ad0e9…` 双绿、`startByte` 107780）",
+        "date": "2026-09-25",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+            "line": 117,
+            "role": "DIAG_SELECTORS 去 composer + 加 ask-input"
+          },
+          {
+            "file": "packages/web-cli-plugin/test/ui/binding.mjs",
+            "line": 1033,
+            "role": "真实键入重锚 #ask-input"
+          }
+        ],
+        "reason": "`binding.mjs` `DIAG_SELECTORS` 去 `composer` + 真实键入路径重锚到流内 free-input 卡（`#ask-input`/`#ask-submit`，**路径不删**）；**保护段 keep 字节中立**：段 `107780..115930` 段内零字节、sha `be9ad0e9…` 双绿、`startAnchor` 仍 = 107780（段前等长补偿）。（old→new 逐字见 old/new 字段）"
       }
     ]
   },
   "xIianGateReconciliationLeaf2": {
     "leaf": "specs-tree-ian-2-abolish-composer",
     "registeredOn": "2026-09-25",
-    "note": "**18 门禁三态对账**（保留 `kept` / 等价重锚 `equivalent-reanchor` / 显式取代 `explicit-supersession`）+ 新增 1 门禁；断言零删除零降级（`assertionsRemoved=0`）。间接面对账（notify-tools / settings-help / system-merge / parity baseline-catalog）见 `indirectFaces`。",
+    "note": "**18 门禁三态对账**（保留 `kept` / 等价重锚 `equivalent-reanchor` / 显式取代 `explicit-supersession`）+ 新增 1 门禁；断言零删除零降级（`assertionsRemoved=0`）。间接面对账（notify-tools / settings-help / system-merge / parity baseline-catalog）见 `indirectFaces`。 ★ IAN-2 review R1 I-03：settings 行改 `kept`（该门禁文件实际零改动，改动仅在生产侧注释）。",
     "manualFaces": "人工面 **M3 / M4**：⏳ **未执行**（headless 不可合成，不冒充 PASS；TASK-IAN-222 §人工面登记）；M1/M2/M5 同。",
     "indirectFaces": "notify-tools（消息 `send()` ≠ `#send` 按钮，零触碰）· settings-help · system-merge · parity/baseline-catalog —— 四条逐项复核：无 `#composer`/`#input`/`#send` 引用面，**保留**（kept）。",
     "rows": [
@@ -19573,9 +19688,9 @@
       },
       {
         "gate": "settings",
-        "disposition": "equivalent-reanchor",
-        "before": "draft 载体 = `#input`",
-        "after": "draft 重锚流内载体（等价重锚）",
+        "disposition": "kept",
+        "before": "draft 载体 = `#input`（断言 carrier-agnostic）",
+        "after": "**保留**：`test/settings.test.ts` 零改动（mock 本身 carrier-agnostic）；生产侧注释重锚见 `src/ui/settings/view-switch.ts`",
         "assertionsRemoved": 0
       },
       {
@@ -19656,5 +19771,175 @@
         "assertionsRemoved": 0
       }
     ]
-  }
+  },
+  "law4InplaceRevision": {
+    "id": "X-IAN-1",
+    "leaf": "specs-tree-ian-2-abolish-composer",
+    "adr": "ADR-IAN-006 §①（法四原地修订）/ FR-IAN-060~062 / AC-IAN-008",
+    "registeredOn": "2026-09-25",
+    "registeredBy": "SDDU build（IAN-2 修复轮 R1）",
+    "law": "法四",
+    "old": "输入按需出现：无常驻输入框；ask-user text 输入框只在问题卡内出现，卡内还有「其他…（我来描述）」兜底",
+    "new": "输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面",
+    "coreSentence": "自由文本输入是流内 next 的一个选项；**流外零输入面**",
+    "reason": "O-IAN-007 裁决 = **原地修订**（非静默改写、不升格法十）：法四条文由「输入按需出现（无常驻输入框）」改为「输入即 next（自由文本输入是流内 next 的一个选项；流外零输入面）」，与流内自由输入 next 面 / 流外零输入面口径一致。ADR-IAN-006 §①要求 old→new **逐字**入 supersession 台账，且三处（法则表 / FR-CHAT-014 / AC-CHAT-007）同轮一致改动 ⇒ 半修必红。",
+    "date": "2026-09-25",
+    "anchors": [
+      {
+        "file": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+        "line": 116,
+        "role": "法四法则表"
+      },
+      {
+        "file": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+        "line": 225,
+        "role": "FR-CHAT-014"
+      },
+      {
+        "file": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+        "line": 385,
+        "role": "AC-CHAT-007"
+      }
+    ],
+    "counterCheck": "`test/law4-input-as-next.test.ts` L4-7（三处一致机核：读 v4-chat/spec.md 三锚核心句逐字比对；改一处 / 缺一处 ⇒ 必红）"
+  },
+  "xIianLedgerFull": {
+    "leaf": "specs-tree-ian-2-abolish-composer",
+    "adr": "ADR-IAN-006 §①步3（X-IAN 逐条取代台账）/ FR-IAN-080~091 / 102 / AC-IAN-010 / 020",
+    "registeredOn": "2026-09-25",
+    "registeredBy": "SDDU build（IAN-2 修复轮 R1）",
+    "note": "父 `../spec.md §12` 的 **X-IAN-1~7** 逐条终态登记（X-IAN-8~11 见 `xIianLedgerLeaf2`，两者并集 = X-IAN-1~11）。每行含 `old` 逐字（取代前条文/判据）、`new` 逐字（等价重锚后的判据）、`reason`、`date`、`anchors`（落点 file:line）。**未发生的取代**必须如实登记（不得留空 / 伪造）。",
+    "rows": [
+      {
+        "id": "X-IAN-1",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "old": "输入按需出现：无常驻输入框；ask-user text 输入框只在问题卡内出现，卡内还有「其他…（我来描述）」兜底",
+        "new": "输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面",
+        "reason": "法四**原地修订**（见 `law4InplaceRevision`）：old→new 逐字入账，三处一致由 law4 L4-7 机核（半修必红）；不升格法十。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/law4-input-as-next.test.ts` L4-1~7（三 id 零命中 / 入册 16 / 零可见输入 / 卡内可用 / 三段控制 / 真源切片 / 三处一致）",
+        "anchors": [
+          {
+            "file": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+            "line": 116,
+            "role": "法四法则表"
+          },
+          {
+            "file": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+            "line": 225,
+            "role": "FR-CHAT-014"
+          },
+          {
+            "file": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v4-chat/spec.md",
+            "line": 385,
+            "role": "AC-CHAT-007"
+          }
+        ]
+      },
+      {
+        "id": "X-IAN-2",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "old": "`#composer`/`#input`/`#send` 为**保留（兼容读取面）**（`host-registry.ts:144-146`；`density-thresholds.test.ts:115-116,768` 保留面反证）",
+        "new": "**入退役面**（DOM 真退役，非 `hidden`）；PRESERVED 列表移除三项 ⇒ `RETIRED_CONTAINER_IDS` 13 → **16**，`host-registry` 判据重锚（保留面反证 → 退役面判据）",
+        "reason": "兼容读取面（NFR-V45-006）本轮真退役：元素 DOM 零命中（非 hidden），逐 id 入退役容器册；保留面判据等价改写为退役面判据，断言只增。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/host-registry.test.ts` ∧ `test/law4-input-as-next.test.ts` L4-1/L4-2",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/src/ui/sidepanel/host-registry.ts",
+            "line": 148,
+            "role": "PRESERVED 移三 id + 入册 13→16"
+          }
+        ]
+      },
+      {
+        "id": "X-IAN-3",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "old": "「`#composer` **不得**入 `RETIRED_CONTAINER_IDS`」反证（`density-thresholds.test.ts:775`）",
+        "new": "**入退役容器册**（本体真退役）：`#composer`/`#input`/`#send` 逐 id 在册，长度 13 → **16**；反证**重锚**为「必须入册」（非删除，`expectFailPattern` 可 FAIL）",
+        "reason": "元素真退役后「不得入册」反证失去语义；等价重锚为「必须入册」正向判据，反向注入（移出册）仍必红。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/density-thresholds.test.ts` ∧ `test/law4-input-as-next.test.ts` L4-2（移出 `#input` 入册 ⇒ 必红）",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/test/density-thresholds.test.ts",
+            "line": 778,
+            "role": "「必须入册」重锚"
+          }
+        ]
+      },
+      {
+        "id": "X-IAN-4",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "old": "`<form id=\"composer\" hidden>` + `body` 尾 + 「之后无布局元素」断言（`density-thresholds.test.ts:389-409,776` / `sidepanel-view.test.ts:657-659` / `journey.mjs` #15c / `l0.mjs` ③⑪ / `insight.mjs` #I-08b / `binding.mjs` :69）",
+        "new": "**等价重锚**为「**流外零输入面**（三 id 均不在 DOM）」+「流内输入卡存在且可用」；六面逐条 old→new，断言计数只增，注入 `#composer` ⇒ 必红",
+        "reason": "`hidden` 冒充退役的反证升级为「DOM 真零命中」双向反证（注入 hidden 形态必红）；六面（density/sidepanel-view/journey/l0/insight/binding）各留等价判据。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/law4-input-as-next.test.ts` L4-1/L4-3/L4-4 ∧ `test/density-thresholds.test.ts` ∧ `test/sidepanel-view.test.ts`",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/test/law4-input-as-next.test.ts",
+            "line": 46,
+            "role": "流外零输入面 L4-1 真源判据"
+          }
+        ]
+      },
+      {
+        "id": "X-IAN-5",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "old": "`#I-08`（composer 贴底 ∈[0,+8px]）/ `#I-09`（`#tree-fab` ∩ `#composer` = 0）（`insight.mjs:18-19,461-471,655`）",
+        "new": "随元素退役**显式消解**（`composerDissolved:true` + `composerDissolvedReason`，非静默 `null`）或**重锚**到流内输入卡几何（`#ask-input`）；可判性显式登记",
+        "reason": "几何读面对不存在元素不得静默 `null` 通过：`composerGapToBottom` 显式登记 `dissolved` + reason，几何等价判据落在流内输入卡。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/ui/insight.mjs` #I-08/#I-09（几何消解显式登记 + 流内卡几何等价）",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+            "line": 396,
+            "role": "composerGapToBottom 显式消解登记"
+          }
+        ]
+      },
+      {
+        "id": "X-IAN-6",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "old": "`requestTurn(` **必须恰 2**（入口 + composer 提交）（`op-wiring.test.ts:127-134,361`）",
+        "new": "**重锚为恰 1**（唯一生产输入提交点 = `op.turn` 槽）；注入第 2 点 ⇒ 必红（判据可 FAIL）",
+        "reason": "composer 提交点退役后计数变 1；显式取代（非静默改数），`OP_CALLSITE_SET.op.turn.callSites === 1` + 注入反证。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/op-wiring.test.ts`（`requestTurn(` 恰 1 + 注入第 2 处必红）",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/test/op-wiring.test.ts",
+            "line": 127,
+            "role": "requestTurn 计数重锚"
+          }
+        ]
+      },
+      {
+        "id": "X-IAN-7",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2；叶1 支持 / 叶2 唯一化）",
+        "old": "`busy-rejected` 草稿回填 `#input`（`turn-arbitration.test.ts:49,60` / `sidepanel.ts:3984-3991`）",
+        "new": "回填载体**重锚到流内输入**（卡内唯一载体；语义不变：不丢原话 / 不覆盖新输入 / 有可读行 + 卡收起 ⇒ 重新展开）；TA-4 删回填仍必红",
+        "reason": "流外 `#input` 写点零命中，回填统一走流内 free-input 卡（空安全）；三条语义断言保留 + 新增「卡收起 ⇒ 重展开」，删回填反证仍红。",
+        "date": "2026-09-25",
+        "counterCheck": "`test/turn-arbitration.test.ts` TA-4（载体唯一化 + 删回填必红）",
+        "anchors": [
+          {
+            "file": "packages/web-cli-plugin/test/turn-arbitration.test.ts",
+            "line": 49,
+            "role": "TA-4 载体唯一化"
+          }
+        ]
+      }
+    ]
+  },
+  "reviewFixNotes": {}
 }

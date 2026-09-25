@@ -2712,12 +2712,18 @@ test('V5.5F-2 RL-06 扩批量变体：AI 代答计划 / 建议即同意 / 自动
 
 /* ────────────────────────────────────────────────────────────────────────────
  * IAN-1 **TASK-IAN-127**（ADR-IAN-003 §2 · ADR-IAN-008 §② · ADR-IAN-009 §② ·
- * FR-IAN-100/102 · AC-IAN-018/020）—— **X-IAN-1~7 台账骨架 + 本叶门禁对账骨架**。
+ * FR-IAN-100/102 · AC-IAN-018/020）—— **叶1 内部序号 L1-SUP-1~7 台账骨架** +
+ * 本叶门禁对账骨架。
+ *
+ * ★ IAN-2 review R1 **BLOCK-02**：叶1 原以 `X-IAN-1~7` 登记了与父 `../spec.md §12`
+ * **完全不同语义**的 7 项 ⇒ 改名 `L1-SUP-1~7` + 逐行 `mapsToParent`（`null` = 父 §12
+ * 无同义项），消除编号冲突；父 §12 的 `X-IAN-1~11` 收口见 `xIianLedgerFull` +
+ * `xIianLedgerLeaf2`（并集机核见 `xIianFullLedgerProblems`）。
  *
  * 叶1 只立骨架（终态由叶2 `specs-tree-ian-2-abolish-composer` 收口）：**已发生取代**
  * （等价重锚，非放宽）与**未发生取代**（如实登记）逐条给出可定位 counterCheck 与非套话解释；
  * 门禁对账逐项 old→new 且断言零删除零降级。反证：非法 decision / 缺条 / counterCheck 悬空 /
- * 断言数非零 / 缺 before-after ⇒ 必红。
+ * 断言数非零 / 缺 before-after / 编号冲突 ⇒ 必红。
  * ──────────────────────────────────────────────────────────────────────────── */
 
 interface XIianRow {
@@ -2726,16 +2732,26 @@ interface XIianRow {
   readonly owner: string;
   readonly counterCheck: string;
   readonly evidence: string;
+  readonly mapsToParent?: string | null;
 }
 
-/** X-IAN-1~7 台账判据（注入 `exists` ⇒ 反证可打在判据上）。 */
+/** 叶1 内部序号 L1-SUP-1~7 台账判据（注入 `exists` ⇒ 反证可打在判据上）。 */
 export function xIianLedgerProblems(rows: readonly XIianRow[], exists: (rel: string) => boolean): string[] {
-  const p = 'X-IAN-1~7 取代台账骨架一致性：逐条登记 + decision 显式 + counterCheck 可定位';
+  const p = '叶1 内部序号 L1-SUP-1~7 取代台账骨架一致性：逐条登记 + decision 显式 + counterCheck 可定位 + 禁与父 X-IAN 编号冲突';
   const problems: string[] = [];
-  const expected = ['X-IAN-1', 'X-IAN-2', 'X-IAN-3', 'X-IAN-4', 'X-IAN-5', 'X-IAN-6', 'X-IAN-7'];
+  const expected = ['L1-SUP-1', 'L1-SUP-2', 'L1-SUP-3', 'L1-SUP-4', 'L1-SUP-5', 'L1-SUP-6', 'L1-SUP-7'];
   const ids = rows.map((r) => r.id);
   for (const id of expected) if (!ids.includes(id)) problems.push(`${p}：${id} 必须逐条登记（不得留空）`);
+  if (new Set(ids).size !== ids.length) problems.push(`${p}：叶1 内部序号不得重复（ID 冲突）`);
   for (const r of rows) {
+    // ★ BLOCK-02：叶1 行**不得**占用父 §12 的 `X-IAN-\d+` 编号。
+    if (/^X-IAN-\d+$/.test(r.id)) {
+      problems.push(`${p}：${r.id} 与父 §12 编号冲突（叶1 必须用 L1-SUP-* 并加 mapsToParent）`);
+    }
+    if (!('mapsToParent' in r)) problems.push(`${p}：${r.id} 必须写 mapsToParent（null = 父 §12 无同义项）`);
+    if (r.mapsToParent !== null && r.mapsToParent !== undefined && !/^X-IAN-\d+$/.test(String(r.mapsToParent))) {
+      problems.push(`${p}：${r.id} 的 mapsToParent="${r.mapsToParent}" 非法（只允许 null 或 X-IAN-N）`);
+    }
     if (!['superseded', 'no-supersession'].includes(r.decision)) {
       problems.push(`${p}：${r.id} 的 decision="${r.decision}" 非法（只允许 superseded / no-supersession）`);
     }
@@ -2758,23 +2774,32 @@ export function xIianLedgerProblems(rows: readonly XIianRow[], exists: (rel: str
   return problems;
 }
 
-test('ledger(V4 段 · IAN-1): X-IAN-1~7 逐条登记 ∧ 「未发生取代」如实 ∧ counterCheck 可定位', () => {
+test('ledger(V4 段 · IAN-1): L1-SUP-1~7 逐条登记 ∧ mapsToParent 消解编号冲突 ∧ counterCheck 可定位', () => {
   const v4 = readV4Ledger() as unknown as { xIianLedger?: { rows?: readonly XIianRow[]; leaf?: string; adr?: string } };
   const rows = v4.xIianLedger?.rows ?? [];
   const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
-  assert.deepEqual(xIianLedgerProblems(rows, existsRel), [], 'X-IAN 台账骨架一致性未通过');
+  assert.deepEqual(xIianLedgerProblems(rows, existsRel), [], 'L1-SUP 台账骨架一致性未通过');
   assert.equal(v4.xIianLedger?.leaf, 'specs-tree-ian-1-free-input-next');
   assert.match(String(v4.xIianLedger?.adr ?? ''), /ADR-IAN-00[239]/);
-  // X-IAN-7（叶1 侧：回填载体双载体并存）必须显式登记（本叶收口骨架的决定性条目）。
-  const x7 = rows.find((r) => r.id === 'X-IAN-7');
-  assert.ok(x7, 'X-IAN-7 必须登记（回填载体双载体并存）');
-  assert.match(String(x7?.evidence ?? ''), /流内/, 'X-IAN-7 必须写明流内载体');
-  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 缺条 ⇒ 同一判据必红。
-  assert.ok(xIianLedgerProblems(rows.map((r) => (r.id === 'X-IAN-7' ? { ...r, decision: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')));
+  // L1-SUP-7（叶1 侧：回填载体双载体并存 ⇒ mapsToParent X-IAN-7）必须显式登记。
+  const l7 = rows.find((r) => r.id === 'L1-SUP-7');
+  assert.ok(l7, 'L1-SUP-7 必须登记（回填载体双载体并存）');
+  assert.equal(l7?.mapsToParent, 'X-IAN-7', 'L1-SUP-7 必须 mapsToParent X-IAN-7（父 §12 同义项）');
+  assert.match(String(l7?.evidence ?? ''), /流内/, 'L1-SUP-7 必须写明流内载体');
+  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 缺条 / 编号冲突 ⇒ 同一判据必红。
+  assert.ok(xIianLedgerProblems(rows.map((r) => (r.id === 'L1-SUP-7' ? { ...r, decision: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')));
   assert.ok(
-    xIianLedgerProblems(rows.map((r) => (r.id === 'X-IAN-4' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')),
+    xIianLedgerProblems(rows.map((r) => (r.id === 'L1-SUP-4' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')),
   );
-  assert.ok(xIianLedgerProblems(rows.filter((r) => r.id !== 'X-IAN-5'), existsRel).some((x) => x.includes('X-IAN-5')));
+  assert.ok(xIianLedgerProblems(rows.filter((r) => r.id !== 'L1-SUP-5'), existsRel).some((x) => x.includes('L1-SUP-5')));
+  // ★ BLOCK-02 反证：叶1 行回退成父 §12 编号 ⇒ 编号冲突必红。
+  assert.ok(
+    xIianLedgerProblems(rows.map((r) => (r.id === 'L1-SUP-1' ? { ...r, id: 'X-IAN-1' } : r)), existsRel).some((x) => x.includes('编号冲突')),
+  );
+  // mapsToParent 字段缺失 / 非法 ⇒ 必红。
+  assert.ok(
+    xIianLedgerProblems(rows.map((r) => (r.id === 'L1-SUP-2' ? ({ id: r.id, decision: r.decision, owner: r.owner, counterCheck: r.counterCheck, evidence: r.evidence } as XIianRow) : r)), existsRel).some((x) => x.includes('mapsToParent')),
+  );
   assert.deepEqual(xIianLedgerProblems(rows, existsRel), []);
 });
 
@@ -2846,17 +2871,27 @@ test('ledger(V4 段 · IAN-1): R2-W3 叶段已追加 ∧ leafBase 互不相同 �
  * 反证：抽条 / 非法 decision / counterCheck 悬空 / assertionsRemoved≠0 / 三态非法 ⇒ 必红。
  * ──────────────────────────────────────────────────────────────────────────── */
 
+interface XIianLeaf2Anchor {
+  readonly file: string;
+  readonly line: number;
+}
 interface XIianLeaf2Row {
   readonly id: string;
   readonly decision: string;
   readonly owner: string;
   readonly counterCheck: string;
   readonly evidence: string;
+  /** ★ IAN-2 review R1 I-04：ADR-IAN-006 §①步3 要求的 old/new/日期/落点。 */
+  readonly old?: string;
+  readonly new?: string;
+  readonly reason?: string;
+  readonly date?: string;
+  readonly anchors?: readonly XIianLeaf2Anchor[];
 }
 
 /** X-IAN-8~11 台账判据（注入 `exists` ⇒ 反证可打在判据上）。 */
 export function xIianLeaf2Problems(rows: readonly XIianLeaf2Row[], exists: (rel: string) => boolean): string[] {
-  const p = 'X-IAN-8~11（叶2）取代台账一致性：逐条登记 + decision 显式 + counterCheck 可定位';
+  const p = 'X-IAN-8~11（叶2）取代台账一致性：逐条登记 + decision 显式 + counterCheck 可定位 + old/new/日期/落点齐备';
   const problems: string[] = [];
   const expected = ['X-IAN-8', 'X-IAN-9', 'X-IAN-10', 'X-IAN-11'];
   const ids = rows.map((r) => r.id);
@@ -2867,6 +2902,17 @@ export function xIianLeaf2Problems(rows: readonly XIianLeaf2Row[], exists: (rel:
     }
     if ((r.owner ?? '').trim().length < 4) problems.push(`${p}：${r.id} 必须写明 owner（哪一叶落地）`);
     if ((r.evidence ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的解释必须非套话（≥20 字符）`);
+    // ★ I-04 / BLOCK-02：old 逐字 / new 逐字 / 日期 / 落点（file:line）必须齐备且非空。
+    if ((r.old ?? '').trim().length < 8) problems.push(`${p}：${r.id} 缺 old 逐字（空字段）`);
+    if ((r.new ?? '').trim().length < 8) problems.push(`${p}：${r.id} 缺 new 逐字（空字段）`);
+    if ((r.reason ?? '').trim().length < 20) problems.push(`${p}：${r.id} 缺 reason（非套话 ≥20 字符）`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date ?? ''))) problems.push(`${p}：${r.id} 缺日期（${r.date}）`);
+    const anchors = r.anchors ?? [];
+    if (anchors.length === 0) problems.push(`${p}：${r.id} 缺落点 anchors（空字段）`);
+    for (const a of anchors) {
+      if (!exists(a.file)) problems.push(`${p}：${r.id} 落点文件不存在（${a.file}）`);
+      if (typeof a.line !== 'number' || a.line <= 0) problems.push(`${p}：${r.id} 落点行号非法（${a.line}）`);
+    }
     const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
     if (refs.length === 0) problems.push(`${p}：${r.id} 的 counterCheck 必须指向真实门禁文件`);
     for (const ref of refs) {
@@ -2886,7 +2932,7 @@ export function xIianLeaf2Problems(rows: readonly XIianLeaf2Row[], exists: (rel:
   return problems;
 }
 
-test('ledger(V4 段 · IAN-2): X-IAN-8~11 逐条登记 ∧ 全部「已发生」（拆除叶）∧ counterCheck 可定位', () => {
+test('ledger(V4 段 · IAN-2): X-IAN-8~11 逐条登记 ∧ 全部「已发生」∧ old/new/日期/落点齐备', () => {
   const v4 = readV4Ledger() as unknown as {
     xIianLedgerLeaf2?: { rows?: readonly XIianLeaf2Row[]; leaf?: string; adr?: string };
   };
@@ -2899,7 +2945,8 @@ test('ledger(V4 段 · IAN-2): X-IAN-8~11 逐条登记 ∧ 全部「已发生」
   const x11 = rows.find((r) => r.id === 'X-IAN-11');
   assert.ok(x11, 'X-IAN-11 必须登记（binding 诊断面 + 保护段 keep）');
   assert.match(String(x11?.evidence ?? ''), /保段|keep/, 'X-IAN-11 必须写明保护段 keep 事实');
-  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 抽条 ⇒ 同一判据必红。
+  assert.match(String(x11?.new ?? ''), /keep|字节中立|保段/, 'X-IAN-11 的 new 必须写明保段字节中立');
+  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 抽条 / 空字段 ⇒ 同一判据必红。
   assert.ok(
     xIianLeaf2Problems(rows.map((r) => (r.id === 'X-IAN-9' ? { ...r, decision: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')),
   );
@@ -2907,7 +2954,97 @@ test('ledger(V4 段 · IAN-2): X-IAN-8~11 逐条登记 ∧ 全部「已发生」
     xIianLeaf2Problems(rows.map((r) => (r.id === 'X-IAN-10' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')),
   );
   assert.ok(xIianLeaf2Problems(rows.filter((r) => r.id !== 'X-IAN-8'), existsRel).some((x) => x.includes('X-IAN-8')));
+  assert.ok(xIianLeaf2Problems(rows.map((r) => (r.id === 'X-IAN-9' ? { ...r, old: '' } : r)), existsRel).some((x) => x.includes('old 逐字')));
+  assert.ok(xIianLeaf2Problems(rows.map((r) => (r.id === 'X-IAN-10' ? { ...r, anchors: [] } : r)), existsRel).some((x) => x.includes('落点')));
   assert.deepEqual(xIianLeaf2Problems(rows, existsRel), []);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ IAN-2 review R1 **BLOCK-02** —— 父 `../spec.md §12` 的 **X-IAN-1~11 收口机核**：
+ *   · `xIianLedgerFull`（X-IAN-1~7，叶2 补全）+ `xIianLedgerLeaf2`（X-IAN-8~11）
+ *     **并集恰为 X-IAN-1~11**，逐条 1 行（缺条 / 重复 ⇒ 必红）；
+ *   · 每行必含 `old` 逐字 / `new` 逐字 / `reason` / `date` / `anchors`（file:line）
+ *     —— 任一空字段 ⇒ 必红；
+ *   · 落点文件必须存在 ∧ 行号为正整数；
+ *   · 全台账**不得有其它段**占用 `X-IAN-\d+` 编号（叶1 已改名 `L1-SUP-*`）⇒ ID 冲突必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XIianFullRow extends XIianLeaf2Row {}
+
+export function xIianFullLedgerProblems(
+  fullRows: readonly XIianFullRow[],
+  leaf2Rows: readonly XIianLeaf2Row[],
+  otherRows: readonly { readonly id?: string }[],
+  exists: (rel: string) => boolean,
+): string[] {
+  const p = '父 §12 X-IAN-1~11 收口台账一致性（缺条 / ID 冲突 / 空字段）';
+  const problems: string[] = [];
+  const expected = Array.from({ length: 11 }, (_, i) => `X-IAN-${i + 1}`);
+  const rows: readonly XIianFullRow[] = [...fullRows, ...leaf2Rows];
+  const counts = new Map<string, number>();
+  for (const r of rows) counts.set(r.id, (counts.get(r.id) ?? 0) + 1);
+  for (const id of expected) {
+    const c = counts.get(id) ?? 0;
+    if (c === 0) problems.push(`${p}：${id} 必须逐条登记（缺条）`);
+    if (c > 1) problems.push(`${p}：${id} 重复登记 ${c} 次（ID 冲突）`);
+  }
+  for (const r of rows) {
+    if (!/^X-IAN-\d+$/.test(String(r.id ?? ''))) problems.push(`${p}：id="${r.id}" 不是父 §12 编号（ID 非法）`);
+    if (!expected.includes(String(r.id))) problems.push(`${p}：id="${r.id}" 越界（父 §12 仅 X-IAN-1~11）`);
+    if ((r.old ?? '').trim().length < 8) problems.push(`${p}：${r.id} 缺 old 逐字（空字段）`);
+    if ((r.new ?? '').trim().length < 8) problems.push(`${p}：${r.id} 缺 new 逐字（空字段）`);
+    if ((r.reason ?? '').trim().length < 20) problems.push(`${p}：${r.id} 缺 reason（空字段）`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date ?? ''))) problems.push(`${p}：${r.id} 缺日期（空字段）`);
+    if ((r.counterCheck ?? '').trim().length === 0) problems.push(`${p}：${r.id} 缺 counterCheck（空字段）`);
+    const anchors = r.anchors ?? [];
+    if (anchors.length === 0) problems.push(`${p}：${r.id} 缺落点 anchors（空字段）`);
+    for (const a of anchors) {
+      if (!exists(a.file)) problems.push(`${p}：${r.id} 落点文件不存在（${a.file}）`);
+      if (typeof a.line !== 'number' || a.line <= 0) problems.push(`${p}：${r.id} 落点行号非法（${a.line}）`);
+    }
+  }
+  // ID 冲突：其它段（叶1）不得再占用父 §12 编号。
+  for (const r of otherRows) {
+    if (r.id !== undefined && /^X-IAN-\d+$/.test(String(r.id))) {
+      problems.push(`${p}：其它段行 id="${r.id}" 与父 §12 编号冲突（应改名 L1-SUP-* 并加 mapsToParent）`);
+    }
+  }
+  if (!rows.some((r) => r.decision === 'superseded')) problems.push(`${p}：至少一条必须是已发生取代（不得伪造零取代）`);
+  return problems;
+}
+
+test('ledger(V4 段 · IAN-2): 父 §12 X-IAN-1~11 并集收口（缺条 / ID 冲突 / 空字段 ⇒ 必红）', () => {
+  const v4 = readV4Ledger() as unknown as {
+    xIianLedgerFull?: { rows?: readonly XIianFullRow[]; leaf?: string };
+    xIianLedgerLeaf2?: { rows?: readonly XIianLeaf2Row[] };
+    xIianLedger?: { rows?: readonly { id?: string }[] };
+  };
+  const full = v4.xIianLedgerFull?.rows ?? [];
+  const leaf2 = v4.xIianLedgerLeaf2?.rows ?? [];
+  const leaf1 = v4.xIianLedger?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xIianFullLedgerProblems(full, leaf2, leaf1, existsRel), [], '父 §12 X-IAN-1~11 收口机核未通过');
+  assert.equal(v4.xIianLedgerFull?.leaf, 'specs-tree-ian-2-abolish-composer');
+  // 并集恰为 X-IAN-1~11（逐条 1 行）。
+  const ids = [...full, ...leaf2].map((r) => r.id).sort();
+  assert.equal(ids.length, 11, '并集必须恰 11 条');
+  assert.equal(new Set(ids).size, 11, 'ID 必须互不相同（禁冲突 / 禁重复）');
+  for (let i = 1; i <= 11; i += 1) assert.ok(ids.includes(`X-IAN-${i}`), `X-IAN-${i} 必须在册`);
+  // 叶1 段不得再占用父 §12 编号。
+  for (const r of leaf1) assert.ok(!/^X-IAN-\d+$/.test(String(r.id)), `叶1 行 ${r.id} 不得占用父 §12 编号`);
+  // 反证（缺条 ⇒ 必红）。
+  assert.ok(xIianFullLedgerProblems(full.filter((r) => r.id !== 'X-IAN-3'), leaf2, leaf1, existsRel).some((x) => x.includes('X-IAN-3')));
+  // 反证（ID 冲突：叶2 混入 X-IAN-1 ⇒ 重复 ⇒ 必红）。
+  assert.ok(xIianFullLedgerProblems(full, [...leaf2, { ...full[0], id: 'X-IAN-1' }], leaf1, existsRel).some((x) => x.includes('ID 冲突')));
+  // 反证（其它段回退成 X-IAN-* ⇒ 冲突必红）。
+  assert.ok(
+    xIianFullLedgerProblems(full, leaf2, [{ id: 'X-IAN-1' }], existsRel).some((x) => x.includes('编号冲突')),
+  );
+  // 反证（空字段 ⇒ 必红）。
+  assert.ok(xIianFullLedgerProblems(full.map((r) => (r.id === 'X-IAN-4' ? { ...r, new: '' } : r)), leaf2, leaf1, existsRel).some((x) => x.includes('new 逐字')));
+  assert.ok(xIianFullLedgerProblems(full.map((r) => (r.id === 'X-IAN-5' ? { ...r, anchors: [] } : r)), leaf2, leaf1, existsRel).some((x) => x.includes('落点')));
+  // 还原 ⇒ 绿。
+  assert.deepEqual(xIianFullLedgerProblems(full, leaf2, leaf1, existsRel), []);
 });
 
 interface XIianLeaf2GateRow {

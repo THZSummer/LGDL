@@ -188,7 +188,8 @@ test('TASK-033 view switch: chat scroll position + draft survive a round-trip', 
   switchView.showChat();
   assert.equal(switchView.settingsOpen, false);
   assert.equal(state.scrollTop, 1234, 'scroll position restored');
-  assert.equal(state.draft, 'half-typed instruction', 'composer draft restored');
+  // ★ IAN-2 review R1 I-02：载体已重锚流内 free-input 卡（`#ask-input`），mock 本身 carrier-agnostic。
+  assert.equal(state.draft, 'half-typed instruction', 'in-card draft restored');
 });
 
 test('TASK-033 view switch: repeated open/close is idempotent (no double capture)', () => {
