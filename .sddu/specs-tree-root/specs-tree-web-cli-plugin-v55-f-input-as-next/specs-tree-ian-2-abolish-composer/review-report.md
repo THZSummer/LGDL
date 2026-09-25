@@ -5,11 +5,11 @@
 > **前置依赖**: `review.md`（策略）· `spec.md`（v1.0）· `plan.md`（v1.0）· `tasks.md`（v1.0 · 25 任务）· `build.md`（v2.0 · R1+R2 · 25/25）
 > **创建人**: SDDU Review Agent
 > **创建时间**: 2026-09-25
-> **审查轮次**: R1
-> **版本**: v1.0
+> **审查轮次**: R1 + **R2**
+> **版本**: v1.1
 > **更新人**: SDDU Review Agent
-> **更新时间**: 2026-09-25
-> **更新说明**: 初始创建（叶2 首轮审查：亲跑 node + Chromium 全量门禁；三冻结面 sha；protective segment 逐字节复算；法四三处逐字核；台账全字段检索 → 2 BLOCK / 4 I / 0 O）
+> **更新时间**: 2026-09-26
+> **更新说明**: ① 初始创建（叶2 首轮审查 R1：亲跑 node + Chromium 全量门禁；三冻结面 sha；protective segment 逐字节复算；法四三处逐字核；台账全字段检索 → 2 BLOCK / 4 I / 0 O）。② **R2 复审**（修复轮 `9ffbea8` 后 · HEAD `f787cab`）：BLOCK-01/02 **亲注入闭环**（半修必红 / 缺条·ID冲突·空字段必红）+ I-01~04 复核 + 全量复扫 + 红线终核 + `npm test` 亲跑 **1443/0** → 0 阻塞 / **1 残留 I**（结论 ⚠️ 有条件通过，见 §R2）
 
 ---
 
@@ -139,3 +139,126 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（叶2 首轮审查 R1）：31 项（27 ✅ / 1 ⚠️ / 2 ❌ → 2 BLOCK）· 4 I · 0 O；亲跑 `npm test` 1441/0 + `supersession` 48/0 + `gate-integrity` 24/0 + S0''-B 82/0 + journey 171 + insight 125 + l0 251 + l1 132 + binding 192 + law8 60 + recommendation 79 + dead-end 53 + size-ruling-vol3 13/0 + insight-no-escalation 21/0 + law4 5/0；三冻结面 sha / journey·binding 保护段逐字节复算；结论 ❌ 不通过（BLOCK-01/02） | 2026-09-25 | SDDU Review Agent |
+| **v1.1（R2）** | **R2 复审（修复轮 `9ffbea8` 后 · HEAD `f787cab`）**：BLOCK-01 **亲注入闭环**（`law4InplaceRevision` 三锚逐字核 + L4-7 半修 `:225` ⇒ 必红 ⇒ 还原字节 identity 绿）· BLOCK-02 **亲注入闭环**（叶1 `L1-SUP-1~7`+`mapsToParent` · `xIianLedgerFull` X-IAN-1~7 字段齐 · `xIianFullLedgerProblems` 缺条/ID冲突/空字段逐项必红 ⇒ 还原绿）· I-01~04 复核 ✅ · 全量复扫（叶段 `R2-W6` scope.files **35** 与逐叶复算一致 + R1 抽核）· 红线终核（三冻结面 / `zeroDiffFiles` 9 / `KIND_SET` 40 / 12 kind / 特权 gesture / journey pin `7b309258…` / binding keep `be9ad0e9…` / 体积 598,577）· `npm test` **1443 / 0 / 0** · `supersession` **49/0**。→ **0 阻塞 / 2 BLOCK 闭环 / 1 残留 I**；结论 ⚠️ 有条件通过 | 2026-09-26 | SDDU Review Agent |
+
+---
+
+## R2 复审（闭合轮 · 2026-09-26）：BLOCK-01/02 闭环亲核 + 全量复扫 + 红线终核
+
+> **触发**: 本报告 R1 判 ❌（2 BLOCK + 4 I）→ build 修复轮 commit `9ffbea8`（build.md v3.0 §9）→ 本 R2 复审。
+> **复审范围**: ① BLOCK-01/02 闭环**亲注入**核（必红 + 还原绿）；② I-01~04 复核；③ 全量复扫（R1 通过项抽核 + 修复轮新引入风险）；④ 红线终核；⑤ `npm test` 亲跑。
+> **口径**: `review.md` 策略 C1~C31 不变，逐项重核；**`.sddu` 外零触碰**（本轮仅读 + 临时注入并**逐字节还原** + 追加本报告）。对象 HEAD `f787cab`（修复提交 `9ffbea8`）。
+
+### R2.1 审查概要
+
+| 指标 | 数值 |
+|------|:--:|
+| R1 阻塞闭环 | **2 / 2**（BLOCK-01 ✅ · BLOCK-02 ✅） |
+| R1 改进闭环 | **4 / 4**（I-01 ✅ · I-02 ✅ · I-03 ✅ · I-04 ✅） |
+| R2 新残留 | **1**（I-R2-01 · 非阻塞） |
+| R2 阻塞 | **0** |
+| 结论 | ⚠️ **有条件通过** |
+
+| 亲跑门禁（本机实测 · 本轮） | 实测 | 基线 | 判定 |
+|------|:--:|:--:|:--:|
+| `npm test`（node，全量） | **1443 / 0 / skip 0** | 1443 | ✅ |
+| `test:supersession` | **49 / 0** | 48（+1） | ✅ |
+| `law4-input-as-next` | **6 / 0**（含新增 L4-7） | 5（+1） | ✅ |
+| `test:gate-integrity` | **24 / 0** | 24 | ✅ |
+| `test:size-ruling-vol3` | **13 / 0** | 13 | ✅ |
+| `insight-no-escalation`（node） | **21 / 0** | 21 | ✅ |
+| `test:settings` | ✅（在 `npm test` 内） | PASS | ✅ |
+
+### R2.2 BLOCK-01 闭环亲核（法四 old→new 逐字台账 + 半修即红）
+
+**① 台账条目（亲读 `docs/v4-supersession-ledger.json#law4InplaceRevision`）**：`id=X-IAN-1` · `law=法四` · `old` 逐字 · `new` 逐字 · `coreSentence` · `reason`（≥20 字，明写「O-IAN-007 裁决 = 原地修订 / 不升格法十」）· `date=2026-09-25` · `anchors[3]` = `{v4-chat/spec.md:116 法则表}` · `{:225 FR-CHAT-014}` · `{:385 AC-CHAT-007}` · `counterCheck` = `law4-input-as-next` L4-7。**ADR-IAN-006 §①步3 五要素齐备**（`old/new/理由/日期/落点 file:line`）。
+
+**② 三锚真源逐行核**：`v4-chat/spec.md` `:116` / `:225` / `:385` 三行**均逐字含**核心句「`自由文本输入是流内 next 的一个选项；**流外零输入面**`」。
+
+**③ 机核 L4-7 亲注入（半修必红 ⇒ 还原绿）**：
+
+| 步骤 | 操作 | 结果 |
+|:--:|------|------|
+| baseline | `node --test dist-test/test/law4-input-as-next.test.js` | **6 / 6 ✅** |
+| **注入** | 把 `spec.md:225`（FR-CHAT-014）核心句回退为「输入按需出现：无常驻输入框」 | L4-7 **✖ FAIL** · 精确报 `.sddu/.../v4-chat/spec.md:225 缺法四新条文核心句（半修 / 未修 ⇒ 必红）` |
+| 还原 | `git checkout --` 该 spec + 与备份 `diff -q` | **byte-identical** ✅ · 复跑 **6 / 6 ✅** |
+
+**结论**：BLOCK-01 **闭环**——台账 old→new 逐字 + 三锚一致 + 半修必红（有真实判据载体，不再是「无载体」）。
+
+### R2.3 BLOCK-02 闭环亲核（X-IAN 编号语义 + 父 §12 X-IAN-1~11 逐条）
+
+**① 叶1 `xIianLedger`**：行 id 全部为 `L1-SUP-1~7`（**零** `X-IAN-\d+` 占用）；逐行 `mapsToParent`（`null` / `X-IAN-2` / `X-IAN-7`）；新增 `numberingPolicy` + `renameNote`；老登记文本（decision/owner/counterCheck/evidence）**逐字保留**。
+
+**② `xIianLedgerFull`（X-IAN-1~7）**：逐条 `{id, decision, owner, old 逐字, new 逐字, reason, date, counterCheck, anchors}`，与父 `../spec.md §12` 语义逐条对齐：X-IAN-1 法四 / 2 PRESERVED 入退役面 / 3 入册反证 / 4 body 尾·六面重锚 / 5 insight 几何消解 / 6 `requestTurn(` 恰 1 / 7 TA-4 载体唯一化。
+
+**③ `xIianLedgerLeaf2`（X-IAN-8~11）**：Draft 载体 / `NEVER_FOLDABLE` / 首装引导 / binding，均补齐 `old/new/reason/date/anchors`（**I-04** 同步覆盖）。
+
+**④ 机核 `xIianFullLedgerProblems` 亲注入**（导入编译产物 + 真台账数据）：
+
+| 注入 | 期望 | 实测 |
+|------|:--:|:--:|
+| baseline（并集 X-IAN-1~11） | 绿 | **0 problems ✅** |
+| 缺条（抽 X-IAN-3） | 红 | ✅ 命中 `X-IAN-3` |
+| ID 冲突（叶1 回退 `X-IAN-1`） | 红 | ✅ 命中「编号冲突」 |
+| 空字段（X-IAN-4 `new=''`） | 红 | ✅ 命中「new 逐字」 |
+| 空字段（X-IAN-5 `anchors=[]`） | 红 | ✅ 命中「落点」 |
+| 还原 | 绿 | **0 problems ✅** |
+
+> 同批：叶1 机核 `xIianLedgerProblems` baseline **0**；`L1-SUP-1→X-IAN-1` ⇒ 红「编号冲突」；`xIianLeaf2Problems` baseline **0**，抽 `X-IAN-8` ⇒ 红；`xIianLeaf2GateProblems` baseline **0**。
+
+**结论**：BLOCK-02 **闭环**——编号语义冲突消解（叶1 改名 + `mapsToParent`）、父 §12 `X-IAN-1~11` 并集恰 11 条、字段齐备、缺条/ID 冲突/空字段逐项必红。
+
+### R2.4 I-01~04 复核
+
+| # | 复核点 | 实测 | 判定 |
+|---|------|------|:--:|
+| I-01 | `v4-density-baseline.json#volume.effectiveCeilingRule` 尾部追加「〖IAN-2 R2（2026-09-25，review R1 I-01 订正）〗当前生效上限 = **628,505 B**（= `min(675,840, floor(598,577 × 1.05))`）」；历史链（含陈旧 602,095）**逐字保留**；`registeredBaselineBytes=598577` / `ceilingBytes=628505` 同源 | ✅ 文本已含 628,505；陈旧链保留 | ✅ |
+| I-02 | `test/settings.test.ts:191` 断言文案 → `'in-card draft restored'`（值/结构不变） | ✅ 逐字命中 | ✅ |
+| I-03 | `xIianGateReconciliationLeaf2` `settings` 行 `disposition='kept'`（after 注明生产侧注释重锚 + 门禁 mock carrier-agnostic）；`assertionsRemoved` 保 0 | ✅ 实测 kept；全 20 行 removed 全 0 | ✅ |
+| I-04 | 叶2 `xIianLedgerLeaf2.rows[*]` 补齐 `old/new/reason/date/anchors` | ✅ X-IAN-8~11 四行字段齐备 | ✅ |
+
+### R2.5 全量复扫（R1 通过项抽核 + 新引入风险）
+
+- **R1 通过项抽核**（重核数值见 R2.6）：C1 三 id DOM 零命中 / C4 `NEVER_FOLDABLE` 13 ∧ `RETIRED_CONTAINER_IDS` 16 / C15 `requestTurn(` 真调用 1 / C17 `CARD_TAG_LABELS` 12 ∧ 零宿主 / C24 journey pin / C25 binding keep / C26 体积 / C27 冻结面——**全绿**。
+- **修复轮 scope 缺口**：叶段 `specs-tree-ian-2-abolish-composer(R2-W6)` `scope.files` = **35**（含 `packages/web-cli-plugin/test/supersession-ledger.test.ts`），与 `test:supersession` 的「逐叶 scope 复算」机核实测**一致**（该段 35 文件；叶1 段 50 / 46，叶2 R1 段 48）；R1 的「逐叶复算唯一红」已转绿。✅
+- ▌**新发现（I-R2-01）**：修复轮新增 2 条 node 用例（`supersession` 48→**49** / `law4` 5→**6** ⇒ `npm test` 1441→**1443**），但台账 `counts.supersession.currentRuntime` 仍 **48**、`counts.nodeTestRuntime.currentRuntime` 仍 **1441**（`source.observed`/`observedLine` 同）；`git show 9ffbea8 -- docs/v4-supersession-ledger.json` **无 `currentRuntime` 改动**。N-04「counts↔日志同源」机核因 `/tmp/.../ian-2-r2/registry/*.log` 快照缺失而 **skip**（设计如此 ⇒ `npm test` 仍 1443/0 绿），故属**登记口径滞后**而非门禁失败。**非阻塞**。
+- **历史陈述（note，不计 N）**：`build.md §4.3`（R2 段）三态分布为 kept 3 / equivalent-reanchor 13；I-03 后台账实为 **kept 4 / equivalent-reanchor 12 / explicit-supersession 4**（= 20 行）。§9.2 I-03 已显式登记该变更，§4.3 属修复前历史快照（建议加一行指针，不改史）。
+- **台账独占**：全 JSON 遍历，仅 `xIianLedgerFull`（1~7）与 `xIianLedgerLeaf2`（8~11）占用 `X-IAN-\d+`（叶1 已消解）✅。
+
+### R2.6 红线终核
+
+| 红线 | 判据 | R2 实测 |
+|------|------|------|
+| 三冻结面 | `stat` + `sha256sum` | `content.js` **177,076 B / `52a826205553b46a…`** ✅ · `pick-layer.js` **34,358 B / `77796babd9c93893…`** ✅ · `sidepanel.js` **598,577 B** ✅ |
+| 零 diff 面 | `git diff 0d0fd85..HEAD` | `manifest.json` / `packages/web-cli-base/**` / `turn-queue.ts` **零 diff**；`src/**` 自 `cea2922` **零 diff** ✅ |
+| `zeroDiffFiles` | 台账 + 门禁 | 恰 **9** 项（含 `v3-density-baseline` / `v3-supersession-ledger` / `manifest` / `src/content` / 三 security 文件 / `hardening` / `zero-injection`）逐项零 diff ✅ |
+| `KIND_SET` / kind / 宿主 | 生产常量直读 + 门禁 | `KIND_SET` **40** · `CARD_TAG_LABELS` **12** kind · `REGISTERED_STRUCTURAL_HOSTS` **`[]`** ✅ |
+| 特权手势 | `insight-no-escalation` | **21 / 0**（恒 `gesture` ∧ SW 永不 `permissions.request`）✅ |
+| 法四（真退役） | `index.html` + `law4` | 三 id `id="…"` **零命中**（≠ `hidden`）；`RETIRED_CONTAINER_IDS` **16**（`composer`/`input`/`send` 全入）✅；`NEVER_FOLDABLE` **13**（无 `composer`）✅；`requestTurn(` 真调用 **1**（`sidepanel.ts:3899`）✅ |
+| journey pin | 逐字节复算 | `bytes[43484:59347)` len **15863** sha **`7b309258aab783e7…`** ✅（起/止锚文本吻合） |
+| binding keep | 逐字节复算 | `bytes[107780:115930)` len **8150** sha **`be9ad0e983670137…`** ✅；段内 `composer`/`#input`/`#send` = **0 / 0 / 0** ✅ |
+| 体积诚实登记 | `stat` + 台账 | **598,577 B**；`registeredBaselineBytes` / `ceilingBytes`=628,505 同源 ✅ |
+| 台账仅两段占 X-IAN | 全 JSON 遍历 | 仅 `xIianLedgerFull` + `xIianLedgerLeaf2` ✅ |
+
+### R2.7 残留登记（N）
+
+| # | 级别 | 位置 | 问题 | 建议 |
+|---|:--:|------|------|------|
+| **I-R2-01** | 改进 | `docs/v4-supersession-ledger.json#counts.{supersession,nodeTestRuntime}` | 修复轮后计数**滞后**（`supersession` 48 vs 实测 **49**；`nodeTestRuntime` 1441 vs 实测 **1443**），`source.observed`/`observedLine` 同滞；N-04 因快照日志缺失 **skip** ⇒ 非门禁失败 | 随下一登记轮**前移** `currentRuntime` + `source.observed`/`observedLine`（指向新 `registry/` 同源快照）；或显式注明「留待下一轮登记」 |
+
+> **O（观察）级**：0。`build.md §4.3` 三态分布为修复前历史快照（§9.2 I-03 已登记变更），属 note 而非缺陷。
+
+### R2.8 结论
+
+**结论**: ⚠️ **有条件通过**
+
+| 指标 | 结果 |
+|------|------|
+| R1 BLOCK 闭环 | **2 / 2**（BLOCK-01/02 亲注入必红 + 还原绿） |
+| R1 改进闭环 | **4 / 4**（I-01~04） |
+| R2 阻塞 | **0** |
+| R2 残留 | **1**（I-R2-01 counts 登记滞后，非阻塞） |
+| 红线 | **全绿**（三冻结面 / `zeroDiffFiles` 9 / `KIND_SET` 40 / 12 kind / gesture / journey pin / binding keep / 体积 598,577） |
+| 可进入 validate | **是**（建议 validate 前顺手前移 counts，或在其报告中登记 I-R2-01） |
+
+**理由**: 修复轮 `9ffbea8` **未触碰 `src/**` / 冻结面 / `zeroDiffFiles` / 体积**，只改 `docs/*.json` + `test/**`；R1 的 2 个 P0 登记缺口（法四 old→new 逐字台账 + 半修判据；X-IAN 编号语义冲突 + 父 §12 条目缺位）已以**可机核 + 反证必红**方式闭环，4 个改进项逐项处置。全量门禁亲跑 **1443 / 0 / 0**（`supersession` **49/0** · `law4` **6/0**），红线逐项复算零容差。唯一残留 I-R2-01 为**台账 counts 登记口径滞后**（非阻塞、非功能/规范偏离），建议在 validate 前或下一登记轮一并前移。
