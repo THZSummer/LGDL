@@ -53,7 +53,7 @@ export const JUDGEMENTS: readonly OpWiringJudgement[] = [
   { id: 'OP-W-5-table-same-source', expectFailPattern: '登记表 opId 集必须与 OP_IDS 同源' },
   // V5.5-1 TASK-V55-113（ADR-V55-001 §5 · FR-SELF-015/033 · R-V55-101）——
   // **主流程 diff = 0 复合读数**：新增「答案驱动化」时的三条计数判据同屏机核。
-  { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 1 / maybeRecommend 1 定义 7 调用点 / nextAfterSettle 1 定义）' },
+  { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 1 / maybeRecommend 1 定义 8 调用点 / nextAfterSettle 1 定义）' },
   // V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/064/065 · AC-SELF-008 · R-V55-101）——
   // 「AI 自动成回合」经**既有** `op.turn` 槽：唯一自动按下点（`ai-drive.ts` 恰 1 处）
   // + `nextAfterSettle(` 调用点**钉死**（本叶升级后的数值）+ 分支 A 端到端（零按键）。
@@ -243,10 +243,10 @@ export function definitionCount(source: string, symbol: string): number {
   return (source.match(new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escaped}\\s*\\(`, 'gm')) ?? []).length;
 }
 
-test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 1 ∧ maybeRecommend 1 定义 / 7 调用点 ∧ nextAfterSettle 1 定义', () => {
+test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 1 ∧ maybeRecommend 1 定义 / 8 调用点 ∧ nextAfterSettle 1 定义', () => {
   const problems = [
     ...requestTurnProblems(SIDEPANEL),
-    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),
+    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 8, 'maybeRecommend 调用点'),
     ...(definitionCount(SIDEPANEL, 'maybeRecommend') === 1 ? [] : [`${JUDGEMENTS[5].expectFailPattern}：maybeRecommend 定义实测 ${definitionCount(SIDEPANEL, 'maybeRecommend')} 处`]),
     ...(definitionCount(SIDEPANEL, 'nextAfterSettle') === 1 ? [] : [`${JUDGEMENTS[5].expectFailPattern}：nextAfterSettle 定义实测 ${definitionCount(SIDEPANEL, 'nextAfterSettle')} 处`]),
   ];
@@ -255,15 +255,15 @@ test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 1 ∧ maybeRecommend 1 定�
   assert.ok(callSites(SIDEPANEL, 'nextAfterSettle').length >= 4, 'answered 触发点必须接线（applyRefAction / submitDescribe / ask 应答 / ops 缝）');
 });
 
-test('OP-W ⑥ 反证：新增第 8 个 maybeRecommend( 调用点 ⇒ 必红 → 还原 PASS', () => {
+test('OP-W ⑥ 反证：新增第 9 个 maybeRecommend( 调用点 ⇒ 必红 → 还原 PASS', () => {
   const forged = `${SIDEPANEL}\nmaybeRecommend('idle');\n`;
-  const problems = occurrenceProblems(forged, 'maybeRecommend', 7, 'maybeRecommend 调用点');
+  const problems = occurrenceProblems(forged, 'maybeRecommend', 8, 'maybeRecommend 调用点');
   assert.ok(problems.some((p) => p.includes(JUDGEMENTS[5].expectFailPattern)), problems.join(' | '));
   // 反证之二：删掉唯一入口 ⇒ 定义计数必红。
   const noEntry = SIDEPANEL.replace('function nextAfterSettle(src: SettleSource = { kind: \'idle\' }): void {', 'function renamedEntry(src: SettleSource = { kind: \'idle\' }): void {');
   assert.notEqual(noEntry, SIDEPANEL, '前置：注入锚点必须存在');
   assert.equal(definitionCount(noEntry, 'nextAfterSettle'), 0, '删掉唯一入口 ⇒ 定义计数必须归零（判据非恒真）');
-  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'), []);
+  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 8, 'maybeRecommend 调用点'), []);
 });
 
 /* ── V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/063/064/065 · AC-SELF-008/001）────
@@ -361,16 +361,16 @@ test('OP-W ⑦: 逐档拒绝（confirm / gesture 不可自动按下；AI 不自�
  *
  * 本叶把「引用事实进回合」经**既有**载荷通道（type-only 字段）与**既有**系统段工厂落地：
  *   · `requestTurn(` 调用点**恰 1**（★ IAN-2 重锚：唯一 `op.turn` 槽）；
- *   · `maybeRecommend` **1 定义 / 7 调用点**（零新增散落调用点）；
+ *   · `maybeRecommend` **1 定义 / 8 调用点**（★ R8 +1 = 首开 / ready 入口；零新增散落调用点）；
  *   · `nextAfterSettle` **1 定义 / 10 调用点**。
  * ⇒ X-SGO-7 = **未发生取代**（主流程 diff = 0）：台账须**如实登记「未发生」**，不得留空
  * 也不得伪造一条「已取代」。本用例同时机核台账行与三条计数（可 FAIL、非恒真）。
  * ──────────────────────────────────────────────────────────────────────────── */
 test('OP-W ⑨（V5.5F-1）主流程 diff = 0 复合读数 + 台账 X-SGO-7「未发生取代」如实登记', () => {
-  const p = 'V5.5F-1 主流程 diff = 0：requestTurn( 恰 1 ∧ maybeRecommend 1/7 ∧ nextAfterSettle 1/10 ∧ 台账 X-SGO-7 = 未发生取代';
+  const p = 'V5.5F-1 主流程 diff = 0：requestTurn( 恰 1 ∧ maybeRecommend 1/8 ∧ nextAfterSettle 1/10 ∧ 台账 X-SGO-7 = 未发生取代';
   const problems = [
     ...requestTurnProblems(SIDEPANEL),
-    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),
+    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 8, 'maybeRecommend 调用点'),
     ...(definitionCount(SIDEPANEL, 'maybeRecommend') === 1 ? [] : [`${p}：maybeRecommend 定义 ≠ 1`]),
     ...(definitionCount(SIDEPANEL, 'nextAfterSettle') === 1 ? [] : [`${p}：nextAfterSettle 定义 ≠ 1`]),
     ...occurrenceProblems(SIDEPANEL, 'nextAfterSettle', NEXT_AFTER_SETTLE_CALLSITES, 'nextAfterSettle 调用点'),

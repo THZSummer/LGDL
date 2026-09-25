@@ -2243,6 +2243,48 @@ let firstRunEntryHandled = false;
 /** One `state` reply has been applied (⇒ `authorized` / `activeOrigin` are live). */
 let stateReplyApplied = false;
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * R8（2026-09-25）—— **首开 / ready 入口**（缺陷轮：首开面板零 next 死端）。
+ *
+ * 缺陷（真机 01:38:33 序列）：`authorized ∧ configured` 的首开面板上
+ * `onboarding.visible === false` ⇒ {@link maybeRecommendFirstRunEntry} 在第一个守卫处直接
+ * return；既无回合（`'idle'` 只在回合结束 / 失败时跑）、又无引用（`'pick'` / `'answered'`
+ * 无从触发）⇒ 生产内核 `recommendNextStep` 在冷启动**永不被调用**。而末端「自由输入…」终端
+ * 只由 `recommendNextStep` 注入到**已铸卡**末端（`cards/nextstep.ts`）⇒ 首屏零卡 ⇒
+ * 恒真 `when`（`providers.ts` 的 `free-input`）无从兑现 ⇒ **无输入入口**。
+ *
+ * 修法：**不新增第 6 触发词**（DT-2/DT-3 保「恰 5」闭集）—— 复用既有 `'idle'` 时机，在
+ * 「`state` 回包 + `llm-status` 均已落地」（`stateReplyApplied ∧ llmLoaded`；探测相位随
+ * `state` 回包落地 ⇒ 该点即可读）的**首个稳定点**求值一次；`authorized ∧ configured ∧
+ * 探测未 ready` 时由推荐器的零死端 floor 铸「仅含 free-input 终端」最小卡 ⇒ 首屏必有入口。
+ *
+ * **让位 firstRun（零双卡）**：`firstRunCard.visible === !(configured ∧ authorized)`
+ * （引导 steps 1 = configured / steps 4 = authorized，首个未完成步恒非空）——故
+ * `!(configured ∧ authorized)` 时**不消费**本入口（返回），由同一事件化点紧随其后的
+ * `maybeRecommendFirstRunEntry()` 铸 onboarding 卡（终端同样注入其末端）。
+ *
+ * **有界**：面板生命至多一次（与 {@link firstRunEntryHandled} 同为面板寿命事实）。生产者自身的
+ * `pending` / 间隔 / 无候选门控仍是最后一道；若首个稳定点恰在飞（`pending`），该次求值被
+ * 生产者正确抑制，后续可达 next 由既有回合结束时的 `'idle'` 时机接续（非死端）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+/** R8：首开入口「面板生命至多一次」计（事件，不是重试循环）。 */
+let openEntryHandled = false;
+
+/**
+ * 首开 / ready 入口：首个稳定点求值一次，兑现「首屏必有 free-input 终端」（见上方块注释）。
+ * 复用既有 `'idle'` 时机（零新增触发词）；`testing.reset()` **不**清本标志（面板寿命事实，
+ * 同 `firstRunEntryHandled`——清掉会让 `reset()` 之后的迟到 `probe-changed → refreshState()`
+ * 再铸一张卡，静默移动已登记的密度格）。
+ */
+function maybeRecommendOpenEntry(): void {
+  if (openEntryHandled) return;
+  if (!llmLoaded || !stateReplyApplied) return;
+  // 首装面仍在 ⇒ 让位既有 firstRun 入口（onboarding 卡末端同样有终端）——两入口不同时铸。
+  if (!state.authorized || !Boolean(llmSummary?.configured)) return;
+  openEntryHandled = true;
+  maybeRecommend('idle');
+}
+
 /** Produce the「首装」recommendation once, when the settled panel is in first-run. */
 function maybeRecommendFirstRunEntry(): void {
   if (firstRunEntryHandled) return;
@@ -2493,6 +2535,11 @@ function eventizeChannels(): void {
   // eventization point (the same place the `firstRun` channel row is derived), so the
   // 「首装 ⇒ 下一步推荐」card is reachable in-product and not only from the test seam.
   maybeRecommendFirstRunEntry();
+  // ★ R8：`firstRun` 入口对「已授权 ∧ 已配置」的首开面板直接 return ⇒ 由本入口在同一稳定点
+  // 复用既有 `'idle'` 时机求值一次，兑现「首屏必有 free-input 终端」（见其块注释）。
+  // 调用序：本行在 `maybeRecommendFirstRunEntry()` **之后** —— 首装面仍在时后者已铸 onboarding
+  // 卡，本入口据 `!(configured ∧ authorized)` 自行让位，二者不同时铸（零双卡）。
+  maybeRecommendOpenEntry();
 }
 
 /** F-2: fetch the non-sensitive LLM summary from the background (never the key). */
@@ -2508,6 +2555,8 @@ async function refreshLlmStatus(): Promise<void> {
   // BEFORE the first `state` reply (and vice versa) — so the first-run entry is
   // re-evaluated on both arrivals, never on a half-loaded panel.
   maybeRecommendFirstRunEntry();
+  // ★ R8：第二个稳定点（`llm-status` 后到）——首开入口与 firstRun 入口同点求值（见其块注释）。
+  maybeRecommendOpenEntry();
   render();
 }
 

@@ -378,7 +378,7 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * +15% 上界（+2.9~+5.2 KB）—— 按「越叶预算登记不停机」显式登记，`authorConfirmation` 保持
  * `pending-author-line`（**不伪称已确认**）。
  */
-export const SIDEPANEL_BASELINE_BYTES = 598_577;
+export const SIDEPANEL_BASELINE_BYTES = 598_926;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -503,6 +503,12 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
    //   档位 `ceilTo50KB(598,577) = 614,400` 与绝对上限 675,840 **均不变**（未跨档位）；
    //   生效上限 = floor(598,577 × 1.05) = **628,505**（旧生效上限 629,081 **下调** ⇒ EC-IAN-016 二态均「否」）。
    598_577,
+   // 〖★ R8 缺陷修复轮（2026-09-25）〗首开 / ready 入口（复用既有 `'idle'` 时机；零新增触发词）的登记值：
+   //   598,577 → **598,926 B**（+349 B，+0.06%）；逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.r8Rows`
+   //   （`sidepanel.ts` 114,149 → 114,498 = +349；Σ +349 + glue 0 == +349）。
+   //   档位 `ceilTo50KB(598,926) = 614,400` 与绝对上限 675,840 **均不变**（未跨档位）；
+   //   生效上限 = floor(598,926 × 1.05) = **628,872**（旧生效上限 628,505 **上调** ⇒ EC-IAN-016 三态皆「否」）。
+   598_926,
 ] as const;
 
 /**
@@ -564,7 +570,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_577;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_926;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -577,6 +583,12 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
+    '★ SDDU **R8 缺陷修复轮（2026-09-25, 首开 / ready 入口）**: re-registered on the FINAL artifact — 598,577 → 598,926 B（+349 B，+0.06%）— ' +
+    '首开（`authorized ∧ configured ⇒ onboarding.visible === false`）面板上 `recommendNextStep` 冷启动**永不被调用**（无回合 / 无引用 / firstRun 入口直接 return）⇒ 末端「自由输入…」终端铸不出 ⇒ 首屏无输入入口。' +
+    '修法 = 新增 `maybeRecommendOpenEntry()`（首个稳定点 `stateReplyApplied ∧ llmLoaded` 求值一次；`authorized ∧ configured` 才消费；**复用既有 `\'idle\'` 时机**、零新增触发词；让位 firstRun ⇒ 零双卡）。' +
+    '逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.r8Rows`（`sidepanel.ts` 114,149 → 114,498 = +349；Σ +349 + glue 0 == +349）；' +
+    '档位 614,400 / 绝对上限 675,840 均不动；生效上限 floor(598,926 × 1.05) = **628,872**；`content.js` 177,076 B / `pick-layer.js` 34,358 B 逐字节不变；`authorConfirmation` 保持 `pending-author-line`。' +
+    'Previous round: ' +
     '★ SDDU **IAN-2 R1（2026-09-25, leaf specs-tree-ian-2-abolish-composer；W04+W05+W06；叶2 净负增量登记）**: re-registered on the FINAL artifact — 599,125 → 598,577 B（-548 B，-0.09%）— 停引删面（`#composer` 三 id 真退役 / 写者消解 / `NEVER_FOLDABLE` 14→13 / `RETIRED_CONTAINER_IDS` 13→16）+ 兜底收敛 + `#send-reason`/`sendDisabled`/draft 重锚 + 法四原地修订 + journey 保护段八步取代。逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows`（`sidepanel.ts` −518 / `l0/shell.ts` −199 / `disclosure.ts` −16 / `view-model.ts` +137 / `host-registry.ts` +48；Σ −548 + glue 0 == 599,125 → 598,577）；档位 614,400 / 绝对上限 675,840 均不动；生效上限 floor(598,577 × 1.05) = **628,505**；`content.js` 177,076 B / `pick-layer.js` 34,358 B 逐字节不变；`authorConfirmation` 保持 `pending-author-line`。' +
     'Previous round: SDDU **IAN-1 R2（2026-09-25, leaf specs-tree-ian-1-free-input-next；W3 = TASK-IAN-117~127；**叶1 收口终值登记**）**: re-registered on the FINAL artifact — 598,282 → **599,125 B**（**+843 B，+0.14%**）— ' +
     'W3（收口轮）A 列唯一源码改动 = `sidepanel.ts#restoreFreeInputDraft`（`busy-rejected` 的**流内回填载体**：仅当输入处为空 ⇒ 不覆盖 / 卡收起 ⇒ 重展开 / 卡不存在 ⇒ 按需铸造；三结果可读行 `BUSY_REJECTED_CARD_TEXT` 单源）+ 「叶1 双入口并存」中间态保护（S0″-A 双面）+ FIN-7/8 门禁补全 + 体积收口；' +
@@ -647,7 +659,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 598_577,
+  finalArtifactBytes: 598_926,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -2539,6 +2551,35 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [599_125, 598_282, 591_946],
     ceilingUncappedFormulaBytes: 628_505,
   },
+  {
+    id: 'r8-open-next-entry',
+    direction: 'raised',
+    roundKind: 'registry-fidelity-round',
+    feature: 'specs-tree-ian-1-free-input-next（R8 缺陷修复轮）',
+    date: '2026-09-25',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU R8 缺陷修复轮（2026-09-25，首开 / ready 入口；同一 Feature 内的缺陷修复轮）',
+    reason:
+      '**R8 缺陷修复轮（首开面板零 next 死端）：598,577 → 598,926 B（+349 B，+0.06%）**。' +
+      '缺陷（真机 01:38:33 序列）：`authorized ∧ configured` 的首开面板上 `onboarding.visible === false` ⇒ `maybeRecommendFirstRunEntry()` 直接 return；' +
+      '既无回合（`\'idle\'` 只在回合结束 / 失败时跑）、又无引用（`\'pick\'` / `\'answered\'` 无从触发）⇒ 生产内核 `recommendNextStep` 冷启动**永不被调用**；' +
+      '末端「自由输入…」终端只由 `recommendNextStep` 注入到**已铸卡**末端 ⇒ 首屏零卡 ⇒ 恒真 `when` 无从兑现 ⇒ 无输入入口。' +
+      '修法 = 新增 `maybeRecommendOpenEntry()`：首个稳定点（`stateReplyApplied ∧ llmLoaded`）求值一次；`authorized ∧ configured` 才消费（`firstRunCard.visible === !(configured ∧ authorized)` ⇒ 首装面仍在时让位既有 firstRun 入口，零双卡）；' +
+      '**复用既有 `\'idle\'` 时机**（DT-2/DT-3 闭集仍恰 5，零新增触发词）；`authorized ∧ configured ∧ 探测未 ready` 时由推荐器零死端 floor 铸「仅含终端」最小卡。' +
+      '`maybeRecommend(` 调用点 **7 → 8**（`driver-timings` / `op-wiring` / `r6-ty-experience-fix` 三处门禁按同一数值重锚）。' +
+      '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.r8Rows`：`sidepanel.ts` 114,149 → **114,498（+349）**；Σ 模块 **+349** + 未归因胶水 **0** == 登记增量 **+349**。' +
+      '**档位与绝对上限均不变**（`ceilTo50KB(598,926) = 614,400`、675,840）；生效上限 = `min(675,840, floor(598,926 × 1.05) = 628,872) = 628,872`（旧生效上限 628,505 **上调**）。' +
+      '**EC-IAN-016 三态显式**：越生效上限 = 否 / 越档位 = 否 / 越绝对上限 = 否（`authorConfirmation` 保持 `pending-author-line`，**不伪称已确认**）。' +
+      '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减零降级**（新增 `test/r8-open-next-entry.test.ts` 6 用例）。',
+    baselineBeforeBytes: 598_577,
+    baselineAfterBytes: 598_926,
+    ceilingBeforeBytes: 628_505,
+    ceilingAfterBytes: 628_872,
+    assertionNonRemovalEntries: ['R8-E-VOL-1', 'IAN2-E-VOL-1', 'IAN1-E-VOL-1', 'V55F2-E-VOL-1'],
+    historyRetainedBytes: [598_577, 599_125, 598_282, 591_946],
+    ceilingUncappedFormulaBytes: 628_872,
+  },
 ] as const;
 
 /**
@@ -2585,7 +2626,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 累计：当前基线 − `baselineReferenceBytes`（**557,883 − 295,225 = 262,658**；
    * V5.5-1 review R1 修复轮为 557,761 − 295,225 = 262,536 再加本轮 +122）。
    */
-  deltaBytes: 303_352,
+  deltaBytes: 303_701,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 上一轮登记值`（`size-growth-evidence.test.ts` 直接机核该等式）。
    * 〖R4 缺陷修复轮（2026-09-22）〗最新一轮 = `r4-selector-fix` ⇒ 本字段 = `549,609 − 547,558 = **2,051**`
@@ -2601,7 +2642,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: -548,
+  closeoutDeltaBytes: 349,
   newRequiredModuleBytes: 195_562,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
@@ -2613,7 +2654,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   // 〖V5.5-1 review R1 修复轮（2026-09-23）〗新增 +122 B 全部落在**既有模块的接线桶**
   //   （sidepanel.ts 99,566 → 99,688；glue 0，`unattributedHelperDeltaBytes` 不变）。
   // 桶和 = newRequiredModuleBytes 181,921 + wiringBytes 78,814 + 0 + 1,923 == 262,658 == `deltaBytes`。
-  wiringBytes: 106_236,
+  wiringBytes: 106_585,
   attributionShiftBytes: 0,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
@@ -2917,6 +2958,8 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     // 〖★ IAN-2 R1（2026-09-25，leaf specs-tree-ian-2-abolish-composer）〗**最新一轮** = 本组
     // （Σ −548 + glue 0 == 599,125 → 598,577 的净负增量）。
     ian2Rows: 'ian-2-r1',
+    // 〖★ R8 缺陷修复轮（2026-09-25）〗**最新一轮** = 本组（Σ +349 + glue 0 == 598,577 → 598,926）。
+    r8Rows: 'r8-open-next-entry',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -3438,6 +3481,18 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as const,
   /** 〖IAN-2 R1〗单轮未归因运行时胶水 = 0 B（Σ 模块 −548 == 登记增量 −548）。 */
   ian2UnattributedGlueBytes: 0,
+  /**
+   * 〖★ R8 缺陷修复轮（2026-09-25）〗首开 / ready 入口的逐模块增量（IAN-2 R1 工作树 → R8 工作树）：
+   * `sidepanel.ts` 114,149 → **114,498 = +349 B**（唯一 `src` 改动 = `maybeRecommendOpenEntry()` +
+   * 两个稳定点调用；`build-meta.json` 实测逐模块差 == +349，其余模块零变动）。
+   * Σ 模块 +349 + glue 0 == `SIDEPANEL_RE_REGISTRATIONS['r8-open-next-entry']` 的
+   * `baselineAfterBytes − baselineBeforeBytes`（598,926 − 598,577 = 349）。
+   */
+  r8Rows: [
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 114_149, afterBytes: 114_498, deltaBytes: 349 },
+  ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
+  /** 〖R8 缺陷修复轮〗未归因运行时胶水 = 0 B（Σ 模块 +349 == 登记增量 +349）。 */
+  r8UnattributedGlueBytes: 0,
   v551FixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 99_566, afterBytes: 99_688, deltaBytes: 122 },
   ] as const,
@@ -3556,6 +3611,9 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/ui/sidepanel/next-registry/ai-drive.ts', beforeBytes: 1_669, afterBytes: 1_768, deltaBytes: 99, kind: 'wiring', requiredBy: 'FR-IAN-022/024（MANUAL_DRIVER_ID / MANUAL_DRIVER_EVIDENCE 单源；手输 ≠ AI 驱动可判）· ADR-IAN-002 §③' },
     { module: 'src/ui/sidepanel/next-registry/dispatch.ts', beforeBytes: 795, afterBytes: 872, deltaBytes: 77, kind: 'wiring', requiredBy: 'FR-IAN-010/014（集 A 协议动作 8→9 + 终端文案唯一源；ACT_TO_OP 仍恰 6）· ADR-IAN-001 §②' },
     { module: 'src/ui/sidepanel/next-registry/ops.ts', beforeBytes: 7_155, afterBytes: 7_176, deltaBytes: 21, kind: 'wiring', requiredBy: 'FR-IAN-010（reachableOpIds 只收真实注册 op ⇒ op.help 的「可用操作」不被终端污染）· ADR-IAN-001 §②' },
+    // 〖★ R8 缺陷修复轮（2026-09-25）〗首开 / ready 入口（`maybeRecommendOpenEntry`）：
+    //   唯一 `src` 改动 = `sidepanel.ts`（+349 B）；本行是 v3-1 树 → 当前树的**累计**接线增量的一段。
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 114_149, afterBytes: 114_498, deltaBytes: 349, kind: 'wiring', requiredBy: 'R8 首开 / ready 入口：首个稳定点复用既有 `idle` 时机求值一次 ⇒ 首屏必有 free-input 终端（零死端 floor）；FR-IAN-010/013/014 · ADR-IAN-001 §①' },
   ] as readonly GrowthAttributionRow[],
 } as const;
 

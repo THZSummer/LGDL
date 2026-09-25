@@ -279,6 +279,12 @@ export const EXPECTED_AUDITED_FILES = [
   // 默认屏零可见输入 / 卡内可用 / 三段控制 / 真源切片）。**只追加** ⇒ 改名 / 删除仍 FAIL；
   // `CHROMIUM_GATES.length === 9` 逐字不动（叶2 零新增 Chromium 门禁文件）。
   'test/law4-input-as-next.test.ts',
+  // ── ★ R8 缺陷修复轮（2026-09-25）首开 / ready 入口的新 node 门禁 ────────────────────
+  // R8-1~6：入口单源 ∧ 双稳定点接线（紧随 firstRun 入口）∧ 复用既有 `'idle'`（零新增触发词
+  // ⇒ 闭集仍恰 5）∧ 首开稳态必有含 free-input 终端的卡（零死端 floor）∧ 注入反证（移除入口
+  // ⇒ 首开零卡必红）∧ 让位 firstRun（零双卡）。**只追加** ⇒ 改名 / 删除仍 FAIL；
+  // `CHROMIUM_GATES.length === 9` 逐字不动（R8 零新增 Chromium 门禁文件）。
+  'test/r8-open-next-entry.test.ts',
 ] as const;
 
 /**

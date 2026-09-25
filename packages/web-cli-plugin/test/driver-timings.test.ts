@@ -9,9 +9,9 @@
  *        各恰 1 处（均在 `drivers.ts`）。
  *   DT-2 **恰 5 含 `'answered'`** —— 值集恰 5、互异、含新增项。
  *   DT-3 **旧 4 逐字** —— 前四项逐字等于 `['pick','stale','idle','firstRun']`（纯加法）。
- *   DT-4 **散落字面量零命中** —— 全部 `maybeRecommend('<lit>'` 的实参 ∈ 闭集（且恰 7 处
+ *   DT-4 **散落字面量零命中** —— 全部 `maybeRecommend('<lit>'` 的实参 ∈ 闭集（且恰 8 处
  *        调用点，不增）；除单源外没有任何一行**再声明**该时机联合（4 项同现 / answered 与
- *        旧项同现）。
+ *        旧项同现）。★ R8：+1 = 首开 / ready 入口（复用既有 `'idle'`，零新增触发词）。
  *   DT-5 **求值入口恰 1 定义** —— `function maybeRecommend(` 恰 1 ∧ `recommendNextStep(`
  *        在 `sidepanel.ts` 恰 1 个调用点（推荐器家族单一入口）。
  *   DT-6 **`NextCtx` 加法字段已登记**（TASK-V55-106 / EC-SELF-003）—— 从 `definition.ts`
@@ -104,7 +104,7 @@ export function legacyVerbatimProblems(timings: readonly string[]): string[] {
 
 /**
  * DT-4 — no stray timing literal:
- *   (a) every `maybeRecommend('<lit>'` argument ∈ the closed set（且调用点恰 7，不增）；
+ *   (a) every `maybeRecommend('<lit>'` argument ∈ the closed set（且调用点恰 8，不增）；
  *   (b) no file other than the single source **re-declares** the timing union
  *       （一行同现 4 项旧字面量，或 answered 与任一旧项同现）。
  *
@@ -124,7 +124,7 @@ export function strayTimingLiteralProblems(files: readonly { readonly rel: strin
       // V5.5-1 TASK-V55-113/114: the call-site count is now over **every** `maybeRecommend(`
       // invocation (literal or not) — the `'answered'` trigger reaches the single evaluation
       // entry through `nextAfterSettle`'s ONE `maybeRecommend(timingOfSettle(…))`, so the
-      // count仍恰 7 and the timing仍 from the single source.
+      // count仍恰 8（★ R8：+1 = 首开 / ready 入口，复用既有 `'idle'`）and the timing仍 from the single source.
       const isCall = /maybeRecommend\(/.test(line) && !/function\s+maybeRecommend\s*\(/.test(line);
       if (isCall) {
         callSites += 1;
@@ -152,7 +152,7 @@ export function strayTimingLiteralProblems(files: readonly { readonly rel: strin
       }
     }
   }
-  if (callSites !== 7) problems.push(`${JUDGEMENTS[3].expectFailPattern}：maybeRecommend( 调用点必须恰 7（不增），实测 ${callSites}`);
+  if (callSites !== 8) problems.push(`${JUDGEMENTS[3].expectFailPattern}：maybeRecommend( 调用点必须恰 8（不增），实测 ${callSites}`);
   if (mappingSites !== 1) problems.push(`${JUDGEMENTS[3].expectFailPattern}：结算 → 时机映射（maybeRecommend(timingOfSettle(…)）必须恰 1 处，实测 ${mappingSites}`);
   return problems;
 }
@@ -234,7 +234,7 @@ test('DT-2/DT-3 反证：删 answered / 删旧项 / 追加第 6 项 ⇒ 各 FAIL
   assert.deepEqual(legacyVerbatimProblems([...DRIVER_TIMINGS]), []);
 });
 
-test('DT-4 散落字面量零命中（7 调用点实参 ∈ 闭集 ∧ 无第二联合声明）', () => {
+test('DT-4 散落字面量零命中（8 调用点实参 ∈ 闭集 ∧ 无第二联合声明）', () => {
   assert.deepEqual(strayTimingLiteralProblems(FILES), [], JUDGEMENTS[3].expectFailPattern);
 });
 
@@ -247,9 +247,9 @@ test('DT-4 反证：闭集外实参 / 第二联合声明 ⇒ 必红 → 还原 P
   assert.ok(strayTimingLiteralProblems(redeclared).length > 0, `${JUDGEMENTS[3].expectFailPattern}：第二联合声明必须红`);
   assert.ok(
     strayTimingLiteralProblems(FILES.map((f) => (f.rel === SIDEPANEL_REL ? { ...f, text: `${f.text}\nmaybeRecommend('answered');\n` } : f))).some(
-      (p) => p.includes('调用点必须恰 7'),
+      (p) => p.includes('调用点必须恰 8'),
     ),
-    `${JUDGEMENTS[3].expectFailPattern}：第 8 个调用点必须红`,
+    `${JUDGEMENTS[3].expectFailPattern}：第 9 个调用点必须红`,
   );
   assert.deepEqual(strayTimingLiteralProblems(FILES), []);
 });

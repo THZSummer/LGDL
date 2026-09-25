@@ -367,8 +367,8 @@ test('R6-P5b: 生产接线 —— 只读重观测（observe）+ set-text 成功�
 // 主流程 diff = 0（不得因 R6 新增散落调用点）
 // ────────────────────────────────────────────────────────────────────────────
 
-test('R6: 主流程调用点不增（maybeRecommend 7 / nextAfterSettle 定义 1 / requestTurn 1）', () => {
-  assert.equal(callSites(SIDEPANEL, 'maybeRecommend'), 7, 'R6 不得新增 maybeRecommend 调用点');
+test('R6: 主流程调用点不增（maybeRecommend 8（★ R8 首开入口 +1）/ nextAfterSettle 定义 1 / requestTurn 1）', () => {
+  assert.equal(callSites(SIDEPANEL, 'maybeRecommend'), 8, 'R6/R8 登记值：8（★ R8 首开 / ready 入口 +1，复用既有 idle）');
   assert.equal(
     (SIDEPANEL.match(/^\s*(?:export\s+)?(?:async\s+)?function\s+nextAfterSettle\s*\(/gm) ?? []).length,
     1,

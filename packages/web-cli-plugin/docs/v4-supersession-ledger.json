@@ -7459,6 +7459,7 @@
           "packages/web-cli-plugin/test/auto-probe.test.ts",
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/driver-quadruple.test.ts",
+          "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
@@ -7920,6 +7921,7 @@
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/dom-ref-anchor.test.ts",
           "packages/web-cli-plugin/test/driver-quadruple.test.ts",
+          "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
@@ -8341,6 +8343,7 @@
           "packages/web-cli-plugin/test/auto-probe.test.ts",
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/driver-quadruple.test.ts",
+          "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
@@ -8767,6 +8770,7 @@
         "files": [
           "packages/web-cli-plugin/test/auto-probe.test.ts",
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
+          "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/free-input-next.test.ts",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
@@ -9153,6 +9157,7 @@
         "files": [
           "packages/web-cli-plugin/test/auto-probe.test.ts",
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
+          "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/free-input-next.test.ts",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
@@ -9284,7 +9289,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/op-wiring.test.ts",
-          "count": 15,
+          "count": 20,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "    problems.push(`本地 op 槽不得出现 requestTurn：requestTurn( 必须恰 2 处（入口 + composer 提交），实测 ${sites.length} 处（行号 ${sites.join(', ')}）`);",
@@ -9301,16 +9306,22 @@
             "/** ③ — `requestTurn(` 只允许出现在 turn 的入口与 composer 提交（2 处）。 */",
             "test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 2 ∧ maybeRecommend 1 定义 / 7 调用点 ∧ nextAfterSettle 1 定义', () => {",
             "test('OP-W ⑦ 反证：新增第三个 requestTurn( 调用点 / 把自动按下点复制一份 ⇒ 必红 → 还原 PASS', () => {",
-            "test('OP-W ⑦: 自动按下点恰 1 处 ∧ requestTurn 仍恰 2 ∧ nextAfterSettle 调用点钉死', () => {"
+            "test('OP-W ⑦: 自动按下点恰 1 处 ∧ requestTurn 仍恰 2 ∧ nextAfterSettle 调用点钉死', () => {",
+            "    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),",
+            "test('OP-W ⑥ 反证：新增第 8 个 maybeRecommend( 调用点 ⇒ 必红 → 还原 PASS', () => {",
+            "  const problems = occurrenceProblems(forged, 'maybeRecommend', 7, 'maybeRecommend 调用点');",
+            "  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'), []);",
+            " *   · `maybeRecommend` **1 定义 / 7 调用点**（零新增散落调用点）；"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
-          "count": 2,
+          "count": 3,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "  assert.equal(callSites(SIDEPANEL, 'requestTurn'), 2, 'requestTurn 调用点必须仍恰 2');",
-            "test('R6: 主流程调用点不增（maybeRecommend 7 / nextAfterSettle 定义 1 / requestTurn 2）', () => {"
+            "test('R6: 主流程调用点不增（maybeRecommend 7 / nextAfterSettle 定义 1 / requestTurn 2）', () => {",
+            "  assert.equal(callSites(SIDEPANEL, 'maybeRecommend'), 7, 'R6 不得新增 maybeRecommend 调用点');"
           ]
         },
         {
@@ -9742,9 +9753,9 @@
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 20,
-        "registeredLines": 396,
+        "registeredLines": 402,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ R8（2026-09-25）缺陷修复轮：门禁重锚 7→8 的 6 行改写逐字追加登记（沿用本叶段同一口径）。"
       }
     },
     {
@@ -9754,6 +9765,7 @@
       "scope": {
         "files": [
           "packages/web-cli-plugin/test/auto-probe.test.ts",
+          "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
@@ -9762,7 +9774,9 @@
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
@@ -9773,6 +9787,7 @@
           "packages/web-cli-plugin/test/size-baseline.ts",
           "packages/web-cli-plugin/test/size-budget.test.ts",
           "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
           "packages/web-cli-plugin/test/supersession-ledger.test.ts",
           "packages/web-cli-plugin/test/ui/binding.mjs",
           "packages/web-cli-plugin/test/ui/density-metrics.mjs",
@@ -9899,11 +9914,116 @@
           "registeredUncoveredLines": [
             "    check('⑨ 「改用描述」不新造第 3 个输入框（可见文本输入 ≤2：卡内兜底 + 兜底 composer）', rec9.visibleTextInputs <= 2, recovery);"
           ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/op-wiring.test.ts",
+          "count": 8,
+          "reason": "★ R8（2026-09-25）缺陷修复轮：首开 / ready 入口的门禁重锚（maybeRecommend 调用点 7→8）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "    ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),",
+            "  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'), []);",
+            "  const p = 'V5.5F-1 主流程 diff = 0：requestTurn( 恰 1 ∧ maybeRecommend 1/7 ∧ nextAfterSettle 1/10 ∧ 台账 X-SGO-7 = 未发生取代';",
+            "  const problems = occurrenceProblems(forged, 'maybeRecommend', 7, 'maybeRecommend 调用点');",
+            "  { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 1 / maybeRecommend 1 定义 7 调用点 / nextAfterSettle 1 定义）' },",
+            " *   · `maybeRecommend` **1 定义 / 7 调用点**（零新增散落调用点）；",
+            "test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 1 ∧ maybeRecommend 1 定义 / 7 调用点 ∧ nextAfterSettle 1 定义', () => {",
+            "test('OP-W ⑥ 反证：新增第 8 个 maybeRecommend( 调用点 ⇒ 必红 → 还原 PASS', () => {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "count": 2,
+          "reason": "★ R8（2026-09-25）缺陷修复轮：R6 主流程调用点读数随首开入口 7→8 重锚的行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(callSites(SIDEPANEL, 'maybeRecommend'), 7, 'R6 不得新增 maybeRecommend 调用点');",
+            "test('R6: 主流程调用点不增（maybeRecommend 7 / nextAfterSettle 定义 1 / requestTurn 1）', () => {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/driver-timings.test.ts",
+          "count": 8,
+          "reason": "★ R8（2026-09-25）缺陷修复轮：DT-4 散落字面量调用点计数 7→8 的改写行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "      (p) => p.includes('调用点必须恰 7'),",
+            "      // count仍恰 7 and the timing仍 from the single source.",
+            "    `${JUDGEMENTS[3].expectFailPattern}：第 8 个调用点必须红`,",
+            "  if (callSites !== 7) problems.push(`${JUDGEMENTS[3].expectFailPattern}：maybeRecommend( 调用点必须恰 7（不增），实测 ${callSites}`);",
+            " *        旧项同现）。",
+            " *   (a) every `maybeRecommend('<lit>'` argument ∈ the closed set（且调用点恰 7，不增）；",
+            " *   DT-4 **散落字面量零命中** —— 全部 `maybeRecommend('<lit>'` 的实参 ∈ 闭集（且恰 7 处",
+            "test('DT-4 散落字面量零命中（7 调用点实参 ∈ 闭集 ∧ 无第二联合声明）', () => {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-baseline.ts",
+          "count": 6,
+          "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "  closeoutDeltaBytes: -548,",
+            "  deltaBytes: 303_352,",
+            "  finalArtifactBytes: 598_577,",
+            "  wiringBytes: 106_236,",
+            "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_577;"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+          "count": 8,
+          "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "  // 〖IAN-1 R1（2026-09-24）〗重 pin：ceiling = floor(598,577 × 1.05) = 628,505（中间登记）。",
+            "  assert.equal(SIDEPANEL_BASELINE_BYTES, 598577, '当前基线（IAN-2 R1 净负登记）');",
+            "  assert.equal(SIDEPANEL_CEILING, 628505, 'IAN-2 R1 净负登记后 ceiling = floor(598,577 × 1.05)（公式判定，cap 已撤销）');",
+            "  assert.equal(SIDEPANEL_CEILING, 628505, 'ceiling = floor(598,577 × 1.05)（IAN-2 R1 净负登记）');",
+            "  assert.equal(SIDEPANEL_CEILING, 628505, 'ceiling = floor(598,577 × 1.05)（未加 cap 的公式值，IAN-2 R1 净负登记）');",
+            "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(598577 * 1.05), '未加 cap 的公式值必须被记录');",
+            "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 628505);",
+            "  assert.equal(over.ceilingBytes, 628505);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "count": 18,
+          "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "    'IAN-2 R1 Σ 逐模块 + glue 必须 == 登记增量（净负）',",
+            "    rows.reduce((n, r) => n + r.deltaBytes, 0) + SIDEPANEL_GROWTH_BREAKDOWN.ian2UnattributedGlueBytes,",
+            "  // ① **净负轮**：方向 `lowered` ∧ Δ == after − before < 0（不得伪装成提升/零字节）。",
+            "  // ★ IAN-2 R1：最新一轮 = `ian2Rows`（净负 −548 B）；其 afterBytes 必须与真实 metafile 逐值相等。",
+            "  // ★ IAN-2 R1：最新一轮 = `ian2Rows`（净负 −548 B；其 afterBytes 必须等于真实 metafile）。",
+            "  // ★ IAN-2 R1：最新一轮 = `ian2Rows`（净负；afterBytes == 真实 metafile）。",
+            "  // 〖★ IAN-2 R1（2026-09-25）〗末条前移：最新一轮 = `ian-2-r1`（IAN-1 R2 / R1 与 V5.5F-2 的历史五要素逐字保留在登记册与元数据段）。",
+            "  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 599_125);",
+            "  assert.equal(b.deltaBytes, 303_352);",
+            "  assert.equal(fr.ceilingUncappedFormulaBytes, 628_505);",
+            "  assert.equal(fr.direction, 'lowered', 'IAN-2 R1 必须登记为净负轮（`lowered`）');",
+            "  assert.equal(fr.id, 'ian-2-r1', '末条登记必须是 IAN-2 R1（最新一轮）');",
+            "  assert.equal(groups.length, 37);",
+            "  assert.ok(fr.baselineAfterBytes - fr.baselineBeforeBytes < 0, 'IAN-2 R1 必须是负增量（净负）');",
+            "  assert.ok(rows.length > 0, 'IAN-2 R1 逐模块 rows 必须非空（净负轮）');",
+            "  console.log(`  ℹ IAN-2 R1 净负轮：Δ=${rows.reduce((n: number, r: { deltaBytes: number }) => n + r.deltaBytes, 0)} · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（未跨档位）`);",
+            "  const rows = SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows;",
+            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows) {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "count": 6,
+          "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
+          "registeredUncoveredLines": [
+            "  // 现网：min(675,840, floor(598,577 × 1.05) = 628505) = 628505（软纪律更紧）。",
+            "  assert.equal(SIDEPANEL_BASELINE_BYTES, 598577, 'IAN-2 R1 净负登记后的当前基线');",
+            "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 598577, '反证必须打在**当前真实产物**上（IAN-2 R1 净负登记）');",
+            "  assert.equal(evaluateSidepanelSize(628505).ok, true, 'ceiling 本身仍 PASS（边界含等号）');",
+            "  assert.equal(evaluateSidepanelSize(629_082).ok, false, '越 1 B 即 FAIL（629,082 > floor(598,577 × 1.05) = 628,505；边界不是宽松的）');",
+            "  assert.equal(live.ceilingBytes, 628505, '生效上限 = min(绝对上限, 5% 公式)（IAN-2 R1 净负登记）');"
+          ]
         }
       ],
       "summary": {
-        "filesWithUnregisteredLeafDeletions": 3,
-        "registeredLines": 87,
+        "filesWithUnregisteredLeafDeletions": 10,
+        "registeredLines": 143,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R2 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
       }
@@ -12478,7 +12598,7 @@
       "oldId": null,
       "oldTitle": "{ module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544,",
       "newId": "V552-R1-ROW-CHATSTATE-reanchored",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "superseding",
       "leaf": "specs-tree-v55-2-deterministic-onboarding",
@@ -12919,7 +13039,7 @@
       "oldId": null,
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
       "newId": "V55F1-SYNC-size-baseline.ts",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-1-ref-context-and-anchor",
@@ -12984,7 +13104,7 @@
       "oldId": "V42-E-VOL-2",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
       "newId": "V55F1-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-1-ref-context-and-anchor",
@@ -12997,7 +13117,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 585_732;",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13010,7 +13130,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 585_732;",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13023,7 +13143,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "finalArtifactBytes: 585_732,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  finalArtifactBytes: 598_577,",
+      "newTitle": "  finalArtifactBytes: 598_926,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13036,7 +13156,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "deltaBytes: 290_507,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  deltaBytes: 303_352,",
+      "newTitle": "  deltaBytes: 303_701,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13049,7 +13169,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "closeoutDeltaBytes: 7_109,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  closeoutDeltaBytes: -548,",
+      "newTitle": "  closeoutDeltaBytes: 349,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13062,7 +13182,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "wiringBytes: 92_843,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  wiringBytes: 106_236,",
+      "newTitle": "  wiringBytes: 106_585,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13140,7 +13260,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  finalArtifactBytes: 585_732,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13153,7 +13273,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  deltaBytes: 290_507,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13166,7 +13286,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  closeoutDeltaBytes: 7_109,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13179,7 +13299,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  wiringBytes: 92_843,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13192,7 +13312,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 106714, deltaBytes: 61869, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033；〖V5-2 收口轮〗删去 `permRequest` 的重复 notice 写者 −86 B；〖V5.5-3 R1〗+722 B（`driveAnsweredTurn` 接线：`nextAfterSettle` 的 `answered` 分支 + 回合结束续流点 + `dedupeKey`/`pressCandidate` import）· FR-SELF-060/063/070；〖V5.5-3 R2〗+1,775 B（W3 `queued`/`busy-rejected` 两变体 + 草稿回填 + `#input` 回填；W4 护栏抑制前置判定 + `proactivity` seam + composer `noteUserTurn` + `op-*` 结算 `noteVeto` + 启动读偏好）· FR-SELF-061/090~094/096' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13205,7 +13325,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "{ module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\'state\\'`/`case \\'notice\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13218,7 +13338,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9221, deltaBytes: 9221, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13231,7 +13351,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 6387, deltaBytes: 6387, kind: 'new-required-module', requiredBy: 'FR-CHAT-045/046/047 + AC-CHAT-016（批准/拒绝 + 预演 + 审计入口 + 两态固化 + legacy #confirm 单一解析）· ADR-V4-030/033' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13244,7 +13364,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/l1/ref-scope.ts', beforeBytes: null, afterBytes: 2_572, deltaBytes: 2_572, kind: 'new-required-module', requiredBy: 'FR-SGO-011/012/018/020~024/080/083（引用快照投影 + 法九读数单源 + 写闸裁决 + 留痕单源）· ADR-SGO-001/002' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13665,6 +13785,18 @@
       "modificationType": "pure-addition",
       "leaf": "specs-tree-ian-2-abolish-composer",
       "reason": "IAN-2 R1（叶2 净负增量登记）的断言零删减登记：新增 `ian2Rows` 逐模块归因组 + `SIDEPANEL_RE_REGISTRATIONS[\"ian-2-r1\"]` 条目 + 数值重 pin（599,125 → 598,577 / 生效上限 629,081 → 628,505 / deltaBytes 303,900 → 303,352 等）；既有判据只做**数值重 pin + 集合只增**（三 id 入册 13→16 / requestTurn 恰 2→1 / NEVER_FOLDABLE 14→13），判据结构零删减。"
+    },
+    {
+      "id": "R8-E-VOL-1",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "test/size-budget.test.ts / test/size-ruling-vol3.test.ts / test/size-growth-evidence.test.ts",
+      "oldId": "IAN2-E-VOL-1",
+      "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
+      "newId": "R8-E-VOL-1",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口（`maybeRecommendOpenEntry` 复用既有 `idle` 时机）使 `sidepanel.js` 598,577 → 598,926 B（+349 B）⇒ 基线显式重登记；生效上限 floor(598,926 × 1.05) = 628,872；档位 614,400 / 绝对上限 675,840 不动；「断言零删减」由本条目承接。",
+      "replacementExists": true,
+      "modificationType": "in-place-edit"
     },
     {
       "id": "IAN2-E-LAW4-1",
@@ -18847,7 +18979,7 @@
       "④作者确认": "见 authorConfirmation",
       "⑤三值闭合": {
         "resolved": true,
-        "newBaselineBytes": 598577,
+        "newBaselineBytes": 598926,
         "absoluteCeilingBytes": 675840,
         "resolvedOn": "2026-09-19",
         "verdict": "evaluatePendingAbsoluteCap() → ok=true",
