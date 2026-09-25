@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-ian-1-free-input-next",
   "version": "v0.11.2",
   "name": "IAN-1 流内自由输入 next 通道——推荐区按需最末项「自由输入…」+ 点开就地展开卡内输入（.ask-fallback 先例）+ 提交复用 op.turn 槽（唯一生产输入提交点）+ 手输/AI 驱动留痕 driver 两值可判 + 让位语义保留 + R6 双入口并存（旧 composer 入口保留可用）+ 流内草稿回填支持 + a11y focus + 零死端",
-  "phase": "reviewed",
-  "status": "tracked",
-  "workflow": "6.review",
-  "agent": "sddu-review",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
   "childrens": [],
@@ -52,7 +52,9 @@
     "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json",
     "build": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/build.md",
     "review": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/review.md",
-    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/review-report.md"
+    "reviewReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/review-report.md",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/validate-report.md"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/spec.md",
@@ -61,7 +63,9 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/tasks.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/build.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/review.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/review-report.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/validate-report.md"
   ],
   "coversFr": [
     "FR-IAN-001~007",
@@ -163,6 +167,14 @@
       "agent": "sddu-review",
       "artifact": "specs-tree-ian-1-free-input-next/review.md v1.0（C1~C26 审查策略）+ review-report.md v1.0（R1）",
       "note": "R1 审查（对象 HEAD `f3af634`）：26 Cx / 23 ✅ / 3 ⚠️ / 0 ❌ / **0 BLOCK** / 3 I（I-01 plan §5 漏列 4 连带改动文件 / I-02 `v4-density-baseline.json` 注记字段与基线不同源 / I-03 在飞终端可用·空提交非静默缺行为级驱动）/ 2 O（O-01 ADR-IAN-001 §① floor 措辞过宽 / O-02 S0''-A node 旧入口为接线判据）。亲跑：`npm test` **1431/0**（含 free-input-next 22/0 · turn-arbitration 7/0 · gate-integrity 23/0 · supersession 45/0 · op-wiring 14/0 · size-* 47/0 skipped=0）+ Chromium `s0-self-driven` **81/0**（S0C-12 双入口真 DOM）· `law8` **60/0**（含 ⑩）· `journey` **171** · `binding` **192**（首跑 CDP-socket 环境 flake ⇒ 隔离复跑 PASS）· `recommendation` **79/0** · `dead-end` **53/0**。重点亲核：`requestTurn(` 恰 2 · `ACT_TO_OP` 6 ∧ 集 A 9（`free-input` 不进 `ACT_TO_OP`）· 独立 `requestId` 退化注入 ⇒ FIN-0/FIN-8 双判官必红（亲测）· 三冻结面 sha 双锚（content 177,076/`52a82620…` · pick-layer 34,358/`77796bab…`）· 体积五要素同源 **599,125** / 生效上限 629,081 / 档位 614,400 / 绝对上限 675,840 / `pending-author-line` · `xIianLedger` 7 行 + 门禁对账 11 行 · `KIND_SET` 40 / 12 kind / 零宿主 / 特权恒 gesture。floor 口径裁决判定**正当**（empty 覆盖 / safety 不覆盖，fail-closed 未放松；建议叶2 订正 ADR 措辞）。结论：**✅ 通过**（可进 validate）。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-25",
+      "agent": "sddu-validate",
+      "artifact": "validate.md v1.0（V1~V8 验证策略 + AC 逐条映射）+ validate-report.md v1.0（R1）",
+      "note": "R1 动态验证（对象 HEAD `537813d`）：**结论 ✅ 通过 / 0 阻塞 / 0 严重漂移**。V1 S0''-A node 面（S0PP-A 双入口 + 双回填 + 反证族 ×7 + 真源切片）；V2 S0''-A Chromium 面 `test:s0-self-driven` **81/0**（S0C-12 真面板双入口各跑通一轮 + 双回填互不覆盖 + 样本单源 + 人工面 M1/M2/M5 ⏳）；V3 R6 迁移**行为级**（自研 `ian1-behavior.mjs` **16/16**，闭环 review I-03：pending 判别性（chips 禁用 ∧ 终端不禁用）/ 点终端获焦 / 真提交 user 行 + 真派 chat + 手输 `driver=manual` + SW `queued` ⇒ 可读行 / 空提交非静默 / 双回填三分支互不覆盖 / Enter-Escape）；V4 提交通道（`requestTurn(` **恰 2** · `op-wiring 14/0` · `FIN-3/4/5` · `manual ∉ 11 声明 id`）；V5 卡内输入安全（注入 A：requestId 退化 ⇒ `FIN-0`+`FIN-8` 双红后还原 · `law8 60/0` 含 ⑩ · a11y 行为级）；V6 门禁全量（`npm test` **1431/0 ×2** + Chromium 全量 s0 81/law8 60/journey 171/binding 192/recommendation 79/dead-end 53/density 242/insight 118/hardening 24/l0·l1·l2 248·131·74/auth-chip 37/zero-injection 28/page-input 125/e2e PASS + node gate-integrity 23/supersession 45/op-wiring 14/size 47 skipped=0；注入 B：`requestTurn(` 直连 ⇒ FIN-3 实测 3 处 + op-wiring 8/6 必红后还原）；V7 红线/体积终核（content 177,076/`52a82620…` · pick-layer 34,358/`77796bab…` 逐字节不变；turn-queue/SW/base/manifest 零 diff；KIND_SET 40 · 12 kind · 零宿主 · ACT_TO_OP 6 ∧ 集 A 9 · provider 11 · PRIORITY 4 · 特权恒 gesture；体积五要素同源 599,125 / 629,081 / 614,400 / 675,840 / `pending-author-line`；整叶 +7,179 B 越叶预算**如实登记不停机**、cap record-only、不伪称已确认）；V8 漂移（spec/plan 零 diff · R2 零新增文件 · 47/47 FR 全映射 · 无孤立代码/需求缺失）。review 处置：**I-03 闭环**；I-01（plan §5 漏列 4 连带文件）/ I-02（density-baseline 注记字段未刷新）/ O-01（ADR floor 措辞）/ O-02（node 旧入口为接线判据）登记非阻塞 N；新增观察 V-01（recommendation ④ 首跑 flake，隔离复跑 ×3 = 79/0）。注入脚本 + 行为探针存 `/tmp/sddu-validate-ian-1-20260925-104704/`；日志 `/tmp/opencode/v4-gate-logs/ian-1-validate/`；`.sddu` 外零产品代码改动（注入均逐字节还原，`git status` 空）。FR 47/47=100% · NFR 12/12=100% · EC 14/14=100%。"
     }
   ],
   "openPointsRuled": [
