@@ -665,7 +665,9 @@ async function main() {
         text: line ? line.textContent : '',
         title: line ? (line.getAttribute('title') || '') : '',
         rebind: !!document.getElementById('rebind'),
-        sendDisabled: document.getElementById('send').disabled,
+        // ★ IAN-2（TASK-IAN-218）：send 真退役 ⇒ 原 send.disabled 读数消解；等价重锚为
+        // 保留面 send-reason（状态提示 ≠ 输入面）+ 三 id 零命中读数。
+        legacyIds: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null),
         sendReason: document.getElementById('send-reason').textContent,
       };
     })()`);
@@ -674,7 +676,7 @@ async function main() {
     check(/重新绑定当前标签页/.test(site.text), '#11e 给出下一步动作（rebind 指引）', site.text);
     check(site.title.length > 0, '#11f 行 title 承载长文案（与设置站点分区同源）', site.title);
     check(site.rebind === true, '#11f 「重新绑定当前标签页」按钮存在');
-    check(site.sendDisabled === true && /发送已禁用/.test(site.sendReason), '#11g 发送禁用原因在输入框附近可见', site.sendReason);
+    check(site.legacyIds.length === 0 && /发送已禁用/.test(site.sendReason), '#11g 发送禁用原因在状态栏可见（状态提示 ≠ 输入面）∧ `#composer`/`#input`/`#send` 三 id 不存在', site.sendReason);
 
     // 9. TASK-028: no standalone「测试连接」button — the panel AUTO-tests on load
     // using the stored config (reusing the existing `llm-test` message).
@@ -839,20 +841,23 @@ async function main() {
     // Pin a deterministic side-panel viewport (400×900) for the layout metrics.
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 400, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);
-    // V4-1（ADR-V4-008 八步 ③，同编号等价改写）：v3 的「先 reveal composer 再量贴底」前置已退役
-    // —— 法四要求**默认屏无可见常驻输入框**（`#composer` 必须 hidden），reveal 前置与法四冲突。
+    // V4-1（ADR-V4-008 八步 ③，同编号等价改写）：v3 的「先 reveal composer 再量贴底」前置已退役。
+    // ★ IAN-2：法四新条文「输入即 next：流外零输入面」⇒ `#composer` 三 id **DOM 真退役**
+    // （非 hidden）；几何读面按八步 ③ 消解并显式登记（见下方 `composerGapToBottom.dissolved`）。
     // 读数目标从被取代的 `#log`(div) / `#panel-top` / `#panel-bottom` 重锚到三区骨架元素；
     // 断言测的语义（flex 填充 / 无水平溢出 / 三区结构 / 回到底部入口）逐条不变。
     const layout = await evaluate(sp, `(() => {
-      const log = document.getElementById('stream');
       const region = document.getElementById('region-stream');
-      const composer = document.getElementById('composer');
       const de = document.documentElement;
-      const cr = composer.getBoundingClientRect();
+      const rr = region.getBoundingClientRect();
+      // ★ IAN-2（TASK-IAN-218 / ADR-IAN-007 八步 ③）：composer 真退役（DOM 零命中）⇒
+      // 原 composerGapToBottom 几何读面**消解并显式登记**（元素不存在 ⇒ 无 gap 语义；
+      // **不得**静默 null 通过）。等价读面 = regionBottomGap + 下方流内输入卡几何。
       return {
         regionStreamFlexGrow: getComputedStyle(region).flexGrow,
-        regionStreamHeightPct: Math.round((region.getBoundingClientRect().height / window.innerHeight) * 1000) / 10,
-        composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
+        regionStreamHeightPct: Math.round((rr.height / window.innerHeight) * 1000) / 10,
+        composerGapToBottom: { dissolved: 'composer-gap-to-bottom', reason: 'IAN-2：#composer DOM 真退役（非 hidden）' },
+        regionBottomGap: Math.round(window.innerHeight - rr.bottom),
         docOverflowX: de.scrollWidth - de.clientWidth,
         hasToolbar: !!document.getElementById('region-toolbar'),
         hasStatusbar: !!document.getElementById('region-statusbar'),
@@ -861,29 +866,36 @@ async function main() {
     })()`);
     check(layout.regionStreamFlexGrow === '1', '#15a 消息区为 flex 填充（非 45vh 硬编码）', JSON.stringify(layout));
     const fa4 = await evaluate(sp, `(() => {
-      const composer = document.getElementById('composer');
       const visibleIn = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
       const visibleInputs = [...document.querySelectorAll('input, textarea, select, [contenteditable="true"]')]
         .filter(visibleIn).map((el) => el.id || el.tagName);
-      // V4.5-1（TASK-V45-113 八步 ③，**加严**）：composer 出流（ADR-V45-003）之后，
-      // 「不在流内」这一半必须可机核 —— 父节点 == body ⇒ 它不可能是某个宿主/流内子节点。
-      // （本段代码在 evaluate 的模板字符串里，注释内不得出现反引号。）
-      const siblings = composer ? [...composer.parentElement.children] : [];
+      // ★ IAN-2（TASK-IAN-218 / ADR-IAN-007 八步 ③，同编号等价改写）：
+      // 原「composer 出流（父节点 == body ∧ body 尾）∧ hidden」断言与「元素真退役」语义
+      // 互斥 ⇒ 改写为**三 id 均不在 DOM**（真退役 ≠ hidden）。并补「流内 free-input 卡内输入
+      // 存在可展开 + 几何不越出视口」等价读面（生产测试钩子只操作卡内 ⇒ 唯一输入载体）。
+      const legacyIds = ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null);
+      window.__v3.testing.revealFallback();
+      const card = document.getElementById('ask-input');
+      const cr = card ? card.getBoundingClientRect() : null;
+      if (card) card.focus();
+      const focused = card ? document.activeElement === card : false;
+      window.__v3.testing.hideFallback();
       return JSON.stringify({
-        composerExists: Boolean(composer),
-        composerHidden: composer ? composer.hidden === true : null,
-        composerParentIsBody: composer ? composer.parentElement === document.body : null,
-        composerInStream: composer ? document.getElementById('stream').contains(composer) : null,
-        composerIsBodyTailLayout: composer ? siblings.filter((el) => el.tagName !== 'SCRIPT').indexOf(composer) === [...siblings].filter((el) => el.tagName !== 'SCRIPT').length - 1 : null,
+        legacyIds,
         visibleInputs,
+        cardExists: Boolean(card),
+        cardFocusable: Boolean(card) && card.disabled !== true,
+        cardFocused: focused,
+        cardInsideViewport: cr ? (cr.left >= -1 && cr.top >= -1 && cr.right <= window.innerWidth + 1 && cr.bottom <= window.innerHeight + 1) : null,
+        cardWidth: cr ? Math.round(cr.width) : null,
       });
     })()`);
     const f4 = JSON.parse(fa4);
     check(
-      f4.composerExists === true && f4.composerHidden === true && f4.visibleInputs.length === 0
-        && f4.composerParentIsBody === true && f4.composerInStream === false && f4.composerIsBodyTailLayout === true,
-      '#15c 默认屏无可见常驻输入框 ∧ `#composer` 出流（父节点 == body ∧ 非 `#stream` 后代 ∧ body 尾最后一个布局元素）∧ hidden（法四；显式取代 v3「composer 贴底」）',
-      `${fa4} | gap=${layout.composerGapToBottom}px`,
+      f4.legacyIds.length === 0 && f4.visibleInputs.length === 0
+        && f4.cardExists === true && f4.cardFocusable === true && f4.cardInsideViewport === true,
+      '#15c 三 id 均不在 DOM（`#composer`/`#input`/`#send` 真退役，非 hidden）∧ 默认屏零可见输入框 ∧ 流内输入卡存在可展开/可聚焦且几何不越出视口（法四「输入即 next：流外零输入面」；显式取代 v3「composer 贴底」与 v4.5「composer 出流/hidden」）',
+      `${fa4} | regionBottomGap=${layout.regionBottomGap}px`,
     );
     check(layout.docOverflowX === 0, '#15d 文档级无水平溢出', `${layout.docOverflowX}`);
     check(layout.hasToolbar && layout.hasStatusbar && layout.hasScrollBottom, '#15e 三区结构 + 回到底部入口存在', JSON.stringify(layout));
@@ -1085,7 +1097,9 @@ async function main() {
     // #15q narrow side panel (320px) → still no horizontal overflow
     await sp.send('Emulation.setDeviceMetricsOverride', { width: 320, height: 900, deviceScaleFactor: 1, mobile: false });
     await sleep(300);
-    const narrow = await evaluate(sp, `(() => ({ doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, log: document.getElementById('stream').scrollWidth - document.getElementById('stream').clientWidth, composerW: Math.round(document.getElementById('composer').getBoundingClientRect().width) }))()`);
+    // ★ IAN-2（TASK-IAN-218 / ADR-IAN-007 八步 ③）：原 `composerW` 读数随 `#composer` 真退役
+    // 消解 ⇒ 等价重锚为流区宽度读数（同一条「无水平溢出」语义，元素存在性无关）。
+    const narrow = await evaluate(sp, `(() => ({ doc: document.documentElement.scrollWidth - document.documentElement.clientWidth, log: document.getElementById('stream').scrollWidth - document.getElementById('stream').clientWidth, streamW: Math.round(document.getElementById('stream').getBoundingClientRect().width) }))()`);
     check(narrow.doc === 0 && narrow.log === 0, '#15q 320px 窄侧栏无水平溢出', JSON.stringify(narrow));
     await sp.send('Emulation.clearDeviceMetricsOverride');
 
@@ -1096,6 +1110,10 @@ async function main() {
     const optionsTargetsBefore = (await listPageTargets()).filter((t) => t.url.includes('options.html')).length;
 
     // Seed a draft + a mid-list reading position so the round-trip is observable.
+    // ★ IAN-2（TASK-IAN-218 / ADR-IAN-005 §④）：draft 载体由退役的流外 input 重锚到**流内
+    // free-input 卡内输入**（getDraft/setDraft 读写该卡 ask-input）。种子 = 经生产路径
+    // （recommend 卡末端「自由输入…」终端 → handleCardAction('free-input') → openFreeInputCard）
+    // 就地展开卡内输入并真键入，随后切设置再返回 ⇒ 草稿必须仍在（EC-IAN-011）。
     const beforeSwitch = JSON.parse(
       await evaluate(
         sp,
@@ -1103,10 +1121,17 @@ async function main() {
           const log = document.getElementById('stream');
           log.scrollTop = Math.max(0, Math.round(log.scrollHeight / 3));
           log.dispatchEvent(new Event('scroll'));
+          window.__v3.testing.recommend('idle');
+          const term = document.querySelector('#stream .next-terminal');
+          if (term) term.click();
+          try {
           const i = document.getElementById('input');
           i.value = 'draft-preserve-033';
+          } catch { /* ★ IAN-2：流外 #input 已真退役 ⇒ 原写入为 no-op（载体重锚到卡内） */ }
+          const iCard = document.getElementById('ask-input');
+          if (iCard) iCard.value = 'draft-preserve-033';
           const entries = [...log.children].filter((c) => c.classList.contains('entry'));
-          return JSON.stringify({ draft: i.value, scrollTop: Math.round(log.scrollTop), textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0), entryCount: entries.length });
+          return JSON.stringify({ draft: iCard ? iCard.value : '', cardExists: !!document.getElementById('ask-input'), scrollTop: Math.round(log.scrollTop), textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0), entryCount: entries.length });
         })()`,
       ),
     );
@@ -1335,7 +1360,7 @@ async function main() {
     }
 
     const preservedWhileOpen = JSON.parse(
-      await evaluate(sp, `(() => { const log=document.getElementById('stream'); const i=document.getElementById('input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),
+      await evaluate(sp, `(() => { const log=document.getElementById('stream'); const i=document.getElementById('ask-input'); return JSON.stringify({ draft:i.value, hasMessage: log.textContent.length > 0 }); })()`),
     );
     check(
       preservedWhileOpen.draft === 'draft-preserve-033' && preservedWhileOpen.hasMessage === true,
@@ -1365,9 +1390,10 @@ async function main() {
         const v = document.getElementById('settings-view');
         const log = document.getElementById('stream');
         const i = document.getElementById('input');
+        const iCard = document.getElementById('ask-input');
         if (!v || v.classList.contains('show')) return '';
         const entries = [...log.children].filter((c) => c.classList.contains('entry'));
-        return JSON.stringify({ chatShown: getComputedStyle(document.getElementById('region-stream')).display !== 'none', draft: i.value, textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0), entryCount: entries.length, scrollTop: Math.round(log.scrollTop) });
+        return JSON.stringify({ chatShown: getComputedStyle(document.getElementById('region-stream')).display !== 'none', draft: iCard ? iCard.value : (i ? i.value : ''), textLen: entries.reduce((n, c) => n + (c.textContent ?? '').length, 0), entryCount: entries.length, scrollTop: Math.round(log.scrollTop) });
       })()`,
       40,
       200,

@@ -141,15 +141,20 @@ export const RETIRED_HOST_ATTRS: readonly string[] = Object.freeze([
  *     the BLOCK-01 self-contradiction (the product re-mints it after the first real
  *     receipt ⇒ a false「retired container still in the DOM」).
  *
- * Also deliberately absent (PRESERVED): `#composer` / `#input` / `#send`
- * (compatibility read surface — NFR-V45-006), `#send-reason` (status bar),
- * `#rebind` (settings view), and the L2 read-only content containers that merely
- * moved (`#l1-local-tree` / `#l1-local-tree-rows` / `#l1-receipt` /
- * `#l1-receipt-rows`).
+ * Also deliberately absent (PRESERVED): `#send-reason` (status bar), `#rebind` (settings view),
+ * and the L2 read-only content containers that merely moved (`#l1-local-tree` /
+ * `#l1-local-tree-rows` / `#l1-receipt` / `#l1-receipt-rows`).
  *
- * ── The 13真退役容器 ─────────────────────────────────────────────────────────
+ * ★ IAN-2（ADR-IAN-004 §①步4 / ADR-IAN-005 §⑥ / X-IAN-2·3）：`#composer` / `#input` / `#send`
+ * 三 id 原为**保留（兼容读取面，NFR-V45-006）**，本轮 **DOM 真退役** ⇒ 移出 PRESERVED 并
+ * **逐 id 入册**（13 → **16**）。`RETIRED_HOST_ATTRS` 的宿主值 `'composer'` **逐字保留**
+ * （`data-host` 值 ≠ 容器 id）。
+ *
+ * ── The 16真退役容器 ─────────────────────────────────────────────────────────
  */
 export const RETIRED_CONTAINER_IDS: readonly string[] = Object.freeze([
+  'composer',
+  'input',
   'l0-decision',
   'l0-pick',
   'l0-status-band',
@@ -163,7 +168,8 @@ export const RETIRED_CONTAINER_IDS: readonly string[] = Object.freeze([
   'l1-local-tree-toggle',
   'l1-receipt-toggle',
   'l1-gestures-toggle',
-]);
+  'send',
+].sort());
 
 /**
  * The **migrated containers** (review R1 BLOCK-01 / I-06): ids that survive the
@@ -232,7 +238,7 @@ export const RETIRED_HOST_DISPOSITIONS: readonly RetiredHostDisposition[] = Obje
  *   · `firstRun`   — the first-run guidance (`firstRunCard` / onboarding);
  *   · `probe`      — the discovery/probe phase + reason (`eventizeChannels`);
  *   · `notice`     — the v1 overwrite slot (`chat-state.ts#systemRow`);
- *   · `send-reason`— the composer's disabled reason (`eventizeChannels`) — **NOT
+ *   · `send-reason`— the send-disabled reason (`eventizeChannels`) — **NOT
  *                    retired**: it lives in `#region-statusbar` and keeps its element.
  *
  * `emitterSite` is a **locatable source fragment** (not prose): the node gate

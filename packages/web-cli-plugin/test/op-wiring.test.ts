@@ -8,7 +8,8 @@
  *      等于登记值（`OP_CALLSITE_SET`）—— 复制一条调用点（第二条执行路径）即红；
  *   ② **单一入口调用点集合显式登记**：9 个 op 全部出现在登记表里（漏一个 ⇒ 红）；
  *   ③ **零 `requestTurn`**（除 `op.turn`）：`REQUESTTURN_CALLSITE_SET` 只允许 turn 的
- *      入口与 composer 提交两个位置，其余 8 个 op 的**槽位**不得出现它（R-ALLN-905）；
+ *      入口**一个**位置（★ IAN-2：composer 提交真退役 ⇒ 唯一生产输入提交点），其余 8 个 op
+ *      的**槽位**不得出现它（R-ALLN-905）；
  *   ④ **本地 op 不受 `pending` 门控**：`params`/`consent` 皆无的 op 在 `openAsks` 超限时
  *      仍必须执行（`deny` 集断言 —— 只有带卡片状态的 op 才可能入队）；
  *   ⑤ **与 op 清单同源**：登记表的 opId 集 == `OP_IDS`（清单一改，本门禁同步红/绿）。
@@ -52,7 +53,7 @@ export const JUDGEMENTS: readonly OpWiringJudgement[] = [
   { id: 'OP-W-5-table-same-source', expectFailPattern: '登记表 opId 集必须与 OP_IDS 同源' },
   // V5.5-1 TASK-V55-113（ADR-V55-001 §5 · FR-SELF-015/033 · R-V55-101）——
   // **主流程 diff = 0 复合读数**：新增「答案驱动化」时的三条计数判据同屏机核。
-  { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 2 / maybeRecommend 1 定义 7 调用点 / nextAfterSettle 1 定义）' },
+  { id: 'OP-W-6-main-flow-diff0', expectFailPattern: '主流程 diff 必须为 0（requestTurn 恰 1 / maybeRecommend 1 定义 7 调用点 / nextAfterSettle 1 定义）' },
   // V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/064/065 · AC-SELF-008 · R-V55-101）——
   // 「AI 自动成回合」经**既有** `op.turn` 槽：唯一自动按下点（`ai-drive.ts` 恰 1 处）
   // + `nextAfterSettle(` 调用点**钉死**（本叶升级后的数值）+ 分支 A 端到端（零按键）。
@@ -63,9 +64,10 @@ export const JUDGEMENTS: readonly OpWiringJudgement[] = [
 /**
  * The **single entry symbol** of each op and the number of call sites it is allowed.
  *
- * `op.turn`'s 2 = the composer submit + the op slot (it is the ONE turn-issuing entry,
- * N22/N25); every other op's symbol is a capability / action request whose **one** call
- * site is the op's own slot or execution body — a second one is the double-path drift
+ * ★ IAN-2：`op.turn`'s **1** = the op slot alone (the in-card free-input submit / former
+ * composer submit both reach it through `bindPanelOps.turn`); it is the ONE turn-issuing
+ * entry (N22/N25). Every other op's symbol is a capability / action request whose **one**
+ * call site is the op's own slot or execution body — a second one is the double-path drift
  * FR-ALLN-059 / R-ALLN-012 forbid.
  */
 export const OP_CALLSITE_SET: readonly {
@@ -73,7 +75,7 @@ export const OP_CALLSITE_SET: readonly {
   readonly symbol: string;
   readonly callSites: number;
 }[] = Object.freeze([
-  { opId: 'op.turn', symbol: 'requestTurn', callSites: 2 },
+  { opId: 'op.turn', symbol: 'requestTurn', callSites: 1 },
   // 3 = the in-panel pick-guidance listener + the L1 deps seam + the op slot (all ONE entry
   //     `pickInput.requestPick`; the op slot is the pipeline's route).
   { opId: 'op.pick', symbol: 'requestPick', callSites: 3 },
@@ -125,12 +127,12 @@ export function callsiteProblems(
   return problems;
 }
 
-/** ③ — `requestTurn(` 只允许出现在 turn 的入口与 composer 提交（2 处）。 */
+/** ③ — `requestTurn(` 只允许出现在 turn 的唯一入口（★ IAN-2：1 处）。 */
 export function requestTurnProblems(source: string): string[] {
   const sites = callSites(source, 'requestTurn');
   const problems: string[] = [];
-  if (sites.length !== 2) {
-    problems.push(`本地 op 槽不得出现 requestTurn：requestTurn( 必须恰 2 处（入口 + composer 提交），实测 ${sites.length} 处（行号 ${sites.join(', ')}）`);
+  if (sites.length !== 1) {
+    problems.push(`本地 op 槽不得出现 requestTurn：requestTurn( 必须恰 1 处（唯一生产输入提交点 = op.turn 槽），实测 ${sites.length} 处（行号 ${sites.join(', ')}）`);
   }
   return problems;
 }
@@ -241,7 +243,7 @@ export function definitionCount(source: string, symbol: string): number {
   return (source.match(new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${escaped}\\s*\\(`, 'gm')) ?? []).length;
 }
 
-test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 2 ∧ maybeRecommend 1 定义 / 7 调用点 ∧ nextAfterSettle 1 定义', () => {
+test('OP-W ⑥ 主流程 diff = 0：requestTurn 恰 1 ∧ maybeRecommend 1 定义 / 7 调用点 ∧ nextAfterSettle 1 定义', () => {
   const problems = [
     ...requestTurnProblems(SIDEPANEL),
     ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),
@@ -268,7 +270,7 @@ test('OP-W ⑥ 反证：新增第 8 个 maybeRecommend( 调用点 ⇒ 必红 →
  *
  * 「AI 自动成回合」必须经**既有** `op.turn` 槽，且自动按下点**恰 1 处**：
  *   ① `ai-drive.ts` 恰 1 个 `dispatchChipAction(`（AI **不自造** chip 执行面）；
- *   ② `sidepanel.ts` 的 `requestTurn(` 仍恰 2（新增调用点 ⇒ 红）；
+ *   ② `sidepanel.ts` 的 `requestTurn(` 仍恰 **1**（★ IAN-2 重锚；新增调用点 ⇒ 红）；
  *   ③ `nextAfterSettle(` 调用点**钉死**（1 定义 + 10 调用点，随本叶 op-wiring 升级钉死）——
  *      「加时机 = 改映射」的纪律不被绕开；
  *   ④ 分支 A 端到端（机制侧，node 面）：已配置 ⇒ **无需用户按键** ⇒ `op.turn` 槽真的到达
@@ -279,7 +281,7 @@ const AI_DRIVE = read('src/ui/sidepanel/next-registry/ai-drive.ts');
 /** AI 自动成回合时的 `nextAfterSettle(` 调用点登记值（V5.5-3 升级后钉死）。 */
 export const NEXT_AFTER_SETTLE_CALLSITES = 10;
 
-test('OP-W ⑦: 自动按下点恰 1 处 ∧ requestTurn 仍恰 2 ∧ nextAfterSettle 调用点钉死', () => {
+test('OP-W ⑦: 自动按下点恰 1 处 ∧ requestTurn 仍恰 1 ∧ nextAfterSettle 调用点钉死', () => {
   const pressSites = callSites(AI_DRIVE, 'dispatchChipAction');
   assert.equal(pressSites.length, 1, `${JUDGEMENTS[6].expectFailPattern}：实测 ${pressSites.length} 处（行号 ${pressSites.join(', ')}）`);
   // AI 路径**不得**直接触达回合入口（必须经 `op.turn` 槽 ⇒ dispatchChipAction）。
@@ -294,7 +296,7 @@ test('OP-W ⑦: 自动按下点恰 1 处 ∧ requestTurn 仍恰 2 ∧ nextAfterS
   );
 });
 
-test('OP-W ⑦ 反证：新增第三个 requestTurn( 调用点 / 把自动按下点复制一份 ⇒ 必红 → 还原 PASS', () => {
+test('OP-W ⑦ 反证：新增第二个 requestTurn( 调用点 / 把自动按下点复制一份 ⇒ 必红 → 还原 PASS', () => {
   const fn = `\nfunction ghostTurn(): void {\n  requestTurn('ghost');\n}\n`;
   const forged = `${SIDEPANEL}${fn}`;
   const problems = requestTurnProblems(forged);
@@ -358,14 +360,14 @@ test('OP-W ⑦: 逐档拒绝（confirm / gesture 不可自动按下；AI 不自�
  * **X-SGO-7「未发生取代」如实登记 + 主流程 diff = 0 复合读数**（本叶 V5.5F-1）。
  *
  * 本叶把「引用事实进回合」经**既有**载荷通道（type-only 字段）与**既有**系统段工厂落地：
- *   · `requestTurn(` 调用点**仍恰 2**（composer 提交 + `op.turn` 槽）；
+ *   · `requestTurn(` 调用点**恰 1**（★ IAN-2 重锚：唯一 `op.turn` 槽）；
  *   · `maybeRecommend` **1 定义 / 7 调用点**（零新增散落调用点）；
  *   · `nextAfterSettle` **1 定义 / 10 调用点**。
  * ⇒ X-SGO-7 = **未发生取代**（主流程 diff = 0）：台账须**如实登记「未发生」**，不得留空
  * 也不得伪造一条「已取代」。本用例同时机核台账行与三条计数（可 FAIL、非恒真）。
  * ──────────────────────────────────────────────────────────────────────────── */
 test('OP-W ⑨（V5.5F-1）主流程 diff = 0 复合读数 + 台账 X-SGO-7「未发生取代」如实登记', () => {
-  const p = 'V5.5F-1 主流程 diff = 0：requestTurn( 仍恰 2 ∧ maybeRecommend 1/7 ∧ nextAfterSettle 1/10 ∧ 台账 X-SGO-7 = 未发生取代';
+  const p = 'V5.5F-1 主流程 diff = 0：requestTurn( 恰 1 ∧ maybeRecommend 1/7 ∧ nextAfterSettle 1/10 ∧ 台账 X-SGO-7 = 未发生取代';
   const problems = [
     ...requestTurnProblems(SIDEPANEL),
     ...occurrenceProblems(SIDEPANEL, 'maybeRecommend', 7, 'maybeRecommend 调用点'),

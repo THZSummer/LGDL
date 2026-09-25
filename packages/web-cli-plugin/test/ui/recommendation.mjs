@@ -6,7 +6,7 @@
  * factory (the `window.__v3.testing` seam drives the same `reduce` / `render` path
  * the background messages use — no shadow implementation):
  *
- *   ① chips 即指令：click 走 composer 的**同一生产入口**（`requestTurn`），不填输入框
+ *   ① chips 即指令：click 走**同一生产入口**（`requestTurn`），不填输入框（★ IAN-2：流外零输入面）
  *   ② 上限：≤1 卡 / 卡 ≤3 chips（单卡可点 ≤6）
  *   ③ `pending` 门控：chips `disabled` + `aria-disabled`（**不隐藏**）且不生成新卡
  *   ④ 无候选不渲染：候选为空 ⇒ 流内零 `nextstep` 卡（EC-CHAT-008）
@@ -143,7 +143,7 @@ async function main() {
         if (!card) return JSON.stringify({ found: false });
         const chips = [...card.querySelectorAll('button.next-chip')];
         const before = document.querySelectorAll('#stream [data-msg-type="user"]').length;
-        const inputBefore = document.getElementById('input').value;
+        const inputBefore = (document.getElementById('input')?.value ?? '');
         const userBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
         // V4.5-1 W3：settled 态的首选卡可能是**可行动恢复卡**（site/probe 触发，chips 全为
         // 本地动作）——本判据仍打「chips 即指令」：点第一枚 act=next 的 chip。
@@ -158,7 +158,7 @@ async function main() {
           inputBefore,
           userBefore,
           userAfter: document.querySelectorAll('#stream [data-msg-type="user"]').length,
-          inputAfter: document.getElementById('input').value,
+          inputAfter: (document.getElementById('input')?.value ?? ''),
           before,
         });
       })()`,
@@ -258,7 +258,7 @@ async function main() {
          // 非 settled 时首选是可行动恢复卡：本判据改为驱动它的首项 chip（本地动作）。
          const chip = authChipEl ?? (recovery ? recovery.querySelector('button.next-chip') : null);
          const usersBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
-         const inputBefore = document.getElementById('input').value;
+         const retiredIdsBefore = ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null);
          // The permission request is stubbed so the gate drives the REAL authorizeCurrentSite()
          // path deterministically (headless has no native gesture-gated prompt). The stub
          // records the requested origin pattern — the same argument the product passes.
@@ -277,7 +277,7 @@ async function main() {
            chipAct: chip ? chip.getAttribute('data-act') : null,
            otherActs: (card ?? recovery) ? [...(card ?? recovery).querySelectorAll('button.next-chip')].filter((c) => c !== chip).map((c) => c.getAttribute('data-act')) : [],
            usersBefore,
-           inputBefore,
+           retiredIdsBefore,
            stubApplied,
          });
        })()`,
@@ -293,7 +293,7 @@ async function main() {
       cdp,
       `(() => JSON.stringify({
          users: document.querySelectorAll('#stream [data-msg-type="user"]').length,
-         input: document.getElementById('input').value,
+         input: (document.getElementById('input')?.value ?? ''),
          authorizedNotice: [...document.querySelectorAll('#stream [data-msg-type="system"]')].some((r) => /已授权/.test(r.textContent || '')),
          probe: window.__authProbe ?? [],
        }))()`,
@@ -317,7 +317,7 @@ async function main() {
     }
     check('⑭ 权限请求探针已装入（stub 生效，判定非空转）', authChip.stubApplied === true, authChipRaw);
     check('⑭ 点击授权 chip 不产生 user 回合（授权不是聊天消息）', authAfter.users === authChip.usersBefore, `${authChipRaw} | ${authAfterRaw}`);
-    check('⑭ 点击授权 chip 不把文本复制进输入框', authAfter.input === '' && authChip.inputBefore === '', `${authChipRaw} | ${authAfterRaw}`);
+    check('⑭ 点击授权 chip 不把文本复制进流外输入面（★ IAN-2：三 id 真退役 ⇒ 零命中）', authAfter.input === '' && authChip.retiredIdsBefore.length === 0, `${authChipRaw} | ${authAfterRaw}`);
     if (authChip.card === true) {
       check('⑭ 点击授权 chip 走权限请求路径（产出「已授权 <origin>」回执）', authAfter.authorizedNotice === true, authAfterRaw);
       check(
@@ -701,7 +701,7 @@ async function main() {
          const col = card.querySelector('.card-col');
          const chips = [...card.querySelectorAll('button.next-chip')];
          const term = card.querySelector('button[data-act="free-input"]');
-         const inputBefore = document.getElementById('input').value;
+         const retiredIdsBefore = ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null);
          const usersBefore = document.querySelectorAll('#stream [data-msg-type="user"]').length;
          if (term) term.click();
          const ask = document.querySelector('#stream [data-msg-type="askuser"]');
@@ -714,8 +714,7 @@ async function main() {
            termTag: term ? term.tagName : null,
            termIsChip: term ? term.classList.contains('next-chip') : null,
            chipCount: chips.length,
-           inputBefore,
-           inputAfter: document.getElementById('input').value,
+           retiredIdsBefore,
            usersBefore,
            usersAfter: document.querySelectorAll('#stream [data-msg-type="user"]').length,
            askCard: Boolean(ask),
@@ -735,8 +734,8 @@ async function main() {
     );
     check('⑰ 单卡 `.next-chip` 仍 ≤3（终端不占 MAX_CHIPS_PER_CARD 预算）', term.chipCount >= 1 && term.chipCount <= 3, terminalRaw);
     check(
-      '⑰ 终端点击**不填** `#input`（项本身不是输入框）∧ 不产生 user 回合',
-      term.inputAfter === term.inputBefore && term.usersAfter === term.usersBefore,
+      '⑰ 终端点击**不填**任何流外输入面（★ IAN-2：三 id 真退役 ⇒ DOM 零命中）∧ 不产生 user 回合',
+      term.retiredIdsBefore.length === 0 && term.usersAfter === term.usersBefore,
       terminalRaw,
     );
     check(

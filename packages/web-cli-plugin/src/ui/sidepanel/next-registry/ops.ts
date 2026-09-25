@@ -29,10 +29,10 @@
  * ── `op.turn` is the ONLY `requestTurn` caller (N22 / N25) ──────────────────
  *
  * This file contains **no** `requestTurn(` call: `op.turn`'s row reaches the ONE turn
- * entry through `bindPanelOps.turn` (the same entry the composer submit calls), so the
- * count of `requestTurn(` call sites stays exactly 2 in `sidepanel.ts` — the entry
- * declaration plus the composer submit — and `test/op-wiring.test.ts` recomputes it from
- * the source (and the reverse proof flips it).
+ * entry through `bindPanelOps.turn` (the in-card free-input submit shares it), so the
+ * count of `requestTurn(` call sites is exactly **1** in `sidepanel.ts` — the entry
+ * declaration (★ IAN-2：the former composer submit call site真退役) — and
+ * `test/op-wiring.test.ts` recomputes it from the source (and the reverse proof flips it).
  *
  * ── Why the rows are tuples (byte budget) ───────────────────────────────────
  *
@@ -55,7 +55,7 @@ import { resolveOrder } from './registry.js';
 
 /** The panel's op hooks. A missing hook is a *loud* pipeline failure (never silent). */
 export interface PanelOps {
-  /** `op.turn` — the ONE turn-issuing entry (composer submit shares it). */
+  /** `op.turn` — the ONE turn-issuing entry (the in-card free-input submit shares it). */
   turn?(text: string): void;
   /** `op.pick` — the existing pick entry (`pickInput.requestPick`). */
   pick?(): void;

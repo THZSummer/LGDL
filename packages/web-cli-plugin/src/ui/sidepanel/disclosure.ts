@@ -66,7 +66,8 @@ export interface DisclosureDoc {
  *
  * Deliberately absent (unchanged from v4): `#region-statusbar` / `#risk-chips` /
  * `#risk-rail` / `#risk-detail`, `#stream` / `#view-host` / `#settings-view`,
- * `#confirm` / `#ask` / `#composer`（永不折叠, see {@link NEVER_FOLDABLE}）.
+ * `#confirm` / `#ask`（永不折叠, see {@link NEVER_FOLDABLE}）. ★ IAN-2：`#composer` 三 id
+ * 已**真退役**（不在文档中 ⇒ 既非折叠目标也非永不折叠目标）。
  */
 export const COLLAPSIBLE_TARGETS = Object.freeze([
   'l1-more',
@@ -144,8 +145,11 @@ export const RETIRED_TRIGGER_IDS: readonly string[] = Object.freeze([
  * {@link RETIRED_NEVER_FOLDABLE_IDS} with its own counter-proof; three **new** real
  * surfaces joined the ban list instead (`region-stream` = the chat zone,
  * `settings-root` = the settings mount, `settings-help` = the new read-only help
- * section) ⇒ 12 − 1 + 3 = **14** (`'composer'` stays: 永不折叠 ≠ 是否在流内 —
- * ADR-V45-003 §4).
+ * section) ⇒ 12 − 1 + 3 = **14**.
+ *
+ * ★ IAN-2（ADR-IAN-004 §①步4 / ADR-IAN-005 §⑥ / X-IAN-9）：`'composer'` **退役** ——
+ * 元素真退役（DOM 移除，非 `hidden`）⇒ 无需「永不折叠」，计数 **14 − 1 = 13**（非恒真：
+ * 重新引入 `#composer` ⇒ `l0-disclosure` 的退役 / 折叠判据必红）。
  */
 export const NEVER_FOLDABLE = Object.freeze([
   'risk-rail',
@@ -161,7 +165,6 @@ export const NEVER_FOLDABLE = Object.freeze([
   'settings-help',
   'confirm',
   'ask',
-  'composer',
 ]);
 
 /**

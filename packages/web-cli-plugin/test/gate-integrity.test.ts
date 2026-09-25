@@ -274,6 +274,11 @@ export const EXPECTED_AUDITED_FILES = [
   // 逐字不动（本叶零新增 Chromium 门禁文件：S0''-A 的 Chromium 面走既有
   // `test/ui/s0-self-driven.mjs`，只加断言不加文件）。
   'test/free-input-next.test.ts',
+  // ── ★ IAN-2（leaf `specs-tree-ian-2-abolish-composer`）叶2 新 node 门禁 ─────────────
+  // TASK-IAN-216 落地 `law4-input-as-next`（L4-1~6：三 id DOM 零命中 / 逐 id 入册 16 /
+  // 默认屏零可见输入 / 卡内可用 / 三段控制 / 真源切片）。**只追加** ⇒ 改名 / 删除仍 FAIL；
+  // `CHROMIUM_GATES.length === 9` 逐字不动（叶2 零新增 Chromium 门禁文件）。
+  'test/law4-input-as-next.test.ts',
 ] as const;
 
 /**
@@ -345,6 +350,13 @@ export const V55F2_NODE_GATE_FILES = ['test/batch-consent.test.ts'] as const;
  * `V55F_*` 下界逐字保留；`CHROMIUM_GATES === 9` 逐字不动（本叶零新增 Chromium 门禁文件）。
  */
 export const IAN1_NODE_GATE_FILES = ['test/free-input-next.test.ts'] as const;
+
+/**
+ * ★ IAN-2（leaf `specs-tree-ian-2-abolish-composer`）—— **废除 `#composer` + 法四修订叶**的
+ * 新增 node 门禁（叶2 落地 **1** 枚：`law4-input-as-next`）。**只增不减**：叶1 的
+ * `IAN1_NODE_GATE_FILES` 逐字保留；`CHROMIUM_GATES === 9` 逐字不动。
+ */
+export const IAN2_NODE_GATE_FILES = ['test/law4-input-as-next.test.ts'] as const;
 
 /** V5.5F-2 W3 收口轮**实际改动、承载新判据**的受判门禁（只增不减；含叶1 的法九门禁重锚）。 */
 export const V55F2_W3_AUDITED_FILES = [
@@ -1162,6 +1174,34 @@ test('元门禁（IAN-1）：`free-input-next` 由 JUDGEMENTS 标记纳入受审
   }
   assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本叶零新增 Chromium 门禁文件）');
   console.log(`  ℹ IAN-1 新门禁受审：${IAN1_NODE_GATE_FILES.length}/${IAN1_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
+test('元门禁（★ IAN-2）：`law4-input-as-next` 由 JUDGEMENTS 标记纳入受审集合（下界 ≥1，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of IAN2_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    if ((text.match(/expectFailPattern\s*:/g) ?? []).length < 3) problems.push(`${file}: 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  assert.deepEqual(problems, [], `★ IAN-2 新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  assert.ok(IAN2_NODE_GATE_FILES.length >= 1, 'IAN-2 新增 node 门禁下界不得低于 1（law4-input-as-next）');
+  // 反证：未在受审集合的门禁必须被判红（判据非恒真）。
+  const forgedProblems: string[] = [];
+  for (const file of [...IAN2_NODE_GATE_FILES, 'test/ghost-gate.test.ts']) {
+    if (!discovered.includes(file)) forgedProblems.push(`${file}: 未被目录扫描纳入`);
+  }
+  assert.ok(forgedProblems.length > 0, '未在受审集合的门禁必须被判红（判据非恒真）');
+  // 叶1 的既有下界逐字保留（只增不减）。
+  for (const file of IAN1_NODE_GATE_FILES) {
+    assert.ok(discovered.includes(file), `${file} 不得脱离受审集合`);
+    assert.ok((EXPECTED_AUDITED_FILES as readonly string[]).includes(file), `${file} 必须仍在下界声明里（只增不减）`);
+  }
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（叶2 零新增 Chromium 门禁文件）');
+  console.log(`  ℹ ★ IAN-2 新门禁受审：${IAN2_NODE_GATE_FILES.length}/${IAN2_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
 });
 
 test('元门禁反证（合成夹具）：N-01 中间语句绕过 / N-02 注释满足有界性 必须被判红', () => {

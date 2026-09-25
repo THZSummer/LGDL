@@ -208,7 +208,9 @@ test('disclosure: 白名单外目标（含 #risk-rail / #region-statusbar / 退�
   for (const id of COLLAPSIBLE_TARGETS) {
     assert.equal((NEVER_FOLDABLE as readonly string[]).includes(id), false, `${id} 不得同时出现在 NEVER_FOLDABLE`);
   }
-  assert.equal(NEVER_FOLDABLE.length, 14, '永不折叠集合 12 − l0-decision + region-stream/settings-root/settings-help = 14');
+  // ★ IAN-2（ADR-IAN-005 §⑥ / X-IAN-9）：`'composer'` 真退役 ⇒ 计数 14 − 1 = 13。
+  assert.equal(NEVER_FOLDABLE.length, 13, '永不折叠集合 12 − l0-decision + region-stream/settings-root/settings-help − composer = 13');
+  assert.equal((NEVER_FOLDABLE as readonly string[]).includes('composer'), false, '★ IAN-2：#composer 已真退役 ⇒ 不得在永不折叠集合内（非恒真）');
   // Retired faces are still refused, each with its own registered reason.
   assert.deepEqual([...RETIRED_NEVER_FOLDABLE_IDS], ['l0-decision']);
   for (const id of RETIRED_NEVER_FOLDABLE_IDS) {

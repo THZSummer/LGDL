@@ -4,7 +4,7 @@
  * The side panel must never navigate away to `options.html`; it toggles the
  * visibility of two sibling views **in the same document**. The whole chat
  * subtree (`#panel-top` / `#panel-main` / `#panel-bottom`, including the
- * rendered messages, the scroll position and the composer draft) is left
+ * rendered messages, the scroll position and the in-card input draft) is left
  * untouched — only hidden — so switching back restores it exactly.
  *
  * This helper owns the "capture → toggle → restore" contract. The caller

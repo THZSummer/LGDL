@@ -45,22 +45,14 @@ const SITE_PATTERN = `${SITE_ORIGIN}/*`;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── assertions ───────────────────────────────────────────────────────────────
-// ── V3-1 (registered supersession V31-S2): L1/fallback pre-steps ─────────────
-// v3-1 made the toolbar an L1 disclosure and the composer hidden-until-used. These
-// two helpers step through the product's own controller so every pre-existing
-// assertion below keeps its exact selector and expectation (one extra interaction
-// in front, nothing weakened).
+// V3-1 L1/fallback pre-steps（★ IAN-2：composer 真退役 ⇒ fallback 只展开流内卡内输入）。
 const v3OpenStatusDetails = async (page) => {
   await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.openStatusDetails(); true');
   await sleep(250);
 };
-/**
- * Fold every L1/L2 layer again. The L1 status panel is tall (toolbar + consent +
- * auto-auth + risk controls); leaving it open would push the composer out of a
- * short viewport and break unrelated later assertions, so every pre-step closes
- * what it opened.
- */
+// Fold every L1/L2 layer again（每个 pre-step 收起它打开的东西，避免撑高影响后续断言）。
 const v3Collapse = (page) => v3CollapseV4(page);
+// 原文 helper 逐字保留（退役载体；不再调用，避免删除行——v3 叶段登记纪律）。
 const revealFallbackInput = async (page) => {
   await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
   await sleep(300);
@@ -69,6 +61,16 @@ const revealFallbackInput = async (page) => {
     `JSON.stringify({ composerHidden: document.getElementById('composer').hidden, inputDisabled: document.getElementById('input').disabled })`,
   );
   console.log(`  · [v3] fallback reveal（ADR-V3-014 §5）→ ${state}`);
+};
+
+
+const openFreeInputCard = async (page) => {
+  await evaluate(
+    page,
+    `(() => { window.__v3.testing.recommend('idle'); const t = document.querySelector('#stream .next-terminal'); if (t) t.click(); return true; })()`,
+  );
+  await sleep(300);
+  console.log('  · [★ IAN-2] 流内 free-input 卡展开（唯一输入载体）');
 };
 
 const failures = [];
@@ -112,7 +114,7 @@ function registerContext(name, cdp) {
 }
 
 // V4-1 re-anchor（唯一 id 重命名）：#log → #stream；#panel-main → #region-stream
-const DIAG_SELECTORS = ['tree-fab', 'tree-drawer', 'settings-view', 'region-stream', 'status', 'stream', 'composer', 'tree-breadcrumb'];
+const DIAG_SELECTORS = ['tree-fab', 'tree-drawer', 'settings-view', 'region-stream', 'status', 'stream', 'send-reason', 'ask-input', 'tree-breadcrumb'];
 
 async function captureRuntimeSummary() {
   const out = {};
@@ -899,13 +901,12 @@ async function phase1(mock) {
     const authorized = await evaluate(ext, `chrome.runtime.sendMessage({ kind: 'state' }).then((r) => r.data.authorized)`);
     check(authorized === true, '#4d 授权已写入 OriginStore（state.authorized=true）');
 
-    // #5 send button becomes enabled
-    const composer = await evaluate(
+    const sendFace = await evaluate(
       ext,
-      `(() => ({ sendDisabled: document.getElementById('send').disabled, reason: document.getElementById('send-reason').textContent }))()`,
+      `(() => ({ legacyIds: ['composer','input','send'].filter((id) => document.getElementById(id) !== null), reason: document.getElementById('send-reason').textContent }))()`,
     );
-    check(composer.sendDisabled === false, '#5 发送按钮变为可用（sendDisabled=false）', JSON.stringify(composer));
-    check(!composer.reason, '#5b 发送禁用原因已清空', composer.reason);
+    check(sendFace.legacyIds.length === 0 && !sendFace.reason, '#5 输入面可用（`#send-reason` 空 ∧ 三 id 真退役）', JSON.stringify(sendFace));
+    check(sendFace.legacyIds.length === 0, '#5b `#composer`/`#input`/`#send` 已真退役（DOM 零命中，非 hidden）', JSON.stringify(sendFace.legacyIds));
 
     // #6 mock LLM round trip with "11111"
     await evaluate(
@@ -1028,14 +1029,12 @@ async function phase1(mock) {
     check(ooCalled === 0, '#33B10 面板设置入口零 openOptionsPage 调用（页面内计数=0）', String(ooCalled));
     check(pagesAfter === pagesBefore && optsAfter === optsBefore, '#33B11 面板设置全程零标签页跳转（page/options target 数不变）', `${pagesBefore}→${pagesAfter} / ${optsBefore}→${optsAfter}`);
 
-    // V3-1 pre-step (registered): the composer is hidden-until-used disclosure; the
-    // fallback state reveals it (ADR-V3-014 §5) before the unchanged real typing.
-    await revealFallbackInput(ext);
-    await realClick(ext, '#input');
+    await openFreeInputCard(ext);
+    await realClick(ext, '#ask-input');
     await typeText(ext, '11111');
-    const typed = await evaluate(ext, `document.getElementById('input').value`);
-    check(typed === '11111', '#6a 真实键入 11111 进入输入框', typed);
-    await realClick(ext, '#send');
+    const typed = await evaluate(ext, `document.getElementById('ask-input').value`);
+    check(typed === '11111', '#6a 真实键入 11111 进入流内输入卡', typed);
+    await realClick(ext, '#ask-submit');
     const reply = await waitFor(
       ext,
       `(() => { const els = [...document.querySelectorAll('.entry-assistant')]; return els.map((e) => e.textContent).find((t) => t.includes('11111')) || ''; })()`,
@@ -1090,10 +1089,10 @@ async function phase1(mock) {
     const aw = JSON.parse(away);
     check(aw.scrollable === true, '#6k 消息区可滚动（长回复已撑高）', away);
     check(aw.shown === true, '#6k2 上滚后「回到底部」入口出现', away);
-    await revealFallbackInput(ext);
-    await realClick(ext, '#input');
+    await openFreeInputCard(ext);
+    await realClick(ext, '#ask-input');
     await typeText(ext, '22222');
-    await realClick(ext, '#send');
+    await realClick(ext, '#ask-submit');
     const pinned = await waitFor(
       ext,
       `(() => {

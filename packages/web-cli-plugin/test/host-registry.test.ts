@@ -258,10 +258,12 @@ test('V45 W3 终态：零宿主反向判据（注册表清空 + RETIRED 扩容 +
   // ① 注册表降级为反向判据（ADR-V45-010 §1）：`[]` = 任何 `li[data-host]` 都是回归。
   assert.deepEqual([...REGISTERED_STRUCTURAL_HOSTS], [], '注册表必须清空（零宿主是终态）');
   assert.deepEqual([...RETIRED_HOST_ATTRS], ['decision', 'composer', 'l1-panels', 'strips']);
-  assert.deepEqual([...RETIRED_CONTAINER_IDS].sort(), [...TEST_RETIRED_CONTAINER_IDS].sort(), '产品常量必须与 ADR-V45-010 §2 的 13 项逐字一致');
-  assert.equal(RETIRED_CONTAINER_IDS.length, 13);
-  assert.equal(RETIRED_HOST_IDS.length, 17, '并集别名 = 4 + 13');
-  assert.equal(RETIRED_HOST_DISPOSITIONS.length, 17, '退役真相册必须逐项登记（去向 + 反证）');
+  // ★ IAN-2（ADR-IAN-005 §⑥ / X-IAN-2·3）：`#composer` / `#input` / `#send` 三 id 真退役 ⇒
+  // 容器册 13 → **16**；并集别名 / 真相册随派生同步（只增）。
+  assert.deepEqual([...RETIRED_CONTAINER_IDS].sort(), [...TEST_RETIRED_CONTAINER_IDS].sort(), '产品常量必须与登记册 16 项逐字一致');
+  assert.equal(RETIRED_CONTAINER_IDS.length, 16);
+  assert.equal(RETIRED_HOST_IDS.length, 20, '并集别名 = 4 + 16');
+  assert.equal(RETIRED_HOST_DISPOSITIONS.length, 20, '退役真相册必须逐项登记（去向 + 反证）');
   assert.equal(DOUBLE_WRITE_REASON_LITERALS.length, 3);
   // review R1 BLOCK-01 / I-06：**迁移容器**与**真退役容器**必须互斥且各自登记 ——
   // `#l0-receipt-summary` 是迁移容器（内容 id 随载体搬入最新卡 `.card-fixed`），
@@ -281,6 +283,10 @@ test('V45 W3 终态：零宿主反向判据（注册表清空 + RETIRED 扩容 +
   assert.ok(evaluateHostRegistry({ ...clean, presentHosts: ['zone'] }).some((p) => p.includes('零宿主判据：实存 li[data-host]')), '① 任意宿主');
   assert.ok(evaluateHostRegistry({ ...clean, presentHosts: ['composer'] }).some((p) => p.includes('已退役宿主')), '② 退役宿主值');
   assert.ok(evaluateHostRegistry({ ...clean, retiredPresent: ['l0-kicker'] }).some((p) => p.includes('已退役容器')), '③ 退役容器');
+  // ★ IAN-2 退役入册反证：三 id 任一重新插入文档 ⇒ 必红（真退役 ≠ hidden；入册逐 id 可判）。
+  for (const id of ['composer', 'input', 'send']) {
+    assert.ok(evaluateHostRegistry({ ...clean, retiredPresent: [id] }).some((p) => p.includes('已退役容器')), `③ ★ IAN-2 #${id} 回流 DOM ⇒ 必红`);
+  }
   assert.ok(evaluateHostRegistry({ ...clean, transitionalCount: 1 }).some((p) => p.includes('data-transitional-host')), '④ 过渡标记');
   assert.ok(
     evaluateHostRegistry(clean, RETIRED_HOST_DISPOSITIONS.map((d) => (d.item === 'strips' ? { ...d, counterProof: '' } : d))).some((p) =>
@@ -313,8 +319,11 @@ test('V45 W3 终态：零宿主反向判据（注册表清空 + RETIRED 扩容 +
   assert.ok(evaluateHostRegistry({ presentHosts: ['decision', 'composer', 'l1-panels'], transitionalCount: 0, retiredPresent: [] }).length >= 3);
 });
 
-/** The 13真退役容器 ids, verbatim from ADR-V45-010 §2 (independent copy for the equality check). */
+/** The 16真退役容器 ids（ADR-V45-010 §2 的 13 项 + ★ IAN-2 的三 id；独立副本供等值比对）。 */
 const TEST_RETIRED_CONTAINER_IDS = Object.freeze([
+  'composer',
+  'input',
+  'send',
   'l0-decision',
   'l0-pick',
   'l0-status-band',

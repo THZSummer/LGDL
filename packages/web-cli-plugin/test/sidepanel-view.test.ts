@@ -124,7 +124,7 @@ test('button states: authorize/revoke/send are consistent with the bound-origin 
 // ── ★ IAN-1（TASK-IAN-120 · FR-IAN-030/054 · ADR-IAN-003 §1）────────────────
 //
 // R6「在飞不硬禁用」判据的**等价重锚**：叶1 新增**流内**输入面后，「在飞可提交」必须同时
-// 落在流外 composer（原断言，逐字保留）与**流内**终端/卡内输入（本断言）**两处**。
+// 在 ★ IAN-2 后收敛到**流内**终端/卡内输入（唯一输入面）；原流外 composer 断言随面真退役适配。
 // 判据不在 `buttonStates` 上（那是流外面），而在**终端 class 单源**与**提交体的异常态硬拒**上：
 //   · 终端 class = `.next-terminal`（故意不是 `.next-chip`）⇒ 既有在飞同步器 `syncNextstepPending`
 //     **不会**禁用它；同 class ⇒ 在飞被硬禁用 ⇒ 必红；
@@ -164,7 +164,7 @@ export function streamInputFaceProblems(nextstepSrc: string, sidepanelSrc: strin
 test('★ IAN-1（TASK-IAN-120）：在飞不硬禁用**流内**输入面（终端非 .next-chip ∧ 提交不按 pending 门控）', () => {
   const nextstepSrc = read('../../src/ui/sidepanel/cards/nextstep.ts');
   const sidepanelSrc = read('../../src/ui/sidepanel/sidepanel.ts');
-  assert.deepEqual(streamInputFaceProblems(nextstepSrc, sidepanelSrc), [], '流内输入面在飞可提交（与流外 composer 同口径）');
+  assert.deepEqual(streamInputFaceProblems(nextstepSrc, sidepanelSrc), [], '流内输入面在飞可提交（唯一输入面口径）');
   // 反证一：把终端 class 改成 `.next-chip`（在飞被硬禁用）⇒ 必红。
   const sameClass = nextstepSrc.replace("export const NEXT_TERMINAL_CLASS = 'next-terminal';", "export const NEXT_TERMINAL_CLASS = 'next-chip';");
   assert.notEqual(sameClass, nextstepSrc, '前置：终端 class 注入锚点必须存在');
@@ -353,7 +353,12 @@ test('sidepanel UI surface: settings entry, llm status, onboarding are present',
   // F-7 defensive layout
   assert.match(html, /box-sizing: border-box/);
   assert.match(html, /overflow-wrap: anywhere/);
-  assert.match(html, /#input \{[\s\S]*?flex: 1; min-width: 0;/);
+  // ★ IAN-2（ADR-IAN-004 §①步2）：`#input` / `#composer` / `#send` 三 id 的 DOM 与 CSS
+  // 一并**真退役** ⇒ 原「flex: 1」静态断言等价重锚为「id 零命中 ∧ CSS 规则零残留」。
+  for (const id of ['composer', 'input', 'send']) {
+    assert.equal(html.includes(`id="${id}"`), false, `★ IAN-2 #${id} 必须真退役（DOM 零命中）`);
+    assert.equal(new RegExp(`#${id}\\s*\\{`).test(html), false, `★ IAN-2 #${id} 的死 CSS 规则必须一并退役`);
+  }
 });
 
 test('sidepanel source: consent uses <details> collapsed by default; no non-default open', () => {
@@ -729,9 +734,11 @@ test('V4-1 layout: three zones (toolbar / scrolling stream / resident statusbar)
   assert.ok(statusChunk.includes('id="statusbar-text"'), '状态栏必须有一行连接状态');
   assert.ok(statusChunk.includes('id="risk-chips"') && statusChunk.includes('id="risk-rail"'), '状态栏必须嵌套 #risk-chips > #risk-rail');
   assert.ok(statusChunk.includes('id="risk-detail"'), '状态栏必须带 #risk-detail（默认 hidden）');
-  // ④ 法四（TASK-510 ③）：composer 存在但默认 hidden，且不再贴底常驻。
+  // ④ 法四（TASK-510 ③ + ★ IAN-2）：三 id **真退役**（DOM 零命中，非 hidden）⇒ 流外零输入面。
   assert.match(html, /id="scroll-bottom"/);
-  assert.match(html, /<form id="composer" hidden>/);
+  for (const id of ['composer', 'input', 'send']) {
+    assert.equal(html.includes(`id="${id}"`), false, `★ IAN-2 #${id} 必须真退役（DOM 零命中，非 hidden）`);
+  }
 });
 
 test('TASK-023 messages: role bubbles + collapsible tool card styles exist', () => {

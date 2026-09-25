@@ -68,7 +68,8 @@ export interface StreamRenderHandle {
  * empty-state placeholder; cards are appended at the end of the stream
  * (`insertBefore(node, null)` semantics) and the stream is a pure chronological card
  * list. Returning `null` unconditionally also means the source can never look up
- * `li[data-host="composer"]` again.
+ * `li[data-host="composer"]` again. ★ IAN-2：`#composer` 三 id（连同 `data-host` 宿主值）
+ * 已真退役 ⇒ 流内/流外都**没有**任何 composer 锚点。
  */
 function messageAnchor(container: HTMLElement): Node | null {
   void container;

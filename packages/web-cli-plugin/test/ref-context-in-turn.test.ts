@@ -6,7 +6,8 @@
  *
  *   ① **载荷 type-only 单声明**：`ChatRefFact`（**7 字段**）/ `ChatRefTurnPayload`
  *      **恰一处**声明；`KIND_SET` **40 项逐字**不增（`refs` 是 payload 字段，**不是** kind）；
- *   ② **唯一构建点 + 两入口同口径**：`requestTurn` 内**恰一处**构建 `refs`；`requestTurn(` **恰 2**；
+ *   ② **唯一构建点 + 两入口同口径**：`requestTurn` 内**恰一处**构建 `refs`；`requestTurn(` **恰 1**
+ *      （★ IAN-2：composer 提交真退役，唯一生产输入提交点 = `op.turn` 槽）；
  *      驱动者自动成回合经既有 `op.turn` 槽复用同一构建点；
  *   ③ **基座逐字 + 追加段**：`SYSTEM_PROMPT` 5 条既有条款不改；无引用 ⇒ 追加段 `''`
  *      ⇒ `system === 基座`（**逐字**）；
@@ -53,7 +54,7 @@ export interface Judgement {
 }
 export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'RCT-1-payload-type-only', expectFailPattern: '载荷必须 type-only 单声明（7 字段）且 KIND_SET 40 逐字不增' },
-  { id: 'RCT-2-single-build-point', expectFailPattern: '引用快照必须只有一个构建点（两入口同口径，requestTurn( 恰 2）' },
+  { id: 'RCT-2-single-build-point', expectFailPattern: '引用快照必须只有一个构建点（两入口同口径，requestTurn( 恰 1）' },
   { id: 'RCT-3-system-base-verbatim', expectFailPattern: '系统段必须 = SYSTEM_PROMPT 基座（5 条逐字）+ 追加段' },
   { id: 'RCT-4-no-ref-zero-drift', expectFailPattern: '零引用回合必须逐字等于基座（refs 字段缺席，不是空数组）' },
   { id: 'RCT-5-credential-masked', expectFailPattern: '凭据形 textDigest 必须先掩码（凭据值绝不入 LLM 上下文）' },
@@ -112,12 +113,12 @@ export function requestTurnBody(sidepanel: string): string {
   return end > start ? sidepanel.slice(start, end) : sidepanel.slice(start);
 }
 
-/** ② 唯一构建点 + 两入口 + `requestTurn(` 恰 2。 */
+/** ② 唯一构建点 + 两入口 + `requestTurn(` 恰 1（★ IAN-2）。 */
 export function buildPointProblems(sidepanel: string, refScope: string): string[] {
   const p = JUDGEMENTS[1].expectFailPattern;
   const problems: string[] = [];
   const sites = callSites(sidepanel, 'requestTurn');
-  if (sites.length !== 2) problems.push(`${p}：requestTurn( 实测 ${sites.length} 处 ≠ 2（行号 ${sites.join(', ')}）`);
+  if (sites.length !== 1) problems.push(`${p}：requestTurn( 实测 ${sites.length} 处 ≠ 1（行号 ${sites.join(', ')}）`);
   const body = requestTurnBody(sidepanel);
   if (body.length === 0) problems.push(`${p}：requestTurn 函数体不存在（判据对象缺失）`);
   const builds = body.match(/turnRefsOf\(/g) ?? [];
@@ -287,11 +288,11 @@ test('RCT-1 载荷 type-only 单声明（7 字段）+ KIND_SET 40 逐字', () =>
   assert.deepEqual(payloadProblems(MESSAGING), []);
 });
 
-test('RCT-2 唯一构建点（两入口同口径）+ requestTurn( 恰 2', () => {
+test('RCT-2 唯一构建点（两入口同口径）+ requestTurn( 恰 1', () => {
   assert.deepEqual(buildPointProblems(SIDEPANEL, REF_SCOPE), [], JUDGEMENTS[1].expectFailPattern);
-  // 反证：复制一条 requestTurn( 调用点 ⇒ 必红 → 还原 PASS。
+  // 反证：注入第二条 requestTurn( 调用点 ⇒ 必红 → 还原 PASS（★ IAN-2：判据恰 1）。
   const forged = `${SIDEPANEL}\nfunction ghostTurn(): void {\n  requestTurn('ghost');\n}\n`;
-  assert.ok(buildPointProblems(forged, REF_SCOPE).some((x) => /requestTurn\( 实测 3 处/.test(x)), '第二构建点必须判红');
+  assert.ok(buildPointProblems(forged, REF_SCOPE).some((x) => /requestTurn\( 实测 2 处/.test(x)), '第二调用点必须判红');
   // 反证：把 turnRefsOf 从 requestTurn 里挪走 ⇒ 必红。
   const noBuild = SIDEPANEL.replace(/const refs = turnRefsOf\([^;]*\);/, 'const refs = [] as const;');
   assert.notEqual(noBuild, SIDEPANEL, '前置：构建点注入锚点必须存在');

@@ -315,9 +315,11 @@ function handleCardAction(cardId: string, action: string, value?: string): void 
 /**
  * V4-4 TASK-805 (ADR-V4-037 §5) — the **ONE turn-issuing production entry**.
  *
- * The composer submit and every `next`-act recommendation chip call this. Returns
- * `false` when the turn was refused by the existing gating (empty text / send
- * disabled), so the composer can keep the user's draft without a second check.
+ * The in-card free-input submit and every `next`-act recommendation chip call this.
+ * Returns `false` when the turn was refused by the existing gating (empty text / no
+ * active origin), so the caller can keep the user's draft without a second check.
+ * ★ IAN-2：`#composer` submit 已真退役 ⇒ 本函数是**唯一**生产输入提交点
+ * （`requestTurn(` 调用点恰 1）。
  */
 /**
  * V4.5-1 W3 (TASK-V45-108): the retired `#l0-ref-toggle` chip's page-side channel
@@ -356,7 +358,7 @@ function requestTurn(text: string): boolean {
   }
   // ★ V5.5F-1 **TASK-V55F-104** (ADR-SGO-001 §2/§3 · FR-SGO-013/014/019) ——
   // **唯一构建点**：回合发起时的引用快照（`turnRefsOf` 单源，只取 `valid ∧ !retired`）。
-  // 两条回合入口（composer 提交 / 驱动者自动成回合经 `op.turn` 槽）都经本函数 ⇒ 同口径。
+  // 两条回合入口（卡内自由输入提交 / 驱动者自动成回合经 `op.turn` 槽）都经本函数 ⇒ 同口径。
   // **零引用 ⇒ `refs` 字段缺席**（不是空数组）⇒ 与现状**逐字相同**的载荷。
   const refs = turnRefsOf(l1?.store().all() ?? []);
   void send(makeMessage('chat', { user: trimmed, ...(refs.length ? { refs } : {}) }));
@@ -866,14 +868,14 @@ function installV3TestHooks(): void {
       refresh(): Promise<void> {
         return refreshState();
       },
-      /** Reveal the fallback input + the full-text composer (ADR-V3-014 §5). */
+      /** Reveal the fallback input (the **in-card** `.ask-fallback`; `#composer` retired by IAN-2). */
       revealFallback() {
         revealAskFallback();
       },
       hideFallback() {
+        // ★ IAN-2（ADR-IAN-004 §③）：钩子只操作卡内（`l0?.hideFallback()` ⇒ 只
+        // `setAskFallbackOpen(false)`），不自持锁存（`fallbackOpen` / `syncComposerVisibility` 已删）。
         l0?.hideFallback();
-        fallbackOpen = false;
-        syncComposerVisibility();
       },
       /** Open the L1 status panel (`#topbar`) — the v1 toolbar lives there now. */
       openStatusDetails() {
@@ -985,7 +987,7 @@ function installV3TestHooks(): void {
        * turns / recommendation chips only; open ask/auth cards stay submittable.
        */
       askFlow() {
-        return askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
+        return askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length, hasOrigin: Boolean(state.activeOrigin) });
       },
       /** V4-3: the open ask/auth card ids (the arbitration invariant read-out). */
       openAsks() {
@@ -1124,7 +1126,7 @@ function installV3TestHooks(): void {
         );
         // V4.5-1 W3: the two halves are read by their own selector — container ids by
         // `getElementById`, retired host VALUES by `[data-host]` (`composer` is a retired
-        // host value while `#composer` itself is a preserved compatibility surface).
+        // host value; ★ IAN-2：`#composer` / `#input` / `#send` 三 id 亦已真退役并**入册**).
         // V4.5-1 review R1 BLOCK-01: the **migrated** containers keep their ids (they are
         // re-minted inside the newest card / the L2 read-only blocks) and are therefore
         // deliberately absent from `RETIRED_CONTAINER_IDS` — e.g. `#l0-receipt-summary`,
@@ -1354,9 +1356,18 @@ const settingsViewSwitch = createViewSwitch({
     const log = document.getElementById('stream');
     if (log) log.scrollTop = value;
   },
-  getDraft: () => (document.getElementById('input') as HTMLInputElement | null)?.value ?? '',
+  // ★ IAN-2（ADR-IAN-005 §④ / PD-IAN-006 · FR-IAN-055 · EC-IAN-011）—— draft 重锚到
+  // **流内输入载体**：设置 ⇄ chat 往返时读写当前 free-input 卡的 `#ask-input`（限本卡
+  // `.ask-form` 作用域）。无卡 ⇒ `''` / 空写**零副作用**（空安全；不静默丢草稿）。
+  getDraft: () => {
+    const cardId = freeInputCardId();
+    const form = cardId ? askFormNodeOf(cardId) : null;
+    return (form?.querySelector('input') as HTMLInputElement | null)?.value ?? '';
+  },
   setDraft: (value) => {
-    const input = document.getElementById('input') as HTMLInputElement | null;
+    const cardId = freeInputCardId();
+    const form = cardId ? askFormNodeOf(cardId) : null;
+    const input = form?.querySelector('input') as HTMLInputElement | null;
     if (input) input.value = value;
   },
 });
@@ -2260,12 +2271,11 @@ function render(): void {
   // renderer. There is NO `textContent = ''` / `replaceChildren()` and NO
   // scrollTop 回写 — the容器 never loses its nodes, so the reading position is
   // preserved by the browser and only an actual append may pin to the bottom.
-  // The `li[data-transitional-host]` hosts (决策卡 / composer / L1 内容层 / 提示带)
-  // stay untouched: they are retired by v4-3 / v4-4, not by this leaf.
+  // The `li[data-transitional-host]` hosts (决策卡 / L1 内容层 / 提示带) stay untouched:
+  // they are retired by v4-3 / v4-4, not by this leaf. ★ IAN-2：`composer` host 与
+  // `#composer` 三 id 已真退役（`index.html` DOM 移除）。
   const views = project(state.stream);
   const live = liveCardIds(state.stream);
-  // V4.5-1 W3: the ONE derivation of `#composer`'s visibility (see `syncComposerVisibility`).
-  syncComposerVisibility();
   const { appended } = streamRenderer().render(views, live);
   // I-07 (v4-2 review): the empty state has ONE source — the stream projection that
   // is actually drawn. The old `isLogEmpty(state.entries.length)` read the v1
@@ -2290,7 +2300,8 @@ function render(): void {
   const buttons = buttonStates({ activeOrigin: state.activeOrigin, authorized: state.authorized, pending: state.pending });
   ($('authorize') as HTMLButtonElement).disabled = buttons.authorizeDisabled;
   ($('revoke') as HTMLButtonElement).disabled = buttons.revokeDisabled;
-  ($('send') as HTMLButtonElement).disabled = buttons.sendDisabled;
+  // ★ IAN-2（ADR-IAN-004 §①步3）：`#send` writer 随三 id 真退役删除；`view-model.buttonStates`
+  // 的 `sendDisabled` 语义保留（仅异常态）但**不再有 `#send` 写点**（元素不存在）。
 
   // V4-4 REVIEW-FIX (BLOCK-02) / V4.5-1 W2 (TASK-V45-105): the five transient channels
   // are **single-written** here — every render reports the channel's current readable
@@ -2414,13 +2425,14 @@ function renderLlmStatus(): void {
   btn.classList.toggle('primary', view.warn);
 }
 
-/** TASK-020 任务 B: make the disable reason visible next to the composer. */
+/** TASK-020 任务 B: make the disable reason visible in the status bar. */
 function renderSendReason(): void {
   const el = $('send-reason');
-  // V4-3 (ADR-V4-032 §4 / I-02): the composer reads the ONE turn-semantics view —
-  // `askFlowView` is now a real product consumer, not a test-only seam. The disabled
-  // bit and the readable reason both come from it (a second rule can't drift).
-  const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
+  // V4-3 (ADR-V4-032 §4 / I-02): the reason reads the ONE turn-semantics view —
+  // `askFlowView` is a real product consumer, not a test-only seam. ★ IAN-2（ADR-IAN-005
+  // §②③）：`#send-reason` **保留**于 `#region-statusbar`（状态提示 ≠ 输入面），其禁用判据
+  // 重锚到流内输入面（禁用仅异常态：无活跃站点 / 未绑定）。
+  const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length, hasOrigin: Boolean(state.activeOrigin) });
   const reason = sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab, flow });
   el.textContent = reason;
   // V4-1 (FR-CHAT-082): the line is a single ellipsised row now — the full reason
@@ -2443,7 +2455,8 @@ function renderSendReason(): void {
  * guard), so the row is a real event:
  *   · `site`      — the「无活跃站点」reason (change-only);
  *   · `probe`     — the discovery/probe phase (change-only; steady state never repeats);
- *   · `send`      — the composer's disabled reason (change-only);
+ *   · `send`      — the send-disabled reason (`#send-reason`, change-only; ★ IAN-2
+ *                   `#send` retired — the reason is the status-bar hint, not an input面);
  *   · `firstRun`  — the onboarding step (`firstRunCard` — now a live factory);
  *   · `env`       — the non-extension guard (`applyEnvGuard`).
  * `#notice` is already merged by R2.
@@ -2456,7 +2469,7 @@ function eventizeChannels(): void {
   observeChannel('site', site.visible ? `${site.title}｜${site.action}` : '', site.visible ? site.detail : undefined);
   const disc = discoveryNotice(state.activeOrigin ? state.discoveryState : undefined, state.discoveryReason, state.probe);
   observeChannel('probe', disc.visible ? `${SYSTEM_COPY.probePhase}｜${disc.title}` : '', disc.visible ? disc.detail : undefined);
-  const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length });
+  const flow = askFlowView({ pending: state.pending, openAsks: state.stream.openAsks.length, hasOrigin: Boolean(state.activeOrigin) });
   observeChannel('send', sendDisabledReason({ activeOrigin: state.activeOrigin, pending: state.pending, tab: activeTab, flow }));
   const firstRun = firstRunCard(
     buildOnboarding({
@@ -2785,7 +2798,7 @@ async function repairCapture(facts: Record<string, unknown>): Promise<void> {
 function ingestCapture(facts: Record<string, unknown>, resolution: { status: string; refMark?: string; nodeCount?: number }): void {
   // R1 (2026-09-17): a reference round REPLACES `state.ask`, so a pending *background*
   // question would never be answered by the panel — its bridge would only expire on the
-  // 60 s timeout, leaving the turn「处理中」(composer: 上一条指令仍在处理中). Settle it as
+  // 60 s timeout, leaving the turn「处理中」(the status-bar hint: 上一条指令仍在处理中). Settle it as
   // canceled so the background turn can finish; the user is told, not silently dropped.
   const superseded = supersededAsk(state);
   if (superseded) {
@@ -3003,30 +3016,12 @@ function ensureTextAskCard(): void {
  * is created through the real reducer first, so the fallback always has an owner and
  * the reveal never silently no-ops.
  */
-/**
- * V4.5-1 W3 (TASK-V45-110 / ADR-V45-003 §5 / R-V45-105) — the **layout guard**.
- *
- * `#composer` left `#stream`, so it no longer inherits the stream's `hidden` when an L2
- * view replaces the chat surface. The panel is therefore the ONE writer of its `hidden`
- * state, derived from「the fallback is open」∧「the chat surface is visible」— so the
- * secondary full-text channel can never float above a view (the fail-closed reading the
- * gates use only trusts `hidden`).
- */
-let fallbackOpen = false;
-function syncComposerVisibility(): void {
-  const composer = document.getElementById('composer') as HTMLInputElement | null;
-  if (!composer) return;
-  const l2Open = document.getElementById('view-host')?.hidden !== true;
-  const settingsOpen = document.getElementById('settings-view')?.hidden !== true;
-  const chatVisible = document.getElementById('stream')?.hidden !== true && !l2Open && !settingsOpen;
-  composer.hidden = !(fallbackOpen && chatVisible);
-}
-
 function revealAskFallback(): void {
   ensureTextAskCard();
+  // ★ IAN-2（ADR-IAN-004 §①步1/3 · ADR-IAN-005 §①）：调用**保留**（PD-IAN-007），但
+  // `l0?.revealFallback()` 已只操作卡内 `.ask-fallback` ⇒ 本调用链**零流外面**（无「双 reveal」）。
+  // `fallbackOpen` 锁存与 `syncComposerVisibility` 护栏随面真退役一并消解（D-A/B/C 结构性不复存在）。
   l0?.revealFallback();
-  fallbackOpen = true;
-  syncComposerVisibility();
 }
 
 /**
@@ -3443,9 +3438,9 @@ function renderConsent(): void {
   aa.appendChild(aaNote);
   section.appendChild(aa);
 
-  // TASK-023: the consent disclosure lives in the bottom zone *above* the
-  // composer (the composer must be the last element so nothing pushes it off the
-  // bottom of the panel). `#consent-slot` is reserved for exactly this.
+  // TASK-023: the consent disclosure lives in the L1 status panel / bottom zone.
+  // ★ IAN-2：`#composer` 已真退役 ⇒ 不再有「last element 被推离底部」的约束；
+  // `#consent-slot` 仍为保留槽位（`#send-reason` 留在 `#region-statusbar`）。
   // V3-1: the consent/auto-auth block is "谁在管我" — it belongs to the L1 status
   // panel, not to the bottom zone. Keeping it resident would spend density budget
   // on the default screen (it renders two checkboxes + a marker button).
@@ -3745,7 +3740,6 @@ function openL2View(which: L2ViewKey, opts: { openTreeBody?: boolean } = {}): vo
     return;
   }
   const opened = viewHost?.open(which);
-  syncComposerVisibility();
   if (!opened) return;
   if (which === 'tree') {
     // ADR-V3-028: the FAB keeps its id/semantics; it is revealed with the view
@@ -3878,19 +3872,9 @@ function wire(): void {
     void groupAction({ action: 'add', groupId, origin });
   });
 
-  $('composer').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = $('input') as HTMLInputElement;
-    // V4-4 TASK-805: the composer and the recommendation chips share ONE entry.
-    // V5.5-3 TASK-V55-314（ADR-V55-009 §1「静默期」）：用户**手输**回合 ⇒ AI 让位（重置
-    // 自动链 + 进入静默期）。注意：这里**不是** `requestTurn` 内部 —— AI 经 `op.turn` 槽
-    // 复用 `requestTurn`，若在槽内打静默期会把「答案后续流」自己也锁住。
-    if (requestTurn(input.value)) {
-      proactivity.noteUserTurn();
-      input.value = '';
-    }
-  });
-
+  // ★ IAN-2（ADR-IAN-004 §①步3 / FR-IAN-048）：原 `#composer` submit 监听（含
+  // `requestTurn(input.value)`）随三 id 真退役删除 —— 唯一生产输入提交点收敛到卡内
+  // `free-input` 卡（`submitFreeInput` → `op.turn` 槽），`requestTurn(` 调用点恰 1。
   // TASK-023: keep the「回到底部」affordance + follow anchor in sync with the
   // user's real scroll position (post-layout metrics, not stale pre-append reads).
   $('stream').addEventListener(
@@ -4039,18 +4023,18 @@ function wire(): void {
    *
    * 仲裁本体在 SW（`turnQueue`，硬上限 1）；面板不做裁决，只把结果**可读化**：
    *   · `queued`        ⇒ 一行「已排队」（文案在内存里等待回合结束，**不是没反应**）；
-   *   · `busy-rejected` ⇒ 「正在处理上一条，未发送」+ **把被拒原话放回 `#input`**
-   *     （仅当输入框为空 —— 用户新输入**不被覆盖**；原话也仍在流内 `user` 行里，
-   *      因此任何情况下都**没有**静默丢失）。
-   *   ★ IAN-1 R2（TASK-IAN-118 · FR-IAN-032/033）：`busy-rejected` 在**流外** `#input` 之上
-   *     再加**流内**载体（`.ask-fallback` 家系；「仅当为空」同一语义；卡收起 ⇒ 重展开；
-   *     卡不存在 ⇒ 按需铸造）。两载体**互不覆盖**（叶1 并存期），三种结果各有可读行。
-   * 载体 = 既有 `system`/notice 行（**零新增 kind**）。
-   * ──────────────────────────────────────────────────────────────────────────── */
+    *   · `busy-rejected` ⇒ 「正在处理上一条，未发送」+ **把被拒原话放回流内输入载体**
+    *     （`restoreFreeInputDraft`；仅当输入为空 —— 用户新输入**不被覆盖**；原话也仍在流内
+    *      `user` 行里，因此任何情况下都**没有**静默丢失）。
+    *   ★ IAN-2（TASK-IAN-210 · ADR-IAN-003）：**载体唯一化**到流内（叶1 的流外 `#input` 通道
+    *     随三 id 真退役删除）；两种结果各有可读行。既有留痕文案**逐字保留**。
+    * 载体 = 既有 `system`/notice 行（**零新增 kind**）。
+    * ──────────────────────────────────────────────────────────────────────────── */
   const QUEUED_TURN_TEXT = '已排队：上一条回合结束后自动发送。';
+  /** 历史留痕（叶1 流外载体时代；★ IAN-2 后流外载体已真退役 ⇒ 本条不再触发，文案逐字保留）。 */
   const BUSY_REJECTED_RESTORED_TEXT = '正在处理上一条，未发送；已把你这句放回输入框。';
   const BUSY_REJECTED_KEPT_TEXT = '正在处理上一条，未发送；输入框已有内容未覆盖。';
-  /** ★ IAN-1 R2：流内载体单独回填时的可读行（既有两条文案**逐字保留**，本条为只增）。 */
+  /** ★ IAN-1 R2 / IAN-2 唯一载体：流内回填时的可读行（既有文案**逐字保留**）。 */
   const BUSY_REJECTED_CARD_TEXT = '正在处理上一条，未发送；已把你这句放回流内输入。';
 
   chrome.runtime.onMessage.addListener((raw, _sender, sendResponse) => {
@@ -4119,20 +4103,17 @@ function wire(): void {
         dispatch({ type: 'notice', text: QUEUED_TURN_TEXT });
       }
       else if (variant === 'busy-rejected') {
-        // V5.5-3 TASK-V55-310（R-V55-107）：拒绝后把**被拒原话**回填 `#input` —— 仅在输入框
-        // 为空时（**不覆盖**用户新输入；非空时只留痕，原话仍在流内 `user` 行）。判据：
-        // 「拒绝后 `#input.value === 被拒文本` 且存在可读行」；删掉回填 ⇒ FAIL。
-        // ★ IAN-1 R2（TASK-IAN-118 · FR-IAN-032/033）：**双载体并存** —— 流外载体逐字保留，
-        // 流内载体（`restoreFreeInputDraft`）同级回填；两载体各自「仅当为空」⇒ 互不覆盖；
-        // 三种结果（流外已放回 / 仅流内已放回 / 均未覆盖）各有可读行。
-        const draftInput = $('input') as HTMLInputElement;
+        // V5.5-3 TASK-V55-310（R-V55-107）：拒绝后把**被拒原话**放回输入 —— 仅在输入为空时
+        // （**不覆盖**用户新输入；非空时只留痕，原话仍在流内 `user` 行）。判据：
+        // 「拒绝后输入载体 `value === 被拒文本` 且存在可读行」；删掉回填 ⇒ FAIL。
+        // ★ IAN-2（TASK-IAN-210 · ADR-IAN-003 · FR-IAN-032/033）：**载体唯一化**到流内 —— 原
+        // 流外 `#input` 写点随三 id 真退役删除；`restoreFreeInputDraft` 是**唯一**回填实现
+        // （仅当为空 / 卡收起重展开 / 卡不存在按需铸造）；两种结果各有可读行。
         const rejected = text;
-        const restoredInput = rejected.length > 0 && draftInput.value.length === 0;
-        if (restoredInput) draftInput.value = rejected;
         const restoredCard = restoreFreeInputDraft(rejected);
         dispatch({
           type: 'notice',
-          text: restoredInput ? BUSY_REJECTED_RESTORED_TEXT : restoredCard ? BUSY_REJECTED_CARD_TEXT : BUSY_REJECTED_KEPT_TEXT,
+          text: restoredCard ? BUSY_REJECTED_CARD_TEXT : BUSY_REJECTED_KEPT_TEXT,
         });
       }
       else if (variant === 'done') {
@@ -4285,7 +4266,9 @@ function applyEnvGuard(env: EnvGuardResult): void {
   // node retired; the options page keeps its own `#env-guard`, which is a different
   // document and stays untouched).
   dispatch({ type: 'system', kind: 'env', text: env.banner });
-  for (const id of ['authorize', 'revoke', 'send', 'audit', 'open-settings', 'rebind']) {
+  // ★ IAN-2（ADR-IAN-004 §①步3）：`#send` / `#input` 已真退役 ⇒ 从守卫清单移除（保留
+  // `authorize` / `revoke` / `audit` / `open-settings` / `rebind` 的异常态禁用）。
+  for (const id of ['authorize', 'revoke', 'audit', 'open-settings', 'rebind']) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }
@@ -4295,7 +4278,6 @@ function applyEnvGuard(env: EnvGuardResult): void {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) el.disabled = true;
   }
-  ($('input') as HTMLInputElement).disabled = true;
 }
 
 // V5-3（FR-ALLN-090）：`data-narrow` = 面板**实际宽度** ≤360 的窄屏兜底（ResizeObserver，

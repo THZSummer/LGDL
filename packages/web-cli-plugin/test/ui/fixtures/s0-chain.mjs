@@ -609,71 +609,73 @@ export function s0pBChain() {
 
 
 /* ────────────────────────────────────────────────────────────────────────────
- * IAN-1 **TASK-IAN-123 / 124**（ADR-IAN-009 §①/§②/§③ · FR-IAN-070/071/072/074 ·
- * **AC-IAN-001** · N-IAN-027 · R-IAN-901 / R-IAN-909）
+ * ★ IAN-2 **TASK-IAN-222**（ADR-IAN-009 §② · ADR-IAN-007 · FR-IAN-070/072/073/074 ·
+ * **AC-IAN-022/023** · N-IAN-025 · R-IAN-902）
  *
- * **S0'' 中间态保护（S0''-A）** 的样本 + 判据：node 面与 Chromium 面**共用同一份**
- * （禁第二份样本 / 第二份判据）。决定性问题 = **ian-1 立新流内入口后旧 composer 入口仍可用**
- * （双入口各跑通一轮）+ `busy-rejected` **双回填载体**（流外 `#input` ∧ 流内卡内输入）
- * 均可判且**互不覆盖**。
+ * **S0''-B 终态保护** 的样本 + 判据：node 面与 Chromium 面**共用同一份**
+ * （禁第二份样本 / 第二份判据）。决定性问题 = **ian-2 真退役后旧面零可达**：
+ *   · `#composer` / `#input` / `#send` 三 id **DOM 零命中**（元素不存在，**非** `hidden`）；
+ *   · 唯一输入面 = 流内 free-input 卡内 `.ask-fallback`（`submitFreeInput` → `op.turn` 槽）；
+ *   · `requestTurn(` **恰 1**（唯一生产输入提交点）；`busy-rejected` **唯一回填载体**（流内）；
+ *   · 法四新条文（输入即 next / 流外零输入面）；driver 两值可判；零新增载体 + 三冻结面零容差。
  *
  * 读数来源分工（诚实登记，禁脚本绿冒充链路可判）：
  *   · **node 面**（`s0-self-driven-chain.test.ts`）注入：新入口经**真管线**（`bindPanelOps` +
- *     `dispatchOp('op.turn')`）成回合的真读数 + 旧入口 / 回填 / 红线的**生产源码切片**读数；
+ *     `dispatchOp('op.turn')`）成回合的真读数 + 旧面零可达 / 回填 / 红线的**生产源码切片**读数；
  *   · **Chromium 面**（`s0-self-driven.mjs`）注入**真面板 DOM**读数（真点末端项 → 真键入 →
- *     真提交 → 流内 `user` 行；旧 `#composer` submit 仍可用；双回填真值）。
+ *     真提交 → 流内 `user` 行；三 id 零命中；注入 `<form id=composer hidden>` ⇒ 必红）。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** S0''-A 十环节（id + 人读标签；顺序即 `ADR-IAN-009 §①` 的 1~10 步在叶1 的切片）。 */
+/** S0''-B 十环节（id + 人读标签；顺序即 `ADR-IAN-009 §②` 的 1~10 步切片）。 */
 export const S0PP_CHAIN = Object.freeze([
-  { id: 'pick-ref', label: "S0''-1 拾取引用（validCount ≥ 1）" },
-  { id: 'answer', label: "S0''-2 作答（ask 卡结算 ∧ 原话可读）" },
-  { id: 'terminal', label: "S0''-3 推荐区「自由输入…」末端项 → 卡内输入就地展开" },
-  { id: 'submit', label: "S0''-4 提交 ⇒ 成回合（经 op.turn 槽）" },
-  { id: 'queued', label: "S0''-5 在飞再输入 ⇒ queued" },
-  { id: 'rejected', label: "S0''-6 队满 ⇒ busy-rejected ⇒ 回填（仅当为空）" },
-  { id: 'no-outside-input', label: "S0''-7 流外零输入面（叶1 中间态 = 双入口并存）" },
-  { id: 'mid-state', label: "S0''-8 中间态保护：双入口各跑通一轮" },
-  { id: 'driver', label: "S0''-9 留痕 driver 区分（manual vs AI 声明 id）" },
-  { id: 'carrier', label: "S0''-10 零新增载体 + 红线不撞" },
+  { id: 'pick-ref', label: "S0''-B-1 拾取引用（validCount ≥ 1）" },
+  { id: 'answer', label: "S0''-B-2 作答（ask 卡结算 ∧ 原话可读）" },
+  { id: 'terminal', label: "S0''-B-3 推荐区「自由输入…」末端项 → 卡内输入就地展开" },
+  { id: 'submit', label: "S0''-B-4 提交 ⇒ 成回合（经 op.turn 槽）" },
+  { id: 'queued', label: "S0''-B-5 在飞再输入 ⇒ queued" },
+  { id: 'rejected', label: "S0''-B-6 队满 ⇒ busy-rejected ⇒ 流内回填（仅当为空）" },
+  { id: 'no-outside-input', label: "S0''-B-7 流外零输入面（三 id 真退役 ⇒ DOM 零命中）" },
+  { id: 'terminal-state', label: "S0''-B-8 终态：旧面零可达（元素不存在非 hidden）" },
+  { id: 'driver', label: "S0''-B-9 留痕 driver 区分（manual vs AI 声明 id）" },
+  { id: 'carrier', label: "S0''-B-10 零新增载体 + 红线不撞" },
 ]);
 
-/** 旧入口三 id（ian-1 若破坏任一 ⇒ 必红；N-IAN-027 / R-IAN-901）。 */
+/** 退役三 id（ian-2 终态：**必须 DOM 零命中**；N-IAN-025 / R-IAN-902）。 */
 export const S0PP_LEGACY_IDS = Object.freeze(['composer', 'input', 'send']);
-/** 双回填载体（叶1 并存期；互不覆盖）。 */
-export const S0PP_BACKFILL_CARRIERS = Object.freeze(['#input', 'card#ask-input']);
+/** 唯一回填载体（终态：流内卡内输入；流外写点零命中）。 */
+export const S0PP_BACKFILL_CARRIERS = Object.freeze(['card#ask-input']);
 /** 队满被拒的用户原话（回填判据的被判对象）。 */
 export const S0PP_REJECTED_TEXT = '把这段原文放回输入处';
 
-/** S0''-A 七条必判项（`expectFailPattern` 逐字来自 ADR-IAN-009 §①/§②）。 */
+/** S0''-B 七条必判项（`expectFailPattern` 逐字来自 ADR-IAN-009 §② / IAN-2 台账）。 */
 export const S0PP_ITEMS = Object.freeze([
-  { id: 'S0PP-A1-dual-entry', expectFailPattern: "S0''-A：双入口各跑通一轮（旧 composer submit ∧ 新卡内输入均成回合；破坏旧入口 ⇒ FAIL）" },
-  { id: 'S0PP-A2-legacy-ids', expectFailPattern: "S0''-A：#composer / #input / #send 三 id 在中间态必须仍可用" },
-  { id: 'S0PP-A3-single-slot', expectFailPattern: "S0''-A：新入口必须经 op.turn 槽（`requestTurn(` 叶1 仍恰 2）" },
-  { id: 'S0PP-A4-dual-backfill', expectFailPattern: "S0''-A：双回填载体均可判且互不覆盖（覆盖非空 ⇒ FAIL）" },
-  { id: 'S0PP-A5-driver', expectFailPattern: "S0''-A：留痕 driver 两值可判（手输 manual ∧ AI 不写 manual）" },
-  { id: 'S0PP-A6-carrier-redline', expectFailPattern: "S0''-A：零新增载体 + 红线（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 / NEXTSTEP_PRIORITY 4）" },
-  { id: 'S0PP-A7-freeze', expectFailPattern: "S0''-A：三冻结面零容差（content.js 177,076 B / pick-layer.js 34,358 B）" },
+  { id: 'S0PP-B1-single-entry', expectFailPattern: "S0''-B：唯一入口（卡内输入经 op.turn 槽成恰 1 回合；双入口/零回合 ⇒ FAIL）" },
+  { id: 'S0PP-B2-legacy-ids-gone', expectFailPattern: "S0''-B：#composer / #input / #send 三 id DOM 零命中（真退役 ≠ hidden；注入即 FAIL）" },
+  { id: 'S0PP-B3-single-slot', expectFailPattern: "S0''-B：`requestTurn(` 恰 1（唯一生产输入提交点 = op.turn 槽）" },
+  { id: 'S0PP-B4-single-backfill', expectFailPattern: "S0''-B：唯一回填载体（流内卡内输入；流外写点零命中 ∧ 不覆盖非空）" },
+  { id: 'S0PP-B5-driver', expectFailPattern: "S0''-B：留痕 driver 两值可判（手输 manual ∧ AI 不写 manual）" },
+  { id: 'S0PP-B6-carrier-redline', expectFailPattern: "S0''-B：零新增载体 + 红线（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 / NEXTSTEP_PRIORITY 4）" },
+  { id: 'S0PP-B7-freeze', expectFailPattern: "S0''-B：三冻结面零容差（content.js 177,076 B / pick-layer.js 34,358 B）" },
 ]);
 
-/** S0''-A 逐拍读数（两面各自登记自己真的驱动的拍；收尾机核「登记 ⇔ 读数」）。 */
+/** S0''-B 逐拍读数（两面各自登记自己真的驱动的拍；收尾机核「登记 ⇔ 读数」）。 */
 export function s0ppChain() {
   return S0PP_CHAIN.map((b) => ({ id: b.id, label: b.label }));
 }
 
 /**
- * **S0''-A 必判项判据**（纯函数，双面共用）。
+ * **S0''-B 必判项判据**（纯函数，双面共用）。
  *
  * `reading`:
  * ```
  * {
- *   legacyEntry: 'wired' | 'broken',   // 旧 composer submit 入口可用（源码接线）
- *   legacyIds: string[],               // 实测在位的旧 id（composer / input / send）
- *   cardTurns: number,                 // 新卡内输入经 op.turn 槽成回合的次数（必须 1）
+ *   legacyIdsGone: string[],           // 三 id 中**仍残留**的（必须空 ⇒ 零命中）
+ *   composerInjected: boolean,         // 注入 `<form id=composer hidden>` 是否被检出（生产必须 false）
+ *   cardTurns: number,                 // 唯一入口经 op.turn 槽成回合的次数（必须 1）
  *   submitSlot: string | null,         // 实际槽（必须 'op.turn'）
- *   requestTurnCallSites: number,      // 叶1 仍恰 2
- *   backfillInput: string | null,      // 流外回填值（必须逐字 = S0PP_REJECTED_TEXT）
- *   backfillCard: string | null,       // 流内回填值（必须逐字）
+ *   requestTurnCallSites: number,      // 终态恰 1
+ *   backfillInput: boolean,            // 流外写点是否残留（必须 false）
+ *   backfillCard: string | null,       // 流内回填值（必须逐字 = S0PP_REJECTED_TEXT）
  *   backfillOverwrote: boolean,        // 是否覆盖了非空输入（必须 false）
  *   driverManual: boolean,             // 手输留痕 driver=manual 可判
  *   aiWritesManual: boolean,           // AI 路径是否误写 manual（必须 false）
@@ -683,60 +685,58 @@ export function s0ppChain() {
  *   driverTrace: string, userValues: string[],
  * }
  * ```
- * **`legacyEntry !== 'wired'` 或三 id 缺项 ⇒ 必红**（ian-1 破坏旧入口）；
- * **`backfillOverwrote === true` ⇒ 必红**（回填覆盖非空）。
+ * **`legacyIdsGone` 非空 或 `composerInjected === true` ⇒ 必红**（真退役被实现成 hidden / 残留）；
+ * **`backfillInput === true` 或 `backfillOverwrote === true` ⇒ 必红**（流外写点回流 / 覆盖非空）。
  */
 export function s0ppProblems(reading = {}) {
   const problems = [];
   const item = (id) => S0PP_ITEMS.find((x) => x.id === id);
-  // ① 中间态保护：旧入口可用 + 三 id 在位。
-  const ids = Array.isArray(reading.legacyIds) ? reading.legacyIds : [];
-  for (const id of S0PP_LEGACY_IDS) {
-    if (!ids.includes(id)) {
-      problems.push(`${item('S0PP-A2-legacy-ids').id} **ian-1 破坏旧入口 ⇒ FAIL**：#${id} 在中间态必须仍可用（N-IAN-027）`);
-    }
-  }
-  if (reading.legacyEntry !== 'wired') {
-    problems.push(`${item('S0PP-A1-dual-entry').id} **ian-1 破坏旧入口 ⇒ FAIL**：旧 composer submit 必须仍接线（composer submit → requestTurn）`);
-  }
-  // ② 双入口各跑通一轮（新入口真的成回合）。
+  // ① 唯一入口：卡内输入经 op.turn 槽成恰 1 回合。
   if (reading.cardTurns !== 1) {
-    problems.push(`${item('S0PP-A1-dual-entry').id} **双入口各跑通一轮 ⇒ FAIL**：新卡内输入必须经槽成恰 1 回合（实测 ${String(reading.cardTurns)}）`);
+    problems.push(`${item('S0PP-B1-single-entry').id} 唯一入口必须经槽成恰 1 回合（实测 ${String(reading.cardTurns)}）`);
   }
   if (reading.submitSlot !== 'op.turn') {
-    problems.push(`${item('S0PP-A3-single-slot').id} 提交必须经既有 \`op.turn\` 槽（实测 ${String(reading.submitSlot)}）`);
+    problems.push(`${item('S0PP-B3-single-slot').id} 提交必须经既有 \`op.turn\` 槽（实测 ${String(reading.submitSlot)}）`);
   }
-  if (reading.requestTurnCallSites !== 2) {
-    problems.push(`${item('S0PP-A3-single-slot').id} \`requestTurn(\` 叶1 仍恰 2（实测 ${String(reading.requestTurnCallSites)}）`);
+  if (reading.requestTurnCallSites !== 1) {
+    problems.push(`${item('S0PP-B3-single-slot').id} \`requestTurn(\` 终态恰 1（实测 ${String(reading.requestTurnCallSites)}）`);
   }
-  // ③ 双回填载体均可判互不覆盖。
-  if (reading.backfillInput !== S0PP_REJECTED_TEXT) {
-    problems.push(`${item('S0PP-A4-dual-backfill').id} 流外 \`#input\` 回填必须逐字 = 被拒原话（实测 ${String(reading.backfillInput)}）`);
+  // ② 旧面零可达：三 id DOM 零命中 ∧ 不得被 hidden 冒充。
+  const leftover = Array.isArray(reading.legacyIdsGone) ? reading.legacyIdsGone : [];
+  for (const id of leftover) {
+    problems.push(`${item('S0PP-B2-legacy-ids-gone').id} **真退役 ⇒ FAIL**：#${id} 必须 DOM 零命中（元素不存在，非 hidden）`);
+  }
+  if (reading.composerInjected === true) {
+    problems.push(`${item('S0PP-B2-legacy-ids-gone').id} **注入 \`<form id=composer hidden>\` ⇒ FAIL**（真退役被实现成 hidden）`);
+  }
+  // ③ 唯一回填载体（流内）+ 流外零写点 + 不覆盖非空。
+  if (reading.backfillInput === true) {
+    problems.push(`${item('S0PP-B4-single-backfill').id} 流外 \`#input\` 写点必须零命中（载体唯一化到流内）`);
   }
   if (reading.backfillCard !== S0PP_REJECTED_TEXT) {
-    problems.push(`${item('S0PP-A4-dual-backfill').id} 流内卡内输入回填必须逐字 = 被拒原话（实测 ${String(reading.backfillCard)}）`);
+    problems.push(`${item('S0PP-B4-single-backfill').id} 流内卡内输入回填必须逐字 = 被拒原话（实测 ${String(reading.backfillCard)}）`);
   }
   if (reading.backfillOverwrote === true) {
-    problems.push(`${item('S0PP-A4-dual-backfill').id} **回填覆盖非空 ⇒ FAIL**：仅当输入处为空（不覆盖用户新输入）`);
+    problems.push(`${item('S0PP-B4-single-backfill').id} **回填覆盖非空 ⇒ FAIL**：仅当输入处为空（不覆盖用户新输入）`);
   }
   // ④ 留痕 driver 区分。
-  if (reading.driverManual !== true) problems.push(`${item('S0PP-A5-driver').id} 手输留痕必须写 driver=manual（两值可判）`);
-  if (reading.aiWritesManual === true) problems.push(`${item('S0PP-A5-driver').id} AI 路径不得写 manual（两值不得混同）`);
+  if (reading.driverManual !== true) problems.push(`${item('S0PP-B5-driver').id} 手输留痕必须写 driver=manual（两值可判）`);
+  if (reading.aiWritesManual === true) problems.push(`${item('S0PP-B5-driver').id} AI 路径不得写 manual（两值不得混同）`);
   // ⑤ 零新增载体 + 红线。
-  if (reading.kindSetSize !== 40) problems.push(`${item('S0PP-A6-carrier-redline').id} KIND_SET 必须仍 40（实测 ${String(reading.kindSetSize)}）`);
-  if (reading.kindCount !== 12) problems.push(`${item('S0PP-A6-carrier-redline').id} 12 kind 契约不动（实测 ${String(reading.kindCount)}）`);
-  if (reading.hostsEmpty !== true) problems.push(`${item('S0PP-A6-carrier-redline').id} REGISTERED_STRUCTURAL_HOSTS 必须仍为空`);
-  if (reading.actToOpSize !== 6) problems.push(`${item('S0PP-A6-carrier-redline').id} ACT_TO_OP 必须仍恰 6（实测 ${String(reading.actToOpSize)}）`);
-  if (reading.nextstepPrioritySize !== 4) problems.push(`${item('S0PP-A6-carrier-redline').id} NEXTSTEP_PRIORITY 必须仍恰 4（实测 ${String(reading.nextstepPrioritySize)}）`);
+  if (reading.kindSetSize !== 40) problems.push(`${item('S0PP-B6-carrier-redline').id} KIND_SET 必须仍 40（实测 ${String(reading.kindSetSize)}）`);
+  if (reading.kindCount !== 12) problems.push(`${item('S0PP-B6-carrier-redline').id} 12 kind 契约不动（实测 ${String(reading.kindCount)}）`);
+  if (reading.hostsEmpty !== true) problems.push(`${item('S0PP-B6-carrier-redline').id} REGISTERED_STRUCTURAL_HOSTS 必须仍为空`);
+  if (reading.actToOpSize !== 6) problems.push(`${item('S0PP-B6-carrier-redline').id} ACT_TO_OP 必须仍恰 6（实测 ${String(reading.actToOpSize)}）`);
+  if (reading.nextstepPrioritySize !== 4) problems.push(`${item('S0PP-B6-carrier-redline').id} NEXTSTEP_PRIORITY 必须仍恰 4（实测 ${String(reading.nextstepPrioritySize)}）`);
   // ⑥ 三冻结面零容差（只读双锚）。
   const freeze = reading.freeze ?? {};
-  if (freeze.contentBytes !== 177076) problems.push(`${item('S0PP-A7-freeze').id} content.js 必须冻结在 177,076 B（实测 ${String(freeze.contentBytes)}）`);
-  if (freeze.pickBytes !== 34358) problems.push(`${item('S0PP-A7-freeze').id} pick-layer.js 必须冻结在 34,358 B（实测 ${String(freeze.pickBytes)}）`);
+  if (freeze.contentBytes !== 177076) problems.push(`${item('S0PP-B7-freeze').id} content.js 必须冻结在 177,076 B（实测 ${String(freeze.contentBytes)}）`);
+  if (freeze.pickBytes !== 34358) problems.push(`${item('S0PP-B7-freeze').id} pick-layer.js 必须冻结在 34,358 B（实测 ${String(freeze.pickBytes)}）`);
   // ⑦ 留痕零用户内容值（法八）。
   const trace = String(reading.driverTrace ?? '');
   for (const v of reading.userValues ?? []) {
     if (String(v).length > 0 && trace.includes(String(v))) {
-      problems.push(`${item('S0PP-A5-driver').id} 留痕不得含用户内容值（法八）`);
+      problems.push(`${item('S0PP-B5-driver').id} 留痕不得含用户内容值（法八）`);
     }
   }
   return problems;

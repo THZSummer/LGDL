@@ -285,31 +285,37 @@ export function activeSiteNotice(input: {
 }
 
 /**
- * Readable reason shown next to the composer whenever `send` is disabled.
- * `''` means send is enabled (hide the hint).
+ * Readable reason shown in `#region-statusbar`'s `#send-reason` whenever the in-card
+ * input face is disabled. `''` means enabled (hide the hint).
+ * ★ IAN-2（ADR-IAN-005 §②③ · FR-IAN-053/054）：`#send-reason` 是**状态提示**（不是输入面）；
+ * 禁用判据重锚到**流内输入面**（仅异常态：无活跃站点 / 未绑定）。在飞回合的排队文案保留
+ * （真状态提示，`pending` 不再硬禁用）。
  *
  * V4-3 (I-02): when the caller supplies the turn-semantics view
- * ({@link askFlowView}), BOTH the disabled bit and its pending message come from it —
- * the composer stops being a second, text-only copy of the rule. The added sentence
- * when a card is open is the product consequence of `canSubmitOpenAsk`: a user who
- * reads「上一条指令仍在处理中」would otherwise reasonably believe the question on
+ * ({@link askFlowView}), the disabled bit comes from it (`flow.sendDisabled` = `!hasOrigin`).
+ * The added sentence when a card is open is the product consequence of `canSubmitOpenAsk`:
+ * a user who reads「上一条指令仍在处理中」would otherwise reasonably believe the question on
  * screen is unanswerable.
  */
 export function sendDisabledReason(input: {
   activeOrigin?: string;
   pending: boolean;
   tab?: ActiveTabView | null;
-  /** V4-3: the ONE turn-semantics view (ADR-V4-032 §4). */
+  /** V4-3 / ★ IAN-2: the ONE turn-semantics view (ADR-V4-032 §4 / ADR-IAN-005 §③). */
   flow?: Pick<AskFlowView, 'sendDisabled' | 'canSubmitOpenAsk'>;
 }): string {
-  const pending = input.flow ? input.flow.sendDisabled : input.pending;
-  if (pending) {
+  // ★ IAN-2（ADR-IAN-005 §③ · FR-IAN-054）：`pending` **不再**经 `flow.sendDisabled` 读取
+  // （后者重锚为「异常态禁用」）。在飞回合的排队语义是真状态提示（不硬禁用输入面），文案逐字保留。
+  if (input.pending) {
     // ★ R6（2026-09-23）—— 排队语义（不再是硬拒「发送已禁用」）。在飞时的提交会进入 SW 的
     // 有界仲裁（队列硬上限 1），回合结束后自动发送；满则明确拒绝 + 草稿回填。
     const base = '上一条指令仍在处理中：现在发送会排队（最多 1 条，回合结束后自动发送）。';
     return input.flow?.canSubmitOpenAsk ? `${base}屏幕上的提问卡仍可提交。` : base;
   }
-  if (input.activeOrigin) return '';
+  // ★ IAN-2：禁用**仅异常态**（`flow.sendDisabled` = `!hasOrigin`；仅异常态硬拒）；无 flow 时
+  // 回落到同一判据（`!activeOrigin`）。注入「pending ⇒ 禁用」⇒ 必红。
+  const disabled = input.flow ? input.flow.sendDisabled : !input.activeOrigin;
+  if (!disabled) return '';
   const notice = activeSiteNotice({ hasOrigin: false, tab: input.tab });
   return `发送已禁用：${notice.title} —— ${notice.action}`;
 }
@@ -392,7 +398,7 @@ export function buttonStates(input: SidepanelButtonInput): SidepanelButtonState 
     revokeDisabled: !hasOrigin || !input.authorized,
     // Sending without a bound site cannot reach any tool — keep it honest.
     //
-    // ★ R6（2026-09-23）—— 在飞**不再禁用** composer（`pending` 从这里移除）：
+    // ★ R6（2026-09-23）—— 在飞**不再禁用**输入面（`pending` 从这里移除；IAN-2 后 = 流内输入面）：
     // 用户提交改走与 AI 路径**同一仲裁**（SW 有界队列，硬上限 1）；若仍按 `pending` 硬禁用，
     // 队列永远收不到用户输入（真机 21:29:19「发送已禁用：上一条指令仍在处理中」硬拒）。
     // 禁用**仅保留给异常态**（无活跃站点 / 未绑定）——这不是回合语义，是真发不出去。
@@ -407,12 +413,20 @@ export interface AskFlowInput {
   pending: boolean;
   /** How many `askuser` / `auth` cards are still open (`stream.openAsks`). */
   openAsks: number;
+  /**
+   * ★ IAN-2（ADR-IAN-005 §③）：是否有活跃站点 —— 流内输入面的**唯一**异常态禁用条件
+   * （无活跃站点 / 未绑定 = 真发不出去）。在飞**不**禁用（R6 排队语义）。
+   */
+  hasOrigin: boolean;
 }
 
 export interface AskFlowView {
   /** The open-ask count as the view model sees it (≤ `MAX_OPEN_ASKS`). */
   openAsks: number;
-  /** ① composer「发送新回合」 gate — `pending` only (the source is unchanged). */
+  /**
+   * ① 流内输入面「发送新回合」门 —— ★ IAN-2 重锚：**仅异常态**（`!hasOrigin`）；在飞**不**
+   * 硬禁用（R6，ADR-IAN-003 §①）。原 `#composer` writer 随三 id 真退役删除。
+   */
   sendDisabled: boolean;
   /**
    * ② an **already open** ask/auth card can always be submitted — `pending` does
@@ -427,7 +441,7 @@ export interface AskFlowView {
  * V4-3 (ADR-V4-032 §4) — the ONE definition of what `pending` gates. The rule is
  * deliberately narrow: `pending` gates **new turns** and **recommendation chips**,
  * never the submission of a card that is already on screen. `sendDisabledReason`
- * consumes this view (the composer's disabled state and its readable reason are both
+ * consumes this view (the flow's disabled bit and the readable reason are both
  * derived from it), so the definition really is the product's — not a test-only seam.
  *
  * ── I-02 (v4-3 review): the retired `turnStuck` field ────────────────────────
@@ -443,7 +457,8 @@ export function askFlowView(input: AskFlowInput): AskFlowView {
   const openAsks = Math.max(0, Math.min(MAX_OPEN_ASKS, input.openAsks));
   return {
     openAsks,
-    sendDisabled: input.pending,
+    // ★ IAN-2：禁用仅异常态（无活跃站点）；`pending` 不再硬禁用（R6）。
+    sendDisabled: !input.hasOrigin,
     canSubmitOpenAsk: openAsks > 0,
     recommendDisabled: input.pending,
   };

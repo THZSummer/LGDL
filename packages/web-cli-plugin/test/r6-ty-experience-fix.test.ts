@@ -367,12 +367,16 @@ test('R6-P5b: 生产接线 —— 只读重观测（observe）+ set-text 成功�
 // 主流程 diff = 0（不得因 R6 新增散落调用点）
 // ────────────────────────────────────────────────────────────────────────────
 
-test('R6: 主流程调用点不增（maybeRecommend 7 / nextAfterSettle 定义 1 / requestTurn 2）', () => {
+test('R6: 主流程调用点不增（maybeRecommend 7 / nextAfterSettle 定义 1 / requestTurn 1）', () => {
   assert.equal(callSites(SIDEPANEL, 'maybeRecommend'), 7, 'R6 不得新增 maybeRecommend 调用点');
   assert.equal(
     (SIDEPANEL.match(/^\s*(?:export\s+)?(?:async\s+)?function\s+nextAfterSettle\s*\(/gm) ?? []).length,
     1,
     'nextAfterSettle 定义必须恰 1',
   );
-  assert.equal(callSites(SIDEPANEL, 'requestTurn'), 2, 'requestTurn 调用点必须仍恰 2');
+  // ★ IAN-2（ADR-IAN-002 §② / X-IAN-6）：唯一生产输入提交点 = op.turn 槽 ⇒ 恰 1。
+  assert.equal(callSites(SIDEPANEL, 'requestTurn'), 1, 'requestTurn 调用点必须恰 1（composer 提交已真退役）');
+  // 反证：注入第二个 requestTurn( 调用点 ⇒ 上面判据必红（还原后仍恰 1）。
+  const forged = `${SIDEPANEL}\nfunction ghostTurn2(): void {\n  requestTurn('ghost');\n}\n`;
+  assert.equal(callSites(forged, 'requestTurn'), 2, '注入第二处 ⇒ 计数必变为 2（判据非恒真）');
 });

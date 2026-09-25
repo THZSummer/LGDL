@@ -363,7 +363,7 @@ export function mountPickInput(deps: PickInputDeps): PickInputHandle {
       return;
     }
     // The layer is in pick mode: the user's next Alt-hover / selection / right-click
-    // produces a reference. No composer input is involved (FR-V3-061).
+    // produces a reference. No input face is involved (FR-V3-061).
     await deps.send({ kind: 'pick-layer-env', ...deps.envInput() }).catch(() => undefined);
   }
 

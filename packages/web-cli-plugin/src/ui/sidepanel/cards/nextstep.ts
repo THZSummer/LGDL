@@ -5,10 +5,10 @@
  *
  * ── chips 即指令 ─────────────────────────────────────────────────────────────
  *
- * A chip is not a suggestion that fills the composer — clicking it **starts the
+ * A chip is not a suggestion that fills an input box — clicking it **starts the
  * turn**. The card therefore reports a single intent (`onCardAction(cardId,'next',
  * chip)`), and the panel routes it through the **same production entry** as the
- * composer submit (`requestTurn`). That is what makes「直接发起回合」(FR-CHAT-061)
+ * in-card free-input submit (`requestTurn`). That is what makes「直接发起回合」(FR-CHAT-061)
  * and「与 `pending` 门控一致」(FR-CHAT-063) structural rather than duplicated: there
  * is exactly one path, so the two can never disagree.
  *

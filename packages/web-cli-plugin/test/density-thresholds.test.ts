@@ -112,8 +112,13 @@ const V4_RETIRED_IDS: readonly string[] = Object.freeze([
   'notice',
   // V4.5-1 W3（TASK-V45-107~110 / ADR-V45-002）：4 个固定位置宿主与决策壳 / L1 组的
   // 静态容器一并**真退役**。事实面 = 流内卡（选项池 / 后果预演 / 引用证据 / 恢复区）+
-  // `#view-host` 只读承载块 + 设置「帮助」分区；`#composer` / `#input` / `#send` /
-  // `#send-reason` / `#rebind` **保留**（兼容读取面），故不在此列。
+  // `#view-host` 只读承载块 + 设置「帮助」分区；`#send-reason` / `#rebind` **保留**
+  // （兼容读取面），故不在此列。
+  // ★ IAN-2（ADR-IAN-004 §①步2 / ADR-IAN-005 §⑥）：`#composer` / `#input` / `#send` 三 id
+  // 由**保留**转**真退役**（DOM 移除，非 hidden；入 `RETIRED_CONTAINER_IDS` 13 → 16）。
+  'composer',
+  'input',
+  'send',
   'l0-decision',
   'l0-kicker',
   'l0-more',
@@ -296,7 +301,7 @@ test('density 反作弊: 测量源码零命中 getComputedStyle / offsetParent /
 });
 
 // ── ⑤ static DOM contract of index.html ────────────────────────────────────
-test('index.html: v1 id 基线除 4 处登记退役外全部保留（唯一重命名 #log → #stream）', () => {
+test('index.html: v1 id 基线除登记退役（含 ★ IAN-2 三 id）外全部保留（唯一重命名 #log → #stream）', () => {
   const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
   assert.equal(new Set(ids).size, ids.length, 'id 不得重复');
   const survivors = V1_ID_BASELINE.filter((id) => !V4_RETIRED_IDS.includes(id) && !(id in V4_ID_RENAMES));
@@ -386,29 +391,21 @@ test('index.html: V4 三区骨架（body 直挂 / 文档序 / 状态栏非流后
   }
 });
 
-test('index.html: 收起一律 hidden 属性；composer 迁 body 尾且保持 hidden；body 仍是 flex 列', () => {
-  for (const id of ['view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'composer', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
+test('index.html: 收起一律 hidden 属性；★ IAN-2 三 id 真退役（DOM 零命中）；body 仍是 flex 列', () => {
+  for (const id of ['view-host', 'settings-view', 'tree-fab', 'tree-drawer', 'scroll-bottom', 'risk-chips', 'risk-detail']) {
     const index = parsed.idsIndex.get(id)!;
     assert.ok(index !== undefined, `#${id} 必须存在`);
     assert.equal('hidden' in parsed.tags[index].attrs, true, `#${id} 必须默认带 hidden 属性（不得用 CSS 隐身）`);
   }
-  // ── V4.5-1 W3（TASK-V45-110 / ADR-V45-003）：`#composer` **出流** —— 它是 `body` 的
-  //    最后一个元素并继续带 `hidden`（法四：默认屏无常驻输入框）；`#stream` 子树内不得
-  //    再有 `#composer` / `#input` / `#send`（零宿主 + 纯卡序）。──
-  const composerIndex = parsed.idsIndex.get('composer')!;
-  const streamIndex = parsed.idsIndex.get('stream')!;
-  assert.equal(parsed.tags[composerIndex].parent, parsed.bodyIndex, '#composer 必须是 body 直接子元素（出流）');
-  const bodyChildren = parsed.tags[parsed.bodyIndex].children.filter((i) => parsed.tags[i].tag !== '#text');
-  // The `<script src>` bootstrap stays the very last element (v1 contract); `#composer`
-  // must be the last element BEFORE it — i.e. no layout-bearing node follows it.
-  const afterComposer = bodyChildren.slice(bodyChildren.indexOf(composerIndex) + 1).filter((i) => parsed.tags[i].tag !== 'script');
-  assert.deepEqual(afterComposer, [], '#composer 之后不得再有布局元素（它是 #settings-view 之后、<script> 之前的最后一个节点）');
-  assert.equal(ancestors(composerIndex).includes(streamIndex), false, '#composer 不得再落在 #stream 内（零宿主）');
-  for (const id of ['input', 'send']) {
-    assert.equal(ancestors(parsed.idsIndex.get(id)!).includes(streamIndex), false, `#${id} 不得再落在 #stream 内`);
-    assert.equal('hidden' in parsed.tags[parsed.idsIndex.get(id)!].attrs, false, `#${id} 自身不带 hidden（由 #composer 承载）`);
+  // ── ★ IAN-2（ADR-IAN-004 §①步2 / FR-IAN-040·041·044·049）：`#composer` / `#input` / `#send`
+  //    三 id **真退役** —— DOM 移除（不是 `hidden` / 不是 `display:none`；流外零输入面）。──
+  for (const id of ['composer', 'input', 'send']) {
+    assert.equal(parsed.idsIndex.get(id), undefined, `#${id} 必须真退役（id 零命中，不得 hidden）`);
+    assert.equal(new RegExp(`\\sid="${id}"`).test(html), false, `#${id} 不得在 index.html 静态标记中残留`);
+    assert.equal(new RegExp(`#${id}\\s*\\{`).test(html), false, `#${id} 的死 CSS 规则必须一并退役`);
   }
   // 法四：默认屏不得出现可见常驻输入框 —— 静态半（唯一非 hidden 的 input 不允许存在）
+  const streamIndex = parsed.idsIndex.get('stream')!;
   for (const index of [streamIndex, ...descendants(streamIndex)]) {
     if (parsed.tags[index].tag !== 'input') continue;
     const hiddenOnPath = [index, ...ancestors(index)].some((i) => 'hidden' in parsed.tags[i].attrs);
@@ -752,8 +749,9 @@ test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复�
   assert.equal(hosts.REGISTERED_STRUCTURAL_HOSTS.length, 0, '结构宿主注册表必须清空（零宿主是终态）');
   assert.equal(hosts.REGISTERED_HOST_ATTRS.length, 0, '派生的注册属性集合必须为空');
   assert.deepEqual([...hosts.RETIRED_HOST_ATTRS], ['decision', 'composer', 'l1-panels', 'strips']);
-  assert.equal(hosts.RETIRED_CONTAINER_IDS.length, 13, '退役容器清单必须是 13 项（`l0-receipt-summary` 是迁移容器，见 review R1 BLOCK-01）');
-  assert.equal(hosts.RETIRED_HOST_IDS.length, 17, '并集别名 = 4 宿主值 + 13 容器 id');
+  // ★ IAN-2（ADR-IAN-005 §⑥）：13 → **16**（`#composer` / `#input` / `#send` 逐 id 入册）。
+  assert.equal(hosts.RETIRED_CONTAINER_IDS.length, 16, '退役容器清单必须是 16 项（`l0-receipt-summary` 仍是迁移容器，见 review R1 BLOCK-01）');
+  assert.equal(hosts.RETIRED_HOST_IDS.length, 20, '并集别名 = 4 宿主值 + 16 容器 id');
   // ② DOM 侧：index.html 内任意深度不得再有 li[data-host]（零宿主静态半）。
   const domHosts = [...html.matchAll(/<li[^>]*data-host="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(domHosts, [], 'index.html 不得再出现任何 data-host（零宿主）');
@@ -765,15 +763,20 @@ test('index.html: 零宿主反向判据与退役真相册（任意宿主 / 复�
   for (const host of hosts.RETIRED_HOST_ATTRS) {
     assert.ok(!new RegExp(`data-host="${host}"`).test(html), `已退役宿主 data-host="${host}" 仍残留在 index.html`);
   }
-  // ③c 保留面反证：`#input` / `#send` / `#send-reason` / `#rebind` **不得**在退役清单里。
-  for (const kept of ['input', 'send', 'send-reason', 'rebind']) {
+  // ③c 保留面反证（★ IAN-2 重锚，X-IAN-3）：`#input` / `#send` 由「**不得**在册」转
+  //     「**必须**在册」（非恒真：注入回 DOM ⇒ ③ 的退役容器判据必红）；
+  //     `#send-reason` / `#rebind` 保持「不得在册」逐字（保留面，非退役）。
+  for (const must of ['input', 'send']) {
+    assert.equal((hosts.RETIRED_HOST_IDS as readonly string[]).includes(must), true, `★ IAN-2 #${must} 必须入退役册（真退役 ≠ hidden）`);
+  }
+  for (const kept of ['send-reason', 'rebind']) {
     assert.equal((hosts.RETIRED_HOST_IDS as readonly string[]).includes(kept), false, `保留面 #${kept} 不得进入退役清单`);
   }
-  // `composer` 是**退役的宿主值**（`li[data-host="composer"]` 已移除）而 `#composer` 本体
-  // 保留（迁 body 尾、继续 hidden）—— 两个语义必须分开：宿主值在退役册，兼容面 id 不在。
+  // `composer` 既曾是**退役的宿主值**，★ IAN-2 后 `#composer` 本体也**真退役** ⇒ 两个语义
+  // 都进各自的册（不再有兼容面）。
   assert.ok((hosts.RETIRED_HOST_ATTRS as readonly string[]).includes('composer'), '宿主值 composer 必须入退役册');
-  assert.equal((hosts.RETIRED_CONTAINER_IDS as readonly string[]).includes('composer'), false, '兼容面 #composer 不得入退役容器册');
-  assert.match(html, /<form id="composer" hidden>/, '#composer 本体必须保留（id / hidden 零变化）');
+  assert.equal((hosts.RETIRED_CONTAINER_IDS as readonly string[]).includes('composer'), true, '★ IAN-2 #composer 必须入退役容器册（13 → 16）');
+  assert.equal(/<form id="composer"/.test(html), false, '★ IAN-2 #composer 本体必须真退役（DOM 零命中，非 hidden）');
   // ③c 退役真相册：每项必须有 movedTo + 「重新引入即红」的反证（判据不得只删标记）。
   assert.equal(hosts.RETIRED_HOST_DISPOSITIONS.length, hosts.RETIRED_HOST_IDS.length);
   for (const d of hosts.RETIRED_HOST_DISPOSITIONS) {

@@ -250,7 +250,7 @@ export interface RecommendInput {
 
 /**
  * What a chip does when clicked. `'next'` = **issue a turn** through the same
- * production entry as the composer (`requestTurn`); `'repick'` = the local page-side
+ * production entry as the in-card free-input submit (`requestTurn`); `'repick'` = the local page-side
  * pick (`requestPick`); `'describe'` = reveal the card's free-text fallback;
  * `'authorize'` = the local browser-permission flow (`authorizeCurrentSite`).
  *

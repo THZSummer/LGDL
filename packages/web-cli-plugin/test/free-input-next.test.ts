@@ -8,7 +8,7 @@
  *   FIN-1 末端项**存在且恒最末**（结构序：终端恒在 `.next-chips` 之后；存在性由 provider 单源）。
  *   FIN-2 **零死端 floor**：无任何候选 ⇒ 仍产出「仅含终端」的最小卡；`pending` / `interval` /
  *         `safety` 三道既有硬门**逐字不变**（floor 不越 fail-closed）。
- *   FIN-3 **唯一提交点**：提交经 `op.turn` 槽；`requestTurn(` 叶1 仍**恰 2**；集 B 分发入口仍**恰 1**。
+ *   FIN-3 **唯一提交点**：提交经 `op.turn` 槽；`requestTurn(` **恰 1**（★ IAN-2：composer 提交真退役）；集 B 分发入口仍**恰 1**。
  *   FIN-4 **手输可判**：`MANUAL_DRIVER_ID='manual'` 单源 ∧ `∉ listDriverDecls()` ∧ AI 路径不写该值。
  *   FIN-5 **让位语义在槽外**：`noteUserTurn()` 在手输路径、`requestTurn` 函数体之外（切片）。
  *   FIN-6 **空提交不静默**：空 / 纯空白 ⇒ 不产生空回合 ∧ 有可读行（复用既有 notice 通道）。
@@ -54,13 +54,13 @@ export interface Judgement {
 export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'FIN-1-terminal-present-last', expectFailPattern: '末端项必须存在且恒最末（结构序在 .next-chips 之后）' },
   { id: 'FIN-2-zero-dead-end-floor', expectFailPattern: '零死端 floor 必须铸「仅含终端」最小卡，且不得越 pending/interval/safety' },
-  { id: 'FIN-3-single-submit-slot', expectFailPattern: '提交必须经唯一 op.turn 槽（requestTurn( 叶1 仍恰 2 / 分发入口恰 1）' },
+  { id: 'FIN-3-single-submit-slot', expectFailPattern: '提交必须经唯一 op.turn 槽（requestTurn( 恰 1 / 分发入口恰 1）' },
   { id: 'FIN-4-manual-driver-distinguishable', expectFailPattern: '手输 driver=manual 必须单源 ∧ ∉ 声明集 ∧ AI 路径不写该值' },
   { id: 'FIN-5-yield-semantics-outside-slot', expectFailPattern: '让位语义必须在 requestTurn 函数体之外（手输路径）' },
   { id: 'FIN-6-empty-submit-not-silent', expectFailPattern: '空 / 纯空白提交必须不产生空回合且不静默（有可读行）' },
   { id: 'FIN-0-zero-new-carrier', expectFailPattern: '零新增载体（KIND_SET 40 / 12 kind / 零宿主 / 终端不经 ACT_TO_OP）' },
   // ★ IAN-1 R2（TASK-IAN-121 · FR-IAN-033 / FR-IAN-018）：场景门禁补全（只增，不改既有七条）。
-  { id: 'FIN-7-backfill-no-overwrite', expectFailPattern: '回填不覆盖：仅当输入处为空 / 卡收起重展开 / 卡不存在按需铸造（双载体并存，删掉即红）' },
+  { id: 'FIN-7-backfill-no-overwrite', expectFailPattern: '回填不覆盖：仅当输入处为空 / 卡收起重展开 / 卡不存在按需铸造（载体唯一化到流内，删掉即红）' },
   { id: 'FIN-8-law8-input-payload', expectFailPattern: '法八：输入文本仅走 chat user 载荷 ∧ 卡固化不回显值（四面零明文）' },
   { id: 'FIN-9-tri-state-control', expectFailPattern: '三段控制：ok / violated / n/a 逐态可达（n/a 不冒充 ok，禁恒真）' },
 ];
@@ -228,10 +228,10 @@ test('FIN-2 fail-closed 不变：候选全被安全集拦下 ⇒ 仍不推荐（
 
 /* ── FIN-3 唯一提交点 ───────────────────────────────────────────────────────── */
 
-test('FIN-3 requestTurn( 叶1 仍恰 2 ∧ 集 B 分发入口恰 1 ∧ 手输经 op.turn 槽', () => {
-  // 行号不是判据（注释换行会漂移）：判「恰 2 处」+ 「两处都**不在**手输提交体里」。
+test('FIN-3 requestTurn( 恰 1 ∧ 集 B 分发入口恰 1 ∧ 手输经 op.turn 槽', () => {
+  // 行号不是判据（注释换行会漂移）：判「恰 1 处」+「唯一提交点＝op.turn 槽」。
   const turnSites = callSites(SIDEPANEL, 'requestTurn');
-  assert.equal(turnSites.length, 2, `${JUDGEMENTS[2].expectFailPattern}：requestTurn( 必须仍恰 2（实测 ${turnSites.join(', ')}）`);
+  assert.equal(turnSites.length, 1, `${JUDGEMENTS[2].expectFailPattern}：requestTurn( 必须恰 1（实测 ${turnSites.join(', ')}）`);
   assert.equal(callSites(SIDEPANEL, 'dispatchChipAction').length, 1, `${JUDGEMENTS[2].expectFailPattern}：集 B 分发入口必须仍恰 1`);
   const body = functionBody(SIDEPANEL, 'submitFreeInput');
   assert.ok(body.length > 0, '前置：submitFreeInput 必须存在');
@@ -245,7 +245,9 @@ test('FIN-3 反证：往 submitFreeInput 注入 requestTurn( 直连 ⇒ 计数�
     "  requestTurn(text);\n  void dispatchOp('op.turn', { value: text });",
   );
   assert.notEqual(forged, SIDEPANEL, '前置：注入锚点必须存在');
-  assert.equal(callSites(forged, 'requestTurn').length, 3, `${JUDGEMENTS[2].expectFailPattern}：第三处直连必须被计数判据看到`);
+  // ★ IAN-2：判据恰 1 ⇒ 注入第二处必须被看到（还原后仍恰 1）。
+  assert.equal(callSites(forged, 'requestTurn').length, 2, `${JUDGEMENTS[2].expectFailPattern}：第二处直连必须被计数判据看到`);
+  assert.equal(callSites(SIDEPANEL, 'requestTurn').length, 1, '还原 ⇒ 仍恰 1');
 });
 
 test('FIN-3 反证：提交改走 submitDescribe（描述语义）⇒ op.turn 槽判据必红', () => {
@@ -376,7 +378,7 @@ test('FIN-0 载体：终端文案单源 ∧ 卡内输入复用既有 requestId �
 /* ────────────────────────────────────────────────────────────────────────────
  * ★ IAN-1 R2（**TASK-IAN-121** · ADR-IAN-003 §2 · ADR-IAN-008 §② · FR-IAN-033 / 018 / 064 ·
  * AC-IAN-016/019）—— 场景门禁补全：**FIN-7**（回填不覆盖：仅当为空 / 卡收起重展开 / 卡不存在
- * 按需铸造；双载体并存）+ **FIN-8**（法八：输入文本仅走 `chat` `user` 载荷 ∧ 卡固化不回显值）
+ * 按需铸造；★ IAN-2 载体唯一化到流内）+ **FIN-8**（法八：输入文本仅走 `chat` `user` 载荷 ∧ 卡固化不回显值）
  * + **FIN-9**（三段控制 ok / violated / n/a 逐态可达，`n/a` 不冒充 `ok`）。
  *
  * 真源切片：判据读**生产模块**（`sidepanel.ts` 切片 ∧ `askuser.ts#askFixedText` 真调用），
@@ -394,7 +396,7 @@ export function topLevelBody(source: string, decl: string): string {
 /**
  * **FIN-7 判据本体**（回填不覆盖）。`panelSource` = `sidepanel.ts` 源文本。
  * 五条：① 写回被拒原话（不丢）② 仅当卡内输入为空（不覆盖）③ 卡收起 ⇒ 重展开
- * ④ 卡不存在 ⇒ 按需铸造 ⑤ 流外 `#input` 回填**仍在**（双载体并存）。
+ * ④ 卡不存在 ⇒ 按需铸造 ⑤ **流外零写点**（★ IAN-2 载体唯一化：`#input` 永不回填）。
  */
 export function backfillProblems(panelSource: string): string[] {
   const problems: string[] = [];
@@ -408,14 +410,14 @@ export function backfillProblems(panelSource: string): string[] {
   if (!/input\.value\.length\s*>\s*0\s*\)\s*return false/.test(body)) problems.push(`${fail}：仅当卡内输入为空（不覆盖用户新输入）`);
   if (!/setCardFallbackOpen\(form,\s*true\)/.test(body)) problems.push(`${fail}：卡收起必须重展开（+ focus）`);
   if (!/openFreeInputCard\(\)/.test(body)) problems.push(`${fail}：卡不存在必须按需铸造并回填`);
-  // ⑤ 双载体并存（叶1）：流外 `#input` 回填逐字保留（不得因迁卡内而删）。
-  if (!/draftInput\.value\.length\s*===\s*0/.test(panelSource) || !/draftInput\.value\s*=\s*rejected/.test(panelSource)) {
-    problems.push(`${fail}：流外 #input 回填必须逐字保留（双载体并存）`);
+  // ⑤ ★ IAN-2 载体唯一化：流外 `#input` 写点必须**零命中**（真退役 ⇒ 不得回填）。
+  if (/draftInput\.value\s*=\s*rejected/.test(panelSource)) {
+    problems.push(`${fail}：流外 #input 写点必须零命中（载体唯一化到流内）`);
   }
   return problems;
 }
 
-test('FIN-7 回填不覆盖：卡在仅当为空 / 卡收起重展开 / 卡不存在按需铸造 / 双载体并存', () => {
+test('FIN-7 回填不覆盖：卡在仅当为空 / 卡收起重展开 / 卡不存在按需铸造 / 载体唯一化到流内', () => {
   assert.deepEqual(backfillProblems(SIDEPANEL), [], JUDGEMENTS[7].expectFailPattern);
   // 反证①：去掉「仅当为空」守卫 ⇒ 必红（复现「回填覆盖非空」）。
   const overwrite = SIDEPANEL.replace('if (input.value.length > 0) return false;', 'void 0;');
@@ -429,10 +431,9 @@ test('FIN-7 回填不覆盖：卡在仅当为空 / 卡收起重展开 / 卡不�
   const noMint = SIDEPANEL.replace('if (!freeInputCardId()) openFreeInputCard();', 'if (!freeInputCardId()) return false;');
   assert.notEqual(noMint, SIDEPANEL, '前置：按需铸造锚点必须存在');
   assert.ok(backfillProblems(noMint).some((p) => p.includes('按需铸造')), '卡不存在不铸造 ⇒ 必红');
-  // 反证④：删流外 `#input` 回填（双载体退化为单载体）⇒ 必红。
-  const noInput = SIDEPANEL.replace('if (restoredInput) draftInput.value = rejected;', '');
-  assert.notEqual(noInput, SIDEPANEL, '前置：流外回填锚点必须存在');
-  assert.ok(backfillProblems(noInput).some((p) => p.includes('双载体并存')), '删流外载体 ⇒ 必红');
+  // 反证④：**重新引入**流外 `#input` 写点（唯一载体退化）⇒ 必红（判据非恒真）。
+  const reinjected = `${SIDEPANEL}\n// forged\nconst draftInputX = document.getElementById('input');\nif (draftInputX) draftInputX.value = rejected;\n`.replace('draftInputX.value = rejected', 'draftInput.value = rejected');
+  assert.ok(backfillProblems(reinjected).some((p) => p.includes('流外 #input 写点必须零命中')), '重新引入流外载体 ⇒ 必红');
   // 还原 ⇒ 全绿（判据不是恒真）。
   assert.deepEqual(backfillProblems(SIDEPANEL), []);
 });

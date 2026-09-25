@@ -901,9 +901,13 @@ async function main() {
     const bDetectRaw = await evaluate(
       cdp,
       `(async () => {
-        const input = document.getElementById('input');
+        // ★ IAN-2（TASK-IAN-222）：流外输入面真退役 ⇒ 真实用户回合走**流内 free-input 卡**（唯一载体）。
+        window.__v3.testing.recommend('idle');
+        const term = document.querySelector('#stream .next-terminal');
+        if (term) term.click();
+        const input = document.getElementById('ask-input');
         input.value = ${JSON.stringify(S0_ANSWER)};
-        document.getElementById('composer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        document.getElementById('ask-submit').click();
         await new Promise((r) => setTimeout(r, 900));
         const text = document.getElementById('stream').textContent;
         return JSON.stringify({
@@ -1204,35 +1208,36 @@ async function main() {
     await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'done' }).then(() => true).catch(() => true)`);
     await sleep(250);
 
-    // ④ 旧入口仍可用（S0''-8）：`#composer` submit ⇒ 第二行 `user`（中间态双入口各跑通一轮）。
-    const S0PP_LEGACY_TEXT = 'S0PP 旧 composer 真提交';
+    // ④ ★ IAN-2（TASK-IAN-222）终态（S0''-B）：旧 `#composer` 三 id **DOM 真退役**（非 hidden）
+    //    + 注入反证（注入 `<form id=composer hidden>` 必被检出 ⇒ 真退役 ≠ hidden）。
     const legacyState = JSON.parse(
       await evaluate(
         cdp,
         `(() => {
-          const form = document.getElementById('composer');
-          const input = document.getElementById('input');
-          const send = document.getElementById('send');
-          input.value = ${JSON.stringify(S0PP_LEGACY_TEXT)};
-          form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-          const users = Array.from(document.querySelectorAll('#stream .msg-user .msg-content')).map((n) => n.textContent);
-          return JSON.stringify({ ids: [!!form, !!input, !!send], last: users[users.length - 1] ?? null, cleared: input.value === '' });
+          const present = ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null);
+          const f = document.createElement('form'); f.id = 'composer'; f.hidden = true; document.body.appendChild(f);
+          const injectedDetected = document.getElementById('composer') !== null;
+          f.remove();
+          return JSON.stringify({ present, injectedDetected, restored: document.getElementById('composer') === null });
         })()`,
       ),
     );
     check(
-      "S0C-12 S0''-8 旧 `#composer` 入口仍可用（三 id 在位 ∧ submit 成回合 ∧ 输入清空）",
-      legacyState.ids.every(Boolean) && legacyState.last === S0PP_LEGACY_TEXT && legacyState.cleared === true,
+      "S0C-12 S0''-B 终态：`#composer`/`#input`/`#send` 三 id DOM 零命中（真退役 ≠ hidden）",
+      legacyState.present.length === 0,
+      JSON.stringify(legacyState.present),
+    );
+    check(
+      "S0C-12 S0''-B 反证：注入 `<form id=composer hidden>` 必被检出 ∧ 移除后还原（非恒真）",
+      legacyState.injectedDetected === true && legacyState.restored === true,
       JSON.stringify(legacyState),
     );
 
-    // ⑤ 双回填载体并存且互不覆盖（S0''-6）：重开一张卡内输入 ⇒ 空载时两载体各得原话；
-    //    再让流外**非空** ⇒ 流外保留用户新输入，流内仍得原话（不覆盖）。
+    // ⑤ ★ IAN-2 终态：**唯一回填载体**（流内卡内输入）且不覆盖非空（S0''-B-6）。
     await evaluate(
       cdp,
       `(() => {
         document.querySelector('#stream [data-card-key="s0pp-next"] .next-terminal').click();
-        const c = document.getElementById('input'); if (c) c.value = '';
         const i = document.getElementById('ask-input'); if (i) i.value = '';
         return true;
       })()`,
@@ -1244,36 +1249,32 @@ async function main() {
       await evaluate(
         cdp,
         `JSON.stringify({
-           input: (document.getElementById('input') || {}).value ?? null,
+           legacyIds: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null),
            card: (document.getElementById('ask-input') || {}).value ?? null,
            notices: Array.from(document.querySelectorAll('#stream .msg-system')).map((n) => n.textContent).slice(-4),
          })`,
       ),
     );
     check(
-      "S0C-12 S0''-6 双回填载体并存：流外 `#input` ∧ 流内卡内输入各得被拒原话",
-      bf1.input === R && bf1.card === R,
+      "S0C-12 S0''-B-6 唯一回填载体（流内卡内输入）：卡内得被拒原话 ∧ 流外零写点（三 id 零命中）",
+      bf1.card === R && bf1.legacyIds.length === 0,
       JSON.stringify(bf1),
     );
     await evaluate(
       cdp,
-      `(() => {
-        document.getElementById('input').value = '用户新输入';
-        const i = document.getElementById('ask-input'); if (i) i.value = '';
-        return true;
-      })()`,
+      `(() => { const i = document.getElementById('ask-input'); if (i) i.value = '用户新输入'; return true; })()`,
     );
     await evaluate(sw.cdp, `chrome.runtime.sendMessage({ kind: 'chat-result', variant: 'busy-rejected', text: ${JSON.stringify(R)} }).then(() => true).catch(() => true)`);
     await sleep(250);
     const bf2 = JSON.parse(
       await evaluate(
         cdp,
-        `JSON.stringify({ input: (document.getElementById('input') || {}).value ?? null, card: (document.getElementById('ask-input') || {}).value ?? null })`,
+        `JSON.stringify({ legacyIds: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null), card: (document.getElementById('ask-input') || {}).value ?? null })`,
       ),
     );
     check(
-      "S0C-12 S0''-6 回填**不覆盖**非空（流外保留用户新输入 ∧ 流内仍得原话）",
-      bf2.input === '用户新输入' && bf2.card === R,
+      "S0C-12 S0''-B-6 回填**不覆盖**非空（卡内保留用户新输入 ∧ 流外零写点）",
+      bf2.card === '用户新输入' && bf2.legacyIds.length === 0,
       JSON.stringify(bf2),
     );
 
@@ -1284,14 +1285,15 @@ async function main() {
     const ppKindBlock = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(ppMessaging)?.[1] ?? '';
     const ppLabelBlock = /CARD_TAG_LABELS: Readonly<Record<StreamEventKind, string>> = Object\.freeze\(\{([\s\S]*?)\n\}\)/.exec(ppShared)?.[1] ?? '';
     const ppReading = {
-      legacyEntry: legacyState.ids.every(Boolean) ? 'wired' : 'broken',
-      legacyIds: S0PP_LEGACY_IDS.filter((_, i) => legacyState.ids[i] === true),
+      // ★ IAN-2 终态读数（S0''-B）：三 id 零命中 / 唯一回填载体 / requestTurn 恰 1。
+      legacyIdsGone: legacyState.present,
+      composerInjected: false,
       cardTurns: submitState.last === S0PP_TEXT ? 1 : 0,
       submitSlot: 'op.turn',
-      requestTurnCallSites: 2,
-      backfillInput: bf1.input,
+      requestTurnCallSites: 1,
+      backfillInput: bf1.legacyIds.length > 0,
       backfillCard: bf1.card,
-      backfillOverwrote: !(bf2.input === '用户新输入'),
+      backfillOverwrote: !(bf2.card === '用户新输入'),
       driverManual: /driverTraceLine\(MANUAL_DRIVER_ID/.test(ppPanelSrc),
       aiWritesManual: false,
       kindSetSize: (ppKindBlock.match(/'[^']+'/g) ?? []).length,
@@ -1310,19 +1312,19 @@ async function main() {
     };
     const ppProblems = s0ppProblems(ppReading);
     check(
-      `S0C-12 共享判据（S0''-A 七条）在真面板读数上全绿${ppProblems.length ? `：${ppProblems.join(' / ')}` : ''}`,
+      `S0C-12 共享判据（S0''-B 七条）在真面板读数上全绿${ppProblems.length ? `：${ppProblems.join(' / ')}` : ''}`,
       ppProblems.length === 0,
       JSON.stringify(ppReading),
     );
     check(
-      "S0C-12 反证：破坏旧入口（三 id 缺一）/ 回填覆盖非空 ⇒ 共享判据必 FAIL",
-      s0ppProblems({ ...ppReading, legacyIds: ['composer', 'input'] }).some((p) => p.includes('S0PP-A2')) &&
-        s0ppProblems({ ...ppReading, legacyEntry: 'broken' }).some((p) => p.includes('S0PP-A1')) &&
+      "S0C-12 反证：三 id 回流 / hidden 冒充 / 回填覆盖非空 ⇒ 共享判据必 FAIL（非恒真）",
+      s0ppProblems({ ...ppReading, legacyIdsGone: ['composer'] }).some((p) => p.includes('S0PP-B2')) &&
+        s0ppProblems({ ...ppReading, composerInjected: true }).some((p) => p.includes('S0PP-B2') && p.includes('hidden')) &&
         s0ppProblems({ ...ppReading, backfillOverwrote: true }).some((p) => p.includes('覆盖非空')),
       'falsification',
     );
     check(
-      "S0C-12 样本单源：S0''-A 十环节与 node 面共用同一份 fixture（不写第二份）",
+      "S0C-12 样本单源：S0''-B 十环节与 node 面共用同一份 fixture（不写第二份）",
       S0PP_CHAIN.length === 10 && s0ppChain().length === 10 && S0PP_LEGACY_IDS.length === 3,
       JSON.stringify({ chain: S0PP_CHAIN.map((b) => b.id) }),
     );

@@ -244,7 +244,7 @@ export interface StreamPayload {
   readonly chips?: readonly string[];
   /**
    * V4-4 (ADR-V4-037 §5): the aligned action id of each chip (`next` = issue a turn
-   * through the composer's own entry; `repick` / `describe` = the local recovery
+   * through the single production entry; `repick` / `describe` = the local recovery
    * acts). Kept parallel to {@link chips} so a chip's intent is data, not a guess.
    */
   readonly nextstepActs?: readonly string[];

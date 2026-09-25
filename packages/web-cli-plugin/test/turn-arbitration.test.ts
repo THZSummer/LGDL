@@ -9,7 +9,7 @@
  *   ② **队列硬上限 1（单源）**：`TURN_QUEUE_MAX` 恰一处声明；队列长度**恒 ≤ 1**；溢出 =
  *      `busy-rejected`（**不是**无界排队，**不是**静默丢弃）；
  *   ③ **用户输入零丢失三路径**：非在飞 `executed` / 在飞且有余量 `queued` / 在飞且已满
- *      `busy-rejected`（面板侧 `#input` 回填 —— 删掉回填 ⇒ FAIL）；
+ *      `busy-rejected`（面板侧回填**流内**输入载体 —— ★ IAN-2 唯一化；删掉回填 ⇒ FAIL）；
  *   ④ **AI 撞车不发起**：AI 路径 `pressDecision(… busy: true …)` ⇒ `blocked:busy`（不排队、
  *      只让位 + 留痕）；
  *   ⑤ **type-only**：仲裁词表**不进** `KIND_SET`（共享 `KIND_SET` 仍恰 40 项）；
@@ -46,27 +46,27 @@ export const JUDGEMENTS: readonly ArbitrationJudgement[] = [
   { id: 'TA-1-closure-4', expectFailPattern: '仲裁结果必须是 4 项闭集（第五种结果即红）' },
   { id: 'TA-2-bounded-queue', expectFailPattern: '队列硬上限必须恰 1（单源，无界即红）' },
   { id: 'TA-3-zero-loss-3-paths', expectFailPattern: '用户输入零丢失三路径必须齐备（静默吞掉即红）' },
-  { id: 'TA-4-draft-restore', expectFailPattern: '拒绝后草稿必须回填 #input（删掉回填即红）' },
+  { id: 'TA-4-draft-restore', expectFailPattern: '拒绝后草稿必须回填流内输入（唯一载体；删掉回填即红）' },
   { id: 'TA-5-ai-defers', expectFailPattern: 'AI 撞车必须不发起（blocked:busy + 留痕）' },
   { id: 'TA-6-type-only', expectFailPattern: '仲裁词表必须 type-only（进 KIND_SET 即红）' },
   { id: 'TA-7-sw-no-panel-bytes', expectFailPattern: '队列本体必须落 background（不得被 src/ui 引入）' },
-  // ★ IAN-1 R2（TASK-IAN-119 · FR-IAN-033 · ADR-IAN-003 §2）：叶1 **双载体并存** ——
-  // 既有 `#input` 回填之上加**流内**卡内输入回填（同一「仅当为空」语义 ∧ 卡收起重展开 ∧ 按需铸造）。
+  // ★ IAN-1 R2（TASK-IAN-119）+ ★ IAN-2（TASK-IAN-210）：流内卡内输入回填为**唯一载体**
+  // （同一「仅当为空」语义 ∧ 卡收起重展开 ∧ 按需铸造）。
   { id: 'TA-8-stream-draft-restore', expectFailPattern: '拒绝后草稿必须可回填**流内**输入（仅当为空 / 卡收起重展开 / 卡不存在按需铸造；删掉即红）' },
 ];
 
-/** ③ 面板侧四句留痕 / 回填 + ★ IAN-1 R2 **双载体**（流外 `#input` ∧ 流内卡内输入）的**源码事实**。 */
+/** ③ 面板侧留痕 / 回填 + ★ IAN-2 **唯一载体**（流内卡内输入）的**源码事实**。 */
 export function panelRestoreProblems(panelSource: string): string[] {
   const problems: string[] = [];
   if (!/'busy-rejected'/.test(panelSource)) problems.push(`${JUDGEMENTS[3].expectFailPattern}：缺少 busy-rejected 分支`);
-  if (!/draftInput\.value\s*=\s*rejected/.test(panelSource)) {
-    problems.push(`${JUDGEMENTS[3].expectFailPattern}：缺少 #input 回填写点（draftInput.value = rejected）`);
-  }
-  if (!/draftInput\.value\.length\s*===\s*0/.test(panelSource)) {
-    problems.push(`${JUDGEMENTS[3].expectFailPattern}：回填必须仅在输入框为空时（不覆盖用户新输入）`);
+  // ★ IAN-2（TASK-IAN-210 · ADR-IAN-003 · FR-IAN-032/033）：**载体唯一化到流内** —— 原流外
+  // `#input` 写点（`draftInput.value = rejected`）随三 id 真退役删除 ⇒ 必须**零命中**（非恒真：
+  // 重新引入流外写点 ⇒ 本判据必红）。
+  if (/draftInput\.value\s*=\s*rejected/.test(panelSource)) {
+    problems.push(`${JUDGEMENTS[3].expectFailPattern}：流外 #input 写点必须零命中（载体唯一化到流内）`);
   }
   if (!/'queued'/.test(panelSource)) problems.push(`${JUDGEMENTS[3].expectFailPattern}：缺少 queued 可读留痕分支`);
-  // ★ IAN-1 R2：**流内载体**逐条可判（判据只增，不改既有四项）。判据切片限定在该函数体内
+  // ★ 流内载体逐条可判。判据切片限定在该函数体内
   // （`openFreeInputCard` 里也有一次 `setCardFallbackOpen(form, true)` ⇒ 全源搜索会空转）。
   if (!/function restoreFreeInputDraft\(/.test(panelSource)) {
     problems.push(`${JUDGEMENTS[7].expectFailPattern}：缺少流内回填载体（restoreFreeInputDraft）`);
@@ -146,11 +146,10 @@ test('TA ③: 用户输入零丢失三路径（executed / queued / busy-rejected
   assert.deepEqual(panelRestoreProblems(PANEL), [], JUDGEMENTS[3].expectFailPattern);
 });
 
-test('TA ③/④ 反证：删掉回填 ⇒ 必红；队列改无界 ⇒ 必红 → 还原 PASS', () => {
-  // 反证一：面板删掉回填写点。
-  const noRestore = PANEL.replace('if (restoredInput) draftInput.value = rejected;', '');
-  assert.notEqual(noRestore, PANEL, '前置：注入锚点必须存在');
-  assert.ok(panelRestoreProblems(noRestore).length > 0, JUDGEMENTS[3].expectFailPattern);
+test('TA ③/④ 反证：破坏唯一载体 ⇒ 必红；队列改无界 ⇒ 必红 → 还原 PASS', () => {
+  // 反证一：重新引入流外 `#input` 写点（唯一载体退化）⇒ 必红（判据非恒真）。
+  const reinjected = `${PANEL}\n// forged\nconst draftInputX = document.getElementById('input');\nif (draftInputX) draftInputX.value = rejected;\n`.replace('draftInputX.value = rejected', 'draftInput.value = rejected');
+  assert.ok(panelRestoreProblems(reinjected).length > 0, `${JUDGEMENTS[3].expectFailPattern}：流外写点回流 ⇒ 必红`);
   assert.deepEqual(panelRestoreProblems(PANEL), [], '还原 ⇒ PASS');
   // 反证二：把上限改成 2（无界 / 放宽）⇒ 溢出不再被拒。
   const unbounded = createTurnQueue(2);
@@ -163,7 +162,7 @@ test('TA ③/④ 反证：删掉回填 ⇒ 必红；队列改无界 ⇒ 必红 �
   assert.equal(bounded.enqueue({ user: 'b', sessionId: null, at: 2 }), 'busy-rejected', JUDGEMENTS[1].expectFailPattern);
 });
 
-test('TA ④/⑧: 双载体回填（流外 #input ∧ 流内卡内输入）可判 + 三条反证 → 还原 PASS', () => {
+test('TA ④/⑧: 唯一载体回填（流内卡内输入）可判 + 三条反证 → 还原 PASS', () => {
   assert.equal(JUDGEMENTS.length, 8, 'TA 判据下界只增（本叶 +TA-8 = 8）');
   assert.deepEqual(panelRestoreProblems(PANEL), [], `${JUDGEMENTS[7].expectFailPattern}`);
   // 反证一：删掉流内回填的**接线**（调用点保留函数定义 ⇒ 只有调用点判据能抓）⇒ 必红。
@@ -188,12 +187,11 @@ test('TA ④/⑧: 双载体回填（流外 #input ∧ 流内卡内输入）可�
     panelRestoreProblems(noReopen).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)),
     `${JUDGEMENTS[7].expectFailPattern}：卡收起不重展开 ⇒ 必红`,
   );
-  // 反证四：删掉流外 `#input` 回填（既有判据）⇒ 仍必红（两载体各自承重，不互相掩盖）。
-  const noInput = PANEL.replace('if (restoredInput) draftInput.value = rejected;', '');
-  assert.notEqual(noInput, PANEL, '前置：流外注入锚点必须存在');
+  // 反证四：重新引入流外 `#input` 写点（★ IAN-2 唯一载体退化）⇒ 必红（判据非恒真）。
+  const reinjected = `${PANEL}\n// forged\nconst draftInputX = document.getElementById('input');\nif (draftInputX) draftInputX.value = rejected;\n`.replace('draftInputX.value = rejected', 'draftInput.value = rejected');
   assert.ok(
-    panelRestoreProblems(noInput).some((p) => p.includes(JUDGEMENTS[3].expectFailPattern)),
-    `${JUDGEMENTS[3].expectFailPattern}：删流外回填 ⇒ 必红`,
+    panelRestoreProblems(reinjected).some((p) => p.includes(JUDGEMENTS[3].expectFailPattern)),
+    `${JUDGEMENTS[3].expectFailPattern}：流外写点回流 ⇒ 必红`,
   );
   // 还原 ⇒ 全绿（判据不是恒真）。
   assert.deepEqual(panelRestoreProblems(PANEL), []);

@@ -2264,7 +2264,7 @@ export const V553_REDLINE_ITEMS: readonly RedlineItem[] = Object.freeze([
   { id: 'RL-04-kindset-40', expectFailPattern: '红线④：`KIND_SET` 必须逐字 40 项（新变体一律 type-only）' },
   { id: 'RL-05-privileged-gesture', expectFailPattern: '红线⑤：特权 op 恒 `gesture` 档（不得被 AI 自动按下）' },
   { id: 'RL-06-consent-no-proxy', expectFailPattern: '红线⑥：consent 档（confirm / gesture）不得被 AI 代答' },
-  { id: 'RL-07-requestturn-2', expectFailPattern: '红线⑦：`requestTurn(` 调用点仍恰 2（AI 经既有 `op.turn` 槽）' },
+  { id: 'RL-07-requestturn-1', expectFailPattern: '红线⑦：`requestTurn(` 调用点恰 1（★ IAN-2 唯一生产输入提交点 = op.turn 槽）' },
   { id: 'RL-08-law8', expectFailPattern: '红线⑧：法八零明文门禁必须在册（`law8-plaintext.mjs`）' },
   { id: 'RL-09-twelve-kind-zero-host', expectFailPattern: '红线⑨：12 kind 零宿主（0 注册宿主 ∧ 退役句柄非空）' },
   { id: 'RL-10-judging-chain-zero-diff', expectFailPattern: '红线⑩：判定链 `zeroDiffFiles` 9 项逐项在册（含 policy / auto-authorize）' },
@@ -2346,9 +2346,9 @@ test('V5.5-3 红线终核 12 项（末叶终核：从既有单源按当前产物
       ? []
       : [`consent 档必须恒 confirm（越界 ${JSON.stringify(wrongConsent)}）∧ AI 不得代答：${proxy.join(',')}`];
 
-  // ⑦ `requestTurn(` 仍恰 2。
+  // ⑦ `requestTurn(` 恰 1（★ IAN-2：composer submit 真退役）。
   const askTurn = redlineCallSites(sidepanelSrc, 'requestTurn');
-  items['RL-07-requestturn-2'] = askTurn === 2 ? [] : [`requestTurn( 实测 ${askTurn} 处 ≠ 2`];
+  items['RL-07-requestturn-1'] = askTurn === 1 ? [] : [`requestTurn( 实测 ${askTurn} 处 ≠ 1`];
 
   // ⑧ 法八零明文门禁在册（可复核指针；判据本体在 `law8-plaintext.mjs`）。
   const law8 = existsSync(resolve(PKG, 'test/ui/law8-plaintext.mjs'));

@@ -1043,21 +1043,21 @@ test('S0P-B 真源切片：批量段判据走生产模块（batch-plan.ts）∧ 
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
- * IAN-1 **TASK-IAN-123**（ADR-IAN-009 §①/§②/§③ · FR-IAN-070/071/072 · **AC-IAN-001** ·
- * N-IAN-027 · R-IAN-901 / R-IAN-909）
+ * ★ IAN-2 **TASK-IAN-222**（ADR-IAN-009 §② · FR-IAN-070/072/073/074 · **AC-IAN-022/023** ·
+ * N-IAN-025 · R-IAN-902）
  *
- * **S0''-A 中间态保护 node 面**：`ian-1` 立新流内入口后，**旧 composer 入口仍可用**
- * （双入口各跑通一轮）+ `busy-rejected` **双回填载体**均可判且互不覆盖。样本 / 判据单源 =
+ * **S0''-B 终态保护 node 面**：`ian-2` 真退役后**旧面零可达**（三 id DOM 零命中，非 `hidden`）
+ * + 唯一输入面 = 流内卡内 `.ask-fallback` + `busy-rejected` **唯一回填载体**。样本 / 判据单源 =
  * `test/ui/fixtures/s0-chain.mjs`（**与 Chromium 面同一份**）。
  *
  * 真源切片（**不**用假 provider / 桩）：
- *   · 新入口**真回合** = 生产 `op.turn` 槽（`bindPanelOps` + `dispatchOp` → `runOp`）；
- *   · 旧入口 / 双回填 / driver / 红线 = 生产源码切片（真值读取，非第二份实现）。
- * ⚠️ 诚实边界：node 面无 DOM，故「旧入口跑通一轮」在此为**接线判据**（三 id 在位 ∧ 提交链
- * 接线）；**真 DOM 双回合**由 Chromium 面（`s0-self-driven.mjs`）承载。
+ *   · 唯一入口**真回合** = 生产 `op.turn` 槽（`bindPanelOps` + `dispatchOp` → `runOp`）；
+ *   · 旧面零可达 / 回填 / driver / 红线 = 生产源码切片（真值读取，非第二份实现）。
+ * ⚠️ 诚实边界：node 面无 DOM，故「三 id 零命中」在此为**静态标记判据**（`index.html` 文本）；
+ * **真 DOM 零命中 + 注入必红**由 Chromium 面（`s0-self-driven.mjs`）与法四门禁共同承载。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** S0''-A 七条判据（`expectFailPattern` 从共享样本**单源**取，不写第二份文案）。 */
+/** S0''-B 七条判据（`expectFailPattern` 从共享样本**单源**取，不写第二份文案）。 */
 export const S0PP_JUDGEMENTS: readonly S0PJudgement[] = S0PP_ITEMS.map((i) => ({
   id: i.id,
   expectFailPattern: i.expectFailPattern,
@@ -1070,17 +1070,14 @@ const MESSAGING_REL = 'src/background/messaging.ts';
 const SHARED_CARDS_REL = 'src/ui/sidepanel/cards/shared.ts';
 const HOST_REGISTRY_REL = 'src/ui/sidepanel/host-registry.ts';
 
-/** 旧入口三 id 是否在真面板 HTML 在位（三缺一 ⇒ ian-1 破坏旧入口）。 */
-export function legacyIdsOf(html: string): string[] {
-  return S0PP_LEGACY_IDS.filter((id) => new RegExp(`id="${id}"`).test(html));
+/** 旧三 id 在真面板 HTML 的**残留**（终态必须空 ⇒ DOM 零命中）。 */
+export function legacyIdsGoneOf(html: string): string[] {
+  return S0PP_LEGACY_IDS.filter((id) => new RegExp(`\\sid="${id}"`).test(html));
 }
 
-/** 旧 composer submit → 唯一回合入口（`requestTurn(input.value)`）是否仍接线。 */
-export function legacyEntryWired(panelSrc: string): boolean {
-  const at = panelSrc.indexOf("$('composer').addEventListener('submit'");
-  if (at < 0) return false;
-  const slice = panelSrc.slice(at, at + 1200);
-  return /requestTurn\(input\.value\)/.test(slice);
+/** 旧 composer submit 监听是否仍接线（终态必须 **false**）。 */
+export function composerSubmitWired(panelSrc: string): boolean {
+  return panelSrc.includes("$('composer').addEventListener('submit'");
 }
 
 /** `KIND_SET` 成员数（从生产源抽取；不得空转）。 */
@@ -1089,7 +1086,7 @@ export function ian1KindSetSize(messaging: string): number {
   return [...block.matchAll(/'[^']+'/g)].length;
 }
 
-/** `requestTurn(` 调用点（注释 / import / 定义行除外）——叶1 仍恰 2。 */
+/** `requestTurn(` 调用点（注释 / import / 定义行除外）——★ IAN-2 终态恰 1。 */
 export function ian1CallSites(source: string, name: string): number {
   let n = 0;
   for (const raw of source.split('\n')) {
@@ -1110,20 +1107,24 @@ export function ian1KindCount(shared: string): number {
   return [...block.matchAll(/^\s{2}[a-z]+:/gm)].length;
 }
 
-/** S0''-A 的 node 面读数（生产真值构建 ⇒ 反向注入打在判据上）。 */
+/** S0''-B 的 node 面读数（生产真值构建 ⇒ 反向注入打在判据上）。 */
 async function s0ppNodeReading(): Promise<Record<string, unknown>> {
   const panelSrc = readSrc(SIDEPANEL_REL);
   const html = readSrc(INDEX_HTML_REL);
-  // ① 新入口**真回合**：经生产 `op.turn` 槽（`bindPanelOps.turn` ↔ `runOp`）。
+  // ① 唯一入口**真回合**：经生产 `op.turn` 槽（`bindPanelOps.turn` ↔ `runOp`）。
   let turned: string | undefined;
   bindPanelOps({ turn: (text) => void (turned = text) });
   const outcome = await dispatchOp('op.turn', { value: S0PP_REJECTED_TEXT });
   const cardTurns = turned !== undefined && outcome.ok !== false ? 1 : 0;
-  // ② 旧入口接线 + 三 id 在位。
-  const htmlIds = legacyIdsOf(html);
-  const wired = legacyEntryWired(panelSrc);
-  // ③ 双回填载体（生产源码切片：流外 `draftInput.value = rejected` ∧ 流内 `input.value = rejected`）。
-  const hasInputBackfill = /draftInput\.value\s*=\s*rejected/.test(panelSrc);
+  // ② 旧面零可达：三 id 静态标记零命中 + **注入 `<form id=composer hidden>` 必被检出**（非恒真）。
+  const legacyIdsGone = legacyIdsGoneOf(html);
+  const injectedHtml = html.replace('<main ', '<form id="composer" hidden></form>\n    <main ');
+  // 生产/干净读数 ⇒ false；注入检测能力单独登记（反证用）。
+  const composerInjected = legacyIdsGoneOf(html).includes('composer');
+  const injectionDetected = legacyIdsGoneOf(injectedHtml).includes('composer');
+  const composerWired = composerSubmitWired(panelSrc);
+  // ③ 唯一回填载体（流内；流外写点必须零命中）。
+  const backfillInput = /draftInput\.value\s*=\s*rejected/.test(panelSrc);
   const hasCardBackfill = /input\.value\s*=\s*rejected/.test(panelSrc);
   const overwrote = !/input\.value\.length\s*>\s*0/.test(panelSrc);
   // ④ driver 两值。
@@ -1137,12 +1138,14 @@ async function s0ppNodeReading(): Promise<Record<string, unknown>> {
   const aiWritesManual = /MANUAL_DRIVER_ID/.test(pressBody);
   // ⑤ 红线 + 冻结面（只读双锚）。
   return {
-    legacyEntry: wired ? 'wired' : 'broken',
-    legacyIds: htmlIds,
+    legacyIdsGone,
+    composerInjected,
+    injectionDetected,
+    composerWired,
     cardTurns,
     submitSlot: turned !== undefined ? 'op.turn' : null,
     requestTurnCallSites: ian1CallSites(panelSrc, 'requestTurn'),
-    backfillInput: hasInputBackfill ? S0PP_REJECTED_TEXT : null,
+    backfillInput,
     backfillCard: hasCardBackfill ? S0PP_REJECTED_TEXT : null,
     backfillOverwrote: overwrote,
     driverManual,
@@ -1161,60 +1164,69 @@ async function s0ppNodeReading(): Promise<Record<string, unknown>> {
   };
 }
 
-test("S0PP-A node 面：双入口并存（旧 composer 三 id 在位 ∧ 新入口经 op.turn 槽成回合）+ 双回填载体", async () => {
-  assert.equal(S0PP_CHAIN.length, 10, "S0''-A 十环节（ADR-IAN-009 §① 的叶1 切片）");
-  assert.equal(S0PP_ITEMS.length, 7, "S0''-A 恰 7 条必判项");
+test("S0PP-B node 面：终态保护（三 id DOM 零命中 ∧ 唯一入口经 op.turn 槽）+ 唯一回填载体", async () => {
+  assert.equal(S0PP_CHAIN.length, 10, "S0''-B 十环节（ADR-IAN-009 §② 切片）");
+  assert.equal(S0PP_ITEMS.length, 7, "S0''-B 恰 7 条必判项");
   const reading = await s0ppNodeReading();
-  assert.deepEqual(s0ppProblems(reading), [], "S0''-A node 面必判项必须全绿");
+  assert.deepEqual(s0ppProblems(reading), [], "S0''-B node 面必判项必须全绿");
   // 逐拍登记机核（登记 ⇔ 读数；id 逐序取自共享样本，不写第二份）。
   assert.deepEqual(
     s0ppChain().map((b) => b.id),
     S0PP_CHAIN.map((b) => b.id),
-    "S0''-A 逐拍 id 必须与共享样本逐序一致",
+    "S0''-B 逐拍 id 必须与共享样本逐序一致",
   );
-  // 真读数明细（非恒真）：新入口真的把原话交到回合入口。
-  assert.equal(reading.cardTurns, 1, "新卡内输入必须真的成 1 回合");
+  // 真读数明细（非恒真）：唯一入口真的把原话交到回合入口 ∧ 旧面零可达。
+  assert.equal(reading.cardTurns, 1, "唯一入口必须真的成 1 回合");
   assert.equal(reading.submitSlot, 'op.turn');
-  assert.deepEqual(reading.legacyIds, [...S0PP_LEGACY_IDS], '旧入口三 id 必须全部在位');
-  assert.equal(reading.legacyEntry, 'wired');
+  assert.deepEqual(reading.legacyIdsGone, [], '三 id 必须 DOM 零命中（真退役 ≠ hidden）');
+  assert.equal(reading.composerWired, false, '旧 composer submit 监听必须零接线');
+  assert.equal(reading.requestTurnCallSites, 1, 'requestTurn( 必须恰 1');
+  assert.equal(reading.backfillInput, false, '流外 #input 写点必须零命中（载体唯一化到流内）');
 });
 
-test("S0PP-A 反证族：破坏旧入口 / 回填覆盖非空 / 在飞禁用终端 / 撞红线 ⇒ 必红 → 还原 PASS", async () => {
+test("S0PP-B 反证族：三 id 回流 / hidden 冒充 / 回填覆盖非空 / 撞红线 ⇒ 必红 → 还原 PASS", async () => {
   const clean = await s0ppNodeReading();
   assert.deepEqual(s0ppProblems(clean), [], '基线必须全绿');
-  // 反证①：ian-1 破坏旧入口（三 id 任一不可用）⇒ 必红（N-IAN-027 / R-IAN-901）。
+  // 反证①：三 id 任一回流 DOM ⇒ 必红（N-IAN-025 / R-IAN-902）。
   assert.ok(
-    s0ppProblems({ ...clean, legacyIds: ['composer', 'input'] }).some((p) => p.includes('S0PP-A2') && p.includes('#send')),
-    '旧入口三 id 缺一 ⇒ 必红',
+    s0ppProblems({ ...clean, legacyIdsGone: ['composer'] }).some((p) => p.includes('S0PP-B2') && p.includes('#composer')),
+    '三 id 回流 ⇒ 必红',
   );
-  // 反证②：旧入口断线（composer submit 不再调 requestTurn）⇒ 必红。
-  const broken = readSrc(SIDEPANEL_REL).replace('if (requestTurn(input.value)) {', 'if (false) {');
-  assert.notEqual(broken, readSrc(SIDEPANEL_REL), '前置：旧入口注入锚点必须存在');
-  assert.equal(legacyEntryWired(broken), false, '断线后接线判据必须为 false（判据非恒真）');
+  // 反证②：注入 `<form id=composer hidden>`（真退役被实现成 hidden）⇒ 必红。
+  assert.equal(clean.composerInjected, false, '干净读数不得检出注入（生产真值）');
+  assert.equal(clean.injectionDetected, true, '注入检测必须为真（判据非恒真）');
   assert.ok(
-    s0ppProblems({ ...clean, legacyEntry: 'broken' }).some((p) => p.includes('S0PP-A1')),
-    '旧入口断线 ⇒ 必红',
+    s0ppProblems({ ...clean, composerInjected: true }).some((p) => p.includes('S0PP-B2') && p.includes('hidden')),
+    'hidden 冒充退役 ⇒ 必红',
   );
   // 反证③：回填覆盖非空 ⇒ 必红（复现「回填覆盖用户新输入」）。
   assert.ok(
-    s0ppProblems({ ...clean, backfillOverwrote: true }).some((p) => p.includes('S0PP-A4') && p.includes('覆盖非空')),
+    s0ppProblems({ ...clean, backfillOverwrote: true }).some((p) => p.includes('S0PP-B4') && p.includes('覆盖非空')),
     '回填覆盖非空 ⇒ 必红',
   );
-  // 反证④：新入口不经 op.turn 槽（自造第二回合入口）⇒ 必红。
+  // 反证④：第二回合入口（不经 op.turn 槽 / requestTurn 计数 ≠ 1）⇒ 必红。
   assert.ok(
-    s0ppProblems({ ...clean, submitSlot: 'op.ghost' }).some((p) => p.includes('S0PP-A3')),
+    s0ppProblems({ ...clean, submitSlot: 'op.ghost' }).some((p) => p.includes('S0PP-B3')),
     '第二回合入口 ⇒ 必红',
   );
-  // 反证⑤：双载体退化为单载体（流内不回填）⇒ 必红。
   assert.ok(
-    s0ppProblems({ ...clean, backfillCard: null }).some((p) => p.includes('S0PP-A4')),
+    s0ppProblems({ ...clean, requestTurnCallSites: 2 }).some((p) => p.includes('S0PP-B3')),
+    'requestTurn 计数回退到 2 ⇒ 必红',
+  );
+  // 反证⑤：唯一回填载体退化（流内不回填 / 流外写点回流）⇒ 必红。
+  assert.ok(
+    s0ppProblems({ ...clean, backfillCard: null }).some((p) => p.includes('S0PP-B4')),
     '流内载体缺失 ⇒ 必红',
   );
-  // 反证⑥：撞红线（KIND_SET 41 / ACT_TO_OP 7 / 冻结面漂移）⇒ 各必红。
-  assert.ok(s0ppProblems({ ...clean, kindSetSize: 41 }).some((p) => p.includes('S0PP-A6')), 'KIND_SET 越界 ⇒ 必红');
-  assert.ok(s0ppProblems({ ...clean, actToOpSize: 7 }).some((p) => p.includes('S0PP-A6')), 'ACT_TO_OP 越界 ⇒ 必红');
   assert.ok(
-    s0ppProblems({ ...clean, freeze: { contentBytes: 177077, pickBytes: 34358 } }).some((p) => p.includes('S0PP-A7')),
+    s0ppProblems({ ...clean, backfillInput: true }).some((p) => p.includes('S0PP-B4') && p.includes('流外')),
+    '流外写点回流 ⇒ 必红',
+  );
+  // 反证⑥：撞红线（KIND_SET 41 / ACT_TO_OP 7 / 冻结面漂移）⇒ 各必红。
+  assert.ok(s0ppProblems({ ...clean, kindSetSize: 41 }).some((p) => p.includes('S0PP-B6')), 'KIND_SET 越界 ⇒ 必红');
+  assert.ok(s0ppProblems({ ...clean, actToOpSize: 7 }).some((p) => p.includes('S0PP-B6')), 'ACT_TO_OP 越界 ⇒ 必红');
+  assert.ok(
+    s0ppProblems({ ...clean, freeze: { contentBytes: 177077, pickBytes: 34358 } }).some((p) => p.includes('S0PP-B7')),
     '冻结面漂移 ⇒ 必红',
   );
   // 反证⑦：留痕含用户内容值（法八）⇒ 必红。
@@ -1226,25 +1238,32 @@ test("S0PP-A 反证族：破坏旧入口 / 回填覆盖非空 / 在飞禁用终�
   assert.deepEqual(s0ppProblems(await s0ppNodeReading()), []);
 });
 
-test("S0PP-A 真源切片：新入口经生产 op.turn 槽（零第二回合入口）∧ 既有 S0/S0′ 环节逐字保留", () => {
+test("S0PP-B 真源切片：唯一入口经生产 op.turn 槽（零第二回合入口）∧ 既有 S0/S0′ 环节逐字保留", () => {
   const panelSrc = readSrc(SIDEPANEL_REL);
-  // 旧入口与 op 槽**共用**唯一 `requestTurn`（叶1 仍恰 2：composer submit + op.turn 槽）。
+  const html = readSrc(INDEX_HTML_REL);
+  // 唯一回合入口仍发 chat user 载荷；`requestTurn(` 终态恰 1。
   assert.match(panelSrc, /makeMessage\('chat',\s*\{\s*user:\s*trimmed/, '唯一回合入口必须仍发 chat user 载荷');
-  assert.equal(ian1CallSites(panelSrc, 'requestTurn'), 2, '叶1 唯一回合入口仍恰 2（composer submit + op.turn 槽）');
-  // 新入口提交体经 `dispatchOp('op.turn')`（不新增直连）。
+  assert.equal(ian1CallSites(panelSrc, 'requestTurn'), 1, '★ IAN-2 唯一回合入口恰 1（op.turn 槽）');
+  // 唯一入口提交体经 `dispatchOp('op.turn')`（不新增直连）。
   const submitSlice = panelSrc.slice(panelSrc.indexOf('function submitFreeInput('), panelSrc.indexOf('function submitFreeInput(') + 1200);
-  assert.match(submitSlice, /dispatchOp\('op\.turn',\s*\{\s*value:\s*text\s*\}\)/, '新入口必须经生产 op.turn 槽');
-  assert.equal(/requestTurn\s*\(/.test(submitSlice), false, '新入口不得新增 requestTurn( 直连');
-  // 双回填载体在**同一** busy-rejected 分支（互不覆盖）。
+  assert.match(submitSlice, /dispatchOp\('op\.turn',\s*\{\s*value:\s*text\s*\}\)/, '唯一入口必须经生产 op.turn 槽');
+  assert.equal(/requestTurn\s*\(/.test(submitSlice), false, '唯一入口不得新增 requestTurn( 直连');
+  // 唯一回填载体在 busy-rejected 分支；流外写点零命中。
   assert.match(panelSrc, /restoreFreeInputDraft\(rejected\)/, '流内回填必须真的接线');
-  assert.match(panelSrc, /draftInput\.value\s*=\s*rejected/, '流外回填必须逐字保留');
+  assert.equal(composerSubmitWired(panelSrc), false, '旧 composer submit 监听必须真退役');
+  assert.equal(/draftInput\.value\s*=\s*rejected/.test(panelSrc), false, '流外 #input 写点必须零命中');
+  // 静态标记：三 id 与旧 form 零命中。
+  for (const id of S0PP_LEGACY_IDS) {
+    assert.equal(new RegExp(`\\sid="${id}"`).test(html), false, `#${id} 必须 DOM 零命中（真退役）`);
+  }
+  assert.equal(/<form id="composer"/.test(html), false, '#composer form 必须 DOM 移除');
   // 既有两条链的样本逐字保留（禁因本叶改名 / 换序）。
   assert.equal(S0_CHAIN.length, 10, 'S0 十环节不动');
-  assert.equal(S0PP_CHAIN.length, 10, "S0''-A 十环节（本叶新增）");
+  assert.equal(S0PP_CHAIN.length, 10, "S0''-B 十环节（本叶升级）");
   assert.notDeepEqual(
     S0PP_CHAIN.map((b) => b.id),
     S0_CHAIN.map((b) => b.id),
-    "S0''-A 与 S0 不得是同一条链（两组 id 独立）",
+    "S0''-B 与 S0 不得是同一条链（两组 id 独立）",
   );
   for (const j of S0PP_JUDGEMENTS) {
     assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 不得占位`);

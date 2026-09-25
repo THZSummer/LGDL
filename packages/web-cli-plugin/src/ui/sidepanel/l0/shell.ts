@@ -31,7 +31,7 @@ export interface L0Handle {
   update(input: L0Input): L0View;
   /** Current derived view (for diagnostics / gates). */
   view(): L0View | null;
-  /** ADR-V3-014 §5: open the fallback input + full-text composer. */
+  /** IAN-2 (ADR-IAN-004 §①): open the **in-card** fallback input (`.ask-fallback`). */
   revealFallback(): void;
   hideFallback(): void;
   /** L2 entry point (v3-3: the real view replacement / settings view). */
@@ -85,23 +85,18 @@ export function mountL0(deps: MountL0Deps): L0Handle {
   // shell's `#l0-receipt-summary` is a **迁移容器** (review R1 BLOCK-01) — the id moves
   // with its content into the newest card's `.card-fixed` (`l1/panels.ts`), so it is NOT
   // retired and must not be listed in `RETIRED_CONTAINER_IDS`.
-  // What survives here is the secondary full-text channel (ADR-V3-014 §5): revealing the
-  // fallback also reveals `#composer`.
+  // ★ IAN-2（ADR-IAN-004 §①「停引」/ ADR-IAN-005 §①）：`#composer` 真退役（DOM 移除，
+  // 非 `hidden`）——本 shell 的 fallback **只**操作卡内 `.ask-fallback`：保留
+  // `revealAskFallback()` 对 `l0?.revealFallback()` 的调用（PD-IAN-007），但调用链内
+  // **零流外面**（写入面收敛到卡内 ⇒ 唯一输入载体）。四处兜底入口因此不再出现「双 reveal」。
   const revealFallback = (): void => {
     // I-03 (v4-3 review): go through the ask card's own mutual-disclosure function so
     // the「改用描述」entry point and the in-card「其他…」toggle produce the SAME DOM
     // state (options collapsed while the fallback is open ⇒ 4 clickables ≤ 6).
     setAskFallbackOpen(doc, true);
-    // ADR-V3-014 §5 kept: `#composer` is the *secondary* full-text channel **inside**
-    // the fallback state — never resident, but revealed together with the fallback
-    // input (the existing page-input/binding flows depend on it).
-    const composer = doc.getElementById('composer') as HTMLElement | null;
-    if (composer) composer.hidden = false;
   };
   const hideFallback = (): void => {
     setAskFallbackOpen(doc, false);
-    const composer = doc.getElementById('composer') as HTMLElement | null;
-    if (composer) composer.hidden = true;
   };
 
   // The policy badge is a read-only third channel next to the status text; it is

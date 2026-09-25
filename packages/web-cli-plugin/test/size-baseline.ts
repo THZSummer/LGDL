@@ -378,7 +378,7 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * +15% 上界（+2.9~+5.2 KB）—— 按「越叶预算登记不停机」显式登记，`authorConfirmation` 保持
  * `pending-author-line`（**不伪称已确认**）。
  */
-export const SIDEPANEL_BASELINE_BYTES = 599_125;
+export const SIDEPANEL_BASELINE_BYTES = 598_577;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -491,6 +491,18 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
    //   整叶 591,946 → 599,125 = +7,179 B（逐模块 `ian1Rows`，Σ +7,179 + glue 0）。
    //   生效上限 = floor(599,125 × 1.05) = **629,081**（旧生效上限 628,196 未越 ⇒ EC-IAN-016 二态均「否」）。
    599_125,
+   // 〖★ IAN-2 R1（2026-09-25，leaf specs-tree-ian-2-abolish-composer；W04+W05+W06）〗废除 `#composer`
+   //   + 法四修订叶的**叶2 净负增量登记**：599,125 → 598,577 B（-548 B，-0.09%）；
+   //   逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows`（`sidepanel.ts` −518 / `l0/shell.ts` −199 /
+   //   `disclosure.ts` −16 / `view-model.ts` +137 / `host-registry.ts` +48；Σ 模块 **−548** + glue **0**
+   //   == 599,125 → 598,577 的叶2增量）。
+   //   ⚠️ **口径**：A 列（`sidepanel.js`）为**净负**，但 `ADR-IAN-010 §②` 目标带 −2.5~−1.0 KB **未达**
+   //   （实测 −548 B ⇒ 落在**严格口径** −1.2~+0.3 KB 之内、A 列带之外）—— 按 FR-IAN-115 / R-IAN-908
+   //   **如实登记不停机**（不删判据 / 不放宽容差 / 不搬码规避）。DOM/CSS 退役（`index.html`）经
+   //   `build.mjs:95` `copyFile` 进 `dist/sidepanel.html`，**不进** `sidepanel.js` 账本（ADR-IAN-010 §③）。
+   //   档位 `ceilTo50KB(598,577) = 614,400` 与绝对上限 675,840 **均不变**（未跨档位）；
+   //   生效上限 = floor(598,577 × 1.05) = **628,505**（旧生效上限 629,081 **下调** ⇒ EC-IAN-016 二态均「否」）。
+   598_577,
 ] as const;
 
 /**
@@ -552,7 +564,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 599_125;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_577;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -565,7 +577,8 @@ export const SIDEPANEL_BASELINE_META = {
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
-    'SDDU **IAN-1 R2（2026-09-25, leaf specs-tree-ian-1-free-input-next；W3 = TASK-IAN-117~127；**叶1 收口终值登记**）**: re-registered on the FINAL artifact — 598,282 → **599,125 B**（**+843 B，+0.14%**）— ' +
+    '★ SDDU **IAN-2 R1（2026-09-25, leaf specs-tree-ian-2-abolish-composer；W04+W05+W06；叶2 净负增量登记）**: re-registered on the FINAL artifact — 599,125 → 598,577 B（-548 B，-0.09%）— 停引删面（`#composer` 三 id 真退役 / 写者消解 / `NEVER_FOLDABLE` 14→13 / `RETIRED_CONTAINER_IDS` 13→16）+ 兜底收敛 + `#send-reason`/`sendDisabled`/draft 重锚 + 法四原地修订 + journey 保护段八步取代。逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows`（`sidepanel.ts` −518 / `l0/shell.ts` −199 / `disclosure.ts` −16 / `view-model.ts` +137 / `host-registry.ts` +48；Σ −548 + glue 0 == 599,125 → 598,577）；档位 614,400 / 绝对上限 675,840 均不动；生效上限 floor(598,577 × 1.05) = **628,505**；`content.js` 177,076 B / `pick-layer.js` 34,358 B 逐字节不变；`authorConfirmation` 保持 `pending-author-line`。' +
+    'Previous round: SDDU **IAN-1 R2（2026-09-25, leaf specs-tree-ian-1-free-input-next；W3 = TASK-IAN-117~127；**叶1 收口终值登记**）**: re-registered on the FINAL artifact — 598,282 → **599,125 B**（**+843 B，+0.14%**）— ' +
     'W3（收口轮）A 列唯一源码改动 = `sidepanel.ts#restoreFreeInputDraft`（`busy-rejected` 的**流内回填载体**：仅当输入处为空 ⇒ 不覆盖 / 卡收起 ⇒ 重展开 / 卡不存在 ⇒ 按需铸造；三结果可读行 `BUSY_REJECTED_CARD_TEXT` 单源）+ 「叶1 双入口并存」中间态保护（S0″-A 双面）+ FIN-7/8 门禁补全 + 体积收口；' +
     '**整叶**（W1+W2+W3）逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian1Rows`（`sidepanel.ts` 111,308 → 114,667（+3,359）/ providers.ts +957 / cards/askuser.ts +944 / recommend.ts +730 / cards/nextstep.ts +464 / view-model.ts +223 / stream-plaintext.ts +202 / chat-state.ts +103 / ai-drive.ts +99 / dispatch.ts +77 / ops.ts +21；Σ 模块 **+7,179** + glue **0** == 591,946 → 599,125 的整叶增量）；' +
     '档位 614,400 / 绝对上限 675,840 均不动（599,125 < 614,400 ⇒ 未跨档位），生效上限 = floor(599,125 × 1.05) = **629,081**；`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；' +
@@ -634,7 +647,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 599_125,
+  finalArtifactBytes: 598_577,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -2444,6 +2457,34 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [598_282, 591_946],
     ceilingUncappedFormulaBytes: 629_081,
   },
+  {
+    id: 'ian-2-r1',
+    direction: 'lowered',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-ian-2-abolish-composer',
+    date: '2026-09-25',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU IAN-2 R1（2026-09-25，leaf specs-tree-ian-2-abolish-composer；W04+W05+W06；叶2 净负增量登记）',
+    reason:
+      '**IAN-2 R1 叶2 净负增量登记（诚实登记不停机）：599,125 → 598,577 B（-548 B，-0.09%）**。' +
+      '废除 `#composer` 流外输入面（DOM/CSS 真退役，非 `hidden`）+ 写者消解（`syncComposerVisibility` / `fallbackOpen` / `#send` writer / composer submit 监听）+ `NEVER_FOLDABLE` 14→13 + `RETIRED_CONTAINER_IDS` 13→16 + `AskFlowView` 重锚（禁用仅异常态）+ draft 重锚到流内载体。' +
+      '真实 metafile 逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows`：' +
+      '`sidepanel.ts` 114,667 → **114,149（−518）** / `l0/shell.ts` 3,286 → **3,087（−199）** / `disclosure.ts` 6,481 → **6,465（−16）** / ' +
+      '`view-model.ts` 24,622 → **24,759（+137）** / `host-registry.ts` 9,273 → **9,321（+48）**；Σ 模块 **−548** + 未归因胶水 **0** == 登记增量 **−548**。' +
+      '**档位与绝对上限均不变**（`ceilTo50KB(598,577) = 614,400`、675,840）；生效上限 = `min(675,840, floor(598,577 × 1.05) = 628,505) = 628,505`（旧生效上限 629,081 **下调**）。' +
+      '**EC-IAN-016 二态显式**：越**生效上限** = 否 / 越**档位** = 否 / 越**绝对上限** = 否 ⇒ 三档均未触发（`authorConfirmation` 保持 `pending-author-line`，**不伪称已确认**）。' +
+      '⚠️ **口径如实登记**：A 列为**净负**（−548 B），但 `ADR-IAN-010 §②` 目标带 −2.5~−1.0 KB **未达**（落在**严格口径** −1.2~+0.3 KB 之内）—— 按 `FR-IAN-115` / `R-IAN-908` 显式登记，不删判据 / 不放宽容差 / 不搬码规避；' +
+      'DOM/CSS 退役（`index.html` 三 id + 6 条 CSS）经 `build.mjs:95` `copyFile` 进 `dist/sidepanel.html`，**不进** `sidepanel.js` 账本（`ADR-IAN-010 §③`）。' +
+      '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减**。',
+    baselineBeforeBytes: 599_125,
+    baselineAfterBytes: 598_577,
+    ceilingBeforeBytes: 629_081,
+    ceilingAfterBytes: 628_505,
+    assertionNonRemovalEntries: ['IAN2-E-VOL-1', 'IAN1-E-VOL-1', 'V55F2-E-VOL-1'],
+    historyRetainedBytes: [599_125, 598_282, 591_946],
+    ceilingUncappedFormulaBytes: 628_505,
+  },
 ] as const;
 
 /**
@@ -2490,7 +2531,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 累计：当前基线 − `baselineReferenceBytes`（**557,883 − 295,225 = 262,658**；
    * V5.5-1 review R1 修复轮为 557,761 − 295,225 = 262,536 再加本轮 +122）。
    */
-  deltaBytes: 303_900,
+  deltaBytes: 303_352,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 上一轮登记值`（`size-growth-evidence.test.ts` 直接机核该等式）。
    * 〖R4 缺陷修复轮（2026-09-22）〗最新一轮 = `r4-selector-fix` ⇒ 本字段 = `549,609 − 547,558 = **2,051**`
@@ -2506,7 +2547,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 843,
+  closeoutDeltaBytes: -548,
   newRequiredModuleBytes: 195_562,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
@@ -2528,7 +2569,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 但 `view-model.ts` 的 esbuild **分摊位移** −68 B 同时被重算（19,654 → 19,586），因此本字段（= delta − Σrows）
    * 回到与 build 轮相同的 1,060 B；`attributionShiftBytes` 265 与「未解释字节 <1,500 ∧ <2%」判据不变（实测 1,325 / 1.02%）。
    */
-  unattributedHelperDeltaBytes: 2_102,
+  unattributedHelperDeltaBytes: 1_554,
   /** 模块路径互不相同（无重复模块）；共享 v2 模块增量为 0（复用非复制）。 */
   duplicationCheck:
     '输入模块数 **88**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**；**V5-1 R1 新增 5 个必需模块**（`next-registry/{definition,registry,pipeline,providers,dispatch}.ts`：Definition / Provider / 管线 / 内置 provider / 瘦分发）⇒ 78 + 5 = **83**；**V5-2 R1/R2 再新增 3 个必需模块**（`shared/op-table.ts` 双侧同源描述符表 + `next-registry/ops.ts` 9 op 执行体 + `next-registry/snapshot.ts` 三表快照）⇒ 83 + 3 = **86**；**V5-2 review R1 修复轮再新增 1 个必需模块**（`settings/op-bodies.ts`：与面无关的四类执行体，面板与 options 共用）⇒ 86 + 1 = **87**；**V5.5-1 R1 再新增 1 个必需模块**（`next-registry/drivers.ts`：驱动者声明单源 + 四元组 + `CTX_FIELD_SERVICE`）⇒ 87 + 1 = **88**；**V5.5-2 R1 再新增 2 个必需模块**（`next-registry/onboarding-flow.ts`：引导流恰 4 步单源 + `next-registry/suspension.ts`：配置悬置任务单源 + `MAX_SUSPENSIONS = 1`）⇒ 88 + 2 = **90**；**V5.5-3 R1 再新增 1 个必需模块**（`next-registry/ai-drive.ts`：`pressCandidate` 单源 + 档位矩阵 + 留痕三要素）⇒ 90 + 1 = **91**；**V5.5F-1 再新增 1 个必需模块**（`l1/ref-scope.ts`：引用快照投影 + 法九读数单源 + 写闸裁决）⇒ 91 + 1 = **92**；**V5.5F-1 R2（W3+W4）再新增 2 个必需模块**（`src/tools/dom-anchor.ts` 包装层 + `src/background/ref-observe.ts` 单实现 live 单节点闸 —— 两者都在 `background.js` bundle，**不进本产物**，但真实 metafile 的 `inputs` 计数包含它们 ⇒ 92 + 2 = **94**），见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows；**V5.5-3 R2 再新增 1 个必需模块**（`next-registry/guard.ts`：护栏六常量单源 / 越限抑制判据 / 关断偏好读写）⇒ 91 + 1 = **92**），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +
@@ -2816,9 +2857,12 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     v55f1R1R2Rows: 'v55f-1-r2',
     v55f2R1R2Rows: 'v55f-2-r2',
     ian1R1Rows: 'ian-1-r1',
-    // 〖IAN-1 R2（2026-09-25，W3 = 叶1 收口终值）〗**最新一轮** = 本组（Σ +843 + glue 0 == 598,282 → 599,125）。
+    // 〖IAN-1 R2（2026-09-25，W3 = 叶1 收口终值）〗历史轮（Σ +843 + glue 0 == 598,282 → 599,125）。
     // （`ian1Rows` 是**整叶**聚合组，不映射单轮登记 → 不进 N-05 round-row 组表。）
     ian1R2Rows: 'ian-1-r2',
+    // 〖★ IAN-2 R1（2026-09-25，leaf specs-tree-ian-2-abolish-composer）〗**最新一轮** = 本组
+    // （Σ −548 + glue 0 == 599,125 → 598,577 的净负增量）。
+    ian2Rows: 'ian-2-r1',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -3319,6 +3363,27 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as const,
   /** 〖IAN-1 R2〗单轮未归因运行时胶水 = 0 B。 */
   ian1R2UnattributedGlueBytes: 0,
+  /**
+   * 〖★ IAN-2 R1（2026-09-25，leaf `specs-tree-ian-2-abolish-composer`）〗
+   * **叶2 净负轮**逐模块增量（N-05 round-row 组）：599,125 → 598,577（**−548 B**）。
+   * `beforeBytes` = IAN-1 R2 收口终值的真实 metafile；`afterBytes` = 当前真实 metafile。
+   * 全部为**既有模块的增删**（零新模块）：`sidepanel.ts` −518（删 `syncComposerVisibility` /
+   * `fallbackOpen` / `#send` writer / composer submit 监听 / 流外回填；加 draft 重锚 + 注释）/
+   * `l0/shell.ts` −199（停引：去 `composer.hidden` 写入面）/ `disclosure.ts` −16（`NEVER_FOLDABLE`
+   * 14→13）/ `view-model.ts` +137（`AskFlowView` 重锚 `!hasOrigin` + `sendDisabledReason` 分流）/
+   * `host-registry.ts` +48（容器册 13→16 + PRESERVED 注释同步）。Σ **−548** + glue **0** == 登记增量 **−548**。
+   * ⚠️ 如实登记：净负 **−548 B** 落在严格口径（−1.2~+0.3 KB）之内，但**未达** A 列目标带
+   * （−2.5~−1.0 KB）；DOM/CSS 退役不进 `sidepanel.js` 账本（ADR-IAN-010 §③）。
+   */
+  ian2Rows: [
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 114_667, afterBytes: 114_149, deltaBytes: -518 },
+    { module: 'src/ui/sidepanel/l0/shell.ts', beforeBytes: 3_286, afterBytes: 3_087, deltaBytes: -199 },
+    { module: 'src/ui/sidepanel/disclosure.ts', beforeBytes: 6_481, afterBytes: 6_465, deltaBytes: -16 },
+    { module: 'src/ui/sidepanel/view-model.ts', beforeBytes: 24_622, afterBytes: 24_759, deltaBytes: 137 },
+    { module: 'src/ui/sidepanel/host-registry.ts', beforeBytes: 9_273, afterBytes: 9_321, deltaBytes: 48 },
+  ] as const,
+  /** 〖IAN-2 R1〗单轮未归因运行时胶水 = 0 B（Σ 模块 −548 == 登记增量 −548）。 */
+  ian2UnattributedGlueBytes: 0,
   v551FixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 99_566, afterBytes: 99_688, deltaBytes: 122 },
   ] as const,
