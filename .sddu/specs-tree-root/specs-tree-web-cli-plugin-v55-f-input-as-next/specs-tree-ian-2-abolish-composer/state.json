@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-ian-2-abolish-composer",
   "version": "v0.11.2",
   "name": "IAN-2 废除 #composer + 法四修订——#composer/#input/#send DOM 真退役（非 hidden）+ CSS 退役 + 双写者（syncComposerVisibility）/ fallbackOpen 锁存 / 设置态漏调护栏一并消解 + 测试钩子 / NEVER_FOLDABLE / 兼容读取面登记退役 + 四处兜底收敛终态（去「双 reveal」）+ #send-reason / sendDisabled / draft / 引导重锚 + 法四原地修订（old→new 逐字 + 台账；不升格法十）+ 18 门禁逐一处置 + 2 保护段逐段决策 + 体积净负增量重登记 + S0''-B 终态样板",
-  "phase": "builded",
+  "phase": "reviewed",
   "status": "tracked",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "workflow": "6.review",
+  "agent": "sddu-review",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
   "childrens": [],
@@ -60,7 +60,10 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/build.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/review-report.md"
   ],
   "coversFr": [
     "FR-IAN-040~049",
@@ -149,6 +152,14 @@
       "date": "2026-09-25",
       "agent": "sddu-build",
       "note": "T220/T222/T223/T225 终态；门禁 1441/0；体积终值 598,577（Δ 0）。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-25",
+      "agent": "sddu-review",
+      "artifact": "specs-tree-ian-2-abolish-composer/review.md v1.0（C1~C31 审查策略）+ review-report.md v1.0（R1）",
+      "note": "review R1（非通过）：亲跑 npm test 1441/0 + supersession 48/0 + gate-integrity 24/0 + S0''-B 82/0 + journey 171 + insight 125 + l0 251 + l1 132 + binding 192 + law8 60 + recommendation 79 + dead-end 53 + size-ruling-vol3 13/0 + insight-no-escalation 21/0 + law4 5/0；三冻结面 sha 逐字节；journey 新 pin 7b309258…/43484..59347/249 与 binding keep be9ad0e9…/107780 复算吻合。结论 ❌ 不通过：BLOCK-01 = 法四修订 old→new 逐字台账缺失 + 「半修即红」无判据载体（FR-IAN-060~062 / AC-IAN-008）；BLOCK-02 = X-IAN-1~11 台账编号语义冲突 + 父 §12 条目缺位（FR-IAN-080~091/102 / AC-IAN-010/020；TASK-IAN-215 仅完成 X-IAN-8~11）。另有 4 I（density 陈旧字段 / settings 文案 / settings 门禁 disposition / xIianLedgerLeaf2 行字段缺 old-new）。修复仅需 docs/*.json + test/**（src 零改动）。"
     }
   ],
   "openPointsRuled": [
@@ -177,5 +188,5 @@
     "volume": "A 列目标净负 −2.5~−1.0 KB（严格口径 −1.2~+0.3 KB）；收口重登记 TASK-IAN-224（含两叶 Σ）",
     "note": "25 任务 / 3 波：W1 拆除（停引 → DOM/CSS 退役 → 写者消解 → 钩子重锚 → op-wiring 重锚同轮 → 登记退役）→ W2 重锚与唯一化（四兜底收敛 + #send-reason/sendDisabled/draft/引导 + R6 唯一化 + node 门禁重锚）→ W3 立法/门禁/保护段/验收（法四修订 + 台账 + 法四门禁 + journey 八步 + binding keep + S0''-B + 体积净负）。波次细化：op-wiring 重锚前移至 W1（与删面同轮）。硬依赖叶1 validated。"
   },
-  "note": " 〖R2（W06 收口轮）〗T220 三 Chromium 门禁法四等价重锚（显式 supersession 登记：redlineRemap 7→8 + 新叶段 R2-W6 + modifiedRanges +19；zeroDiffFiles 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 X-IAN-8~11 终态 · T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + KL-N-10 隔离复跑 · T225 20 行门禁三态对账 + 体积终值五要素/两叶 Σ +6,631/EC-IAN-016 三态；npm test 1437 → 1441/0，supersession 45 → 48/0；25/25 终态。"
+  "note": " 〖R2（W06 收口轮）〗T220 三 Chromium 门禁法四等价重锚（显式 supersession 登记：redlineRemap 7→8 + 新叶段 R2-W6 + modifiedRanges +19；zeroDiffFiles 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 X-IAN-8~11 终态 · T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + KL-N-10 隔离复跑 · T225 20 行门禁三态对账 + 体积终值五要素/两叶 Σ +6,631/EC-IAN-016 三态；npm test 1437 → 1441/0，supersession 45 → 48/0；25/25 终态。 〖review R1（2026-09-25）〗31 项审查（27 ✅ / 1 ⚠️ / 2 ❌ → 2 BLOCK）；亲跑全量门禁 1441 node + Chromium 全绿；结论 ❌ 不通过（BLOCK-01 法四 old→new 台账缺失 + 半修无判据；BLOCK-02 X-IAN-1~11 台账编号冲突/条目缺位）；4 I。报告 = review.md + review-report.md。"
 }
