@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-ian-2-abolish-composer",
   "version": "v0.11.2",
   "name": "IAN-2 废除 #composer + 法四修订——#composer/#input/#send DOM 真退役（非 hidden）+ CSS 退役 + 双写者（syncComposerVisibility）/ fallbackOpen 锁存 / 设置态漏调护栏一并消解 + 测试钩子 / NEVER_FOLDABLE / 兼容读取面登记退役 + 四处兜底收敛终态（去「双 reveal」）+ #send-reason / sendDisabled / draft / 引导重锚 + 法四原地修订（old→new 逐字 + 台账；不升格法十）+ 18 门禁逐一处置 + 2 保护段逐段决策 + 体积净负增量重登记 + S0''-B 终态样板",
-  "phase": "reviewed",
-  "status": "tracked",
-  "workflow": "6.review",
-  "agent": "sddu-review",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-input-as-next",
   "childrens": [],
@@ -16,7 +16,7 @@
     "specs-tree-ian-1-free-input-next"
   ],
   "createdAt": "2026-09-24",
-  "updatedAt": "2026-09-25",
+  "updatedAt": "2026-09-26",
   "description": "本叶 = F-35 的末叶 / 拆除叶（依赖叶1 已建立流内输入面 ⇒ 拆旧面后仍必有流内输入可用），交付「把那块本就自相矛盾的流外面真退役 + 把立法与门禁强度同步重锚」的那一层：#composer/#input/#send DOM 真退役（非 hidden）+ 6 条 CSS 规则退役 + 双写者消解（删 syncComposerVisibility 及两个调用点；l0.revealFallback/hideFallback 只操作卡内 .ask-fallback）+ fallbackOpen 历史锁存删除 + 设置态漏调护栏随面消解（三区 CSS 逐字不变）+ 测试钩子 __v3.testing.revealFallback/hideFallback 重锚（或台账退役）+ NEVER_FOLDABLE 移除 composer + 兼容读取面登记退役（PRESERVED 移除三项 + #composer 入 RETIRED_CONTAINER_IDS，13 → ≥14）+ 四处兜底入口收敛终态（停止附带 reveal 流外面；卡内为唯一兜底输入载体）+ #send-reason 保留但断言重锚（状态提示 ≠ 输入面）+ sendDisabled/sendDisabledReason/draft 重锚 + 首装引导改指 + 法四原地修订（old→new 逐字：输入按需出现：无常驻输入框… → 输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面；三处一致；不升格法十）+ supersession 台账 old→new（老 redlineRemap ≥3 保留）+ 法四机核门禁 test/law4-input-as-next.test.ts + requestTurn( 重锚恰 1 + R6 入口/回填载体唯一化 + TA-4 重锚（删回填仍必红）+ 18 门禁逐一处置（node 10 + Chromium 8，三态齐）+ 2 保护段逐段决策（journey 43054..58287 / sha cc79f413…；binding 107780..115930 / sha be9ad0e9…；keep 字节中立或八步取代 + 台账）+ S0''-B 终态样板 + 体积净负增量收口重登记（五要素 + V3-VOL-3 三值）+ 冻结面零容差。本叶不新建流内面（叶1 已交付）、不新增 kind、不改 base/content/pick-layer/判定链/SW 队列本体、不升格法十。",
   "scope": {
     "in": [
@@ -54,7 +54,9 @@
     "parentPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/plan.md",
     "upstreamLeafPlan": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-1-free-input-next/plan.md",
     "tasks": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.md",
-    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json"
+    "tasksJson": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json",
+    "validate": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/validate.md",
+    "validationReport": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/validate-report.md"
   },
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/spec.md",
@@ -63,7 +65,9 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/tasks.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/build.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/review.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/review-report.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-input-as-next/specs-tree-ian-2-abolish-composer/validate-report.md"
   ],
   "coversFr": [
     "FR-IAN-040~049",
@@ -160,6 +164,14 @@
       "agent": "sddu-review",
       "artifact": "specs-tree-ian-2-abolish-composer/review.md v1.0（C1~C31 审查策略）+ review-report.md v1.0（R1）",
       "note": "review R1（非通过）：亲跑 npm test 1441/0 + supersession 48/0 + gate-integrity 24/0 + S0''-B 82/0 + journey 171 + insight 125 + l0 251 + l1 132 + binding 192 + law8 60 + recommendation 79 + dead-end 53 + size-ruling-vol3 13/0 + insight-no-escalation 21/0 + law4 5/0；三冻结面 sha 逐字节；journey 新 pin 7b309258…/43484..59347/249 与 binding keep be9ad0e9…/107780 复算吻合。结论 ❌ 不通过：BLOCK-01 = 法四修订 old→new 逐字台账缺失 + 「半修即红」无判据载体（FR-IAN-060~062 / AC-IAN-008）；BLOCK-02 = X-IAN-1~11 台账编号语义冲突 + 父 §12 条目缺位（FR-IAN-080~091/102 / AC-IAN-010/020；TASK-IAN-215 仅完成 X-IAN-8~11）。另有 4 I（density 陈旧字段 / settings 文案 / settings 门禁 disposition / xIianLedgerLeaf2 行字段缺 old-new）。修复仅需 docs/*.json + test/**（src 零改动）。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-26",
+      "agent": "sddu-validate",
+      "artifact": "specs-tree-ian-2-abolish-composer/validate.md v1.0（V1~V12 策略）+ validate-report.md v1.0（R1）",
+      "note": "validate R1（✅ 通过 · 0 阻塞）：亲跑 npm test **1443/0/0** + 13 组门禁（supersession 49/0 · gate-integrity 24/0 · size-ruling-vol3 13/0 · law4 6/0 · insight-no-escalation 21/0 · s0-self-driven 82/0（隔离复跑 ×2）· insight 125 · l0 251 · l1 132 · journey 171 · density 242/0）。S0''-B 双面独立复刻（三 id DOM 零命中非 hidden + 注入 hidden 必红）；法四三处逐字 + 台账 old/new + 半修必红；真退役行为级（零 composer 代码引用 + 四兜底收敛卡内）；requestTurn 恰 1 + R6 唯一回填 + 在飞不硬禁用；T220 只升不降（118→125/248→251/120→132）；保护段逐字节（journey 7b309258…/15863B/249 行 · binding be9ad0e9…/8150B/段内零退役 id）；红线/体积五要素终核（content 177,076 / pick-layer 34,358 / sidepanel 598,577 · KIND_SET 40 / 12 kind / 零宿主 / NEVER_FOLDABLE 13 / RETIRED_CONTAINER_IDS 16 · 628,505 / 614,400 / 675,840 / pending-author-line · 两叶 Σ +6,631）。注入抽验 3/3 必红 + 逐字节还原。**I-R2-01 闭环**：台账 counts 前移 48→49 / 1441→1443 + source.observed 同步 + 日志重登记，test:supersession「counts 同源机核 4 项逐条相等」（原 4 skip 清零）。8 自主验证脚本（ADR-003，exit 0）。非阻塞环境 flake 2 项（KL-N-10 家族）：s0 首轮 81/1 → 复跑 82/0；binding 运行时因机器高载 CDP 早死红（保护段字节级经 supersession 双绿、build/review 均 192 PASS），建议空闲机复跑确认。人工面 M3/M4（+M1/M2/M5）⏳ 如实登记。产物 = validate.md + validate-report.md。"
     }
   ],
   "openPointsRuled": [
@@ -188,5 +200,5 @@
     "volume": "A 列目标净负 −2.5~−1.0 KB（严格口径 −1.2~+0.3 KB）；收口重登记 TASK-IAN-224（含两叶 Σ）",
     "note": "25 任务 / 3 波：W1 拆除（停引 → DOM/CSS 退役 → 写者消解 → 钩子重锚 → op-wiring 重锚同轮 → 登记退役）→ W2 重锚与唯一化（四兜底收敛 + #send-reason/sendDisabled/draft/引导 + R6 唯一化 + node 门禁重锚）→ W3 立法/门禁/保护段/验收（法四修订 + 台账 + 法四门禁 + journey 八步 + binding keep + S0''-B + 体积净负）。波次细化：op-wiring 重锚前移至 W1（与删面同轮）。硬依赖叶1 validated。"
   },
-  "note": " 〖R2（W06 收口轮）〗T220 三 Chromium 门禁法四等价重锚（显式 supersession 登记：redlineRemap 7→8 + 新叶段 R2-W6 + modifiedRanges +19；zeroDiffFiles 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 X-IAN-8~11 终态 · T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + KL-N-10 隔离复跑 · T225 20 行门禁三态对账 + 体积终值五要素/两叶 Σ +6,631/EC-IAN-016 三态；npm test 1437 → 1441/0，supersession 45 → 48/0；25/25 终态。 〖review R1（2026-09-25）〗31 项审查（27 ✅ / 1 ⚠️ / 2 ❌ → 2 BLOCK）；亲跑全量门禁 1441 node + Chromium 全绿；结论 ❌ 不通过（BLOCK-01 法四 old→new 台账缺失 + 半修无判据；BLOCK-02 X-IAN-1~11 台账编号冲突/条目缺位）；4 I。报告 = review.md + review-report.md。"
+  "note": " 〖validate R1（2026-09-26）〗V1~V12 全绿 · **0 阻塞 / 0 严重漂移** · 结论 ✅ 通过；亲跑 npm test **1443/0/0** + 13 组门禁（supersession 49/0 · gate-integrity 24/0 · size-ruling-vol3 13/0 · law4 6/0 · insight-no-escalation 21/0 · s0-self-driven 82/0 隔离复跑 ×2 · insight 125 · l0 251 · l1 132 · journey 171 · density 242/0）；S0''-B 双面独立复刻 + 三注入必红逐字节还原；法四三处一致 + 半修必红；真退役行为级 + requestTurn 恰 1 + R6 唯一回填；T220 只升不降；保护段逐字节；红线/体积五要素终核（598,577 / 628,505 / 614,400 / 675,840 / pending-author-line · 两叶 Σ +6,631）；**I-R2-01 闭环**（counts 48→49 / 1441→1443 + N-04 4/4 同源）；非阻塞环境 flake 2（KL-N-10 家族；binding 建议空闲机复跑）；人工面 ⏳。产物 = validate.md + validate-report.md。 〖R2（W06 收口轮）〗T220 三 Chromium 门禁法四等价重锚（显式 supersession 登记：redlineRemap 7→8 + 新叶段 R2-W6 + modifiedRanges +19；zeroDiffFiles 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 X-IAN-8~11 终态 · T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + KL-N-10 隔离复跑 · T225 20 行门禁三态对账 + 体积终值五要素/两叶 Σ +6,631/EC-IAN-016 三态；npm test 1437 → 1441/0，supersession 45 → 48/0；25/25 终态。 〖review R1（2026-09-25）〗31 项审查（27 ✅ / 1 ⚠️ / 2 ❌ → 2 BLOCK）；亲跑全量门禁 1441 node + Chromium 全绿；结论 ❌ 不通过（BLOCK-01 法四 old→new 台账缺失 + 半修无判据；BLOCK-02 X-IAN-1~11 台账编号冲突/条目缺位）；4 I。报告 = review.md + review-report.md。 〖review R2（2026-09-26）〗BLOCK-01/02 闭环亲核 + 全量复扫 + 红线终核；npm test 1443/0 · supersession 49/0；0 阻塞 / 1 残留 I-R2-01（counts 滞后）· 结论 ⚠️ 有条件通过；报告 = review-report.md v1.1（R2）。"
 }
