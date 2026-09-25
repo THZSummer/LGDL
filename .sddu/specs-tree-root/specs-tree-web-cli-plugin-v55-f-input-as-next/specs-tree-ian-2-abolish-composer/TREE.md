@@ -18,7 +18,7 @@ specs-tree-ian-2-abolish-composer/
 ## 文件说明
 | 文件 | 说明 | 状态 |
 |------|------|------|
-| build.md | 构建报告：specs-tree-ian-2-abolish-composer（IAN-2 废除 `#composer` + 法四修订：DOM 真退役 + 判据重锚） — 1. **`insight.mjs` / `l0.mjs` / `l1.mjs` 三 Chromium 重锚回退（TASK-IAN-220 部分留 R2）... | ✅ 存在 |
+| build.md | 构建报告：specs-tree-ian-2-abolish-composer（IAN-2 废除 `#composer` + 法四修订：DOM 真退役 + 判据重锚） — R1 曾以「须解冻冻结的 `docs/v3-supersession-ledger.json`（v4 `zeroDiffFiles` 成员）⇒ 会降级 R... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-ian-2-abolish-composer（IAN-2 废除 `#composer` + 法四修订：DOM 真退役 + 判据重锚） — 1. **W1 拆除**：停引（步1）→ DOM/CSS 退役（步2）→ 写者消解 + 钩子重锚（步3）→ 登记退役（步4）。 | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-ian-2-abolish-composer（IAN-2 废除 #composer + 法四修订：DOM 真退役 + 判据重锚） — 父规范 §2.2~§2.5 的**废面根因**全部落在本叶：`#composer` 是唯一「自由文本 → 发起回合」流外面（`index.html:141... | ✅ 存在 |
 | state.json | 状态文件 | 🟢 tracked [builded] |
