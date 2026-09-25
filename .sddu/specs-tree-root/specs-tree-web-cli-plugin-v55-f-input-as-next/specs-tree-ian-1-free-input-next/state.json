@@ -119,6 +119,26 @@
     "PD-IAN-005 是否需新 data-act 名（须满足「不新增 kind」前提）"
   ],
   "notes": "本叶 = F-35 首叶 / 底座叶，P0，交付顺序 1/2，无上游叶依赖。执行序 7 步：先立新面（provider + 卡内输入）→ 通道与手输语义（op.turn 槽 + driver 两值 + 让位语义）→ R6 双入口与回填 → 兜底载体内接线 → a11y → 新门禁 + S0''-A + 反证 → 体积叶1 重登记 + 门禁治理骨架。关键纪律：#composer 本叶【不删】（中间态保护，S0''-A 双入口必绿）；requestTurn( 计数本叶【不变】（重锚恰 1 由叶2 落地）；法四本叶【不动】（叶2 修订）。体积叶1 = 正增量 +2.5~4.5 KB（父 §5.11.1）。完成协议：phase → specified / status → tracked；state.json 由 spec Agent 直接写入（sddu_update_state 等价物）；ROADMAP 零 diff。",
+  "closeout": {
+    "round": "v55-f-input-as-next ian-1 叶收口（F-35 首叶 / 底座叶；父 specs-tree-web-cli-plugin-v55-f-input-as-next）",
+    "date": "2026-09-26",
+    "authorization": "编排器代作者决策（继承 F-30 / F-31 / F-32 / F-33 / F-34 父收口先例；作者已授权编排器代行决策、SDDU 全流程自行调度）",
+    "author": "sddu-build",
+    "conclusion": "✅ 本叶完成：27/27 任务（TASK-IAN-101~127；W1~W3）；review ✅ 通过（26 Cx / 23 ✅ / 3 ⚠️ / 0 ❌ / 0 BLOCK / 3 I / 2 O，I-03 由 validate V3 行为级闭环）；validate ✅ 通过（V1~V8 全绿 / 0 阻塞 / 人工面 M1/M2/M5 ⏳ / 新增观察 V-01）。交付 = 流内「自由输入…」next 项（free-input provider 恒真 + 恒最末终端 + 零死端 floor）+ 卡内输入第二语义分支（独立 requestId=free-input，复用 .ask-fallback 家系）+ 提交经唯一 op.turn 槽 + 手输 driver=manual 两值可判 + 让位语义槽外 + 零新增 kind/宿主 + R6 双入口并存与流内草稿回填 + a11y + S0″-A 中间态双面 + 新 node 门禁 free-input-next。",
+    "digitalLedger": {
+      "tasks": "27 / 27（TASK-IAN-101~127；W1~W3；S×4 / M×19 / L×4）",
+      "npmTest": "1395 → 1431 / 0（F-35 首叶段 +36；R1 +21 / R2 +15 零删除）",
+      "sidepanelBytes": "591,946 → 599,125 B（整叶 +7,179；逐模块 ian1Rows Σ +7,179 + glue 0 = 叶增量；越叶预算 +2.5~4.5 KB 越、如实登记不停机；生效上限 621,543 → 628,196 → 629,081；档位 614,400 / 绝对上限 675,840 未动）",
+      "newGates": "1 node（free-input-next 22/0；FIN-0~9 共 10 条判据 + 元判据 + 逐条 expectFailPattern）入 gate-integrity 下界只增；CHROMIUM_GATES === 9 不动",
+      "gateDeltas": "s0-self-driven Chromium 70 → 81/0（S0C-12 中间态双入口真面板）· law8 52 → 60（含 ⑩ 自由输入零明文）· gate-integrity 15 → 23 · supersession 42 → 45 · recommendation 72 → 79 · turn-arbitration TA-8 · r6-ty / sidepanel-view 等价重锚；journey 171 / binding 192 保段",
+      "spikeGates": "SG-IAN-01（op.turn 槽承载自由输入）· SG-IAN-02（askuser 第二语义分支不破载体）—— 2/2 可行（4/4，探针探毕删除、不入库）",
+      "frozenFaces": "content.js 177,076 B（sha 52a82620…）/ pick-layer.js 34,358 B（sha 77796bab…）逐字节零 diff；turn-queue.ts / service-worker.ts / web-cli-base/** / manifest.json 零 diff"
+    },
+    "nItems": "review I-01/I-02 + O-01/O-02 + validate V-01 去重 → N-01~N-05；owner：父收口 5（清册口径 / density-baseline 注记 / ADR floor 措辞 / S0″-A node 接线判据 / recommendation ④ flake）；已闭环（非 N）1 = review I-03（validate V3 行为级 16/16）；人工面 1 组 = M1/M2/M5 ⏳",
+    "manualFaces": "⏳ 未执行（headless 不可合成，不冒充 PASS）：M1 末端项可发现性 · M2 时隐时现困扰是否消失 · M5 排队体感（IAN-P-003 pending-human）",
+    "handover": "owner=父收口 N-01~N-05（plan §5 连带文件 / v4-density-baseline.json 注记字段 / ADR-IAN-001 floor 措辞 / S0″-A node 接线判据 / recommendation ④ 首跑 flake）· owner=人工面 M1/M2/M5 · owner=本叶已闭环 review I-03",
+    "xIanTerminal": "本叶段 xIianLedger 为叶内序号 L1-SUP-1~7（3 superseded / 4 no-supersession）+ mapsToParent 消解与父 §12 的编号冲突（X-IAN-1/2/3 语义归属叶2）；父 §12 X-IAN-1~11 逐条终态见叶2 xIianLedgerFull / xIianLedgerLeaf2 与父 closeout.md ⇒ 全仓 X-IAN 终态 = 11/11 已发生（法四 X-IAN-1 已落账）"
+  },
   "phaseHistory": [
     {
       "phase": "specified",

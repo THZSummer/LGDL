@@ -17,10 +17,11 @@ specs-tree-web-cli-plugin-v55-f-input-as-next/
 ├── ADR-IAN-008-gate-reanchor-list.md          # ADR-IAN-008: 门禁等价重锚清单（18 门禁三态 + 2 新门禁设计 + `CHROMIUM_GATES === 9` 不动）
 ├── ADR-IAN-009-s0pp-dual-face-validation.md          # ADR-IAN-009: S0'' 双面验证设计（终态 10 步 + 中间态保护 + 「元素不存在非 hidden」机核）
 ├── ADR-IAN-010-volume-split-budget.md          # ADR-IAN-010: 体积分列预算（逐叶分列 + 逐模块归因 + 距档 22,454 + EC-IAN-016 预置）
+├── closeout.md          # F-35 web-cli-plugin v0.11.2「输入即 next：废除流外输入框」——全 Feature 总账（父收口）
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v55-f-input-as-next
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v0.11.2「输入即 next：废除流外独立输入框」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」）
-├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── state.json          # 状态文件 (✅ 已完成)
 ├── tasks.json          # 任务清单 (机器可读)
 ├── tasks.md          # 任务分解：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」；父 Feature 统领性任务总览）
 ├── specs-tree-ian-1-free-input-next/          # 父规范 §2.2~§2.5 的**新面根因**全部落在本叶：「自由输入」作为 next 选项的形态缺
@@ -40,10 +41,11 @@ specs-tree-web-cli-plugin-v55-f-input-as-next/
 | ADR-IAN-008-gate-reanchor-list.md | ADR-IAN-008: 门禁等价重锚清单（18 门禁三态 + 2 新门禁设计 + `CHROMIUM_GATES === 9` 不动） — ACCEPTED（承父 spec §5.10 GATE / §9.3 / §9.5 / §12 / FR-IAN-100~106 / N-IAN-012·... | ✅ 存在 |
 | ADR-IAN-009-s0pp-dual-face-validation.md | ADR-IAN-009: S0'' 双面验证设计（终态 10 步 + 中间态保护 + 「元素不存在非 hidden」机核） — ACCEPTED（承父 spec §5.8 S0'' / FR-IAN-070~074 / AC-IAN-001 / §9.4 人工面 / R-IAN-909） | ✅ 存在 |
 | ADR-IAN-010-volume-split-budget.md | ADR-IAN-010: 体积分列预算（逐叶分列 + 逐模块归因 + 距档 22,454 + EC-IAN-016 预置） — ACCEPTED（承父 spec §5.11 / §5.11.1 / FR-IAN-110~115 / DC-IAN-009 / ADR-V55-011 口径） | ✅ 存在 |
+| closeout.md | F-35 web-cli-plugin v0.11.2「输入即 next：废除流外输入框」——全 Feature 总账（父收口） — 1. **想自由输入时，不用离开聊天流**：推荐卡**按需**出现一个**恒最末终端**「自由输入…」（非 `.next-chip`，**不常驻**），点... | ✅ 存在 |
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v55-f-input-as-next — web-cli-plugin「**输入即 next（input-as-next）**」问题挖掘报告 —— 把作者裁决（**废除流外独立输入框；自由文本输入... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v0.11.2「输入即 next：废除流外独立输入框」；父 Feature 统领性技术方案） — v5（F-32）把「一切操作皆 next 流内闭环」立法；v5.5（F-33）把「下一步由谁按」转移到系统 / AI 侧；F-34（v5.5.1）把「下一... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」） — web-cli-plugin v5.5.2「输入即 next（input-as-next）：废除流外独立输入框」需求规范 —— 把作者裁决（**废除流外独... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [tasked] |
+| state.json | 状态文件 | ✅ 已完成 |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-web-cli-plugin-v55-f-input-as-next（web-cli-plugin v5.5.2「输入即 next：废除流外独立输入框」；父 Feature 统领性任务总览） — `npm test` **1394** · `op-wiring`（`requestTurn(` 恰 2→**恰 1**）· `turn-arbitrat... | ✅ 存在 |
 
@@ -51,8 +53,8 @@ specs-tree-web-cli-plugin-v55-f-input-as-next/
 | 字段 | 值 |
 |------|-----|
 | Feature ID | N/A |
-| Phase | 任务分解 (4/7) |
-| Status | 🟢 tracked [tasked] |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成 |
 
 ## 上级目录
 - [返回上级](../TREE.md)

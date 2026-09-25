@@ -241,9 +241,53 @@
 
 ---
 
+## 9. 叶收口（F-35 首叶 / 底座叶 —— ian-1 收口段）
+
+> **轮次**：F-35 收口（三轮合一：ian-1 叶收口 + ian-2 叶收口 + 父收口）
+> **日期**：2026-09-26 ｜ **授权**：编排器代作者决策（继承 F-30 / F-31 / F-32 / F-33 / F-34 父收口先例）｜ **作者**：sddu-build
+> **性质**：自本段起为**纯文档 / 状态收口**——零 `src/**` / 零 `test/**` / 零 `docs/**` 实义改动，不跑构建 / 门禁 / Chromium；数字一律取自本轮 review / validate 产物实测值。
+
+### 9.1 N 项归并（review 3 I / 2 O + validate 观察 → N-01~N-05）
+
+| # | 来源 | 类别 | 内容 | owner |
+|---|------|:--:|------|:--:|
+| **N-01** | review **I-01** | 文档一致性 | `plan.md` §5 文件影响分析漏列 4 个连带改动文件（`next-registry/ops.ts` / `stream-model.ts` / `chat-state.ts` / `stream-plaintext.ts`）；build §6-A-2/§8 已如实登记「文件清单外连带重锚」 | **父收口**（登记 / 口径类；后续叶 plan 一并列出或交叉引用） |
+| **N-02** | review **I-02** | 文档一致性 | `docs/v4-density-baseline.json` 的 `effectiveCeilingRule` / `directionalAlert` 等注记字段停留旧轮次（602,095 / 573,424 / 591,946），与同文件 `volume.registeredBaselineBytes=599125` 并存易误读；本叶对该文件**零触碰** | **父收口**（后续轮统一刷新或显式标注「历史链」） |
+| **N-03** | review **O-01** | 规范措辞 | `ADR-IAN-001 §①` floor 措辞过宽（`{'empty','safety'}` vs 落地仅 `empty`）；review 判定落地口径**正当**（`safety` 保 fail-closed 不放松） | **父收口**（规范侧收窄措辞 + 登记 `safety` 语义） |
+| **N-04** | review **O-02** | 证据口径 | `S0″-A` node 面「旧入口跑通一轮」为**接线判据**（非 DOM 真回合）；真 DOM 双回合由 Chromium `S0C-12` 承载 | **父收口**（已在 `s0-self-driven.mjs` 注释与 `s0ppProblems` 文档显式登记） |
+| **N-05** | validate **V-01** | 环境性观察 | `test/ui/recommendation.mjs` ④ 首跑 `78/1`（`empty` 夹具命中零死端 floor ⇒ `rule=null` 的「仅含终端」最小卡，既有闭集断言只认四规则）；**隔离复跑 ×3 全 79/0** | **父收口**（门禁 owner；建议 ④ 状态无关化或纳入 floor 卡可接受读数） |
+
+- **本叶已闭环（不计 N）**：review **I-03**（在飞终端可用 / 空提交非静默缺行为级驱动）→ 已由 validate **V3** 行为级探针 **16/16** 闭环（pending 判别性 / `queued` 可读行 / 空提交 notice / 双回填三分支 / Enter-Escape）。
+- **人工面 ⏳**：**M1**（末端项可发现性）/ **M2**（时隐时现困扰是否消失）/ **M5**（排队体感）= `pending-human`（`IAN-P-003`；headless 不可合成，**不冒充 PASS**）。
+- **owner 分布**：父收口 **5**（N-01~N-05）· 本叶已闭环 **1**（I-03）· 人工面 **1 组**（M1/M2/M5）。
+
+### 9.2 终态对账（27/27 全闭环）
+
+| 项 | 终态 | 判据 / 证据 |
+|---|------|------|
+| **任务** | **27 / 27**（TASK-IAN-101~127；W1~W3） | build.md §3 任务完成清单 + state.json#tasks |
+| **npm test** | **1395 → 1431 / 0**（F-35 首叶段 **+36**） | R1 1395→1416（+21）；R2 1416→1431（+15 零删除）；review / validate 各亲跑 1431/0（validate ×2） |
+| **新门禁** | **1** node（`free-input-next` 22/0；入 `gate-integrity` 下界只增）；`CHROMIUM_GATES === 9` 不动 | `FIN-0~9` 共 10 条判据 + 元判据 + 逐条 `expectFailPattern` |
+| **S0″-A 双面** | node **S0PP-A** 三用例 + Chromium **S0C-12** 真面板双入口 | `s0-self-driven` Chromium 70 → **81/0**（S0C-12 真面板点末端项 → `#ask-input` 获焦 → 真键入 → 真提交成回合 → 旧 `#composer` 仍可用 → 双回填互不覆盖） |
+| **R6 迁移行为级** | 自研 `ian1-behavior.mjs` **16/16** | 闭环 review I-03（pending 判别性 / `queued` 可读行 / 空提交 notice / 双回填三分支 / Enter-Escape） |
+| **体积（叶1 收口终值）** | A 列 591,946 → **599,125 B**（整叶 **+7,179 B**，逐模块 `ian1Rows` Σ + glue 0） | **越叶预算**（父 §5.11.1 = +2.5~4.5 KB）**如实登记、不停机、不静默降档**；生效上限 628,196 → **629,081**；档位 614,400 / 绝对上限 675,840 不动；EC-IAN-016 三档均「否」；`authorConfirmation` = `pending-author-line` |
+| **两叶序（叶1 段）** | ian-1 → ian-2（先立新面再拆旧面） | 叶2 交付后 Σ = +6,631 B（叶2 净负 −548 B，见 ian-2 收口段） |
+| **红线 / 冻结面** | `content.js` 177,076 B / `52a82620…` · `pick-layer.js` 34,358 B / `77796bab…` 逐字节不变 | `turn-queue.ts` / `service-worker.ts` / `web-cli-base/**` / `manifest.json` 零 diff；`KIND_SET` 40 · 12 kind · 零宿主 · `ACT_TO_OP` 6 ∧ 集 A 9 · provider 11 · `NEXTSTEP_PRIORITY` 4 · 特权恒 `gesture` |
+| **注入抽验** | **2 处必红**（requestId 退化 / `requestTurn(` 直连） | 均逐字节还原（`trap`），还原后 `npm test` 复跑 1431/0；`git status` 空 |
+| **SG-IAN-01 / 02** | **全可行**（4/4） | 探针探毕删除、不入库 |
+| **X-IAN（叶1 段）** | `xIianLedger` 叶内序号 **L1-SUP-1~7**（3 `superseded` / 4 `no-supersession`）+ `mapsToParent` 消解编号冲突 | 叶1 不占用父 §12 编号；父 §12 `X-IAN-1~11` 逐条见叶2 收口段与父 closeout.md |
+
+### 9.3 移交项（owner = 父收口）
+
+- **N-01~N-05** 全清单见 §9.1；**人工面 M1/M2/M5** 保持 `⏳ 未执行`（并入父 closeout.md 人工面清单）。
+- 叶1 **不承接** #composer 退役 / 法四修订 / `requestTurn(` 恰 1 落地（均属叶2，已闭环）；叶1 段台账 / 门禁对账骨架由叶2 收紧为终态。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0（R1） | R1 = W1+W2：SG-IAN-01/02 可行 · free-input provider / 集 A 8→9 / 恒最末终端 / 零死端 floor / 卡内输入语义分支 / `op.turn` 槽提交 / 手输 `driver=manual` / 让位语义槽外 / a11y 键盘 · 新门禁 `free-input-next` FIN-0~6 · 门禁对账 1416/0 · 体积中间登记 +6,336 B 越叶预算不停机 · 14 项偏差/待复核如实登记。 | 2026-09-25 | SDDU Build Agent |
 | **v2.0（R2）** | **R2 = W3（叶1 收口）**：S0″-A 中间态保护双面（node `123` + Chromium `124`，样本单源扩展、只加断言不加文件）· `busy-rejected` 流内回填载体（`restoreFreeInputDraft`，叶1 双载体并存互不覆盖）· FIN-7/8/9 + 三段控制 + 真源切片 · `turn-arbitration` TA-8 / `r6-ty` / `sidepanel-view` 等价重锚 · `gate-integrity` 下界只增 `free-input-next` · 红线巡检扩面（`insight-no-escalation` / `law8` ⑩）· 体积叶1 收口终值重登记（599,125 B / 生效上限 629,081 / 整叶 +7,179 B 越叶预算如实登记 / EC-IAN-016 二态「否」/ `pending-author-line`）· `supersession` 叶段 R2-W3 + X-IAN 台账/门禁对账骨架 · 门禁对账 **1431/0**（+15）· R1 §6-A-8（floor-safety）处置 = 保 fail-closed + 登记。 | 2026-09-25 | SDDU Build Agent |
+| **v3.0（叶收口）** | **F-35 三轮合一中的 ian-1 叶收口（纯文档 / 状态收口）**：新增 §9 收口段——**N 项归并**（review I-01/I-02 + O-01/O-02 + validate V-01 → **N-01~N-05**，owner 全部 = 父收口；review **I-03 已由 validate V3 行为级 16/16 闭环**；人工面 M1/M2/M5 ⏳）+ **终态对账**（27/27 · npm 1395→**1431/0** · 叶1 段 **+36** · 新门禁 `free-input-next` 1 · S0″-A 双面 · 体积 591,946→**599,125**（+7,179 越叶预算如实登记）· 红线/冻结面 · 注入 2 处必红 · SG-IAN-01/02 全可行 · `xIianLedger` L1-SUP-1~7 + `mapsToParent`）+ 移交项。零 `src/**` / 零 `test/**` / 零 `docs/**` 实义改动，不跑构建 / 门禁 / Chromium。 | 2026-09-26 | SDDU Build Agent |

@@ -304,6 +304,50 @@ R1 曾以「须解冻冻结的 `docs/v3-supersession-ledger.json`（v4 `zeroDiff
 
 ---
 
+## 10. 叶收口（F-35 末叶 / 拆除叶 —— ian-2 收口段）
+
+> **轮次**：F-35 收口（三轮合一：ian-1 叶收口 + ian-2 叶收口 + 父收口）
+> **日期**：2026-09-26 ｜ **授权**：编排器代作者决策（继承 F-30 / F-31 / F-32 / F-33 / F-34 父收口先例）｜ **作者**：sddu-build
+> **性质**：自本段起为**纯文档 / 状态收口**——零 `src/**` / 零 `test/**` / 零 `docs/**` 实义改动，不跑构建 / 门禁 / Chromium；数字一律取自本轮 review / validate 产物实测值。
+
+### 10.1 N 项归并（review 残留 I + validate flake 项 → N-01~N-03）
+
+| # | 来源 | 类别 | 内容 | owner |
+|---|------|:--:|------|:--:|
+| **N-01** | review R2 残留 **I-R2-01** | 台账登记口径 | 修复轮新增 2 条 node 用例（`supersession` 48→**49** / `law4` 5→**6** ⇒ `npm test` 1441→**1443**），但台账 `counts.{supersession,nodeTestRuntime}.currentRuntime` 与 `source.observed`/`observedLine` 滞后；N-04 机核因快照日志缺失而 `skip`（设计如此 ⇒ 非门禁失败） | **本叶已闭环**（validate V11 **已前移** 48→49 / 1441→1443 + `source.observed`/`observedLine` 同步 + `source.log` 重登记到 validate 轮 `registry/` 快照；N-04 由 4 项 skip → **4/4 逐条同源**） |
+| **N-02** | validate **N-1** | 环境性 flake（KL-N-10 家族新增变体） | `test/ui/s0-self-driven.mjs` ⑦A 首轮 **81/1**（headless 探测相位未定，`rule=null`）；**隔离复跑 ×2 = 82/0** ⇒ 判据本体（S0C-12）首轮即全绿 | **父收口**（门禁 owner） |
+| **N-03** | validate **N-2** | 环境性 flake（CDP 早死） | `test/ui/binding.mjs` 串行批次 4 次红（失败项互异；诊断 `CDP socket not open (readyState=3)`）；保护段**字节级**经 `test:supersession` 双绿（sha `be9ad0e9…` + startByte 107780 + 3 反证），build/review 均实测 **192 PASS**；机器并发高载所致 | **父收口**（门禁 owner；**建议空闲机复跑 `test:binding` 确认**，不改任何判据） |
+
+- **已闭环（不计 N）**：review R1 **BLOCK-01**（法四 old→new 逐字台账 + 「半修即红」判据，`law4` L4-7）· **BLOCK-02**（X-IAN 编号语义冲突 + 父 §12 逐条）→ 修复轮 `9ffbea8` 闭环 + R2 亲注入核；review R1 **I-01~I-04** → 修复轮处置 + R2 复核 ✅；**I-R2-01** → validate V11 闭环（见 N-01）。
+- **人工面 ⏳**：**M3**（卡内输入的真机键盘手感 / 焦点流转观感：Tab / Shift+Tab / Esc）· **M4**（读屏可用性：卡内输入 + `#send-reason` 状态行可朗读性）= `pending-human`（`IAN-P-007`；headless 不可合成，**不冒充 PASS**；`manualFaces` 台账直读；M1/M2/M5 同）。
+- **owner 分布**：本叶已闭环 **1**（N-01）· 父收口 **2**（N-02/N-03）· 人工面 **1 组**（M3/M4）。
+
+### 10.2 终态对账（25/25 全闭环）
+
+| 项 | 终态 | 判据 / 证据 |
+|---|------|------|
+| **任务** | **25 / 25**（TASK-IAN-201~225；W1~W3） | build.md §3 任务完成清单（25/25 终态）+ §9 修复轮 |
+| **npm test** | **1431 → 1443 / 0**（叶2 段 **+12**；R2 +6 → 修复轮 +2 → validate 终值 1443） | R1/R2 1437→1441（+4）；修复轮 1443（`supersession` 48→49 · `law4` 5→6） |
+| **新门禁** | **2** node（`free-input-next` 叶1 / **`law4-input-as-next` 6/0** 叶2，L4-1~7）；`CHROMIUM_GATES === 9` 不动 | `gate-integrity` 下界只增；`test:gate-integrity` 24/0 |
+| **S0″-B 双面** | node 独立复刻（`retired_id_hits=[]` / `remint_hits=[]` / 注入 `<form id=composer hidden>` 被检出）+ Chromium **82/0** | `html_sha256=ba9f3248…` 与读盘一致；三 id DOM 真退役（非 hidden） |
+| **#composer 真退役** | `#composer`/`#input`/`#send` 元素不存在（`id="…"` 零命中，63 个 id）+ 写者/锁存/设置态护栏消解 | 去注释全 `src` 扫 `composer` = **2 处**均在 `host-registry.ts`（退役册 + `RETIRED_HOST_ATTRS` 宿主值，非输入面） |
+| **法四三处修订落账** | `law4InplaceRevision`（X-IAN-1）五要素齐 + 三锚 `:116` / `:225` / `:385` 逐字含核心句 | old「输入按需出现：无常驻输入框…」→ new「输入即 next：自由文本输入是流内 next 的一个选项；**流外零输入面**」；半修 `:225` ⇒ L4-7 必红（亲注入 + 逐字节还原） |
+| **通道唯一化** | `requestTurn(` 恰 **1**（`sidepanel.ts:3899`）· `restoreFreeInputDraft` 唯一 · `sendDisabled` 不读 `pending` · `turn-queue.ts` 零 composer | `op-wiring` 唯一调用点集合；TA-4/TA-8 + 三反证 |
+| **体重（叶2 终值）** | A 列 599,125 → **598,577 B**（**净负 −548 B**） | 目标带 −2.5~−1.0 KB **未达**、落严格口径 −1.2~+0.3 KB 内 ⇒ **如实登记，不伪称**；两叶 Σ = **+6,631 B**；生效上限 **628,505**；档位 614,400 / 绝对上限 675,840 不动；EC-IAN-016 三态「否」；`authorConfirmation` = `pending-author-line` |
+| **红线 / 冻结面** | `content.js` 177,076 B / `52a82620…` · `pick-layer.js` 34,358 B / `77796bab…` 逐字节不变 | `KIND_SET` 40 · `CARD_TAG_LABELS` 12 kind · `REGISTERED_STRUCTURAL_HOSTS` `[]` · `NEVER_FOLDABLE` 13 · `RETIRED_CONTAINER_IDS` 16 · `ACT_TO_OP` 6 ∧ 集 A 9 · 特权恒 `gesture` |
+| **保护段** | journey **八步取代**（`[43484,59347)` len 15863 / 249 行 / sha `7b309258…`）· binding **keep 字节中立**（`[107780,115930)` len 8150 / sha `be9ad0e9…` / 段内退役 id 0/0/0） | `test:supersession` **49/0** 双绿；`zeroDiffFiles` 恰 9 项逐项零 diff |
+| **量程 / 台账** | `xIianGateReconciliationLeaf2` **20 行**（kept 4 / equivalent-reanchor 12 / explicit-supersession 4）逐行 `assertionsRemoved=0`；`redlineRemap` 7→8 | T220 三文件（`insight` 125 / `l0` 251 / `l1` 132）只升不降；`counts` 前移（I-R2-01 闭环） |
+| **注入抽验** | **3 处必红**（法四半修 `:225` / 注入 `<form id=composer hidden>` / 快照移出 `#input` 入册） | 还原后均 `6/0` 且 `cmp` **IDENTICAL** |
+| **SG-IAN-03** | **可行**（4/4；R2 复核沿用） | 探针不入库 |
+| **X-IAN（全 Feature 终态）** | **11 / 11 已发生（superseded）**——`xIianLedgerFull` X-IAN-1~7 + `xIianLedgerLeaf2` X-IAN-8~11，并集恰 11 条（缺条 / ID 冲突 / 空字段 ⇒ 必红） | **法四 X-IAN-1 已发生**（原地修订落账）；叶1 段 L1-SUP-1~7 不占父编号 |
+
+### 10.3 移交项（owner = 父收口）
+
+- **N-01~N-03** 全清单见 §10.1；**人工面 M3/M4**（及 M1/M2/M5）保持 `⏳ 未执行`，并入父 closeout.md 人工面清单。
+- 叶2 不承接任何 `src/**` / `test/**` / `docs/**` 后续改动；全 Feature 终态（两叶 Σ / X-IAN / 体积 / 门禁）由父 closeout.md 汇总。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
@@ -311,3 +355,4 @@ R1 曾以「须解冻冻结的 `docs/v3-supersession-ledger.json`（v4 `zeroDiff
 | v1.0（R1） | R1 = W04+W05+W06 核心：SG-IAN-03 可行 4/4 · 停引删面 8 步 · 四处兜底收敛 + `#send-reason`/`sendDisabled`/draft 重锚 · 法四三处原地修订 + `law4-input-as-next` 新门禁 · journey 八步显式取代 · binding keep · 体积净负 −548 B · 门禁 1431 → **1437 / 0** · 偏差：`insight/l0/l1` 三 Chromium 重锚误判「须解冻 v3 台账」而回退留 R2。 | 2026-09-25 | SDDU Build Agent |
 | v2.0（R2） | R2 = W06 收口轮：**T220 三文件法四等价重锚落地**（显式 supersession 登记：`redlineRemap` 7→8 + 新叶段 `R2-W6` 87 行逐字 + `modifiedRanges` +19 段；`zeroDiffFiles` 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 台账终态（X-IAN-8~11）· T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + `KL-N-10` 隔离复跑（binding 环境红→PASS；l2-reverse 10/10）· T225 20 行门禁三态对账 + 体积终值五要素 + 两叶 Σ +6,631 + EC-IAN-016 三态 · 门禁 1437 → **1441 / 0**（supersession 45 → **48 / 0**）。**25/25 终态**。 | 2026-09-25 | SDDU Build Agent |
 | v3.0（review R1 修复轮） | review R1（2 BLOCK + 4 I）闭环：**BLOCK-01** 法四 old→new 逐字台账（`law4InplaceRevision`）＋「半修即红」判据（`law4` 新增 L4-7 三处一致机核）· **BLOCK-02** 叶1 行改名 `L1-SUP-1~7` + `mapsToParent` 消解编号冲突 ∧ `xIianLedgerFull` 补齐父 §12 `X-IAN-1~7` 逐条 ∧ `xIianLedgerLeaf2` 补 `old/new/日期/落点` · **I-01~04**（陈旧口径订正 / 文案 / disposition / 字段补齐，只增不改史）· 收口缺口：叶段 `R2-W6` `scope.files` **34→35**（逐叶复算唯一红转绿）。门禁 `npm test` 1441 → **1443 / 0**（`supersession` 48 → **49 / 0**；`law4` 5 → 6；`settings` 15/0 · `size-ruling-vol3` 13/0 · `gate-integrity` 24/0）。`src/**` / 冻结面 / `zeroDiffFiles` 零触碰。 | 2026-09-26 | SDDU Build Agent |
+| **v4.0（叶收口）** | **F-35 三轮合一中的 ian-2 叶收口（纯文档 / 状态收口）**：新增 §10 收口段——**N 项归并**（review 残留 **I-R2-01** + validate **N-1/N-2** flake → **N-01~N-03**；owner：本叶已闭环 1（I-R2-01 由 validate V11 counts 前移闭环）/ 父收口 2（s0 ⑦A flake · binding CDP 环境红）/ 人工面 M3/M4 ⏳；review R1 BLOCK-01/02 + I-01~04 已闭环不计 N）+ **终态对账**（25/25 · npm 1431→**1443/0** · 叶2 段 **+12** · 新门禁 `law4-input-as-next` 6/0 · S0″-B 双面 82/0 · #composer 真退役 · 法四三处修订落账 · 体积 599,125→**598,577**（净负 −548，未达目标带如实登记）· 两叶 Σ +6,631 · 保护段 journey `7b309258…` / binding keep `be9ad0e9…` · X-IAN 终态 11/11 已发生）+ 移交项。零 `src/**` / 零 `test/**` / 零 `docs/**` 实义改动，不跑构建 / 门禁 / Chromium。 | 2026-09-26 | SDDU Build Agent |
