@@ -9718,6 +9718,165 @@
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
       }
+    },
+    {
+      "leaf": "specs-tree-ian-2-abolish-composer(R2-W6)",
+      "leafBase": "cea2922",
+      "why": "★ IAN-2 R2（W06 收口轮）的叶段登记：本轮改写/删除的行（T220 三 Chromium 门禁法四等价重锚 / 台账终态机核 / 叶2 体积终值机核）必须逐字可判，否则「只升不降」的断言改写不可审计。",
+      "scope": {
+        "files": [
+          "packages/web-cli-plugin/test/auto-probe.test.ts",
+          "packages/web-cli-plugin/test/e2e/fullchain.mjs",
+          "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-protocol.test.ts",
+          "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+          "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+          "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
+          "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "packages/web-cli-plugin/test/ref-capture.test.ts",
+          "packages/web-cli-plugin/test/ref-rescue.test.ts",
+          "packages/web-cli-plugin/test/ref-wiring.test.ts",
+          "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/sidepanel.test.ts",
+          "packages/web-cli-plugin/test/size-attribution.mjs",
+          "packages/web-cli-plugin/test/size-baseline.ts",
+          "packages/web-cli-plugin/test/size-budget.test.ts",
+          "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "packages/web-cli-plugin/test/ui/binding.mjs",
+          "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+          "packages/web-cli-plugin/test/ui/density.mjs",
+          "packages/web-cli-plugin/test/ui/hardening.mjs",
+          "packages/web-cli-plugin/test/ui/insight.mjs",
+          "packages/web-cli-plugin/test/ui/journey.mjs",
+          "packages/web-cli-plugin/test/ui/l0.mjs",
+          "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
+          "packages/web-cli-plugin/test/ui/l1.mjs",
+          "packages/web-cli-plugin/test/ui/l2-reverse.mjs",
+          "packages/web-cli-plugin/test/ui/l2.mjs",
+          "packages/web-cli-plugin/test/ui/page-input.mjs",
+          "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+          "packages/web-cli-plugin/test/zero-injection.test.ts"
+        ],
+        "why": "scope = leafScopeFiles()（v3 台账登记文件集）∪ testFilesWithDeletions(cea2922) 按规则复算，不得手工放宽/收窄。"
+      },
+      "registeredUncoveredLines": [
+        {
+          "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+          "count": 60,
+          "reason": "★ IAN-2 R2（2026-09-25，W06 收口轮 = TASK-IAN-220~225）逐字登记：该文件在本轮被删除/改写的行（insight/l0/l1 三条 Chromium 门禁的法四等价重锚：composer 读面 → 三 id 零命中 + 流内 free-input 卡读面；supersession-ledger.test.ts 的 X-IAN-8~11 + 门禁三态对账机核；size-ruling-vol3.test.ts 的叶2 终值机核）。口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；断言语义零删减（等价重锚 + 只增）。",
+          "registeredUncoveredLines": [
+            " *   #I-08 `#composer` 底边 − 视口底 `∈ [0, +8px]`（不得为负，D-079）；",
+            " *   #I-09 `#tree-fab` ∩ `#composer` 交面积 `= 0`；",
+            "const v3RevealComposer = async (page) => {",
+            "    const hidden = await evaluate(page, `document.getElementById('composer').hidden === true`);",
+            "    if (hidden !== true) return;",
+            " * `#region-stream`, the composer still sits flush at the bottom (D-079 unchanged), and",
+            "const L2_STABLE_FIELDS = ['composerGapToBottom', 'docOverflowX', 'logOverflowX', 'viewHostHeight', 'openViewCount', 'panelScrollerCount'];",
+            "    metrics.composerVisible === false,",
+            "    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：视图打开态默认屏**无可见常驻输入框**（W3 起 #composer 迁 body 尾，仍由自身 hidden 遮蔽；fail-closed 只认 hidden）`,",
+            "    JSON.stringify({ visible: metrics.composerVisible, ownHidden: metrics.composerHidden, gap: metrics.composerGapToBottom }),",
+            "  const cr = composer.getBoundingClientRect();",
+            "  const ix = Math.max(0, Math.min(fr.right, cr.right) - Math.max(fr.left, cr.left));",
+            "  const iy = Math.max(0, Math.min(fr.bottom, cr.bottom) - Math.max(fr.top, cr.top));",
+            "    composerGapToBottom: Math.round(window.innerHeight - cr.bottom),",
+            "    // V4-1 (法四 / ADR-V4-008 第 3 条 redlineRemap): the composer lost its resident",
+            "    // semantics -- it now lives inside a li[data-transitional-host] in #stream",
+            "    // and is hidden unless the fallback is explicitly revealed. Recorded here so",
+            "    // the two layout checkers can assert the v4 statement instead of the v3",
+            "    // \"贴底\" band (COMPOSER_GAP).",
+            "    composerInStream: composer ? !!composer.closest('#stream') : false,",
+            "    composerParentIsBody: composer ? composer.parentElement === document.body : false,",
+            "    composerHidden: composer ? composer.hidden === true : null,",
+            "    // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。",
+            "    composerVisible: composer ? composer.closest('[hidden]') === null : false,",
+            "    fabComposerArea: Math.round(ix * iy * 100) / 100,",
+            "  const cr = composer.getBoundingClientRect();",
+            "  const ix = Math.max(0, Math.min(fr.right, cr.right) - Math.max(fr.left, cr.left));",
+            "  const iy = Math.max(0, Math.min(fr.bottom, cr.bottom) - Math.max(fr.top, cr.top));",
+            "    composerGapToBottom: Math.round(window.innerHeight - cr.bottom),",
+            "    composerInStream: composer ? !!composer.closest('#stream') : false,",
+            "    composerParentIsBody: composer ? composer.parentElement === document.body : false,",
+            "    composerHidden: composer ? composer.hidden === true : null,",
+            "    // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。",
+            "    composerVisible: composer ? composer.closest('[hidden]') === null : false,",
+            "    fabComposerArea: Math.round(ix * iy * 100) / 100,",
+            "  // V4.5-1 W3（TASK-V45-110 / ADR-V45-003）：`#composer` **出流** —— 兜底展开态它必须",
+            "  // 可见、位于 `body` 尾（不再是流内占位宿主）、且不越出视口（gap ≥ 0）。语义等价：",
+            "  // 「展开后输入可用 ∧ 不遮挡 ∧ 不越界」三条逐字保留，只有物理位置重锚。",
+            "    metrics.composerVisible === true && metrics.composerParentIsBody === true && metrics.composerGapToBottom >= 0,",
+            "    `${prefix} 法四（v4-1 取代 v3「#composer 贴底」红线）：兜底展开态 #composer 迁 body 尾（出流）且可见、不越出视口（gap ≥ 0）`,",
+            "    `visible=${metrics.composerVisible} body=${metrics.composerParentIsBody} inStream=${metrics.composerInStream} gap=${metrics.composerGapToBottom}`,",
+            "    metrics.fabComposerArea === 0,",
+            "    `${prefix} #tree-fab ∩ #composer boundingRect 交面积 = 0（无遮挡）`,",
+            "    `area=${metrics.fabComposerArea}`,",
+            "    // V3-1 pre-step (registered): reveal the fallback composer so every geometry",
+            "    // assertion below measures the same element as before.",
+            "    await v3RevealComposer(sp);",
+            "      // V4.5-1 W3：出流后位置判据重锚（可见 / 不越界 / 不遮挡三条不变），位置 = body 尾。",
+            "      rawOpenClose.composerVisible === true && rawOpenClose.composerParentIsBody === true && rawOpenClose.composerGapToBottom >= 0,",
+            "      '#I-08b 原始口径 法四（v4-1 取代「贴底」红线）：#composer 迁 body 尾（出流）、可见且不越出视口',",
+            "      `visible=${rawOpenClose.composerVisible} body=${rawOpenClose.composerParentIsBody} inStream=${rawOpenClose.composerInStream} gap=${rawOpenClose.composerGapToBottom}`,",
+            "    check(rawOpenClose.fabComposerArea === 0, '#I-09b 原始口径 FAB∩composer 仍为 0', `area=${rawOpenClose.fabComposerArea}`);",
+            "          composerHidden: document.getElementById('composer').hidden === true,",
+            "    // The composer is the v1 fallback channel: re-assert it so BOTH sides of the",
+            "    // drift comparison are measured in the identical (fallback-revealed) state —",
+            "    // exactly the state `closedLayout` was taken in at step 5.",
+            "    await v3RevealComposer(sp);",
+            "    const drift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(",
+            "      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #stream 高 / 占比 / composer / 溢出）',",
+            "    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2/关态 #stream ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #stream 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l0.mjs",
+          "count": 26,
+          "reason": "★ IAN-2 R2（2026-09-25，W06 收口轮 = TASK-IAN-220~225）逐字登记：该文件在本轮被删除/改写的行（insight/l0/l1 三条 Chromium 门禁的法四等价重锚：composer 读面 → 三 id 零命中 + 流内 free-input 卡读面；supersession-ledger.test.ts 的 X-IAN-8~11 + 门禁三态对账机核；size-ruling-vol3.test.ts 的叶2 终值机核）。口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；断言语义零删减（等价重锚 + 只增）。",
+          "registeredUncoveredLines": [
+            " *   · ③ 默认屏无可见常驻输入框（法四；`#composer` 存在时必须 `hidden`）",
+            "  const composer = document.getElementById('composer');",
+            "  const cr = composer.getBoundingClientRect();",
+            "    composerHidden: composer.hidden,",
+            "    composerRail: { top: Math.round(cr.top), bottom: Math.round(cr.bottom) },",
+            "        const composer = document.getElementById('composer');",
+            "          composerHidden: composer.hidden,",
+            "          composerParentIsBody: composer.parentElement === document.body,",
+            "          composerInStream: Boolean(document.getElementById('stream')?.contains(composer)),",
+            "    check('③ `#composer` 存在但默认 hidden（法四显式取代 v3「composer 贴底」）', skeleton.composerHidden === true);",
+            "    check('③ `#composer` 迁 body 尾（`parentElement === body`）且不在 `#stream` 内（W3 出流）', skeleton.composerParentIsBody === true && skeleton.composerInStream === false, JSON.stringify({ body: skeleton.composerParentIsBody, inStream: skeleton.composerInStream }));",
+            "    //    6（退役触发器零残留）+ 13（退役容器零残留，含 `l0-decision` 壳）+ 2（卡内成对）",
+            "    //    = 21 条断言面 ≥ 收窄的 4 条正面契约。",
+            "      const end = registrySrc.indexOf(']);', start);",
+            "      return [...registrySrc.slice(start, end).matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);",
+            "      '⑧ I-05 等价性对账②：正面契约收窄 4（12 → 8）≤ 负向/正面补偿（6 退役触发器 + 13 退役容器 + 2 卡内成对），断言面 29 ≥ 收窄前的 12（只增不减）',",
+            "        && RETIRED_CONTAINERS.length === 13",
+            "    check('⑪ 法四：默认屏 `#composer` 存在且 `hidden === true`', geo.composerHidden === true, JSON.stringify(geo.composerRail));",
+            "        const composer = document.getElementById('composer');",
+            "        const inStream = Boolean(document.getElementById('stream')?.contains(composer));",
+            "        const parentIsBody = composer.parentElement === document.body;",
+            "        return { fallback: document.getElementById('ask-fallback').hidden, composer: composer.hidden, visible: visible(composer), inStream, parentIsBody, readOnlyPanel };",
+            "    check('⑪ 兜底展开后 `#ask-fallback` 与 `#composer` 均可见且输入可用', revealed.fallback === false && revealed.composer === false && revealed.visible === true, JSON.stringify(revealed));",
+            "    check('⑪ `#composer` 迁 body 尾（`parentElement === body`）且不在 `#stream` 内（工具栏/状态栏零输入框 ⇒ 法四）', revealed.parentIsBody === true && revealed.inStream === false && revealed.readOnlyPanel === 0, JSON.stringify(revealed));",
+            "      `JSON.stringify({ fallback: document.getElementById('ask-fallback').hidden, composer: document.getElementById('composer').hidden })`,",
+            "    check('⑪ 收起兜底后两者回到 hidden（FR-V3-012）', collapsedAgain === '{\"fallback\":true,\"composer\":true}', collapsedAgain);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/l1.mjs",
+          "count": 1,
+          "reason": "★ IAN-2 R2（2026-09-25，W06 收口轮 = TASK-IAN-220~225）逐字登记：该文件在本轮被删除/改写的行（insight/l0/l1 三条 Chromium 门禁的法四等价重锚：composer 读面 → 三 id 零命中 + 流内 free-input 卡读面；supersession-ledger.test.ts 的 X-IAN-8~11 + 门禁三态对账机核；size-ruling-vol3.test.ts 的叶2 终值机核）。口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；断言语义零删减（等价重锚 + 只增）。",
+          "registeredUncoveredLines": [
+            "    check('⑨ 「改用描述」不新造第 3 个输入框（可见文本输入 ≤2：卡内兜底 + 兜底 composer）', rec9.visibleTextInputs <= 2, recovery);"
+          ]
+        }
+      ],
+      "summary": {
+        "filesWithUnregisteredLeafDeletions": 3,
+        "registeredLines": 87,
+        "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
+        "note": "★ IAN-2 R2 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+      }
     }
   ],
   "entries": [
@@ -16856,6 +17015,310 @@
       "decision": "equivalent-rewrite",
       "leaf": "specs-tree-ian-2-abolish-composer",
       "reason": "★ IAN-2 删除行逐行登记：该文件在 base 相对的该区间内被删除/改写的行（三 id 真退役 / requestTurn 恰 1 / NEVER_FOLDABLE 14→13 / 容器册 13→16 / 数值重 pin / 保护段等价改写），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-0",
+      "oldRange": [
+        12,
+        12
+      ],
+      "newRange": [
+        12,
+        12
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-1",
+      "oldRange": [
+        18,
+        19
+      ],
+      "newRange": [
+        18,
+        19
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-2",
+      "oldRange": [
+        56,
+        56
+      ],
+      "newRange": [
+        56,
+        56
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-3",
+      "oldRange": [
+        255,
+        255
+      ],
+      "newRange": [
+        255,
+        255
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-4",
+      "oldRange": [
+        257,
+        258
+      ],
+      "newRange": [
+        257,
+        258
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-5",
+      "oldRange": [
+        265,
+        266
+      ],
+      "newRange": [
+        265,
+        266
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-6",
+      "oldRange": [
+        289,
+        289
+      ],
+      "newRange": [
+        289,
+        289
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-7",
+      "oldRange": [
+        291,
+        292
+      ],
+      "newRange": [
+        291,
+        292
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-8",
+      "oldRange": [
+        298,
+        299
+      ],
+      "newRange": [
+        298,
+        299
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-9",
+      "oldRange": [
+        325,
+        327
+      ],
+      "newRange": [
+        325,
+        327
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-10",
+      "oldRange": [
+        458,
+        458
+      ],
+      "newRange": [
+        458,
+        458
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-11",
+      "oldRange": [
+        488,
+        488
+      ],
+      "newRange": [
+        488,
+        488
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-12",
+      "oldRange": [
+        1034,
+        1034
+      ],
+      "newRange": [
+        1034,
+        1034
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-13",
+      "oldRange": [
+        1040,
+        1040
+      ],
+      "newRange": [
+        1040,
+        1040
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-14",
+      "oldRange": [
+        1047,
+        1047
+      ],
+      "newRange": [
+        1047,
+        1047
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-15",
+      "oldRange": [
+        1053,
+        1053
+      ],
+      "newRange": [
+        1053,
+        1053
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-16",
+      "oldRange": [
+        1063,
+        1064
+      ],
+      "newRange": [
+        1063,
+        1064
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-17",
+      "oldRange": [
+        1320,
+        1320
+      ],
+      "newRange": [
+        1320,
+        1320
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/insight.mjs",
+      "range": "IAN-2 R2 等价重锚（base 相对逐行登记）",
+      "oldId": "IAN2R2-MR-18",
+      "oldRange": [
+        1480,
+        1480
+      ],
+      "newRange": [
+        1480,
+        1480
+      ],
+      "decision": "equivalent-rewrite",
+      "leaf": "specs-tree-ian-2-abolish-composer",
+      "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
     }
   ],
   "protectedSupersession": {
@@ -17195,6 +17658,14 @@
       "status": "landed",
       "reason": "★ IAN-2（ADR-IAN-004 / ADR-IAN-006 / FR-IAN-040·041·049）：法四由「输入按需出现」原地修订为「输入即 next：自由文本输入是流内 next 的一个选项；流外零输入面」。旧「出流 + hidden」与「元素真退役」语义互斥 ⇒ journey `#15c` 同编号等价改写（判据更强：元素不存在）+ `law4-input-as-next` 机核门禁 L4-1~6。",
       "evidence": "journey #15c PASS（`legacyIds.length === 0 ∧ 默认屏零可见输入 ∧ 流内卡内输入可展开/可聚焦且几何不越出视口`，/tmp/opencode/v4-gate-logs/ian-2-r1/20-journey.log）；`test/law4-input-as-next.test.ts` L4-1~6 PASS（含注入 `<form id=composer hidden>` 必红）；`host-registry.ts#RETIRED_CONTAINER_IDS` 13→16。"
+    },
+    {
+      "redline": "法四（v3 #15c 的单条演化链）在 insight / l0 / l1 三条 Chromium 门禁的读面（v4.5-1「出流 + hidden」）",
+      "from": "`#composer` 存在 + hidden（insight `#I-08`/`#I-09` 几何 / l0 ③⑪ composer 读数 / l1 ⑨ 可见文本输入 ≤2）",
+      "to": "**流外零输入面**：`#composer`/`#input`/`#send` 三 id DOM 零命中 + 流内 free-input 卡唯一输入面（可展开 / 可聚焦 / 几何等价：在 `#stream` 内 ∧ 不越出视口 ∧ 无遮挡）；L2 视图打开态 = 视图外可见输入框 0",
+      "status": "landed",
+      "reason": "★ IAN-2 R2（TASK-IAN-220；ADR-IAN-006 §① / ADR-IAN-008 §③）：**法四修订连带、非注入面漂移** —— 三 id DOM 真退役后，旧读面（`document.getElementById('composer').hidden`）在元素不存在时是 TypeError（崩溃），不是更严的判据 ⇒ 必须等价重锚。三文件（`test/ui/insight.mjs` / `l0.mjs` / `l1.mjs`）**不在** `zeroDiffFiles`（RL-10 的 9 项）内 ⇒ **无需解冻、红线不降级**；登记载体 = 本 `redlineRemap` 条目 + 新叶段 `specs-tree-ian-2-abolish-composer(R2-W6)` 的逐字删除面登记（`registeredUncoveredLines`）+ `modifiedRanges[IAN2R2-MR-*]`；断言只升不降（insight 118→125 / l0 248→251 / l1 120→132，零删除）。",
+      "evidence": "`test:insight` **125** PASS（`test:insight`，日志 /tmp/opencode/v4-gate-logs/ian-2-r2/registry/test-insight.log）· `test:l0` **251** PASS（registry/test-l0.log）· `test:l1` **132** PASS（registry/test-l1.log）；三条均含「三 id DOM 零命中」+「流内 free-input 卡可展开/可聚焦/几何等价（无遮挡）」断言（新增族见 insight `#I-23a~c2`/`#I-13a3`）。"
     }
   ],
   "zeroDiffFiles": [
@@ -17260,25 +17731,26 @@
   ],
   "counts": {
     "l0": {
-      "currentRuntime": 248,
+      "currentRuntime": 251,
       "floor": 164,
       "countMethod": "runtime-check-calls",
-      "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 203 → 210（review 修复轮 I4/I7/I12 新增 7 条后实跑 210，validate R1 独立复跑一致）。R3 现场原文（203）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-l0.log（全量，未截断）；同源机核见 test/supersession-ledger.test.ts 的 counts↔日志抽样判据。 〖v4-2（2026-09-19）〗TASK-611 追加 §⑮ 两条（`#stream` 内卡不污染外壳密度 + 反向「该卡真的带 3 可点」）后实测 **212**（210 → 212，只增）。 〖v4-2 收口轮〗212（不变；来源日志重登记到收口轮 registry/ 快照）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗TASK-707/710 追加 §⑥ 的等价重锚（决策槽退役后 `#l0-decision` 直挂流内 + 宿主清零 + 流内卡选择器）后实测 **216**（212 → 216，只增）。 〖v4-3 审查修复轮（2026-09-19）〗216（不变）；来源日志重登记到审查修复轮 registry/ 快照。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 216 → **248**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-l0.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：248 → **248**（只增不减；floor 164 不动）。引用「出生即失效」的根修 + 止血不新增 L0 运行期断言（夹具/链路零改动）。",
+      "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 203 → 210（review 修复轮 I4/I7/I12 新增 7 条后实跑 210，validate R1 独立复跑一致）。R3 现场原文（203）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-l0.log（全量，未截断）；同源机核见 test/supersession-ledger.test.ts 的 counts↔日志抽样判据。 〖v4-2（2026-09-19）〗TASK-611 追加 §⑮ 两条（`#stream` 内卡不污染外壳密度 + 反向「该卡真的带 3 可点」）后实测 **212**（210 → 212，只增）。 〖v4-2 收口轮〗212（不变；来源日志重登记到收口轮 registry/ 快照）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗TASK-707/710 追加 §⑥ 的等价重锚（决策槽退役后 `#l0-decision` 直挂流内 + 宿主清零 + 流内卡选择器）后实测 **216**（212 → 216，只增）。 〖v4-3 审查修复轮（2026-09-19）〗216（不变）；来源日志重登记到审查修复轮 registry/ 快照。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 216 → **248**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-l0.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：248 → **248**（只增不减；floor 164 不动）。引用「出生即失效」的根修 + 止血不新增 L0 运行期断言（夹具/链路零改动）。 〖★ IAN-2 R2（2026-09-25，TASK-IAN-220）〗⑧ 退役容器册 13→16（三 id 入册 ⇒ +3 反向断言）+ ③⑪ 法四等价重锚（composer hidden/出流 → 三 id 零命中 + 流内输入卡几何等价）+ 解析器结构修正（`RETIRED_CONTAINER_IDS` 以 `].sort());` 收尾 ⇒ 括号配平提取，对账口径不变）⇒ 只增：248 → **251**（floor 164 不动）。",
       "source": {
         "gate": "npm run test:l0",
-        "log": "/tmp/opencode/v4-gate-logs/r4-selector-fix/registry/test-l0.log",
+        "log": "/tmp/opencode/v4-gate-logs/ian-2-r2/registry/test-l0.log",
         "pattern": "▶ L0 运行时门禁: (\\d+) passed",
-        "observedLine": "▶ L0 运行时门禁: 248 passed / 0 failed",
-        "observed": 248,
-        "measuredOn": "2026-09-22"
+        "observedLine": "▶ L0 运行时门禁: 251 passed / 0 failed",
+        "observed": 251,
+        "measuredOn": "2026-09-25"
       },
-      "noteHistory": "TASK-515 收口实测（R3，2026-09-19）：npm run test:l0 ⇒ 203（下界 164）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l0.log（全量，未截断）。"
+      "noteHistory": "〖TASK-515 收口实测（R3，2026-09-19）〗npm run test:l0 ⇒ 203（下界 164）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l0.log（全量，未截断）。"
     },
     "l1": {
-      "currentRuntime": 120,
+      "currentRuntime": 132,
       "floor": 103,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:l1 ⇒ 108（下界 103）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l1.log（全量，未截断）。 〖v4-2（2026-09-19）〗108 不变。 〖v4-3 审查修复轮（2026-09-19，BLOCK-03 + I-05）〗`test/ui/l1.mjs` ⑪ 新增 3 条（答案源 = 流内卡终态 / 取消原因可读 / 行文案同源）⇒ 实测 **111 / 0**（108 → 111，只增不减；floor 103 不变）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：111 → **120**（只增不减；floor 103 不动）。新增 1 个维度（`invalid-selector`）走同一渲染面 ⇒ +4 条运行期 check（判定 / 风险位三通道 / 可读原因逐字 / 卡内恢复区）。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:l1 ⇒ 108（下界 103）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-l1.log（全量，未截断）。 〖v4-2（2026-09-19）〗108 不变。 〖v4-3 审查修复轮（2026-09-19，BLOCK-03 + I-05）〗`test/ui/l1.mjs` ⑪ 新增 3 条（答案源 = 流内卡终态 / 取消原因可读 / 行文案同源）⇒ 实测 **111 / 0**（108 → 111，只增不减；floor 103 不变）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：111 → **120**（只增不减；floor 103 不动）。新增 1 个维度（`invalid-selector`）走同一渲染面 ⇒ +4 条运行期 check（判定 / 风险位三通道 / 可读原因逐字 / 卡内恢复区）。 〖★ IAN-2 R2（2026-09-25，TASK-IAN-220）〗⑨ 法四等价重锚：可见文本输入上限 ≤2 → **≤1**（收紧）+ 「三 id DOM 零命中」+「唯一可见输入面在 #stream 内且无遮挡」⇒ 120（登记滞后）→ 131（R1 实测）→ **132**（本轮 +1；floor 103 不动）。",
+      "noteHistory": "〖R4 登记值〗120（实际 R4 后现场 120；IAN-2 R1 实测 131 但未同步登记 —— 本轮据实订正）。"
     },
     "l2": {
       "currentRuntime": 74,
@@ -17293,11 +17765,11 @@
       "note": "〖N-04（收口轮，v4-1 validate R1）〗按**实测**订正：R3 现场值 169 → 171（review 修复轮 I6/I10 新增 2 条后实跑 171，validate R1 独立复跑一致）。R3 现场原文（169）**逐字保留**在同条目的 `noteHistory` 字段（只追加不改写历史）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-density.log（全量，未截断）。本口径的**反证**（RP-V4-01~07）由 `test/ui/density.mjs --reverse RP-V4-0X` 单独驱动，不计入本数。 〖v4-2（2026-09-19）〗TASK-613 追加 RP-V4-09（形态判据 + 首屏合计上限，8 passed）与体积重登记后实测 **171 / 0**。 〖v4-2 收口轮〗171（不变；来源日志重登记到收口轮 registry/ 快照；体积登记 426,487 / ceiling 447,811）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗171（不变）；RP-V4-09 反证的期望值重 pin 为动态 `基线合计 + 10`（v4-3 的 ask 卡使基线不再为 0），主门禁计数不变。 〖v4-3 审查修复轮（2026-09-19）〗171（不变；I-03 展开态判据落在 `test/ui/ask-auth-inflow.mjs` ⑪，不计入本数）；来源日志重登记到审查修复轮 registry/ 快照；体积重登记 445,300 / ceiling 467,565。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 171 → **242**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-density.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：242 → **242**（只增不减；floor 127 不动）。体积重登记不改密度格（31 格逐格留痕与阈值 7/15 · 9/20 · 17/35 零改动）。",
       "source": {
         "gate": "npm run test:density",
-        "log": "/tmp/opencode/v4-gate-logs/r4-selector-fix/registry/test-density.log",
+        "log": "/tmp/opencode/v4-gate-logs/ian-2-r2/registry/test-density.log",
         "pattern": "▶ density 门禁: (\\d+) passed",
         "observedLine": "▶ density 门禁: 242 passed / 0 failed",
         "observed": 242,
-        "measuredOn": "2026-09-22"
+        "measuredOn": "2026-09-25"
       },
       "noteHistory": "TASK-515 收口实测（R3，2026-09-19）：npm run test:density ⇒ 169（下界 127）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-density.log（全量，未截断）。"
     },
@@ -17308,10 +17780,10 @@
       "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:ui ⇒ 167（下界 167）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-ui.log（全量，未截断）。 〖v4-2（2026-09-19）〗167 不变。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 167 → **171**，source 同步（日志 （门禁抽跑），同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：171 → **171**（只增不减；floor 167 不动）。旅程门禁不变（选择器口径改动不触设置/连接流）。"
     },
     "insight": {
-      "currentRuntime": 118,
+      "currentRuntime": 125,
       "floor": 116,
       "countMethod": "runtime-check-calls",
-      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:insight ⇒ 116（下界 116）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-insight.log（全量，未截断）。 〖v4-2（2026-09-19）〗116 不变。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 116 → **118**，source 同步（日志 （门禁抽跑），同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：118 → **118**（只增不减；floor 116 不动）。档案门禁不变（树/审计面零改动）。"
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm run test:insight ⇒ 116（下界 116）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test-insight.log（全量，未截断）。 〖v4-2（2026-09-19）〗116 不变。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 116 → **118**，source 同步（日志 （门禁抽跑），同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：118 → **118**（只增不减；floor 116 不动）。档案门禁不变（树/审计面零改动）。 〖★ IAN-2 R2（2026-09-25，TASK-IAN-220）〗法四等价重锚（三 id DOM 零命中 + 流内 free-input 卡可展开/可聚焦/几何等价，#I-23a~c2 + #I-13a3）⇒ 只增：118 → **125**（floor 116 不动）。"
     },
     "binding": {
       "currentRuntime": 192,
@@ -17332,32 +17804,32 @@
       "note": "TASK-515 收口实测（R3，2026-09-19）：npm test（dist-test/test/sidepanel-view.test.js） ⇒ 38（下界 38）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮复核〗38 不变（本轮未改 sidepanel-view 断言）。 〖v4-2（2026-09-19）〗38 不变（3 条静态断言等价重锚到 cards/*，test( 注册数不变）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：38 → **38**（只增不减；floor 38 不动）。侧栏视图契约门禁不变（本修不改 DOM 结构；仅证据行/卡标签的选择器值改走展示层截断）。"
     },
     "nodeTestRuntime": {
-      "currentRuntime": 1246,
+      "currentRuntime": 1441,
       "floor": 832,
       "countMethod": "runtime-node-tests",
-      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。 〖N-04（收口轮，v4-1 validate R1）〗本轮收口新增 6 条（N-05 round-rows 自洽断言 + 反证；N-04 counts 同源判据 + 反证；N-01~N-08 处置登记判据 + 反证）⇒ 实测 **881**（只增不减）。另：validate R1 指出的「`test/theme.test.ts`（18 条）」为笔误，实测 `^test(` = **19** 条 —— 已在同源注中订正。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test.log（全量，未截断）。 〖v4-2（2026-09-19）〗新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加长会话用例）共 +37 条 ⇒ 881 → **918**（0 fail）。 〖v4-2 review 修复轮（2026-09-19）〗`test/supersession-ledger.test.ts` 新增 2 条（I-01 的 `truncationRules` 判据 + 反证）⇒ 实测 918 → **920**（0 fail；floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮（2026-09-19，validate R1 的 F-01/F-02/F-03 + N-02）〗新增 4 条 node 用例（F-01 深冻结 2 条 / F-02 stream-merge 严格单调 1 条 / F-03 sanitizeLabel 边界 1 条）⇒ 实测 920 → **924**（0 fail）。日志 /tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 `test/ask-auth-inflow.test.ts`（12 用例）+ 本叶收口新增 3 条（v4 叶段 schema/逐叶段判定/逐叶段反证）⇒ 实测 **937 / 0**（924 → 937，只增不减；floor 832 不变）。 〖v4-3 审查修复轮（2026-09-19，review R1 的 BLOCK-01~04 + I-01~I-08）〗`test/ask-auth-inflow.test.ts` 新增 8 条（BLOCK-01 假批准三路径 + 反向 / BLOCK-02 真超时 + 面板自有 ask 不结算 + 反向 / I-06 error 结算 / I-07 fail-closed ×2）⇒ 实测 **945 / 0**（937 → 945，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 收口轮（2026-09-19，N-01~N-03 处置；validate R1 后）〗新增 2 条 node 用例（`test/supersession-ledger.test.ts` 的 N-01 机核：`leafBases[].summary` 读数 == 分项之和 + 反证）⇒ 实测 **947 / 0**（945 → 947，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 947 → **1181**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-run.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：1181 → **1186**（只增不减；floor 832 不动）。新增 5 条 node 用例：`ref-capture.test.ts` 3 条（>120 回环 / 截断反证 / >512 compact 回退）+ `ref-rescue.test.ts` 1 条（深链逐字符同源）+ `l1-ref-validity.test.ts` 1 条（invalid-selector 维度）。",
+      "note": "TASK-515 收口实测（R3，2026-09-19）：npm test ⇒ 849（下界 832）。日志 /tmp/opencode/v4-gate-logs/v4-1-r3/test.log（全量，未截断）。 〖review 修复轮〗新增 `test/theme.test.ts`（18 条）+ `supersession-ledger.test.ts` 4 条（I1/I2）+ `size-growth-evidence.test.ts` 2 条（I8/I9）⇒ 实测 849 → **875**（floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-1-reviewfix/test.log（全量，未截断）。 〖N-04（收口轮，v4-1 validate R1）〗本轮收口新增 6 条（N-05 round-rows 自洽断言 + 反证；N-04 counts 同源判据 + 反证；N-01~N-08 处置登记判据 + 反证）⇒ 实测 **881**（只增不减）。另：validate R1 指出的「`test/theme.test.ts`（18 条）」为笔误，实测 `^test(` = **19** 条 —— 已在同源注中订正。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test.log（全量，未截断）。 〖v4-2（2026-09-19）〗新增 3 个 node 文件（stream-model.test / stream-persistence.test / perf-budget 追加长会话用例）共 +37 条 ⇒ 881 → **918**（0 fail）。 〖v4-2 review 修复轮（2026-09-19）〗`test/supersession-ledger.test.ts` 新增 2 条（I-01 的 `truncationRules` 判据 + 反证）⇒ 实测 918 → **920**（0 fail；floor 832 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮（2026-09-19，validate R1 的 F-01/F-02/F-03 + N-02）〗新增 4 条 node 用例（F-01 深冻结 2 条 / F-02 stream-merge 严格单调 1 条 / F-03 sanitizeLabel 边界 1 条）⇒ 实测 920 → **924**（0 fail）。日志 /tmp/opencode/v4-gate-logs/v4-2-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 `test/ask-auth-inflow.test.ts`（12 用例）+ 本叶收口新增 3 条（v4 叶段 schema/逐叶段判定/逐叶段反证）⇒ 实测 **937 / 0**（924 → 937，只增不减；floor 832 不变）。 〖v4-3 审查修复轮（2026-09-19，review R1 的 BLOCK-01~04 + I-01~I-08）〗`test/ask-auth-inflow.test.ts` 新增 8 条（BLOCK-01 假批准三路径 + 反向 / BLOCK-02 真超时 + 面板自有 ask 不结算 + 反向 / I-06 error 结算 / I-07 fail-closed ×2）⇒ 实测 **945 / 0**（937 → 945，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖v4-3 收口轮（2026-09-19，N-01~N-03 处置；validate R1 后）〗新增 2 条 node 用例（`test/supersession-ledger.test.ts` 的 N-01 机核：`leafBases[].summary` 读数 == 分项之和 + 反证）⇒ 实测 **947 / 0**（945 → 947，只增不减；floor 832 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 947 → **1181**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-run.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：1181 → **1186**（只增不减；floor 832 不动）。新增 5 条 node 用例：`ref-capture.test.ts` 3 条（>120 回环 / 截断反证 / >512 compact 回退）+ `ref-rescue.test.ts` 1 条（深链逐字符同源）+ `l1-ref-validity.test.ts` 1 条（invalid-selector 维度）。 〖★ IAN-2 R2（2026-09-25）〗按**实测**前移（只增）：1246 → **1441**（R1 实测 1437 未登记，本轮据实订正；R2 新增 4 条机核：X-IAN-8~11 / 门禁三态对账 / 叶2 终值五要素，另 IAN-1+IAN-2 全量并轨）—— floor 832 不动；日志 registry/test-run.log（全量，未截断）。",
       "previousRuntime": 947,
       "source": {
         "gate": "npm test",
-        "log": "/tmp/opencode/v4-gate-logs/v55-1-fix/registry/test-run.log",
+        "log": "/tmp/opencode/v4-gate-logs/ian-2-r2/registry/test-run.log",
         "pattern": "ℹ pass (\\d+)",
-        "observedLine": "ℹ pass 1246",
-        "observed": 1246,
-        "measuredOn": "2026-09-23"
+        "observedLine": "ℹ pass 1441",
+        "observed": 1441,
+        "measuredOn": "2026-09-25"
       }
     },
     "supersession": {
-      "currentRuntime": 36,
+      "currentRuntime": 48,
       "floor": 24,
       "countMethod": "runtime-node-tests",
-      "note": "〖N-04（收口轮，v4-1 validate R1）〗验 R1 抽样口径之一：`npm run test:supersession` 实测 24（R3 20 + review 修复轮 I1/I2 四条）。本轮收口新增 N-04 counts↔日志同源判据与 N-01~N-08 处置登记判据（各含一条反证）⇒ 实测 **28**（只增不减；floor 24 = validate R1 实测下界）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-supersession.log（全量，未截断）。 〖v4-2 review 修复轮（2026-09-19）〗新增 **I-01 判据两条**（`truncationRules` ↔ `DIGEST_FIELDS` 逐字段机核 + 反证）⇒ 实测 28 → **30 / 0**（floor 24 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-supersession-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮〗30 条（不变；本轮只重登记来源日志到收口轮快照 registry/，口径纪律同 nodeTestRuntime：登记路径不得指向门禁运行时的实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 **v4 叶段 schema/scope 复算**判据一条（同时把「恰好 1 个叶段」换段化为「逐叶追加 + 逐叶段判定/反证」）⇒ 实测 **31 / 0**（30 → 31，只增不减；floor 24 不变）。 〖v4-3 审查修复轮（2026-09-19，I-05）〗新增 **逐叶段 diff 驱动 scope** 判据（`leafScopeFilesFor`：把「本叶段 `git diff` 真实删除面」并入受判集，去自指）⇒ 实测 **31 / 0**（不变：新判据并入既有「逐叶段 schema/scope」与「逐叶段删除行」两条内，断言计数不变而覆盖变强；floor 24 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-supersession-run.log（全量，未截断）。 〖v4-3 收口轮（2026-09-19，N-01 处置）〗新增 **`leafBases[].summary` 读数 == 分项之和** 判据 + 反证 ⇒ 实测 **33 / 0**（31 → 33，只增不减；floor 24 不变；该判据即时发现台账漂移，是本轮 N-01 的「防止再滞后」装置）。日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-supersession-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 33 → **36**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-supersession-run.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：36 → **36**（只增不减；floor 24 不动）。台账门禁用例数不变（新增登记只改 JSON 字段：新增 `leafBases[r4-selector-fix]` + 3 条 `modifiedRanges` + 2 条 `unfrozenZeroDiffFiles`）。",
+      "note": "〖N-04（收口轮，v4-1 validate R1）〗验 R1 抽样口径之一：`npm run test:supersession` 实测 24（R3 20 + review 修复轮 I1/I2 四条）。本轮收口新增 N-04 counts↔日志同源判据与 N-01~N-08 处置登记判据（各含一条反证）⇒ 实测 **28**（只增不减；floor 24 = validate R1 实测下界）。日志 /tmp/opencode/v4-gate-logs/v4-1-closeout/test-supersession.log（全量，未截断）。 〖v4-2 review 修复轮（2026-09-19）〗新增 **I-01 判据两条**（`truncationRules` ↔ `DIGEST_FIELDS` 逐字段机核 + 反证）⇒ 实测 28 → **30 / 0**（floor 24 不变，只增不减）。日志 /tmp/opencode/v4-gate-logs/v4-2-reviewfix/test-supersession-run.log（全量，未截断）。 ⚠️ 口径纪律（修复轮踩到并记下）：登记 `source.log` **不得指向门禁运行时的实时 tee 目标** —— 该文件在门禁自己的读取时刻尚未写出汇总行（`ℹ pass`），会让 N-04 判「找不到 pattern」。故本轮把登记路径放在 `registry/` 快照（= 一次完整绿run 日志的副本，运行期间不会被截断），实时日志留在上级目录。 〖v4-2 收口轮〗30 条（不变；本轮只重登记来源日志到收口轮快照 registry/，口径纪律同 nodeTestRuntime：登记路径不得指向门禁运行时的实时 tee 目标）。 〖v4-3 功能轮（2026-09-19，TASK-711）〗新增 **v4 叶段 schema/scope 复算**判据一条（同时把「恰好 1 个叶段」换段化为「逐叶追加 + 逐叶段判定/反证」）⇒ 实测 **31 / 0**（30 → 31，只增不减；floor 24 不变）。 〖v4-3 审查修复轮（2026-09-19，I-05）〗新增 **逐叶段 diff 驱动 scope** 判据（`leafScopeFilesFor`：把「本叶段 `git diff` 真实删除面」并入受判集，去自指）⇒ 实测 **31 / 0**（不变：新判据并入既有「逐叶段 schema/scope」与「逐叶段删除行」两条内，断言计数不变而覆盖变强；floor 24 不变）。日志 /tmp/opencode/v4-gate-logs/v4-3-reviewfix/registry/test-supersession-run.log（全量，未截断）。 〖v4-3 收口轮（2026-09-19，N-01 处置）〗新增 **`leafBases[].summary` 读数 == 分项之和** 判据 + 反证 ⇒ 实测 **33 / 0**（31 → 33，只增不减；floor 24 不变；该判据即时发现台账漂移，是本轮 N-01 的「防止再滞后」装置）。日志 /tmp/opencode/v4-gate-logs/v4-3-closeout/registry/test-supersession-run.log（全量，未截断；= 同轮一次完整绿 run 的副本，非实时 tee 目标）。 〖V5-3 收口（末叶 specs-tree-v5-3-chrome-face，2026-09-22）〗counts 前移（只增不减；floor 为下界故不动）：currentRuntime 33 → **36**，source 同步（日志 /tmp/opencode/v4-gate-logs/v5-3-validate/registry/test-supersession-run.log，同源机核）。 〖R4 缺陷修复轮（2026-09-22，HEAD 953a2ed）〗按实测订正/前移：36 → **36**（只增不减；floor 24 不动）。台账门禁用例数不变（新增登记只改 JSON 字段：新增 `leafBases[r4-selector-fix]` + 3 条 `modifiedRanges` + 2 条 `unfrozenZeroDiffFiles`）。 〖★ IAN-2 R2（2026-09-25，TASK-IAN-217/220/225）〗新增 3 条机核（X-IAN-8~11 逐条登记 ∧ 14 叶段 scope/逐字登记 ∧ 门禁三态对账 `assertionsRemoved=0`）⇒ 只增：45 → **48**（floor 24 不动）。",
       "source": {
         "gate": "npm run test:supersession",
-        "log": "/tmp/opencode/v4-gate-logs/v55-1-fix/registry/test-supersession-run.log",
+        "log": "/tmp/opencode/v4-gate-logs/ian-2-r2/registry/test-supersession-run.log",
         "pattern": "ℹ pass (\\d+)",
-        "observedLine": "ℹ pass 36",
-        "observed": 36,
-        "measuredOn": "2026-09-23"
+        "observedLine": "ℹ pass 48",
+        "observed": 48,
+        "measuredOn": "2026-09-25"
       }
     },
     "stream": {
@@ -17387,7 +17859,8 @@
     "【下游义务，非本叶缺口】`data-transitional-host` 占位宿主当前 4 个（`index.html` 的 `li[data-transitional-host]` 实测：v4-3 × 2 = decision / composer，v4-4 × 2 = l1-panels / strips；本叶只建不销）：**v4 收口（v4-4 收尾）时必须清零**（ADR-V4-005 第 6 条 / 父 ADR-V4-011）。〖review 修复轮 I7〗原记「5 个」是把 `grep -c 'data-transitional-host='` 命中的 1 处 CSS 注释（index.html:1115）误计为宿主；已订正为 4，并由 l0.mjs 断言「hostCount == 登记宿主数」机核（不再是 `> 0`）。",
     "【下游义务，非本叶缺口】`PENDING_ABSOLUTE_CAP` 保持 `resolved:false` 且不预填（父 ADR-V4-010 第 5~8 条）；V3-VOL-3 带值闭合由 v4-4 收口轮执行。",
     "【下游义务，非本叶缺口】v4-2 落 7 主类卡后必须重审「卡口径」（`knownLimitations` 第 1 条：本叶的 `[data-msg-type]` 卡面尚未由产品渲染）。",
-    "【登记差异，如实报告】编排器 R3 指令提到「gate-integrity `EXPECTED_AUDITED_FILES` 追加新 Chromium 门禁文件」，但本叶**零新增 Chromium 门禁文件**（ADR-V4-023 第 7 条明令本叶不追加；`CHROMIUM_GATES.length === 9` 不动）。实际追加的是 **in-gate 例外说明 + R4b 模式断言 8 条**（见 build.md R3 章节与 gate-integrity.test.ts）。"
+    "【登记差异，如实报告】编排器 R3 指令提到「gate-integrity `EXPECTED_AUDITED_FILES` 追加新 Chromium 门禁文件」，但本叶**零新增 Chromium 门禁文件**（ADR-V4-023 第 7 条明令本叶不追加；`CHROMIUM_GATES.length === 9` 不动）。实际追加的是 **in-gate 例外说明 + R4b 模式断言 8 条**（见 build.md R3 章节与 gate-integrity.test.ts）。",
+    "【IAN-2 R2 已闭合】TASK-IAN-220 的 insight / l0 / l1 三 Chromium 门禁法四等价重锚（R1 曾因误判「须改冻结的 v3 台账」而回退）：实际登记载体 = v4 台账 `redlineRemap` + 新叶段 `R2-W6` + `modifiedRanges[IAN2R2-MR-*]`，不触碰 `docs/v3-supersession-ledger.json`；红线零降级，断言只升不降。"
   ],
   "unfrozenZeroDiffFiles": [
     {
@@ -18251,6 +18724,24 @@
       "topic": "一键重锚按钮位置的口径裁决：L1 证据面板（而非流内卡内）—— spec FR-CHAT-052「卡内」语义登记",
       "status": "registered-caliber-ruling",
       "note": "〖v4-4 收口轮（2026-09-20，处置 validate R1 N-05；**编排器裁决登记**）〗**现场**：一键重锚按钮 `#l1-ref-rescue` 位于 **L1 引用证据面板**（`#l1-ref`，仅「唯一文本匹配」时 `data-rescue=unique` 可见），流内 `ref` 卡携带的是「重新拾取 / 改用描述」两条恢复路径。**口径裁决（主编排器，2026-09-20）**：spec FR-CHAT-052 的「卡内」按「**恢复路径可达即可**（L1 面板与卡内二选一）」读 —— 失效卡（含可读原因）把用户引导到该面板，恢复路径**可达且可读**，功能等价；**登记为已知偏差**，不改实现（红线：不动 plan/spec、不动产物字节；把按钮搬进卡内会新增可点控件，须同时重审卡预算/密度登记格与 L1 面板的重复入口）。**升级条件**：若后续真机反馈需要卡内按钮，作为小改进项（下轮 or 后续叶）。**证据**：`test/ui/page-input.mjs` R3 段实测「唯一候选时「一键重锚」按钮可见（且仅在唯一匹配时）」；`build.md` 收口轮小节逐字记录本裁决。"
+    },
+    {
+      "id": "KL-IAN2-01",
+      "topic": "人工面 M3 / M4（真机手势 / 视觉终态）未执行",
+      "status": "pending-human",
+      "note": "headless Chromium 无法合成真实手势与视觉终态 ⇒ M3 / M4 逐项登记 **⏳ 未执行**（TASK-IAN-222 / IAN-P-007），不得冒充 PASS；机核面（node + Chromium S0″-B）已落。"
+    },
+    {
+      "id": "KL-IAN2-02",
+      "topic": "KL-N-10 家族环境性 flake（Chromium/CDP 资源耗尽）",
+      "status": "registered",
+      "note": "【★ IAN-2 R2 TASK-IAN-223 隔离复跑实测】串行批次中 `test:binding` 两次红（`#8d/#8e tabs switch 二次确认` 未出现 + `selector not found: #confirm-allow`；诊断显示全 target `CDP socket not open (readyState=3)` ⇒ **浏览器/渲染进程早死**，非断言语义失败）；隔离复跑 **PASS 192/192**（`34d-binding-rerun2.log`），且在 **HEAD 对照**（`git stash` 后）亦 PASS 192 ⇒ 与本轮改动无因果。`test:l2` **74 PASS**；`test:l2-reverse` **10/10 PASS**（首轮被外层 15 min 超时打断，非门禁失败 —— 台账判据本身耗时 ~2 min/次，给足时限即绿，`44b-l2-reverse.log`）；`test:hardening` **24 PASS**；`test:e2e` **PASS**。与历史登记（KL-N-10 / KL-V44CL-N03 的 bookmark 变体）**新增一种已观测变体**（CDP socket 早死），处置不变：隔离复跑 + 如实登记，不阻塞收口。"
+    },
+    {
+      "id": "KL-IAN2-03",
+      "topic": "RL-10 `zeroDiffFiles` 与被重锚门禁的语义边界",
+      "status": "registered",
+      "note": "T220 重锚的 insight/l0/l1 **不在** v4 `zeroDiffFiles`（9 项）内 ⇒ 无需解冻、RL-10 计数不动；若将来把它们列入冻结面，则重锚须走显式解冻登记（见 `rl10ZeroDiffNote`）。"
     }
   ],
   "truncationRules": [
@@ -18360,7 +18851,80 @@
         "③ ≤ 5% 公式但 > 绝对上限 ⇒ FAIL（硬墙优先）",
         "三者还原 ⇒ PASS；`test/size-ruling-vol3.test.ts` 中逐条驱动（只增断言）。"
       ],
-      "⑧cap record-only": "`SIDEPANEL_CEILING_CAP` 保持 record-only，判定器不读取它（evaluateSidepanelSize 只读 PENDING_ABSOLUTE_CAP.absoluteCeilingBytes 与公式）。"
+      "⑧cap record-only": "`SIDEPANEL_CEILING_CAP` 保持 record-only，判定器不读取它（evaluateSidepanelSize 只读 PENDING_ABSOLUTE_CAP.absoluteCeilingBytes 与公式）。",
+      "⑨IAN-2 R2 收口重登记": {
+        "caliber": "五要素 + 两叶 Σ + 档位/生效上限状态 + EC-IAN-016 三态（TASK-IAN-224/225）",
+        "①实测": {
+          "file": "packages/web-cli-plugin/dist/sidepanel.js",
+          "bytes": 598577,
+          "method": "stat -c %s dist/sidepanel.js",
+          "measuredOn": "2026-09-25",
+          "r2Delta": 0,
+          "note": "IAN-2 R2 全部改动落在 test/** + docs/** + .sddu/** ⇒ src/** 零字节改动，终值与 R1 逐字节相等。"
+        },
+        "②前后值": {
+          "before": 599125,
+          "after": 598577,
+          "deltaBytes": -548,
+          "deltaPct": "-0.09%",
+          "direction": "lowered（净负轮）"
+        },
+        "③逐模块归因": {
+          "source": "SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows",
+          "sumModuleDelta": -548,
+          "unattributedGlueBytes": 0,
+          "r2Rows": "∅（空集 = 登记事实）",
+          "reproduce": "npm run size:attribution -- --rev 0d0fd85 --rev WORKTREE"
+        },
+        "④档位与上限": {
+          "tierBytes": 614400,
+          "absoluteCeilingBytes": 675840,
+          "effectiveCeilingBytes": 628505,
+          "formula": "floor(598,577 × 1.05)",
+          "tierUnchanged": true,
+          "capUnchanged": true
+        },
+        "⑤EC-IAN-016 三态": {
+          "overEffectiveCeiling": false,
+          "overTier": false,
+          "overAbsoluteCeiling": false,
+          "authorConfirmation": "pending-author-line",
+          "note": "三档均未触发（无需升档）；不伪称作者已确认。"
+        },
+        "⑥两叶 Σ 对照": {
+          "leaf1": {
+            "feature": "specs-tree-ian-1-free-input-next",
+            "from": 591946,
+            "to": 599125,
+            "deltaBytes": 7179
+          },
+          "leaf2": {
+            "feature": "specs-tree-ian-2-abolish-composer",
+            "from": 599125,
+            "to": 598577,
+            "deltaBytes": -548
+          },
+          "sigma": {
+            "from": 591946,
+            "to": 598577,
+            "deltaBytes": 6631
+          },
+          "note": "叶1 越叶预算 +7,179 B 已如实登记（ian-1-r2.reason）；叶2 净负 −548 B 落在严格口径 −1.2~+0.3 KB 内、未达 A 列目标带 −2.5~−1.0 KB（DOM/CSS 经 copyFile 不进 sidepanel.js 账本 + 重锚成本抵消，FR-IAN-115 / R-IAN-908 显式登记）。"
+        },
+        "⑦三冻结面": {
+          "content.js": {
+            "bytes": 177076,
+            "sha256Prefix": "52a82620"
+          },
+          "pick-layer.js": {
+            "bytes": 34358,
+            "sha256Prefix": "77796bab"
+          },
+          "manifest.json": "零 diff",
+          "web-cli-base/**": "零 diff",
+          "src/background/turn-queue.ts": "零 diff"
+        }
+      }
     },
     "authorConfirmation": {
       "status": "pending-author-line",
@@ -18903,6 +19467,193 @@
         "after": "叶段 11 个（新增 R2-W3 段）∧ 新增 X-IAN 台账与门禁对账骨架",
         "assertionsRemoved": 0,
         "reason": "TASK-IAN-127 本叶收口骨架。"
+      }
+    ]
+  },
+  "rl10ZeroDiffNote": "RL-10（`zeroDiffFiles` 恰 9 项）语义注记 · ★ IAN-2 R2（TASK-IAN-220）：T220 重锚的三条 Chromium 门禁文件（`test/ui/insight.mjs` / `test/ui/l0.mjs` / `test/ui/l1.mjs`）**不在** `zeroDiffFiles` 内 ⇒ 本轮**无需**任何解冻登记，`zeroDiffFiles.length === 9` 逐字不动（由 `test/supersession-ledger.test.ts` RL-10 与 `op-three-tier` OT-⑪ 机核）；三文件的删除面登记载体 = v4 台账新叶段 `R2-W6` + `modifiedRanges[IAN2R2-MR-*]`（**不触碰**冻结的 `docs/v3-supersession-ledger.json`）。",
+  "xIianLedgerLeaf2": {
+    "leaf": "specs-tree-ian-2-abolish-composer",
+    "adr": "ADR-IAN-004（废除 #composer 执行序）/ ADR-IAN-006（法四修订与取代台账）",
+    "registeredOn": "2026-09-25",
+    "registeredBy": "SDDU build（IAN-2 R1+R2；W04~W06 = TASK-IAN-201~225）",
+    "note": "X-IAN-8~11 **逐条登记终态**（叶2 = 拆除叶；四条均已发生取代，且均为等价重锚 / 载体迁移，非放宽）。每条给出可定位 counterCheck 与非套话解释；断言只升不降由各自的判据文件机核。",
+    "rows": [
+      {
+        "id": "X-IAN-8",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "counterCheck": "`test/settings.test.ts`（draft 载体）∧ `test/turn-arbitration.test.ts` TA-4",
+        "evidence": "设置 ⇄ chat 的 draft `#input` 读写**重锚**到流内 free-input 卡 `#ask-input`（空安全；卡不存在 ⇒ 按需铸造）；流外 `#input` 写点必须零命中（回填仍必红）。"
+      },
+      {
+        "id": "X-IAN-9",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "counterCheck": "`test/l0-disclosure.test.ts` ∧ `src/ui/sidepanel/disclosure.ts`",
+        "evidence": "`NEVER_FOLDABLE` 移除 `'composer'`（14 → **13**）：元素已不存在 ⇒ 无需「永不折叠」保护；断言为**非恒真**（集合不含 composer 且长度恰 13）。"
+      },
+      {
+        "id": "X-IAN-10",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "counterCheck": "`test/sidepanel-view.test.ts` ∧ `test/onboarding-deterministic.test.ts`",
+        "evidence": "首装引导「在输入框输入指令并发送」**改指**流内 next「自由输入…」（`view-model.ts`）；引导不断言已退役元素 id，改判流内入口可达。"
+      },
+      {
+        "id": "X-IAN-11",
+        "decision": "superseded",
+        "owner": "specs-tree-ian-2-abolish-composer（叶2）",
+        "counterCheck": "`test/ui/binding.mjs` ∧ `test/binding-wiring.test.ts`",
+        "evidence": "`binding.mjs` `DIAG_SELECTORS` 去 `composer` + 真实键入路径重锚到流内 free-input 卡（`#ask-input`/`#ask-submit`，**路径不删**）；**保护段 keep 字节中立**：段 `107780..115930` 段内零字节、sha `be9ad0e9…` 双绿、`startAnchor` 仍 = 107780（段前等长补偿）。"
+      }
+    ]
+  },
+  "xIianGateReconciliationLeaf2": {
+    "leaf": "specs-tree-ian-2-abolish-composer",
+    "registeredOn": "2026-09-25",
+    "note": "**18 门禁三态对账**（保留 `kept` / 等价重锚 `equivalent-reanchor` / 显式取代 `explicit-supersession`）+ 新增 1 门禁；断言零删除零降级（`assertionsRemoved=0`）。间接面对账（notify-tools / settings-help / system-merge / parity baseline-catalog）见 `indirectFaces`。",
+    "manualFaces": "人工面 **M3 / M4**：⏳ **未执行**（headless 不可合成，不冒充 PASS；TASK-IAN-222 §人工面登记）；M1/M2/M5 同。",
+    "indirectFaces": "notify-tools（消息 `send()` ≠ `#send` 按钮，零触碰）· settings-help · system-merge · parity/baseline-catalog —— 四条逐项复核：无 `#composer`/`#input`/`#send` 引用面，**保留**（kept）。",
+    "rows": [
+      {
+        "gate": "op-wiring",
+        "disposition": "equivalent-reanchor",
+        "before": "`op.turn.callSites` 恰 2 ∧ `requestTurn(` 恰 2",
+        "after": "恰 1（+ 注入第 2 处必红的反证）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "turn-arbitration",
+        "disposition": "equivalent-reanchor",
+        "before": "TA-4 = `#input` 回填双载体",
+        "after": "TA-4 载体唯一化（流外写点必须零命中）+ 删回填仍必红",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "r6-ty-experience-fix",
+        "disposition": "equivalent-reanchor",
+        "before": "`requestTurn(` 恰 2 / composer 在飞",
+        "after": "恰 1 / 流内输入面（在飞不硬禁用）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "sidepanel-view",
+        "disposition": "equivalent-reanchor",
+        "before": "draft `#input` 载体",
+        "after": "draft 重锚流内 `#ask-input`（三 id 真退役静态断言）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "density-thresholds",
+        "disposition": "equivalent-reanchor",
+        "before": "`#input`/`#send` 不得在退役册",
+        "after": "**必须**在册（容器册 16；`#send-reason` 保持不得在册、非恒真）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "host-registry",
+        "disposition": "equivalent-reanchor",
+        "before": "`RETIRED_CONTAINER_IDS` 13 项",
+        "after": "**16** 项（逐 id 在册 + 回流必红反证）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "supersession-ledger",
+        "disposition": "equivalent-reanchor",
+        "before": "RL-07 `requestTurn(` 恰 2 / 保护段链 2 节",
+        "after": "恰 1 / 链 4 节 + X-IAN-8~11 + 门禁三态对账 + 新叶段 R2-W6",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "insight-tree-hierarchy",
+        "disposition": "kept",
+        "before": "先例引用 `:527` / `:656-657`",
+        "after": "逐字保留 + 本轮 journey 取代登记",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "settings",
+        "disposition": "equivalent-reanchor",
+        "before": "draft 载体 = `#input`",
+        "after": "draft 重锚流内载体（等价重锚）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "gate-integrity",
+        "disposition": "equivalent-reanchor",
+        "before": "`EXPECTED_AUDITED_FILES` 下界（无 `law4-input-as-next`）∧ `IAN2_NODE_GATE_FILES`",
+        "after": "下界**只增** `law4-input-as-next`（+ 叶1 `free-input-next` 已在册）+ 元门禁用例；`CHROMIUM_GATES === 9` 不动",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "size-baseline",
+        "disposition": "equivalent-reanchor",
+        "before": "基线 599,125 / 生效上限 629,081",
+        "after": "基线 598,577 / 生效上限 628,505 + 叶2 终值常量（`ian-2-r2`，Δ 0）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "insight.mjs（Chromium）",
+        "disposition": "explicit-supersession",
+        "before": "`#I-08`/`#I-09` 读 `#composer` 几何（118）",
+        "after": "三 id 零命中 + 流内输入卡几何等价（**125**）；显式消解登记 `composerDissolved`",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "journey.mjs（Chromium）",
+        "disposition": "explicit-supersession",
+        "before": "`#15c` composer 贴底 + `composerGapToBottom`",
+        "after": "`#15c` 同编号等价改写（171）+ 八步显式取代（新 pin 7b309258…）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "l0.mjs（Chromium）",
+        "disposition": "explicit-supersession",
+        "before": "③⑪ composer hidden / 出流（248）",
+        "after": "三 id 零命中 + 流内卡几何等价（**251**）；容器册 16 的反向断言 +3",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "binding.mjs（Chromium）",
+        "disposition": "kept",
+        "before": "段 `107780..115930` / sha be9ad0e9…（192）",
+        "after": "**保段 keep**：段内零字节、sha 双绿、startAnchor 仍 107780（192）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "recommendation.mjs（Chromium）",
+        "disposition": "equivalent-reanchor",
+        "before": "⑰/①/⑭ 读 `#input`",
+        "after": "三 id 零命中 + 空安全读（79）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "s0-self-driven.mjs（Chromium）",
+        "disposition": "equivalent-reanchor",
+        "before": "S0 主面 / S0″-A 真面板面（81）",
+        "after": "S0″-B 终态 + 注入必红（82）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "l1.mjs（Chromium）",
+        "disposition": "equivalent-reanchor",
+        "before": "⑨ 可见文本输入 ≤2（含 composer）",
+        "after": "**≤1** + 三 id 零命中 + 唯一可见输入面无遮挡（120→132）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "hardening.mjs（Chromium）",
+        "disposition": "kept",
+        "before": "24 断言（`zeroDiffFiles` 冻结面）",
+        "after": "24 断言，零 diff（保留）",
+        "assertionsRemoved": 0
+      },
+      {
+        "gate": "law4-input-as-next（新增）",
+        "disposition": "explicit-supersession",
+        "before": "（不存在）",
+        "after": "L4-1~6（三 id 零命中 / 逐 id 入册 16 / 默认屏零可见输入 / 流内卡可用 / 三段控制 / 真源切片）",
+        "assertionsRemoved": 0
       }
     ]
   }

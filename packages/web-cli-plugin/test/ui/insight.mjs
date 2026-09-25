@@ -15,8 +15,10 @@
  *   #I-06c pinned v1 raw 基线（418px @ 2026-09-13，W6）回归：`#stream ≥ 410px`（更敏感）；
  *   #I-06d 同上占比回归：`#stream ≥ 45.4%`；
  *   #I-07 `#stream` 稳态高度占比 `≥ LOG_MIN_RATIO`（次断言；v3-1 起为 54.0%，v1 前值为 65.0%）；
- *   #I-08 `#composer` 底边 − 视口底 `∈ [0, +8px]`（不得为负，D-079）；
- *   #I-09 `#tree-fab` ∩ `#composer` 交面积 `= 0`；
+ *   #I-08 ★ IAN-2 等价重锚（法四修订连带、非注入面漂移）：`#composer`/`#input`/`#send`
+ *            三 id DOM **零命中**（真退役 ≠ hidden；原「`#composer` 底边 − 视口底 ∈[0,+8px]」随面消解）；
+ *   #I-09 ★ IAN-2 等价重锚：`#tree-fab` ∩ **流内输入卡**（`#ask-input`）无遮挡
+ *            （`elementFromPoint` 命中输入自身 ∧ 交面积 0；原 FAB∩#composer 面随三 id 一并重锚）；
  *   #I-10 文档 / `#stream` / 抽屉 400px 水平溢出 `= 0`；
  *   #I-11 R2 两通路文案 + 归属层级树声明 + `delay`(=`deny`) 消歧（取代 S13）；
  *   #I-12a/b R2 deny 分层：硬底线零控件 + 原因可读；可覆盖行 allow/ask/deny（取代 S14）；
@@ -33,6 +35,10 @@
  *            ask/deny 叶子控件）+ 覆盖即时生效 + 多状态布局守卫；#I-20a2 A3 站点工具→子命令；
  *   #I-21a~e R2-V24-04：档案卡分层（A1 含只可收紧 ask/deny）+ 默认/生效分列 + 同一 tree-ops 写路径；
  *   #I-22a~c R2 修复轮 A2：非主归属交叉引用可交互下钻（点击/键盘 → 同一 nodeId 主归属，不复制）。
+ *   #I-23a~d ★ IAN-2（ADR-IAN-004 / ADR-IAN-006 / FR-IAN-040·041·049）**只加断言**：
+ *            a 三 id DOM 零命中（真退役 ≠ hidden）；b 默认屏零可见输入框；
+ *            c 流内 free-input 卡可展开 + 可聚焦 + 几何等价（在 `#stream` 内 ∧ 不越出视口 ∧ 无遮挡）；
+ *            d L2 打开态零可见输入框 ∧ 三 id 仍零命中。
  *
  * 依赖：Node ≥ 22（全局 WebSocket / fetch）、本机 `.pw-browsers` Chromium（或 CHROME_BIN）。
  * 前置：`npm run build --workspace @lgdl/web-cli-plugin`。
@@ -58,7 +64,12 @@ import { LOG_CLIENT_HEIGHT_FLOOR } from './density-metrics.mjs';
 // hidden-until-used disclosure, and made the L0 decision zone resident above the
 // transcript. These two helpers step through the product's own controller so the
 // existing assertions keep their exact selectors and structure.
-const v3RevealComposer = async (page) => {
+//
+// ★ IAN-2（ADR-IAN-004 §① / ADR-IAN-006 · redlineRemap #7）：`#composer` 三 id **DOM 真退役**
+// ⇒ 本 pre-step 的哨兵由「`#composer` 不再 hidden」等价重锚为「流内 `.ask-fallback` 卡已展开」
+// （`revealAskFallback → ensureTextAskCard + setAskFallbackOpen`，原调用链零改）。断言面不变：
+// 下面的几何判据仍在**同一个**（兜底展开）状态上测量，只是载体由流外面换成流内面。
+const v3RevealStreamInput = async (page) => {
   // V3-3 (registered): the fallback state is cleared by any repaint that lands while
   // there is no decision card (product behaviour: 「No card → no fallback state」).
   // This leaf adds read-path repaints (the audit channel read), so the reveal is
@@ -67,8 +78,11 @@ const v3RevealComposer = async (page) => {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     await evaluate(page, 'window.__v3 && window.__v3.testing && window.__v3.testing.revealFallback(); true');
     await sleep(250);
-    const hidden = await evaluate(page, `document.getElementById('composer').hidden === true`);
-    if (hidden !== true) return;
+    const open = await evaluate(
+      page,
+      `(() => { const fb = document.getElementById('ask-fallback'); return fb !== null && fb.hidden === false; })()`,
+    );
+    if (open === true) return;
   }
 };
 const v3OpenTreeView = async (page) => {
@@ -90,7 +104,8 @@ const v3CloseTreeView = async (page) => {
  * assertions are replaced by the **view-replacement** contract they became:
  * while an L2 view is open `#stream` is *replaced* (`hidden`), the host + exactly one
  * `[data-l2-view]` are visible, the open view is the ONLY scroller inside
- * `#region-stream`, the composer still sits flush at the bottom (D-079 unchanged), and
+ * `#region-stream`, the in-stream free-input carrier is not swallowed (★ IAN-2 等价
+ * 重锚：原「composer 贴底」判据改为「三 id 零命中 ∧ 流内输入载体存在」), and
  * the document never overflows horizontally. Seven assertions — the same count as
  * the v2 `checkLayout()` it replaces, all strictly about the new contract.
  */
@@ -116,7 +131,9 @@ const settleDrawer = async (page) => {
   );
 };
 
-const L2_STABLE_FIELDS = ['composerGapToBottom', 'docOverflowX', 'logOverflowX', 'viewHostHeight', 'openViewCount', 'panelScrollerCount'];
+// ★ IAN-2：`composerGapToBottom`（流外几何面）随三 id DOM 真退役**显式消解**，稳定字段
+// 等价重锚为流内输入载体的**存在性计数**（同一 slot：证明 L2 打开态不吞掉输入面载体）。
+const L2_STABLE_FIELDS = ['streamInputCount', 'docOverflowX', 'logOverflowX', 'viewHostHeight', 'openViewCount', 'panelScrollerCount'];
 const checkL2OpenLayout = (metrics, prefix) => {
   check(metrics.logHidden === true, `${prefix} #stream 已被视图替换（hidden，禁止 CSS 隐身）`, JSON.stringify(metrics.logHidden));
   check(metrics.viewHostHidden === false, `${prefix} #view-host 可见（唯一主区）`, JSON.stringify(metrics.viewHostHidden));
@@ -124,9 +141,12 @@ const checkL2OpenLayout = (metrics, prefix) => {
   check(metrics.viewOverflow === 0, `${prefix} 打开的视图零水平溢出（长路径 / 长命令名 / 面包屑）`, String(metrics.viewOverflow));
   check(metrics.panelScrollerCount === 1, `${prefix} 面板级滚动容器恰为 1 个（视图内局部滚动块）`, JSON.stringify(metrics.viewScrollers));
   check(
-    metrics.composerVisible === false,
-    `${prefix} 法四（v4-1 显式取代 v3 「#composer 贴底」红线）：视图打开态默认屏**无可见常驻输入框**（W3 起 #composer 迁 body 尾，仍由自身 hidden 遮蔽；fail-closed 只认 hidden）`,
-    JSON.stringify({ visible: metrics.composerVisible, ownHidden: metrics.composerHidden, gap: metrics.composerGapToBottom }),
+    // ★ IAN-2（redlineRemap #7 · 法四修订连带）：视图打开态 = 「默认屏零可见输入框」∧
+    // 三 id 真退役（元素不存在）。原「#composer 出流 + hidden」判据随面消解，等价重锚为
+    // **更严**的结构判据（不存在 > hidden），且新增流内输入面读数作为等价载体。
+    metrics.law4RetiredIdHits === 0 && metrics.visibleInputCountOutsideView === 0 && metrics.streamInputVisible === false,
+    `${prefix} 法四（IAN-2：流外零输入面）：三 id DOM 零命中 ∧ 兜底输入面未展开 ∧ 视图外可见输入框 = 0（原「#composer 不可见」判据的等价强化）`,
+    JSON.stringify({ hits: metrics.law4RetiredIdHits, outsideView: metrics.visibleInputCountOutsideView, streamInputVisible: metrics.streamInputVisible, dissolved: metrics.composerDissolved }),
   );
   check(metrics.docOverflowX === 0, `${prefix} 文档级水平溢出 = 0`, `${metrics.docOverflowX}px`);
 };
@@ -359,28 +379,47 @@ const MEASURE = `(() => {
   const fab = document.getElementById('tree-fab');
   const drawer = document.getElementById('tree-drawer');
   const de = document.documentElement;
-  const cr = composer.getBoundingClientRect();
+  const cr = composer ? composer.getBoundingClientRect() : null;
   const fr = fab.getBoundingClientRect();
-  const ix = Math.max(0, Math.min(fr.right, cr.right) - Math.max(fr.left, cr.left));
-  const iy = Math.max(0, Math.min(fr.bottom, cr.bottom) - Math.max(fr.top, cr.top));
+  const ix = cr ? Math.max(0, Math.min(fr.right, cr.right) - Math.max(fr.left, cr.left)) : 0;
+  const iy = cr ? Math.max(0, Math.min(fr.bottom, cr.bottom) - Math.max(fr.top, cr.top)) : 0;
+  const streamInput = document.getElementById('ask-input');
+  const sir = streamInput ? streamInput.getBoundingClientRect() : null;
+  const visibleOf = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
   const out = {
     innerHeight: window.innerHeight,
     innerWidth: window.innerWidth,
     logFlexGrow: getComputedStyle(log).flexGrow,
     logClientHeight: log.clientHeight,
     logRatio: Math.round((log.clientHeight / window.innerHeight) * 1000) / 10,
-    composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
-    // V4-1 (法四 / ADR-V4-008 第 3 条 redlineRemap): the composer lost its resident
-    // semantics -- it now lives inside a li[data-transitional-host] in #stream
-    // and is hidden unless the fallback is explicitly revealed. Recorded here so
-    // the two layout checkers can assert the v4 statement instead of the v3
-    // "贴底" band (COMPOSER_GAP).
-    composerInStream: composer ? !!composer.closest('#stream') : false,
-    composerParentIsBody: composer ? composer.parentElement === document.body : false,
-    composerHidden: composer ? composer.hidden === true : null,
-    // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。
-    composerVisible: composer ? composer.closest('[hidden]') === null : false,
-    fabComposerArea: Math.round(ix * iy * 100) / 100,
+    // ★ IAN-2（ADR-IAN-004 / ADR-IAN-006 §① · redlineRemap #7）**消解登记**（显式，不得静默 null 通过）：
+    // 旧几何面 composerGapToBottom 随 #composer/#input/#send 三 id DOM 真退役一并消解
+    // （元素不存在 ⇒ 无底边可量）。等价判据改读 streamInputGapToBottom（流内输入卡几何）。
+    composerGapToBottom: null,
+    composerDissolved: true,
+    composerDissolvedReason: 'IAN-2：三 id DOM 真退役（元素不存在，非 hidden）⇒ 流外几何面不复存在；等价判据 = streamInputGapToBottom',
+    // 法四新条文「流外零输入面」的机核读数：三 id DOM 零命中（真退役 ≠ hidden）。
+    law4RetiredIdHits: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length,
+    // V4-1 法四 fail-closed 可见性（历史字段，保留为诊断；三 id 退役后恒 false）。
+    composerVisible: false,
+    // 流内输入面（新的等价判据载体）：#ask-input 由流内卡按需铸造（ensureTextAskCard）。
+    streamInputExists: streamInput !== null,
+    streamInputCount: document.querySelectorAll('#ask-input').length,
+    streamInputInStream: streamInput ? Boolean(streamInput.closest('#stream')) : false,
+    streamInputVisible: streamInput ? visibleOf(streamInput) : false,
+    visibleInputCount: [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')].filter((el) => visibleOf(el)).length,
+    // ★ IAN-2：L2 视图打开态自己可以有只读控件（如 tree-filter-input），法四管的是
+    // **流外/视图外的输入面** ⇒ 等价判据 = 「视图外可见输入框 = 0」（兜底输入面随卡收起）。
+    visibleInputCountOutsideView: [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')]
+      .filter((el) => visibleOf(el) && !el.closest('#view-host')).length,
+    streamInputGapToBottom: sir ? Math.round(window.innerHeight - sir.bottom) : null,
+    streamInputHit: sir && sir.width > 0
+      ? (() => { const t = document.elementFromPoint(sir.left + sir.width / 2, sir.top + sir.height / 2); return t ? (t.id || t.tagName) : null; })()
+      : null,
+    fabInputOverlapArea: sir && sir.width > 0
+      ? (() => { const x = Math.max(0, Math.min(fr.right, sir.right) - Math.max(fr.left, sir.left)); const y = Math.max(0, Math.min(fr.bottom, sir.bottom) - Math.max(fr.top, sir.top)); return Math.round(x * y * 100) / 100; })()
+      : null,
+    fabComposerArea: cr ? Math.round(ix * iy * 100) / 100 : 0,
     docOverflowX: de.scrollWidth - de.clientWidth,
     logOverflowX: log.scrollWidth - log.clientWidth,
     drawerOverflowX: drawer.scrollWidth - drawer.clientWidth,
@@ -423,22 +462,34 @@ const RAW_MEASURE = `(() => {
   const composer = document.getElementById('composer');
   const fab = document.getElementById('tree-fab');
   const de = document.documentElement;
-  const cr = composer.getBoundingClientRect();
+  const streamInput = document.getElementById('ask-input');
+  const sir = streamInput ? streamInput.getBoundingClientRect() : null;
   const fr = fab.getBoundingClientRect();
-  const ix = Math.max(0, Math.min(fr.right, cr.right) - Math.max(fr.left, cr.left));
-  const iy = Math.max(0, Math.min(fr.bottom, cr.bottom) - Math.max(fr.top, cr.top));
+  const visibleOf = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
   const out = {
     innerHeight: window.innerHeight,
     logFlexGrow: getComputedStyle(log).flexGrow,
     logClientHeight: log.clientHeight,
     logRatio: Math.round((log.clientHeight / window.innerHeight) * 1000) / 10,
-    composerGapToBottom: Math.round(window.innerHeight - cr.bottom),
-    composerInStream: composer ? !!composer.closest('#stream') : false,
-    composerParentIsBody: composer ? composer.parentElement === document.body : false,
-    composerHidden: composer ? composer.hidden === true : null,
-    // V4-1 法四 fail-closed 可见性：只认 hidden（CSS 隐身不豁免，与 RP-V4-04 / density 同口径）。
-    composerVisible: composer ? composer.closest('[hidden]') === null : false,
-    fabComposerArea: Math.round(ix * iy * 100) / 100,
+    // ★ IAN-2：消解登记（同 MEASURE；显式，不得静默 null 通过）+ 等价流内几何读面。
+    composerGapToBottom: null,
+    composerDissolved: true,
+    law4RetiredIdHits: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length,
+    composerVisible: false,
+    streamInputExists: streamInput !== null,
+    streamInputCount: document.querySelectorAll('#ask-input').length,
+    streamInputInStream: streamInput ? Boolean(streamInput.closest('#stream')) : false,
+    streamInputVisible: streamInput ? visibleOf(streamInput) : false,
+    visibleInputCount: [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')].filter((el) => visibleOf(el)).length,
+    streamInputGapToBottom: sir ? Math.round(window.innerHeight - sir.bottom) : null,
+    streamInputHit: sir && sir.width > 0
+      ? (() => { const t = document.elementFromPoint(sir.left + sir.width / 2, sir.top + sir.height / 2); return t ? (t.id || t.tagName) : null; })()
+      : null,
+    fabInputOverlapArea: sir && sir.width > 0
+      ? (() => { const x = Math.max(0, Math.min(fr.right, sir.right) - Math.max(fr.left, sir.left)); const y = Math.max(0, Math.min(fr.bottom, sir.bottom) - Math.max(fr.top, sir.top)); return Math.round(x * y * 100) / 100; })()
+      : null,
+    // V4-1 历史面随三 id 真退役消解：#composer 不存在 ⇒ 交面积恒 0（保留字段名以免下游读数悬空）。
+    fabComposerArea: 0,
     docOverflowX: de.scrollWidth - de.clientWidth,
     logOverflowX: log.scrollWidth - log.clientWidth,
   };
@@ -458,18 +509,25 @@ function checkLayout(metrics, prefix) {
     `${prefix} #stream 稳态高度占比 ≥ ${LOG_MIN_RATIO}%（次断言）`,
     `${metrics.logRatio}%`,
   );
-  // V4.5-1 W3（TASK-V45-110 / ADR-V45-003）：`#composer` **出流** —— 兜底展开态它必须
-  // 可见、位于 `body` 尾（不再是流内占位宿主）、且不越出视口（gap ≥ 0）。语义等价：
-  // 「展开后输入可用 ∧ 不遮挡 ∧ 不越界」三条逐字保留，只有物理位置重锚。
+  // ★ IAN-2（ADR-IAN-004 / ADR-IAN-006 · redlineRemap #7「法四修订连带、非注入面漂移」）：
+  // 三条 composer 派生判据**等价重锚**到流内输入面，断言只升不降 ——
+  //   ① 三 id DOM 零命中（不存在 > hidden，强度提高）；
+  //   ② 兜底展开态输入可用 ∧ 在 `#stream` 内 ∧ 不越出视口（gap ≥ 0，原「可见不越界」逐字保留）；
+  //   ③ 无遮挡：`elementFromPoint` 命中输入自身 ∧ FAB∩输入卡交面积 0（原 FAB∩composer 判据的等价强化）。
   check(
-    metrics.composerVisible === true && metrics.composerParentIsBody === true && metrics.composerGapToBottom >= 0,
-    `${prefix} 法四（v4-1 取代 v3「#composer 贴底」红线）：兜底展开态 #composer 迁 body 尾（出流）且可见、不越出视口（gap ≥ 0）`,
-    `visible=${metrics.composerVisible} body=${metrics.composerParentIsBody} inStream=${metrics.composerInStream} gap=${metrics.composerGapToBottom}`,
+    metrics.law4RetiredIdHits === 0,
+    `${prefix} 法四（IAN-2：流外零输入面）：\`#composer\`/\`#input\`/\`#send\` 三 id DOM 零命中（真退役 ≠ hidden）`,
+    `hits=${metrics.law4RetiredIdHits} dissolved=${metrics.composerDissolved}`,
   );
   check(
-    metrics.fabComposerArea === 0,
-    `${prefix} #tree-fab ∩ #composer boundingRect 交面积 = 0（无遮挡）`,
-    `area=${metrics.fabComposerArea}`,
+    metrics.streamInputVisible === true && metrics.streamInputInStream === true && metrics.streamInputGapToBottom >= 0,
+    `${prefix} 法四（IAN-2 等价重锚）：兜底展开态流内 free-input 卡（\`#ask-input\`）可见、在 \`#stream\` 内、不越出视口（gap ≥ 0）`,
+    `visible=${metrics.streamInputVisible} inStream=${metrics.streamInputInStream} gap=${metrics.streamInputGapToBottom} dissolved=${JSON.stringify(metrics.composerDissolvedReason)}`,
+  );
+  check(
+    metrics.streamInputHit === 'ask-input' && metrics.fabInputOverlapArea === 0,
+    `${prefix} #tree-fab ∩ 流内输入卡：elementFromPoint 命中输入自身 ∧ 交面积 = 0（无遮挡）`,
+    `hit=${metrics.streamInputHit} area=${metrics.fabInputOverlapArea}`,
   );
   check(metrics.docOverflowX === 0, `${prefix} 文档级水平溢出 = 0`, `${metrics.docOverflowX}px`);
   check(metrics.logOverflowX === 0, `${prefix} #stream 水平溢出 = 0`, `${metrics.logOverflowX}px`);
@@ -624,12 +682,35 @@ async function main() {
     );
 
     // 5. closed-state layout
-    // V3-1 pre-step (registered): reveal the fallback composer so every geometry
-    // assertion below measures the same element as before.
-    await v3RevealComposer(sp);
+    // V3-1 pre-step (registered)：展开兜底输入面（★ IAN-2：哨兵由流外 `#composer` 等价重锚
+    // 为流内 `.ask-fallback` 卡）—— 下面每条几何判据仍在同一个「兜底展开」状态上测量。
+    await v3RevealStreamInput(sp);
     closedLayout = await evaluate(sp, MEASURE);
     checkLayout(closedLayout, '#I-05~10(关)');
     check(closedLayout.drawerHidden === true, '#I-14a 关态抽屉仍为 hidden', JSON.stringify(closedLayout));
+
+    // 5a-23. ★ IAN-2 新增断言族（只加不删；法四新条文的机核面）
+    const law4Closed = closedLayout;
+    check(
+      law4Closed.law4RetiredIdHits === 0,
+      '#I-23a 法四 L4-1：`#composer`/`#input`/`#send` 三 id DOM 零命中（真退役 ≠ hidden）',
+      `hits=${law4Closed.law4RetiredIdHits}`,
+    );
+    check(
+      law4Closed.visibleInputCount === 1 && law4Closed.streamInputVisible === true,
+      '#I-23b 兜底展开态唯一可见输入面 = 流内 `#ask-input`（可见输入框恰 1，零流外面）',
+      `visible=${law4Closed.visibleInputCount}`,
+    );
+    check(
+      law4Closed.streamInputHit === 'ask-input' && law4Closed.streamInputInStream === true && law4Closed.streamInputGapToBottom >= 0,
+      '#I-23c 流内 free-input 卡可展开 ∧ 可聚焦（`focus` 落 `#ask-input`）∧ 几何等价（流内 + 不越出视口 + 无遮挡）',
+      `hit=${law4Closed.streamInputHit} inStream=${law4Closed.streamInputInStream} gap=${law4Closed.streamInputGapToBottom}`,
+    );
+    check(
+      law4Closed.composerDissolved === true && law4Closed.composerGapToBottom === null,
+      '#I-23c2 旧流外几何读面 `composerGapToBottom` 显式**消解登记**（null 由 `composerDissolved` 标记，不得静默通过）',
+      JSON.stringify({ dissolved: law4Closed.composerDissolved, reason: law4Closed.composerDissolvedReason }),
+    );
 
     // 5b. raw v1-journey-equivalent geometry (guidance strips only) — no v1 regression
     const rawOpenClose = await evaluate(sp, RAW_MEASURE);
@@ -650,12 +731,16 @@ async function main() {
       `${rawOpenClose.logRatio}%`,
     );
     check(
-      // V4.5-1 W3：出流后位置判据重锚（可见 / 不越界 / 不遮挡三条不变），位置 = body 尾。
-      rawOpenClose.composerVisible === true && rawOpenClose.composerParentIsBody === true && rawOpenClose.composerGapToBottom >= 0,
-      '#I-08b 原始口径 法四（v4-1 取代「贴底」红线）：#composer 迁 body 尾（出流）、可见且不越出视口',
-      `visible=${rawOpenClose.composerVisible} body=${rawOpenClose.composerParentIsBody} inStream=${rawOpenClose.composerInStream} gap=${rawOpenClose.composerGapToBottom}`,
+      // ★ IAN-2 等价重锚（原「出流后可见 / 不越界 / 不遮挡」三条逐字保留，载体换成流内输入卡）。
+      rawOpenClose.law4RetiredIdHits === 0 && rawOpenClose.streamInputVisible === true && rawOpenClose.streamInputInStream === true && rawOpenClose.streamInputGapToBottom >= 0,
+      '#I-08b 原始口径 法四（IAN-2：流外零输入面）：三 id DOM 零命中 ∧ 流内输入卡可见、在 #stream 内、不越出视口',
+      `hits=${rawOpenClose.law4RetiredIdHits} visible=${rawOpenClose.streamInputVisible} inStream=${rawOpenClose.streamInputInStream} gap=${rawOpenClose.streamInputGapToBottom}`,
     );
-    check(rawOpenClose.fabComposerArea === 0, '#I-09b 原始口径 FAB∩composer 仍为 0', `area=${rawOpenClose.fabComposerArea}`);
+    check(
+      rawOpenClose.streamInputHit === 'ask-input' && rawOpenClose.fabInputOverlapArea === 0,
+      '#I-09b 原始口径 FAB∩流内输入卡无遮挡（elementFromPoint 命中自身 ∧ 交面积 0）',
+      `hit=${rawOpenClose.streamInputHit} area=${rawOpenClose.fabInputOverlapArea}`,
+    );
 
     // 6. open the drawer with a real click
     // V3-1 pre-step (registered): the tree entry point is L2 (revealed by the
@@ -815,12 +900,17 @@ async function main() {
           viewport: [window.innerWidth, window.innerHeight],
           zones: ['region-toolbar', 'region-stream', 'region-statusbar', 'risk-rail', 'l2-tree-attribution', 'l2-audit-evidence', 'view-host', 'settings-view']
             .map((id) => { const z = document.getElementById(id); return id + (z && z.hidden ? ':hidden' : ':' + Math.round(z ? z.getBoundingClientRect().height : 0)); }),
-          composerHidden: document.getElementById('composer').hidden === true,
+          law4RetiredIdHits: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length,
           viewHeight: (() => { const v = document.querySelector('[data-l2-view="tree"]'); return v ? Math.round(v.getBoundingClientRect().height) : null; })(),
         });
       })()`,
     );
     check(JSON.parse(hitTest).isInput === true, '#I-13a2 过滤输入框中心点未被任何元素遮挡（elementFromPoint 命中自身）', hitTest);
+    check(
+      JSON.parse(hitTest).law4RetiredIdHits === 0,
+      '#I-13a3 过滤面板打开态三 id 仍 DOM 零命中（法四不因视图下钻而回流）',
+      hitTest,
+    );
     await realClick(sp, '#tree-filter-input');
     const afterFilterClick = await evaluate(
       sp,
@@ -1307,24 +1397,29 @@ async function main() {
     console.log(`  · [观测] 开态 zones=${JSON.stringify(openLayout.zones)}`);
     checkL2OpenLayout(openLayout, '#I-05~10(开)');
     check(openLayout.drawerHidden === false, '#I-14b 开态树主体可见（L2 视图主体；#stream 已被视图替换）', JSON.stringify(openLayout));
+    check(
+      openLayout.law4RetiredIdHits === 0 && openLayout.visibleInputCountOutsideView === 0,
+      '#I-23d 法四（视图打开态）：三 id DOM 零命中 ∧ 视图外可见输入框 = 0（输入面只在流内卡按需出现）',
+      JSON.stringify({ hits: openLayout.law4RetiredIdHits, outsideView: openLayout.visibleInputCountOutsideView, streamInputCount: openLayout.streamInputCount }),
+    );
     // The decisive V2-2 no-regression proof, migrated to view replacement: the
     // overlay was replaced by a view, so the property to prove is the **round-trip**
     // one — leaving the view must restore every steady field measured before entry,
     // and the transcript must be visible again (strictly stronger than "the overlay
     // did not move anything": it also proves the replacement is reversible).
     await v3CloseTreeView(sp);
-    // The composer is the v1 fallback channel: re-assert it so BOTH sides of the
-    // drift comparison are measured in the identical (fallback-revealed) state —
-    // exactly the state `closedLayout` was taken in at step 5.
-    await v3RevealComposer(sp);
+    // The in-stream input face is the fallback channel (★ IAN-2): re-assert it so BOTH
+    // sides of the drift comparison are measured in the identical (fallback-revealed)
+    // state — exactly the state `closedLayout` was taken in at step 5.
+    await v3RevealStreamInput(sp);
     const returned = await evaluate(sp, MEASURE);
     check(returned.logHidden === false, '#I-14c0 返回后 #stream 重新可见（视图替换可逆）', JSON.stringify(returned.logHidden));
-    const drift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'composerGapToBottom', 'docOverflowX', 'logOverflowX'].filter(
+    const drift = ['logFlexGrow', 'logClientHeight', 'logRatio', 'streamInputCount', 'docOverflowX', 'logOverflowX'].filter(
       (f) => returned[f] !== closedLayout[f],
     );
     check(
       drift.length === 0,
-      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #stream 高 / 占比 / composer / 溢出）',
+      '#I-14c 视图往返后稳态几何逐字段复原（进入前 == 返回后：flex-grow / #stream 高 / 占比 / 流内输入载体 / 溢出）',
       `drift=${JSON.stringify(drift.map((f) => [f, closedLayout[f], returned[f]]))}`,
     );
     // Re-enter for the downstream archive steps (they drive real clicks inside the
@@ -1808,7 +1903,7 @@ async function main() {
     process.exit(1);
   }
   console.log(
-    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2/关态 #stream ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ composer ∈[0,+8] / FAB∩composer=0 / 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #stream 被替换 + 单滚动容器 + 恰一视图可见 + composer 贴底，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
+    `UI insight PASS — ${passes} assertions: 真实 dist 侧栏 FAB + R2 真层级树逐层展开/收起（作者两例）+ 键盘/面包屑/aria-expanded + deny 分层三态控件 + 覆盖即时生效 + 多状态布局守卫（v2/关态 #stream ≥${LOG_MIN_HEIGHT}px（来源 ${LOG_CLIENT_HEIGHT_FLOOR} 单源；v3-1 前为 589px v1 锚点，见 ADR-V3-019 V31-S3）/ ★ IAN-2 法四：三 id DOM 零命中 ∧ 流内 free-input 卡可展开/可聚焦/几何等价（流内 + 不越出视口 + 无遮挡）/ 400·320px 零溢出；v3-3 起 L2 打开态改用视图替换契约： #stream 被替换 + 单滚动容器 + 恰一视图可见 + 零可见输入框，返回后逐字段复原）+ V2-3 动作控件/回执/确认 + V2-4 档案分层/分列`,
   );
 }
 

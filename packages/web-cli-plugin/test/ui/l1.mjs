@@ -626,6 +626,15 @@ async function main() {
         const refFallback = document.querySelector('.ref-fallback');
         const refFallbackOpen = refFallback ? refFallback.hidden === false : false;
         const visibleTextInputs = [...document.querySelectorAll('input[type="text"], input:not([type])')].filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; }).length;
+        // ★ IAN-2（ADR-IAN-004 / ADR-IAN-006 · redlineRemap #7「法四修订连带、非注入面漂移」）：
+        // 流外输入面三 id **DOM 真退役** ⇒ 本处读数补「三 id 零命中」与流内输入面几何等价判据。
+        const law4RetiredIdHits = ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length;
+        // 唯一可见输入面（流内）的等价几何判据：存在 ∧ 在 #stream 内 ∧ elementFromPoint 命中自身。
+        const visInput = [...document.querySelectorAll('input[type="text"], input:not([type])')].filter((el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; })[0];
+        const vir = visInput ? visInput.getBoundingClientRect() : null;
+        const visibleInputId = visInput ? (visInput.id || visInput.tagName) : null;
+        const visibleInputInStream = visInput ? Boolean(visInput.closest('#stream')) : false;
+        const visibleInputHit = vir && vir.width > 0 ? (() => { const t = document.elementFromPoint(vir.left + vir.width / 2, vir.top + vir.height / 2); return t ? (t.id || t.tagName) : null; })() : null;
         // N-04（2026-09-16 收口轮）：面板不再自己写「{status:'resolved', refMark:新id}」。
         // 重拾由「调用方传入新鲜事实」发起，页面侧观测（这里由门禁扮演调用方）在拿到
         // 新 id 之后注入 —— 观测驱动，而不是断言驱动。
@@ -634,6 +643,7 @@ async function main() {
         const after = window.__v3.testing.l1('report');
         return JSON.stringify({
           beforeStale: before.stale, actionsVisible, reason, badgeVisible, fallbackOpen, refFallbackOpen, visibleTextInputs,
+          law4RetiredIdHits, visibleInputId, visibleInputInStream, visibleInputHit,
           beforeIds: before.refs.map((r) => r.refId), afterIds: after.refs.map((r) => r.refId),
           verdicts: after.refs.map((r) => r.verdict), stale: after.stale,
           repickCount: after.refs.length,
@@ -644,7 +654,10 @@ async function main() {
     check('⑨ 失效态下恢复路径可见 + 可读原因给出', rec9.actionsVisible === true && rec9.reason.length > 0, recovery);
     check('⑨ 卡内失效徽标可见（三通道之一，`.ref-stale-badge` 承载退役的 `#l0-ref-badge`）', rec9.badgeVisible === true, recovery);
     check('⑨ 「改用描述」走既有兜底输入（卡内 `.ref-fallback` 或 #ask-fallback，二者之一可见）', rec9.fallbackOpen === true || rec9.refFallbackOpen === true, recovery);
-    check('⑨ 「改用描述」不新造第 3 个输入框（可见文本输入 ≤2：卡内兜底 + 兜底 composer）', rec9.visibleTextInputs <= 2, recovery);
+    // ★ IAN-2 等价重锚（断言**只升不降**）：流外输入面三 id DOM 真退役 ⇒ 可见文本输入上限
+    // 由 ≤2 收紧为 **≤1**（流内唯一输入面），并补「三 id 零命中」+「流内输入无遮挡」两条。
+    check('⑨ 「改用描述」不新造第 2 个输入面（可见文本输入 ≤1：流内唯一输入载体；三 id DOM 零命中）', rec9.visibleTextInputs <= 1 && rec9.law4RetiredIdHits === 0, recovery);
+    check('⑨ 唯一可见输入面在 `#stream` 内且无遮挡（elementFromPoint 命中自身；法四新条文机核）', rec9.visibleInputId !== null && rec9.visibleInputInStream === true && rec9.visibleInputHit === rec9.visibleInputId, recovery);
     check('⑨ 「重新拾取」产生 NEW id（失效 id 不重用）', rec9.repickCount === rec9.beforeIds.length + 1 && !rec9.beforeIds.includes(rec9.afterIds[rec9.afterIds.length - 1]), recovery);
     check('⑨ 恢复后引用回到 valid 态（判据重跑，不是缓存）', rec9.verdicts[rec9.verdicts.length - 1] === 'valid' && rec9.stale === 0, recovery);
 

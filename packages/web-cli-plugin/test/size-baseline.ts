@@ -941,6 +941,60 @@ export const SIDEPANEL_V553_FINAL_ROUND: SizeReRegistration = {
 };
 
 /**
+ * 〖★ IAN-2 R2（2026-09-25，leaf specs-tree-ian-2-abolish-composer；W06 收口轮 = TASK-IAN-220~225）〗
+ * **叶2 终轮零字节重登记（五要素终值 + 两叶 Σ + EC-IAN-016 三态）**。
+ *
+ * R2 的三处源码改动**全部落在 `test/**`**（`insight.mjs` / `l0.mjs` / `l1.mjs` 的法四等价重锚）
+ * 与 `docs/**`（v4 台账：redlineRemap / 新叶段 / counts）+ `.sddu/**` —— **`src/**` 零字节改动**
+ * ⇒ 真实 esbuild metafile 与 R1 轮**逐模块逐值相等**：Σ([]) + glue(0) == Δ 0。方向 = `unchanged`
+ * （不伪装成提升，也不伪装成净减）。终值由 `stat -c %s dist/sidepanel.js` 复测。
+ *
+ * ── 五要素终值（叶2 定稿）──────────────────────────────────────────────────────
+ *
+ * | 要素 | 终值 |
+ * |---|---|
+ * | ① 实测（`stat -c %s dist/sidepanel.js`） | **598,577 B**（= R1 终值，R2 Δ **0**） |
+ * | ② 前后值 | 599,125 → **598,577 B**（**−548 B / −0.09%**，净负轮） |
+ * | ③ 日期 / 来源 / buildCommand / measuredBy | 2026-09-25 / `packages/web-cli-plugin/dist/sidepanel.js` / `npm run build --workspace @lgdl/web-cli-plugin` / SDDU IAN-2 R2 |
+ * | ④ 逐模块归因 | `ian2Rows`（Σ **−548**）+ 未归因胶水 **0** == 登记增量 **−548**；R2 轮 Σ([]) + glue(0) == Δ **0** |
+ * | ⑤ 档位 / 绝对上限 / 生效上限 / 作者确认 | 档位 `ceilTo50KB(598,577) =` **614,400 未变**；绝对上限 **675,840 未变**；生效上限 **628,505** = `floor(598,577 × 1.05)`；`authorConfirmation` 保持 **`pending-author-line`** |
+ *
+ * **EC-IAN-016 三态显式**：越**生效上限**（628,505）= 否 / 越**档位**（614,400）= 否 /
+ * 越**绝对上限**（675,840）= 否 ⇒ 三档均未触发（无需升档）。
+ *
+ * **两叶 Σ 对照**：叶1（`ian-1`）591,946 → 599,125 = **+7,179 B**；叶2（`ian-2`）
+ * 599,125 → 598,577 = **−548 B**；**两叶 Σ = 591,946 → 598,577 = +6,631 B**（相对父
+ * `ADR-IAN-010` 两叶合计 +5.0~+9.0 KB 带内；叶1 单独越叶预算 +7,179 B 已如实登记于
+ * `ian-1-r2.reason`，叶2 净负 −548 B 落在**严格口径** −1.2~+0.3 KB 内、**未达** A 列
+ * 目标带 −2.5~−1.0 KB —— 两条口径差异如实登记，不删判据 / 不放宽容差 / 不搬码规避）。
+ */
+export const SIDEPANEL_IAN2_FINAL_ROUND: SizeReRegistration = {
+  id: 'ian-2-r2',
+  direction: 'unchanged',
+  roundKind: 'registry-fidelity-round',
+  feature: 'specs-tree-ian-2-abolish-composer',
+  date: '2026-09-25',
+  source: 'packages/web-cli-plugin/dist/sidepanel.js',
+  buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+  measuredBy: 'SDDU IAN-2 R2 (2026-09-25, leaf specs-tree-ian-2-abolish-composer; W06 = TASK-IAN-220~225)',
+  reason:
+    '**IAN-2 R2 叶2 终轮零字节重登记：598,577 → 598,577 B（Δ 0）**（叶2 **终值定稿**：五要素 = 598,577 / 599,125→598,577（−548，净负）/ 614,400 / 675,840 / 628,505 / `pending-author-line`）。' +
+    'R2 的全部改动落在 `test/**`（`insight.mjs` 118→125 / `l0.mjs` 248→251 / `l1.mjs` 131→132 三条 Chromium 门禁的**法四等价重锚**：三 id DOM 零命中 + 流内 free-input 卡可展开/可聚焦/几何等价；`supersession-ledger.test.ts` X-IAN-8~11 + 门禁对账机核；`size-ruling-vol3.test.ts` 本常量机核）、' +
+    '`docs/**`（v4 台账：redlineRemap 7→8 / 新叶段 R2-W6 / counts 前移 / 体积收口步）与 `.sddu/**` —— **`src/**` 零字节改动** ⇒ 真实 metafile 与 R1 轮逐模块逐值相等：Σ(∅) + glue(0) == Δ 0（R2 轮逐模块行 = ∅ 是**登记事实**，不是省略）。' +
+    '**档位 / 绝对上限 / 生效上限三值同源未动**（`ceilTo50KB(598,577) = 614,400`；675,840；`floor(598,577 × 1.05) = 628,505`）；' +
+    '**EC-IAN-016 三态显式**：越生效上限 = 否 / 越档位 = 否 / 越绝对上限 = 否；`authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。' +
+    '**两叶 Σ 对照**：叶1 591,946 → 599,125（+7,179，越叶预算已如实登记）；叶2 599,125 → 598,577（−548，**净负**；落在严格口径 −1.2~+0.3 KB 内、未达 A 列目标带 −2.5~−1.0 KB，登记理由 = DOM/CSS 经 `build.mjs:95` `copyFile` 进 `dist/sidepanel.html` 不进 `sidepanel.js` 账本 + 重锚成本抵消）；两叶 Σ = **+6,631 B**。' +
+    '`dist/content.js` 177,076 B / sha `52a82620…`、`dist/pick-layer.js` 34,358 B / sha `77796bab…`、`manifest.json`、`packages/web-cli-base/**`、`src/background/turn-queue.ts` **逐字节不变**（零容差）；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减零降级**。',
+  baselineBeforeBytes: 598_577,
+  baselineAfterBytes: 598_577,
+  ceilingBeforeBytes: 628_505,
+  ceilingAfterBytes: 628_505,
+  assertionNonRemovalEntries: ['IAN2-E-VOL-1', 'IAN1-E-VOL-1', 'V55F2-E-VOL-1'],
+  historyRetainedBytes: [599_125, 598_577, 598_282, 591_946],
+  ceilingUncappedFormulaBytes: 628_505,
+};
+
+/**
  * 〖V4.5-1 R3（TASK-V45-118 / ADR-V45-011 §6）〗**档位不下移硬边界**（算术，前置）：
  * `ceilTo50KB(b) = 512_000 ⟺ 460_801 ≤ b ≤ 512_000`。净减超过
  * `480_026 − 460_801 = 19_225 B`（相对 V3-VOL-3 档位起点）即越界 ⇒ **停下上报编排器**。

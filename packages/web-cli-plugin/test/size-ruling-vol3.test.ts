@@ -23,6 +23,7 @@ import {
   SIDEPANEL_BASELINE_BYTES_TIMELINE,
   SIDEPANEL_TIER_FLOOR_BYTES,
   SIDEPANEL_W4W5_FINAL_ROUND,
+  SIDEPANEL_IAN2_FINAL_ROUND,
   reRegistrationDirectionCoverageProblems,
   reRegistrationDirectionProblems,
   SIDEPANEL_CEILING_CAP_RECORD,
@@ -527,4 +528,53 @@ test('V4.5-1 R3: 档位不下移闸门（≥460,801 ∧ ceilTo50KB == 512,000）
   assert.equal(closeout?.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '台账 ⑤三值闭合.newBaselineBytes 必须与源码常量同源');
   assert.equal(closeout?.absoluteCeilingBytes, 675_840, '台账 ⑤ 的绝对上限必须与 V5.5-2 小修轮升档同源（675,840）');
   assert.equal(closeout?.resolvedOn, '2026-09-19', '台账 ⑤ 的 resolvedOn 必须保持原实测日期');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * 〖★ IAN-2 R2（2026-09-25，leaf specs-tree-ian-2-abolish-composer；W06 收口轮）〗
+ * **叶2 终值定稿机核**（FR-IAN-110/113/114/115 · AC-IAN-021/022）：
+ * `SIDEPANEL_IAN2_FINAL_ROUND` 的 Δ=0 / direction=unchanged / 五要素齐备 / 三值同源 /
+ * EC-IAN-016 三态 / 两叶 Σ 对照。全部读数与源码常量同源，禁止散文自证。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ IAN-2 R2: 叶2 终值五要素（λ0 零字节轮）+ EC-IAN-016 三态 + 两叶 Σ 对照', () => {
+  const r = SIDEPANEL_IAN2_FINAL_ROUND;
+  // ① Δ = 0 ∧ 方向 = unchanged（零字节轮不得伪装成提升/净减）。
+  assert.equal(r.baselineAfterBytes - r.baselineBeforeBytes, 0, 'IAN-2 R2 必须登记为 Δ=0（src/** 零字节改动）');
+  assert.equal(r.direction, 'unchanged', '零字节轮方向必须是 unchanged');
+  // ② 终值必须与当前基线 / ceiling 同源（不得另立一套数字）。
+  assert.equal(r.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '终值必须等于当前基线（598,577）');
+  assert.equal(r.ceilingAfterBytes, SIDEPANEL_CEILING, '终轮 ceiling 必须等于当前生效上限 = floor(基线 × 1.05)');
+  assert.equal(r.ceilingUncappedFormulaBytes, Math.floor(598_577 * 1.05), '未封顶公式值必须同源复算');
+  // ③ 五要素齐备（date / source / buildCommand / measuredBy / reason）。
+  for (const f of ['date', 'source', 'buildCommand', 'measuredBy', 'reason'] as const) {
+    assert.ok(String(r[f] ?? '').trim().length >= 8, `叶2 终值五要素缺 ${f}`);
+  }
+  assert.ok(r.assertionNonRemovalEntries.length > 0, '断言零删减登记不得为空');
+  // ④ 前值仍在历史链上（历史不得被改写）；本条是**前值**同源的机核。
+  assert.ok(
+    (SIDEPANEL_BASELINE_BYTES_TIMELINE as readonly number[]).includes(r.baselineBeforeBytes),
+    '终轮前值必须仍在历史链上',
+  );
+  // ⑤ 三值同源（V3-VOL-3）：档位 / 绝对上限 / 生效上限。
+  assert.equal(ceilTo50KB(r.baselineAfterBytes), 614_400, '三值②a：档位 = 614,400');
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 675_840, '三值②b：绝对上限 = 675,840');
+  assert.equal(r.ceilingAfterBytes, Math.min(675_840, Math.floor(r.baselineAfterBytes * 1.05)), '生效上限 = min(绝对上限, floor(基线 × 1.05))');
+  // ⑥ **EC-IAN-016 三态**显式：越生效上限 / 越档位 / 越绝对上限三者皆否。
+  const ecIan016 = {
+    overEffectiveCeiling: r.baselineAfterBytes > r.ceilingAfterBytes,
+    overTier: r.baselineAfterBytes > 614_400,
+    overAbsoluteCeiling: r.baselineAfterBytes > 675_840,
+  };
+  assert.deepEqual(ecIan016, { overEffectiveCeiling: false, overTier: false, overAbsoluteCeiling: false }, 'EC-IAN-016 三态必须皆「否」（无需升档）');
+  // ⑦ 两叶 Σ 对照（叶1 +7,179 / 叶2 −548 ⇒ Σ +6,631）。
+  const leaf1 = 599_125 - 591_946;
+  const leaf2Total = 598_577 - 599_125;
+  const leaf2R2Round = r.baselineAfterBytes - r.baselineBeforeBytes;
+  assert.equal(leaf1, 7_179, '叶1 增量必须为 +7,179 B（ian-1 收口终值）');
+  assert.equal(leaf2Total, -548, '叶2 整叶增量必须为 −548 B（净负，R1 登记）');
+  assert.equal(leaf2R2Round, 0, '叶2 R2 轮 Δ 必须为 0（终值已在 R1 登记；本轮零源码字节）');
+  assert.equal(leaf1 + leaf2Total, 6_631, '两叶 Σ = +6,631 B（叶1 +7,179 ∧ 叶2 −548）');
+  // ⑧ 作者确认占位不得被本常量伪称。
+  assert.match(r.reason, /pending-author-line/, '终值登记必须写明作者确认仍为 pending-author-line');
+  assert.match(r.reason, /三态/, '终值登记必须显式写明 EC-IAN-016 三态');
 });

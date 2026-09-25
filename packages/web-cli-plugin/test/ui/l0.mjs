@@ -15,7 +15,8 @@
  * The **semantic contract is preserved, not relaxed** — same intents, re-anchored:
  *   · ① 三件事同屏（我在哪 / 谁在管我 / 决策·回执·引用）→ 摘要 + 决策槽 + 状态栏（FIX-4）
  *   · ② 唯一决策卡 + ≤2 推荐选项 + 可重算的「更多选项（还有 N 个）」
- *   · ③ 默认屏无可见常驻输入框（法四；`#composer` 存在时必须 `hidden`）
+ *   · ③ 默认屏无可见常驻输入框（法四；★ IAN-2 等价重锚：`#composer`/`#input`/`#send`
+ *        三 id **DOM 真退役**（元素不存在，非 hidden）∧ 流内唯一输入面 = 卡内 `.ask-fallback`）
  *   · ④ 五类风险 × 2 场景（默认可见 ∧ 全部折叠后仍可见）= 10 条
  *   · ⑤ 风险位祖先闭包无 hidden / 无折叠容器 / 无折叠触发器（AC-V3-009）
  *   · ⑥ 全部 `[aria-controls]` 元素的成对 ARIA + per-target 语义 + 可发现性
@@ -225,8 +226,13 @@ const geometryProbe = `(() => {
     .map((el) => el.id || el.className);
   const stream = document.getElementById('stream');
   const sr = stream.getBoundingClientRect();
-  const composer = document.getElementById('composer');
-  const cr = composer.getBoundingClientRect();
+  // ★ IAN-2（ADR-IAN-004 / ADR-IAN-006 · redlineRemap #7「法四修订连带、非注入面漂移」）：
+  // #composer/#input/#send 三 id **DOM 真退役** ⇒ 本探针的 composer 读面等价重锚为
+  // 「三 id 零命中」+ 流内 free-input 卡读面（#ask-input 由流内卡按需铸造）。
+  const law4RetiredIdHits = ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length;
+  const streamInput = document.getElementById('ask-input');
+  const sir = streamInput ? streamInput.getBoundingClientRect() : null;
+  const visibleOf = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
   return {
     pairs,
     panelScrollers: scrollers,
@@ -235,8 +241,14 @@ const geometryProbe = `(() => {
     streamFlexGrow: getComputedStyle(stream).flexGrow,
     statusbarBottomGap: Math.round(window.innerHeight - document.getElementById('region-statusbar').getBoundingClientRect().bottom),
     zoneHeights: zoneIds.map((id) => ({ id, h: Math.round(document.getElementById(id).getBoundingClientRect().height * 100) / 100 })),
-    composerHidden: composer.hidden,
-    composerRail: { top: Math.round(cr.top), bottom: Math.round(cr.bottom) },
+    law4RetiredIdHits,
+    streamInputExists: streamInput !== null,
+    streamInputInStream: streamInput ? Boolean(streamInput.closest('#stream')) : false,
+    streamInputVisible: streamInput ? visibleOf(streamInput) : false,
+    streamInputGapToBottom: sir ? Math.round(window.innerHeight - sir.bottom) : null,
+    streamInputHit: sir && sir.width > 0
+      ? (() => { const t = document.elementFromPoint(sir.left + sir.width / 2, sir.top + sir.height / 2); return t ? (t.id || t.tagName) : null; })()
+      : null,
     streamScrollableInjected: stream.scrollHeight > stream.clientHeight,
   };
 })()`;
@@ -318,7 +330,6 @@ async function main() {
         const options = [...document.querySelectorAll('#ask-options button, #ask-options [role="radio"]')];
         const residentInputs = [...document.querySelectorAll('input[type="text"], input:not([type]), textarea')].filter(visible);
         const moreToggle = document.getElementById('l1-more-toggle');
-        const composer = document.getElementById('composer');
         return {
           summaryVisible: visible(summary),
           summaryText: summary ? summary.textContent : '',
@@ -336,9 +347,8 @@ async function main() {
           moreHidden: moreToggle ? moreToggle.hidden : null,
           residentInputs: residentInputs.map((el) => el.id || el.tagName),
           fallbackHidden: document.getElementById('ask-fallback')?.hidden ?? null,
-          composerHidden: composer.hidden,
-          composerParentIsBody: composer.parentElement === document.body,
-          composerInStream: Boolean(document.getElementById('stream')?.contains(composer)),
+          // ★ IAN-2：三 id DOM 真退役 ⇒ 原 composer 读面等价重锚为「零命中」。
+          law4RetiredIdHits: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length,
           // V4-4 TASK-806: panel-side #l0-pick retired — the discoverability anchor is the
           // settings-view guidance (text only, zero injection).
           pickGuidance: document.getElementById('pick-guidance')?.textContent ?? '',
@@ -372,8 +382,19 @@ async function main() {
     );
     check('③ 默认态可见文本输入框计数 = 0（法四：含 input:not([type]) / textarea）', skeleton.residentInputs.length === 0, skeleton.residentInputs.join(','));
     check('③ 末项兜底输入框默认 hidden', skeleton.fallbackHidden === true);
-    check('③ `#composer` 存在但默认 hidden（法四显式取代 v3「composer 贴底」）', skeleton.composerHidden === true);
-    check('③ `#composer` 迁 body 尾（`parentElement === body`）且不在 `#stream` 内（W3 出流）', skeleton.composerParentIsBody === true && skeleton.composerInStream === false, JSON.stringify({ body: skeleton.composerParentIsBody, inStream: skeleton.composerInStream }));
+    // ★ IAN-2（ADR-IAN-004 / ADR-IAN-006 · redlineRemap #7）：原两条 composer 判据
+    // （「存在但 hidden」+「迁 body 尾且不在 #stream 内」）随三 id DOM 真退役**等价重锚**为
+    // **结构判据**（元素不存在 > hidden ⇒ 强度提高），并补一条「流外零输入面」的合取判据。
+    check(
+      '③ 法四（IAN-2 等价重锚）：`#composer`/`#input`/`#send` 三 id DOM 零命中（真退役 ≠ hidden）',
+      skeleton.law4RetiredIdHits === 0,
+      `hits=${skeleton.law4RetiredIdHits}`,
+    );
+    check(
+      '③ 流外零输入面（IAN-2）：默认屏零可见文本输入 ∧ 三 id 零命中 ∧ 末项兜底在流内卡内 hidden',
+      skeleton.residentInputs.length === 0 && skeleton.law4RetiredIdHits === 0 && skeleton.fallbackHidden === true,
+      JSON.stringify({ resident: skeleton.residentInputs, hits: skeleton.law4RetiredIdHits, fallbackHidden: skeleton.fallbackHidden }),
+    );
     // V4-4 TASK-806: the panel-side entry is RETIRED; discoverability is carried by
     // the settings-view guidance (text only) — the page-side layer stays the primary
     // entry (zero injection, asserted by page-input / zero-injection gates).
@@ -753,6 +774,9 @@ async function main() {
       'l0-decision', 'l0-pick', 'l0-status-band', 'l0-kicker', 'l0-more', 'l0-ref-toggle',
       'l1-group', 'l1-history-toggle', 'l1-history', 'l1-history-rows', 'l1-local-tree-toggle', 'l1-receipt-toggle',
       'l1-gestures-toggle',
+      // ★ IAN-2（ADR-IAN-004 / ADR-IAN-006）：流外输入面三 id **DOM 真退役** ⇒ 入册（13 → 16）；
+      // 本门禁清单必须与产品常量逐项相等（下面的 ⑧ I-05 对账①）。
+      'composer', 'input', 'send',
     ];
     for (const id of RETIRED_CONTAINERS) {
       const present = await evaluate(cdp, `document.getElementById(${JSON.stringify(id)}) !== null`);
@@ -772,15 +796,29 @@ async function main() {
     // ══ I-05（review R1）：**显式等价性对账** ══════════════════════════════════════════
     // 正面触发器契约 12 → 8（收窄 4 条：`l0-more` / `l0-ref-toggle` / 2 个 L1 开关），
     // 等价性由**新增负向 + 卡内正面**补偿，不再是散注：
-    //    6（退役触发器零残留）+ 13（退役容器零残留，含 `l0-decision` 壳）+ 2（卡内成对）
-    //    = 21 条断言面 ≥ 收窄的 4 条正面契约。
+    //    6（退役触发器零残留）+ 16（退役容器零残留，含 `l0-decision` 壳 + ★ IAN-2 三 id）+ 2（卡内成对）
+    //    = 32 条断言面 ≥ 收窄的 4 条正面契约。
     // 并且：本门禁的容器清单必须与**产品常量** `RETIRED_CONTAINER_IDS` 逐项相等 —— 两份清单
     // 一旦漂移就是 BLOCK-01 的成因（产品清单 / 门禁清单 / 铸造点三者口径不一）。
     const registrySrc = readFileSync(resolve(PACKAGE_ROOT, 'src/ui/sidepanel/host-registry.ts'), 'utf8');
     const productContainers = (() => {
       const start = registrySrc.indexOf('export const RETIRED_CONTAINER_IDS');
-      const end = registrySrc.indexOf(']);', start);
-      return [...registrySrc.slice(start, end).matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
+      // ★ IAN-2（解析器等价重锚）：产品常量的字面量以 `].sort());` 收尾（不是 `]);`），
+      // 旧实现的 `indexOf(']);')` 会越过本数组、吃进紧随其后的 `MIGRATED_CONTAINER_IDS`
+      // （16 + 5 = 21 ⇒ 对账必红）。改为**括号配平**提取本数组字面量：语义不变（仍是
+      // 「门禁清单 ≡ 产品清单」逐项相等），只是把提取口径修成结构正确。
+      const arrStart = registrySrc.indexOf('Object.freeze([', start) + 'Object.freeze('.length;
+      let depth = 0;
+      let arrEnd = -1;
+      for (let i = arrStart; i < registrySrc.length; i += 1) {
+        const ch = registrySrc[i];
+        if (ch === '[') depth += 1;
+        else if (ch === ']') {
+          depth -= 1;
+          if (depth === 0) { arrEnd = i; break; }
+        }
+      }
+      return [...registrySrc.slice(arrStart, arrEnd + 1).matchAll(/'([a-z0-9-]+)'/g)].map((m) => m[1]);
     })();
     check(
       `⑧ I-05 等价性对账①：本门禁退役容器清单 ≡ 产品常量 RETIRED_CONTAINER_IDS（${productContainers.length} 项逐项相等）`,
@@ -790,10 +828,10 @@ async function main() {
       JSON.stringify({ product: productContainers, gate: RETIRED_CONTAINERS }),
     );
     check(
-      '⑧ I-05 等价性对账②：正面契约收窄 4（12 → 8）≤ 负向/正面补偿（6 退役触发器 + 13 退役容器 + 2 卡内成对），断言面 29 ≥ 收窄前的 12（只增不减）',
+      '⑧ I-05 等价性对账②：正面契约收窄 4（12 → 8）≤ 负向/正面补偿（6 退役触发器 + 16 退役容器 + 2 卡内成对），断言面 32 ≥ 收窄前的 12（只增不减）',
       EXPECTED_TRIGGERS.length === 8
         && RETIRED_TRIGGERS.length === 6
-        && RETIRED_CONTAINERS.length === 13
+        && RETIRED_CONTAINERS.length === 16
         && EXPECTED_TRIGGERS.length + RETIRED_TRIGGERS.length + RETIRED_CONTAINERS.length + 2 >= 12,
       JSON.stringify({ expectedTriggers: EXPECTED_TRIGGERS.length, retiredTriggers: RETIRED_TRIGGERS.length, retiredContainers: RETIRED_CONTAINERS.length, cardPairs: 2 }),
     );
@@ -1073,28 +1111,46 @@ async function main() {
       typeof baselineRatioFloor === 'number' && baselineRatioFloor > 0,
       JSON.stringify(baselineRatioFloor),
     );
-    check('⑪ 法四：默认屏 `#composer` 存在且 `hidden === true`', geo.composerHidden === true, JSON.stringify(geo.composerRail));
+    check('⑪ 法四（IAN-2 等价重锚）：三 id（`#composer`/`#input`/`#send`）DOM 零命中 —— 真退役 ≠ hidden', geo.law4RetiredIdHits === 0, `hits=${geo.law4RetiredIdHits}`);
     const revealed = await evaluate(
       cdp,
       `(() => {
         window.__v3.testing.revealFallback();
-        const composer = document.getElementById('composer');
-        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return true; };
-        const inStream = Boolean(document.getElementById('stream')?.contains(composer));
-        const parentIsBody = composer.parentElement === document.body;
+        const visible = (el) => { let n = el; while (n) { if (n.hidden === true) return false; n = n.parentElement; } return Boolean(el); };
+        const fb = document.getElementById('ask-fallback');
+        const input = document.getElementById('ask-input');
+        const ir = input ? input.getBoundingClientRect() : null;
+        const hit = ir && ir.width > 0 ? (() => { const t = document.elementFromPoint(ir.left + ir.width / 2, ir.top + ir.height / 2); return t ? (t.id || t.tagName) : null; })() : null;
         const readOnlyPanel = document.querySelectorAll('#region-toolbar input, #region-statusbar input, #region-toolbar textarea, #region-statusbar textarea').length;
-        return { fallback: document.getElementById('ask-fallback').hidden, composer: composer.hidden, visible: visible(composer), inStream, parentIsBody, readOnlyPanel };
+        return {
+          fallback: fb ? fb.hidden : null,
+          inStream: fb ? Boolean(fb.closest('#stream')) : false,
+          inputVisible: input ? visible(input) : false,
+          focused: document.activeElement ? (document.activeElement.id || document.activeElement.tagName) : null,
+          gap: ir ? Math.round(window.innerHeight - ir.bottom) : null,
+          hit,
+          law4RetiredIdHits: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length,
+          readOnlyPanel,
+        };
       })()`,
     );
-    check('⑪ 兜底展开后 `#ask-fallback` 与 `#composer` 均可见且输入可用', revealed.fallback === false && revealed.composer === false && revealed.visible === true, JSON.stringify(revealed));
-    check('⑪ `#composer` 迁 body 尾（`parentElement === body`）且不在 `#stream` 内（工具栏/状态栏零输入框 ⇒ 法四）', revealed.parentIsBody === true && revealed.inStream === false && revealed.readOnlyPanel === 0, JSON.stringify(revealed));
+    check(
+      '⑪ 兜底展开后流内 `#ask-fallback` 与 `#ask-input` 均可见且输入可用（`focus` 落输入框）',
+      revealed.fallback === false && revealed.inputVisible === true && revealed.focused === 'ask-input',
+      JSON.stringify(revealed),
+    );
+    check(
+      '⑪ 流内输入卡在 `#stream` 内、不越出视口（gap ≥ 0）、无遮挡（elementFromPoint 命中自身）、三 id 零命中、工具栏/状态栏零输入框 ⇒ 法四',
+      revealed.inStream === true && revealed.gap >= 0 && revealed.hit === 'ask-input' && revealed.law4RetiredIdHits === 0 && revealed.readOnlyPanel === 0,
+      JSON.stringify(revealed),
+    );
     await evaluate(cdp, `window.__v3.testing.hideFallback(); true`);
     await sleep(250);
     const collapsedAgain = await evaluate(
       cdp,
-      `JSON.stringify({ fallback: document.getElementById('ask-fallback').hidden, composer: document.getElementById('composer').hidden })`,
+      `JSON.stringify({ fallback: document.getElementById('ask-fallback')?.hidden ?? null, law4Hits: ['composer', 'input', 'send'].filter((id) => document.getElementById(id) !== null).length })`,
     );
-    check('⑪ 收起兜底后两者回到 hidden（FR-V3-012）', collapsedAgain === '{"fallback":true,"composer":true}', collapsedAgain);
+    check('⑪ 收起兜底后卡内输入回到 hidden 且三 id 仍零命中（FR-V3-012 / 法四）', collapsedAgain === '{"fallback":true,"law4Hits":0}', collapsedAgain);
 
     // ══ ⑫ 工具栏准入反证：第 6 个可点必须被拦（in-gate 形态） ═══════════════
     console.log('\n▶ ⑫ 工具栏准入反证：#stream 注入常驻控件必被自断言拦截（RP-V4-06）+ 第 6 可点被 render() 抛错拦下');

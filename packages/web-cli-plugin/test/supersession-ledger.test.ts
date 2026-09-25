@@ -2834,3 +2834,148 @@ test('ledger(V4 段 · IAN-1): R2-W3 叶段已追加 ∧ leafBase 互不相同 �
   const registered = (r2?.registeredUncoveredLines ?? []).reduce((s, r) => s + r.registeredUncoveredLines.length, 0);
   assert.ok(registered > 0, 'R2 叶段的逐字登记不得为空（否则换段判据空转）');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ IAN-2 **TASK-IAN-217 / 220 / 225**（ADR-IAN-006 §③ · ADR-IAN-008 §③ ·
+ * FR-IAN-087~090 / 100 / 104 · AC-IAN-018/020/021）—— **叶2 台账终态**：
+ *   · `xIianLedgerLeaf2`：X-IAN-8~11 **逐条登记**（draft 载体 / `NEVER_FOLDABLE` /
+ *     首装引导 / binding 诊断面+真实键入），decision 显式 ∧ counterCheck 可定位；
+ *   · `xIianGateReconciliationLeaf2`：18 门禁三态对账（保留 / 等价重锚 / 显式取代）
+ *     **断言零删除零降级** ∧ 新增门禁在册。
+ *
+ * 反证：抽条 / 非法 decision / counterCheck 悬空 / assertionsRemoved≠0 / 三态非法 ⇒ 必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XIianLeaf2Row {
+  readonly id: string;
+  readonly decision: string;
+  readonly owner: string;
+  readonly counterCheck: string;
+  readonly evidence: string;
+}
+
+/** X-IAN-8~11 台账判据（注入 `exists` ⇒ 反证可打在判据上）。 */
+export function xIianLeaf2Problems(rows: readonly XIianLeaf2Row[], exists: (rel: string) => boolean): string[] {
+  const p = 'X-IAN-8~11（叶2）取代台账一致性：逐条登记 + decision 显式 + counterCheck 可定位';
+  const problems: string[] = [];
+  const expected = ['X-IAN-8', 'X-IAN-9', 'X-IAN-10', 'X-IAN-11'];
+  const ids = rows.map((r) => r.id);
+  for (const id of expected) if (!ids.includes(id)) problems.push(`${p}：${id} 必须逐条登记（不得留空）`);
+  for (const r of rows) {
+    if (!['superseded', 'no-supersession'].includes(r.decision)) {
+      problems.push(`${p}：${r.id} 的 decision="${r.decision}" 非法（只允许 superseded / no-supersession）`);
+    }
+    if ((r.owner ?? '').trim().length < 4) problems.push(`${p}：${r.id} 必须写明 owner（哪一叶落地）`);
+    if ((r.evidence ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的解释必须非套话（≥20 字符）`);
+    const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
+    if (refs.length === 0) problems.push(`${p}：${r.id} 的 counterCheck 必须指向真实门禁文件`);
+    for (const ref of refs) {
+      if (!exists(ref) && !exists(`packages/web-cli-plugin/${ref}`)) {
+        problems.push(`${p}：${r.id} 的 counterCheck 悬空（${ref} 不存在）`);
+      }
+    }
+  }
+  // 叶2 的四条**全部是已发生取代**（这是拆除叶的定义），不得伪造「零取代」。
+  for (const id of expected) {
+    const row = rows.find((r) => r.id === id);
+    if (row && row.decision !== 'superseded') problems.push(`${p}：${id} 必须是 superseded（叶2 = 拆除叶，四条均已发生）`);
+  }
+  if (!rows.some((r) => r.decision === 'superseded')) {
+    problems.push(`${p}：叶2 四条均为已发生取代，不得伪造「零取代」`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段 · IAN-2): X-IAN-8~11 逐条登记 ∧ 全部「已发生」（拆除叶）∧ counterCheck 可定位', () => {
+  const v4 = readV4Ledger() as unknown as {
+    xIianLedgerLeaf2?: { rows?: readonly XIianLeaf2Row[]; leaf?: string; adr?: string };
+  };
+  const rows = v4.xIianLedgerLeaf2?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xIianLeaf2Problems(rows, existsRel), [], '叶2 X-IAN-8~11 台账一致性未通过');
+  assert.equal(v4.xIianLedgerLeaf2?.leaf, 'specs-tree-ian-2-abolish-composer');
+  assert.match(String(v4.xIianLedgerLeaf2?.adr ?? ''), /ADR-IAN-00[46]/);
+  // X-IAN-11（binding 诊断面 + 真实键入重锚 ∧ 保护段 keep）必须显式登记（保段是本叶的决定性条目）。
+  const x11 = rows.find((r) => r.id === 'X-IAN-11');
+  assert.ok(x11, 'X-IAN-11 必须登记（binding 诊断面 + 保护段 keep）');
+  assert.match(String(x11?.evidence ?? ''), /保段|keep/, 'X-IAN-11 必须写明保护段 keep 事实');
+  // 反证（判据非恒真）：非法 decision / counterCheck 悬空 / 抽条 ⇒ 同一判据必红。
+  assert.ok(
+    xIianLeaf2Problems(rows.map((r) => (r.id === 'X-IAN-9' ? { ...r, decision: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')),
+  );
+  assert.ok(
+    xIianLeaf2Problems(rows.map((r) => (r.id === 'X-IAN-10' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')),
+  );
+  assert.ok(xIianLeaf2Problems(rows.filter((r) => r.id !== 'X-IAN-8'), existsRel).some((x) => x.includes('X-IAN-8')));
+  assert.deepEqual(xIianLeaf2Problems(rows, existsRel), []);
+});
+
+interface XIianLeaf2GateRow {
+  readonly gate: string;
+  readonly disposition: string;
+  readonly before: string;
+  readonly after: string;
+  readonly assertionsRemoved: number;
+}
+
+/** 叶2 门禁三态对账判据（注入式 ⇒ 反证可打）。 */
+export function xIianLeaf2GateProblems(rows: readonly XIianLeaf2GateRow[]): string[] {
+  const p = 'IAN-2 门禁三态对账';
+  const problems: string[] = [];
+  if (rows.length < 18) problems.push(`${p}：至少登记 18 个本叶承载的门禁（实测 ${rows.length}）`);
+  const allowed = ['kept', 'equivalent-reanchor', 'explicit-supersession'];
+  for (const r of rows) {
+    if ((r.gate ?? '').trim().length === 0) problems.push(`${p}：gate 必填`);
+    if (!allowed.includes(r.disposition)) problems.push(`${p}：${r.gate} 的 disposition="${r.disposition}" 非法（三态：${allowed.join(' / ')}）`);
+    if ((r.before ?? '').trim().length === 0 || (r.after ?? '').trim().length === 0) {
+      problems.push(`${p}：${r.gate} 必须显式 old→new（before / after 均非空）`);
+    }
+    if (r.assertionsRemoved !== 0) problems.push(`${p}：${r.gate} 断言零删除零降级（实测 removed=${r.assertionsRemoved}）`);
+  }
+  if (!rows.some((r) => r.disposition === 'explicit-supersession')) {
+    problems.push(`${p}：至少一条必须是**显式取代**（journey 八步 / insight·l0·l1 法四重锚，不得全记为等价）`);
+  }
+  if (!rows.some((r) => r.disposition === 'kept')) problems.push(`${p}：至少一条必须是**保留**（binding / hardening / l1 保留面，不得全记为改动）`);
+  return problems;
+}
+
+test('ledger(V4 段 · IAN-2): 18 门禁三态对账逐项 old→new ∧ 断言零删除零降级 ∧ 新增门禁在册', () => {
+  const v4 = readV4Ledger() as unknown as {
+    xIianGateReconciliationLeaf2?: { rows?: readonly XIianLeaf2GateRow[]; leaf?: string; manualFaces?: string };
+  };
+  const rows = v4.xIianGateReconciliationLeaf2?.rows ?? [];
+  assert.deepEqual(xIianLeaf2GateProblems(rows), [], 'IAN-2 门禁三态对账未通过');
+  assert.equal(v4.xIianGateReconciliationLeaf2?.leaf, 'specs-tree-ian-2-abolish-composer');
+  // 决定性门禁必须逐项在册（新门禁 + 三条 Chromium 法四重锚 + 保护段 + 下界）。
+  for (const gate of ['law4-input-as-next', 'insight', 'l0', 'l1', 'journey', 'binding', 'gate-integrity', 'supersession-ledger']) {
+    assert.ok(rows.some((r) => r.gate.includes(gate)), `门禁对账必须登记 ${gate}`);
+  }
+  // 人工面（M3/M4）必须逐项登记「未执行」，不得冒充 PASS。
+  assert.match(String(v4.xIianGateReconciliationLeaf2?.manualFaces ?? ''), /M3/, '人工面 M3 必须登记');
+  assert.match(String(v4.xIianGateReconciliationLeaf2?.manualFaces ?? ''), /⏳/, '人工面必须以 ⏳ 登记（未执行 ≠ PASS）');
+  // 反证：断言数非零 / 三态非法 / 缺 before-after / 少于 18 行 ⇒ 必红。
+  assert.ok(xIianLeaf2GateProblems(rows.map((r) => ({ ...r, assertionsRemoved: 1 }))).some((x) => x.includes('零删除')));
+  assert.ok(xIianLeaf2GateProblems(rows.map((r) => (r === rows[0] ? { ...r, disposition: 'silent-drop' } : r))).some((x) => x.includes('非法')));
+  assert.ok(xIianLeaf2GateProblems(rows.map((r) => (r === rows[0] ? { ...r, after: '' } : r))).some((x) => x.includes('old→new')));
+  assert.ok(xIianLeaf2GateProblems(rows.slice(0, 3)).some((x) => x.includes('至少登记 18')));
+  assert.deepEqual(xIianLeaf2GateProblems(rows), []);
+});
+
+test('ledger(V4 段 · IAN-2): T220 三文件法四重锚登记（redlineRemap + 非注入面漂移声明）', () => {
+  const v4 = readV4Ledger() as unknown as {
+    redlineRemap?: readonly { redline?: string; from?: string; to?: string; status?: string; reason?: string; evidence?: string }[];
+    rl10ZeroDiffNote?: string;
+    zeroDiffFiles?: readonly string[];
+  };
+  const remap = v4.redlineRemap ?? [];
+  const row = remap.find((r) => /IAN-2 R2|非注入面漂移/.test(String(r.reason ?? '')));
+  assert.ok(row, 'T220 的 insight/l0/l1 法四重锚必须在 redlineRemap[] 里显式登记');
+  assert.equal(row?.status, 'landed', '重锚必须登记为 landed（不得留 pending）');
+  assert.match(String(row?.reason ?? ''), /非注入面漂移/, 'reason 必须写明「法四修订连带、非注入面漂移」');
+  assert.match(String(row?.reason ?? ''), /zeroDiffFiles/, 'reason 必须写明三文件不在 zeroDiffFiles（RL-10 不降级）');
+  // RL-10 语义注记：三文件**不在** zeroDiffFiles ⇒ 无需解冻，`length === 9` 逐字不动。
+  assert.match(String(v4.rl10ZeroDiffNote ?? ''), /9/, 'RL-10 语义注记必须写明 zeroDiffFiles 仍恰 9 项');
+  for (const f of ['insight.mjs', 'l0.mjs', 'l1.mjs']) {
+    assert.ok(!(v4.zeroDiffFiles ?? []).some((z) => z.endsWith(f)), `${f} 不得在 zeroDiffFiles 内（否则需要显式解冻登记）`);
+  }
+});

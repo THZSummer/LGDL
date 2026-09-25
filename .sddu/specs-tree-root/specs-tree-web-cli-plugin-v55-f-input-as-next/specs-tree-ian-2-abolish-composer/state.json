@@ -142,6 +142,13 @@
       "agent": "sddu-build",
       "artifact": "specs-tree-ian-2-abolish-composer/build.md v1.0（R1 = W04+W05+W06 核心）",
       "note": "R1：SG-IAN-03 可行 4/4 · 停引删面 8 步（三 id DOM 真退役 / 写者消解 / 容器册 13→16 / NEVER_FOLDABLE 14→13）· 兜底收敛 + #send-reason/sendDisabled/draft 重锚 · 法四三处原地修订 + law4-input-as-next 新门禁 · journey 八步取代（新 pin 7b309258…/43484..59347/249）· binding keep（sha be9ad0e9… + startByte 107780 双绿）· 体积净负 −548 B · 门禁 1431 → 1437/0。偏差：insight/l0/l1 三 Chromium 重锚因冻结 v3 取代台账（RL-10 zeroDiffFiles===9）回退留 R2；l2/l2-reverse 环境性红登记 KL-N-10；222 人工面 M3/M4、223、225 留 R2。"
+    },
+    {
+      "phase": "builded",
+      "round": "R2（W06 收口轮）",
+      "date": "2026-09-25",
+      "agent": "sddu-build",
+      "note": "T220/T222/T223/T225 终态；门禁 1441/0；体积终值 598,577（Δ 0）。"
     }
   ],
   "openPointsRuled": [
@@ -169,5 +176,6 @@
     "checkpoint": "CP-IAN-2",
     "volume": "A 列目标净负 −2.5~−1.0 KB（严格口径 −1.2~+0.3 KB）；收口重登记 TASK-IAN-224（含两叶 Σ）",
     "note": "25 任务 / 3 波：W1 拆除（停引 → DOM/CSS 退役 → 写者消解 → 钩子重锚 → op-wiring 重锚同轮 → 登记退役）→ W2 重锚与唯一化（四兜底收敛 + #send-reason/sendDisabled/draft/引导 + R6 唯一化 + node 门禁重锚）→ W3 立法/门禁/保护段/验收（法四修订 + 台账 + 法四门禁 + journey 八步 + binding keep + S0''-B + 体积净负）。波次细化：op-wiring 重锚前移至 W1（与删面同轮）。硬依赖叶1 validated。"
-  }
+  },
+  "note": " 〖R2（W06 收口轮）〗T220 三 Chromium 门禁法四等价重锚（显式 supersession 登记：redlineRemap 7→8 + 新叶段 R2-W6 + modifiedRanges +19；zeroDiffFiles 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 X-IAN-8~11 终态 · T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + KL-N-10 隔离复跑 · T225 20 行门禁三态对账 + 体积终值五要素/两叶 Σ +6,631/EC-IAN-016 三态；npm test 1437 → 1441/0，supersession 45 → 48/0；25/25 终态。"
 }
