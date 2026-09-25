@@ -4,10 +4,10 @@
 > **前置依赖**: 本叶 `tasks.md` v1.0 / `plan.md` v1.0 / `spec.md` v1.0；父 `../plan.md`（`ADR-IAN-004~010`）；叶1 `../specs-tree-ian-1-free-input-next/`（validated）
 > **创建人**: SDDU Build Agent
 > **创建时间**: 2026-09-25
-> **版本**: v2.0（R2 = W06 收口轮，**25/25 任务终态**）
+> **版本**: v3.0（R2 收口 + **review R1 修复轮**：2 BLOCK + 4 I 闭环）
 > **更新人**: SDDU Build Agent
-> **更新时间**: 2026-09-25
-> **更新说明**: R2 收口（TASK-IAN-220/222/223/225）：① **T220 三 Chromium 门禁法四等价重锚落地**（`insight.mjs` / `l0.mjs` / `l1.mjs`）—— 走**显式 supersession 登记**（三文件**不在** `protectedRanges` ⇒ 不入八步；登记载体 = `redlineRemap[]` 新条目 + 新叶段 `R2-W6` 逐字删除面 + `modifiedRanges[IAN2R2-MR-*]`），**禁止静默解冻降级红线**（`zeroDiffFiles === 9` 逐字不动）；断言只升不降（118→125 / 248→251 / 120→132，零删除）。② W06 剩余收口：T222 终态面（node + Chromium 已落 / M3·M4 ⏳ 如实登记）· T223 红线终核 + `KL-N-10` 隔离复跑 · T225 台账终态（`xIianLedgerLeaf2` X-IAN-8~11 + 20 行门禁三态对账 + 体积五要素终值/两叶 Σ/EC-IAN-016 三态）。③ 门禁对账 `npm test` 1437 → **1441 / 0**；`test:supersession` 45 → **48 / 0**。
+> **更新时间**: 2026-09-26
+> **更新说明**: ① R2 收口（TASK-IAN-220/222/223/225）：**T220 三 Chromium 门禁法四等价重锚落地**（`insight.mjs` / `l0.mjs` / `l1.mjs`）—— 走**显式 supersession 登记**（三文件**不在** `protectedRanges` ⇒ 不入八步；登记载体 = `redlineRemap[]` 新条目 + 新叶段 `R2-W6` 逐字删除面 + `modifiedRanges[IAN2R2-MR-*]`），**禁止静默解冻降级红线**（`zeroDiffFiles === 9` 逐字不动）；断言只升不降（118→125 / 248→251 / 120→132，零删除）· T222 终态面（node + Chromium 已落 / M3·M4 ⏳ 如实登记）· T223 红线终核 + `KL-N-10` 隔离复跑 · T225 台账终态；门禁 `npm test` 1437 → **1441 / 0**；`test:supersession` 45 → **48 / 0**。② **review R1 修复轮**（§9，commit `9ffbea8`）：**BLOCK-01 法四 old→new 逐字台账 + 半修必红判据**（`law4InplaceRevision` + `L4-7`）· **BLOCK-02 X-IAN 编号语义冲突**（叶1 → `L1-SUP-1~7` + `mapsToParent`；`xIianLedgerFull` 补齐父 §12 X-IAN-1~7 逐条）· **I-01~04** 逐项处置 · 收口缺口（叶段 `R2-W6` `scope.files` **34→35**，逐叶复算唯一红转绿）；门禁 `npm test` 1441 → **1443 / 0**（`supersession` 48 → **49 / 0**；`law4` 5 → 6）。
 
 ---
 
@@ -238,9 +238,76 @@ R1 曾以「须解冻冻结的 `docs/v3-supersession-ledger.json`（v4 `zeroDiff
 
 ---
 
+## 9. 修复轮（review R1 闭环：BLOCK-01 / BLOCK-02 + I-01~04 + 收口缺口）
+
+> **触发**: `review-report.md` v1.0（31 项：27 ✅ / 1 ⚠️ / 2 ❌ → **2 BLOCK** / 4 I / 0 O，结论 ❌ 不通过）。
+> **口径**: 本轮**只改 `docs/*.json` + `test/**`**（`src/**` **零改动** ⇒ 冻结面 / `zeroDiffFiles` / 体积 598,577 全部不受影响）；登记日 2026-09-25 / 提交 `9ffbea8`（2026-09-26）。
+> **载体**: commit `fix(web-cli-plugin): ian-2 修复轮——法四台账/X-IAN 编号语义/4I`（显式逐文件 add，5 文件 `+598 / −50`）。
+
+### 9.1 BLOCK 闭环
+
+| # | 根因（review） | 闭环动作 | 机核载体 |
+|---|------|------|------|
+| **BLOCK-01** | 法四原地修订无 `{old 逐字 / new 逐字 / 理由 / 日期 / 落点}` 台账条目；「半修即红」无判据（全仓无门禁读 `v4-chat/spec.md`） | ① 台账新增顶层 **`law4InplaceRevision`**（id `X-IAN-1`）：法四 `old` / `new` / `coreSentence` 逐字 + `reason` + `date` + `anchors[3]`（`v4-chat/spec.md` `:116` 法则表 / `:225` FR-CHAT-014 / `:385` AC-CHAT-007）+ `counterCheck`；② `xIianLedgerFull.rows[X-IAN-1]` 同源登记；③ 新门禁 **`law4-input-as-next` L4-7**：读三锚核心句逐字比对 ∧ 台账 old→new 逐字比对（**改一处 / 缺一处 ⇒ 必红**） | `law4-input-as-next` L4-7（`test/**` 实跑）· `xIianLedgerFull.X-IAN-1` · `law4InplaceRevision` |
+| **BLOCK-02** | 叶1 `xIianLedger` 以 `X-IAN-1~7` 登记了与父 `../spec.md §12` **完全不同**的语义（`X-IAN-1` 法四被错误占用）；父 §12 `X-IAN-1~7` 条目缺位（仅完成 X-IAN-8~11，且行字段缺 `old/new/落点`） | ① 叶1 行**改名 `L1-SUP-1~7`** + 逐行 `mapsToParent`，新增 `numberingPolicy` / `renameNote`，老登记文本（decision/owner/counterCheck/evidence）**逐字保留**；② 新增 **`xIianLedgerFull`**：父 §12 `X-IAN-1~7` 逐条 `{id, old 逐字, new 逐字, decision, counterCheck, reason, date, anchors}`（`X-IAN-1` 法四同 BLOCK-01）；③ `xIianLedgerLeaf2.rows[X-IAN-8~11]` 补齐 `old/new/date/anchors` | `supersession-ledger` 三条新机核（下条）· `xIianLedger`（重命名）· `xIianLedgerFull` · `xIianLedgerLeaf2` |
+
+**新增/替换的 supersession 机核**（`test/supersession-ledger.test.ts`，`48 → 49`）：
+- `ledger(V4 段 · IAN-1): L1-SUP-1~7 逐条登记 ∧ mapsToParent 消解编号冲突 ∧ counterCheck 可定位`；
+- `ledger(V4 段 · IAN-2): X-IAN-8~11 逐条登记 ∧ 全部「已发生」∧ old/new/日期/落点齐备`（替换原弱形态条目，**等价升级非裸删**）；
+- `ledger(V4 段 · IAN-2): 父 §12 X-IAN-1~11 并集收口（**缺条 / ID 冲突 / 空字段 ⇒ 必红**）`。
+
+### 9.2 I 项处置（review §5）
+
+| # | 位置 | 处置 |
+|---|------|------|
+| **I-01** | `docs/v4-density-baseline.json#volume.effectiveCeilingRule` 陈旧 `602,095` | 字段尾部**追加**「〖IAN-2 R2（2026-09-25，review R1 I-01 订正）〗当前生效上限 = **628,505 B**（= `min(675,840, floor(598,577 × 1.05))`），权威复算见 `size-ruling-vol3`」；历史链（含陈旧 602,095）**逐字保留**；本字段**零判据读取**（订正仅为消除误读） |
+| **I-02** | `test/settings.test.ts:191` 断言文案 `'composer draft restored'`（陈旧） | 改为 `'in-card draft restored'`（**纯文案**，断言值 / 结构不变；载体已重锚流内 `#ask-input`） |
+| **I-03** | `xIianGateReconciliationLeaf2` 的 `settings` 行 `disposition=equivalent-reanchor`（与实际不符：`test/settings.test.ts` 断言未重锚） | disposition 改 **`kept`**，`after` 注明「生产侧注释重锚见 `src/ui/settings/view-switch.ts`；门禁 mock 本身 carrier-agnostic」；`assertionsRemoved` 保持 0 |
+| **I-04** | `xIianLedgerLeaf2.rows[*]` 缺 `old 逐字 / new 逐字 / 日期 / 落点 file:line` | 与 BLOCK-01/02 **一次修复覆盖**：`rows[*]` 补齐 `old/new/date/anchors`（`xIianLedgerFull` 同规格） |
+
+### 9.3 收口缺口（本轮唯一增补）
+
+- 载体：`docs/v4-supersession-ledger.json` 叶段 `specs-tree-ian-2-abolish-composer(R2-W6)` 的 `scope.files` **34 → 35**，按字典序增补 `packages/web-cli-plugin/test/supersession-ledger.test.ts`（该文件在本轮被改写 ⇒ 进入 `git diff cea2922` 的删除面 ⇒ 按 `leafScopeFilesFor()` 规则复算**必须**入册）。
+- 效果：`ledger(V4 段): 每个叶段的 schema 与 scope 必须逐叶复算（不得手工收窄）` **由红转绿**（修复前 `test:supersession` = 48 pass / **1 fail**，恰为本条；`leafBase=cea2922` 的删除面复算 = 35 文件）。与逐叶复算一致，非手工放宽。
+
+### 9.4 门禁对账（修复轮实测 · 串行）
+
+| 门禁 | R2（review 时） | **修复轮实测** | 判定 |
+|------|:--:|:--:|:--:|
+| `npm test`（node，全量） | 1441 / 0 | **1443 / 0** | ✅ **+2**（`law4` +1 / `supersession` +1，零删除） |
+| `test:supersession` | 48 / 0 | **49 / 0** | ✅ **+1**（BLOCK-01/02 三条新机核 ∧ 唯一红转绿） |
+| `law4-input-as-next` | 5 / 0 | **6 / 0** | ✅ **+1**（L4-7 三处一致机核） |
+| `test:settings` | PASS | **15 / 0** | ✅ 保段（I-02 文案订正不改语义） |
+| `test:size-ruling-vol3` | 13 / 0 | **13 / 0** | ✅ 保段（体积 598,577 不动 ⇒ 叶2 终值机核恒绿） |
+| `test:gate-integrity` | 24 / 0 | **24 / 0** | ✅ 保段（下界只增；`CHROMIUM_GATES === 9` 不动） |
+
+> `src/**` 零改动 ⇒ 三冻结面（`content.js` 177,076 B / `pick-layer.js` 34,358 B / `sidepanel.js` 598,577 B）sha / 体积、journey·binding 保护段、`zeroDiffFiles` 9 项**逐字节不受影响**（本轮未触碰）。
+
+### 9.5 反证（注入必红）摘要 — 修复轮增补
+
+| # | 反证形态 | 判据 | 结果 |
+|---|---|---|---|
+| ⑯ | 法四三处**只改一处 / 缺一处**（半修） | `law4` L4-7（读 `v4-chat/spec.md` 三锚核心句逐字比对） | ✅ 必红 |
+| ⑰ | 台账 `law4InplaceRevision` 的 `old/new` 逐字与 spec 锚不符 / `date` 非法 | `law4` L4-7（old→new 逐字 + 台账字段合法性） | ✅ 必红 |
+| ⑱ | 叶1 行 ID 与父 §12 冲突 / 缺 `mapsToParent` / `counterCheck` 悬空 | `supersession`「L1-SUP-1~7 逐条 + mapsToParent」 | ✅ 必红 |
+| ⑲ | 父 §12 `X-IAN-1~11` **缺条 / ID 冲突 / 空字段** | `supersession`「并集收口」 | ✅ 必红 |
+| ⑳ | 叶段 `scope.files` 手工收窄（少 1 文件） | `supersession`「逐叶 scope 复算」（本轮实例：补前 **1/70 红**） | ✅ 必红 |
+
+> 反证均**实跑**（node judge 打台账字段 / 读 `.sddu` spec 锚 / 真源码切片），真源码零触碰。
+
+### 9.6 修复轮结论
+
+- **BLOCK-01 / BLOCK-02 闭环**（台账条目齐备 + 三条独立机核 + 反证 ⑯~⑲）；
+- **I-01~04 全部处置**（clean 文案 / disposition 订正 / 字段补齐 / 陈旧口径订正，均**只增不改史**）；
+- **收口缺口闭合**（叶段 `R2-W6` `scope.files` 34→35，逐叶复算唯一红转绿）；
+- 全量 `npm test` **1443 / 0**（1441 基线 + 2，只增），`src/**` / 冻结面 / `zeroDiffFiles` 零触碰 ⇒ **可进入 review R2**。
+
+---
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0（R1） | R1 = W04+W05+W06 核心：SG-IAN-03 可行 4/4 · 停引删面 8 步 · 四处兜底收敛 + `#send-reason`/`sendDisabled`/draft 重锚 · 法四三处原地修订 + `law4-input-as-next` 新门禁 · journey 八步显式取代 · binding keep · 体积净负 −548 B · 门禁 1431 → **1437 / 0** · 偏差：`insight/l0/l1` 三 Chromium 重锚误判「须解冻 v3 台账」而回退留 R2。 | 2026-09-25 | SDDU Build Agent |
 | v2.0（R2） | R2 = W06 收口轮：**T220 三文件法四等价重锚落地**（显式 supersession 登记：`redlineRemap` 7→8 + 新叶段 `R2-W6` 87 行逐字 + `modifiedRanges` +19 段；`zeroDiffFiles` 9 不动、RL-10 零降级；断言只升不降 118→125 / 248→251 / 120→132）· T217 台账终态（X-IAN-8~11）· T222 S0''-B 终态（M3/M4 ⏳）· T223 红线终核 + `KL-N-10` 隔离复跑（binding 环境红→PASS；l2-reverse 10/10）· T225 20 行门禁三态对账 + 体积终值五要素 + 两叶 Σ +6,631 + EC-IAN-016 三态 · 门禁 1437 → **1441 / 0**（supersession 45 → **48 / 0**）。**25/25 终态**。 | 2026-09-25 | SDDU Build Agent |
+| v3.0（review R1 修复轮） | review R1（2 BLOCK + 4 I）闭环：**BLOCK-01** 法四 old→new 逐字台账（`law4InplaceRevision`）＋「半修即红」判据（`law4` 新增 L4-7 三处一致机核）· **BLOCK-02** 叶1 行改名 `L1-SUP-1~7` + `mapsToParent` 消解编号冲突 ∧ `xIianLedgerFull` 补齐父 §12 `X-IAN-1~7` 逐条 ∧ `xIianLedgerLeaf2` 补 `old/new/日期/落点` · **I-01~04**（陈旧口径订正 / 文案 / disposition / 字段补齐，只增不改史）· 收口缺口：叶段 `R2-W6` `scope.files` **34→35**（逐叶复算唯一红转绿）。门禁 `npm test` 1441 → **1443 / 0**（`supersession` 48 → **49 / 0**；`law4` 5 → 6；`settings` 15/0 · `size-ruling-vol3` 13/0 · `gate-integrity` 24/0）。`src/**` / 冻结面 / `zeroDiffFiles` 零触碰。 | 2026-09-26 | SDDU Build Agent |
