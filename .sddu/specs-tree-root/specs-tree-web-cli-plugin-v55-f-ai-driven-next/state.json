@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "version": "v0.11.3",
   "name": "web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）：把「下一步推荐」的产出从确定性注册表独占改为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」」",
-  "phase": "planned",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "phase": "tasked",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -14,7 +14,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/",
       "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
       "leaf": true,
-      "phase": "specified",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 1,
@@ -26,7 +26,7 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/",
       "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
       "leaf": true,
-      "phase": "specified",
+      "phase": "tasked",
       "status": "tracked",
       "depth": 2,
       "deliveryOrder": 2,
@@ -309,7 +309,9 @@
     "ADR-ADN-009-gate-reanchor-list.md",
     "ADR-ADN-010-supersession-ledger-x-adn.md",
     "specs-tree-adn-1-ai-next-produce-and-verify/plan.md",
-    "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md"
+    "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/discovery.md",
@@ -331,7 +333,9 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-009-gate-reanchor-list.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-010-supersession-ledger-x-adn.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/plan.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/plan.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/plan.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "coversIssues": [
     "Q-ADN-001 母问题：next 产出权与「AI 驱动」原则脱钩",
@@ -413,6 +417,14 @@
       "agent": "sddu-plan",
       "artifact": "plan.md v1.0 + 10 ADR（ADR-ADN-001~010）+ 2 叶 plan.md v1.0 + 三份 state.json",
       "note": "plan 阶段：父 plan.md（跨切契约与索引）+ 2 叶 plan.md（adn-1 产出+校验链 / adn-2 兜底+合并+门禁重锚）+ ADR-ADN-001~010 正文。PD-ADN-001~008 全部裁决（首开不做 deferred / 围栏块协议 / SW 侧 5 道校验链 / ref 语义 / 仅 ref-action 上下文 / driver=ai-next+evidence=session.aiNext / 前 N=3 / 白名单不新增）。关键定案：chat-result 加法字段 aiNext（type-only 单声明，零新增 kind）；refContextSegment 有引用分支追加产出契约（基座/工厂零改）；session.aiNext 注入槽（顶层仍 7 源；白名单恒 5）；NextProvider.chipsFor/label 纯加法契约；ai-next provider 骑 ref-action 位（prepend 同规则优先）；admitCandidate vs pressDecision 分层（共享 tierOf；按下 diff=0）；ops descriptor ask 加法字段；体积分列预算 A 叶1 +0.8~2.0/叶2 +0.5~1.5 KB（距档 15,474 不升档；2.8× 最坏 ≈9.8KB 仍不升档）；门禁新增 1 + 升级 6 + 间接重锚，保护段 journey/binding keep，CHROMIUM_GATES===9 不动；X-ADN 终态 = 已发生 4 / 未发生取代 6 / 等价重锚 1。本阶段只做 plan（不写 tasks/代码）；.sddu 外零触碰；ROADMAP 零 diff；routing.v1 = local_or_compute -> none。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-tasks",
+      "artifact": "tasks.md + tasks.json v1.0（父总览 + 2 叶 50 任务 / 6 波）",
+      "note": "tasks 阶段（2026-09-26）：产出父 tasks.md/tasks.json（总览型，0 可执行任务）+ 2 叶 tasks.md/tasks.json —— adn-1 27 任务 / 3 波（TASK-ADN-101~127；S×6 / M×17 / L×4）、adn-2 23 任务 / 3 波（TASK-ADN-201~223；S×3 / M×18 / L×2）；Σ 50 任务 / 6 波（S×9 / M×35 / L×6）。3 个 spikeGate（SG-ADN-01 围栏块解析 + 载荷加法字段 / SG-ADN-02 分层共享 tierOf + pressDecision diff=0 / SG-ADN-03 骑 ref-action 位 prepend 替换 + 前 N=3 合并）；新增 1 node 门禁（ai-next-candidate，AI-N-1~11；入 gate-integrity 下界只增）、升级 6 组既有门禁（recommendation-sources 白名单恒 5 / NEXTSTEP_PRIORITY 恰 4 / DRIVER_DECLS_SRC 12↔12 / op-wiring requestTurn( 恰 1 / R6 同因去重扩展 / driver-timings 恰 5）+ 间接面 3；S0''' 四支线（A 合法被采纳 / B 非法被拦 + 留痕 / C 未产出兜底 / D 未配置纯确定性）双面落点；体积分列（A 列 adn-1 +0.8~2.0 KB / adn-2 +0.5~1.5 KB；Σ +1.3~+3.5 KB；距档 15,474 不触发升档；B 列 SW 优先不计账；EC-ADN-016 逐分支任务化：TASK-ADN-126/221）；红线任务化（KIND_SET 40 / 12 kind 零宿主 / 法八零明文 / 特权恒手势 / 三冻结面 / 保护段 keep / R8 open 入口不回归 / FR-CHAT-060 不破）。两叶硬串行（adn-2 待 adn-1 validated）。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
     }
   ],
   "pendingObligations": [

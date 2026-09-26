@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
   "version": "v0.11.3",
   "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
-  "phase": "planned",
+  "phase": "tasked",
   "status": "tracked",
-  "workflow": "3.plan",
-  "agent": "sddu-plan",
+  "workflow": "4.tasks",
+  "agent": "sddu-tasks",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "childrens": [],
@@ -42,12 +42,16 @@
   "artifacts": [
     "spec.md",
     "state.json",
-    "plan.md"
+    "plan.md",
+    "tasks.md",
+    "tasks.json"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/state.json",
-    "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md"
+    "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.json"
   ],
   "coversFr": [
     "FR-ADN-040~046",
@@ -82,6 +86,14 @@
       "agent": "sddu-plan",
       "artifact": "plan.md v1.0",
       "note": "ADN-2 叶 plan：确定性退居兜底（未配/未产出/非法被拦）+ free-input 终端恒常驻 + floor 语义保持 + 合并口径（同单卡位 / 前 N=3 / 截断 / 列表内去重 / 替换双向）+ R6 同因去重扩展覆盖 AI + 护栏（六常量 / 提案不耗预算 / 关断两相 / 零第二阈值）+ 首开保持确定性（PD-ADN-001 deferred）+ S0''' 四支线终态（Chromium 只加断言）+ 升级 6 门禁等价重锚 + X-ADN-1~11 台账终态（已发生 4 / 未发生取代 6 / 等价重锚 1）+ 保护段 keep + 体积叶2 重登记（A +0.5~1.5 KB）。强依赖叶1。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-tasks",
+      "artifact": "tasks.md + tasks.json v1.0（23 任务 / 3（W04~W06））",
+      "note": "adn-2 叶 tasks 阶段：23 任务 / 3（W04~W06）（TASK-ADN-201~223；S×3 / M×18 / L×2）；spikeGate + 门禁落点 + S0''' 双面 + 体积分列见 tasks.md/ tasks.json。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
     }
   ],
   "openPointsRuled": [

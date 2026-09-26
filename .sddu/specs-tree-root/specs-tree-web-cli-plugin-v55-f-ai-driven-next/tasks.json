@@ -1,0 +1,406 @@
+{
+  "meta": {
+    "feature": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
+    "featureKey": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-26",
+    "version": "1.0.0",
+    "scope": "总览（不承接执行）",
+    "sourcePlan": "父 plan.md v1.0（跨切契约 + ADR-ADN-001~010 索引 + §5 文件影响 + §6 风险 + §7.1 PD-ADN-001~008 裁决 + §2.2 架构落点 + §7.1 体积分列预算）+ 2 叶 plan.md v1.0",
+    "sourceSpec": "父 spec.md v1.0（89 FR / 16 NFR / 20 EC / 20 NG / 10 US / 8 G / 30 AC / 16 DC / 30 N / 24 R；§5.12.1 分列预算表；§9.5 门禁处置；§12 X-ADN-1~11；§13 N-ADN-001~030；§14 2 叶拆分；§14.3 FR→叶 覆盖矩阵）+ 2 叶 spec.md v1.0",
+    "totalTasks": 50,
+    "totalWaves": 6,
+    "complexity": { "S": 9, "M": 35, "L": 6 },
+    "deviation": {
+      "id": "父 spec.md §14.1（轻量规范容器）",
+      "desc": "父 Feature 定位为轻量规范容器（不承接 build/review/validate、不产出 tasks.json）；本轮按编排器排布要求产出总览型 tasks.md + tasks.json（tasks[] 为空、无一条可执行任务），偏差显式登记、可整篇作废而不牵连叶",
+      "containerCore": "父不承接 build/review/validate；实施全部由 2 叶承载；父 state.json 的 depth=1 / childrens 结构不变",
+      "templateDeviation": "模板 §5.4 / §8 建议 5~15 任务；本轮 50（27/23），分落 2 叶，与 F-35 父先例（52）/ F-34 父先例（45）/ v5.5 父先例（61）同口径显式登记；50 = 可原子执行单元（≈1 文件内 1 项可验证改动 + 其判据），不是 LLM 调用数",
+      "spikeGateDeviation": "父 / 叶 plan.md 与 ADR-ADN-001~010 未命名 spikeGate 代号；本轮按编排器排布要求落为 SG-ADN-01~03 先验闸门（探针产物不落版本库，test/_spike/ 探毕删除）",
+      "waveDeviation": "tasks 级波次细化（与叶 plan.md §7 显式差异）：① 叶1 新门禁建立由 plan 的 W1 后移至 W2（与通道+校验器+分层同轮）；② 叶2 把 S0''' 终态 / X-ADN 台账终态 / 保护段 keep / 体积 Σ 归入 W3（共享面「恰一次」），升级 6 终态对账保留 W2"
+    },
+    "numbering": {
+      "namespace": "TASK-ADN-1xx / TASK-ADN-2xx",
+      "leafBlocks": {
+        "adn-1": "TASK-ADN-101~127（27）",
+        "adn-2": "TASK-ADN-201~223（23）"
+      },
+      "conflictCheck": "两叶连续编号、零交叠；与 TASK-001~040 / TASK-2xx~3xx / TASK-4xx / TASK-5xx~8xx / TASK-V45-1xx / TASK-V5-1xx / TASK-V55-1xx~320 / TASK-V55F-1xx~2xx / TASK-IAN-1xx~2xx 零冲突（本 Feature 用 ADN 命名空间；全仓 TASK-ADN 实测零命中）"
+    },
+    "deliveryOrder": [
+      "specs-tree-adn-1-ai-next-produce-and-verify",
+      "specs-tree-adn-2-deterministic-fallback-and-merge"
+    ],
+    "serialRule": "叶间硬串行（adn-2 依赖 adn-1 已建立通道 + 5 道校验链 + admitCandidate + ai-next provider + 注入槽 + 新门禁：叶2 在叶1 validated 前不得启动，否则 AI 候选可进 chips 而校验链未就位的中间态会裸放 AI 自由文本触达特权/不可逆面 ⇒ R-ADN-001 / N-ADN-021）"
+  },
+  "leaves": [
+    {
+      "leafKey": "specs-tree-adn-1-ai-next-produce-and-verify",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/",
+      "position": 1,
+      "tasks": "TASK-ADN-101~127（27）",
+      "waves": "W1~W3（全局 W01~W03）",
+      "size": { "S": 6, "M": 17, "L": 4 },
+      "spikes": ["TASK-ADN-101（SG-ADN-01）", "TASK-ADN-108（SG-ADN-02）"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3（收口轮）" },
+      "volumeBudgetBytes": 2048,
+      "volumeUpperBoundBytes": 3584,
+      "volumeRegisterTask": "TASK-ADN-126",
+      "mainAdrs": ["ADR-ADN-001", "ADR-ADN-002", "ADR-ADN-003", "ADR-ADN-004", "ADR-ADN-005", "ADR-ADN-006", "ADR-ADN-007", "ADR-ADN-008", "ADR-ADN-009", "ADR-ADN-010"],
+      "newGates": ["ai-next-candidate"],
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "首叶 / 底座叶 + 安全核心（P0，deliveryOrder 1/2，dependsOn: []）。交付：AI 结构化产出通道（'idle' 时机 + chat-result type-only 加法字段 aiNext? + 零新增 kind）+ 尾随 next 围栏块严格 JSON 解析 + **5 道校验链**（opId 在册(9) → tierOf 三档(gesture 恒拒) → ref 有效 → param 在 AskSpec 内 → 丢弃 + blocked= 留痕）+ **判定分层**（admitCandidate 接受层 vs pressDecision 按下层，共享 tierOf，pressDecision diff=0）+ ai-next provider（第 12 行，rule:'ref-action'/priority:2/prepend/chipsFor 权威）+ DRIVER_DECLS_SRC 11→12 + driverBlockedLine + 注入槽（session.aiNext 嵌套，顶层仍 7 源）+ 面板 done 分支消费（事件作用域单槽 pendingAiNext 消费即清 + blocked 可读留痕 + testing.aiNext 测试缝）+ SW 侧解析/校验（B 列优先）+ 新 node 门禁 test/ai-next-candidate.test.ts（AI-N-1~11 + 反证 + 三段控制 + 真源切片）+ S0''' 主线/支线 B/支线 D node 面 + 升级 6 重锚 + gate-integrity 下界 +1 + 体积叶1 重登记 + X-ADN 骨架。**不做**：兜底/合并语义终态（叶2）/ free-input 终端恒常驻终态（叶2）/ R6 去重扩展（叶2）/ 替换口径终态（叶2）/ 护栏接线与关断两相（叶2）/ 首开边界（叶2）/ 升级 6 终态 + 保护段 + X-ADN 台账终态（叶2）。承载父 FR ≈48 条切片。"
+    },
+    {
+      "leafKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/",
+      "position": 2,
+      "tasks": "TASK-ADN-201~223（23）",
+      "waves": "W1~W3（全局 W04~W06）",
+      "size": { "S": 3, "M": 18, "L": 2 },
+      "spikes": ["TASK-ADN-201（SG-ADN-03）"],
+      "commitIntervals": { "A": "W1", "B": "W2", "C": "W3（收口轮·终局）" },
+      "volumeBudgetBytes": 1536,
+      "volumeUpperBoundBytes": 3072,
+      "volumeRegisterTask": "TASK-ADN-221（含两叶 Σ）",
+      "mainAdrs": ["ADR-ADN-004", "ADR-ADN-005", "ADR-ADN-006", "ADR-ADN-007", "ADR-ADN-008", "ADR-ADN-009", "ADR-ADN-010"],
+      "newGates": [],
+      "isCloseoutLeaf": true,
+      "artifacts": ["spec.md", "plan.md", "tasks.md", "tasks.json", "state.json", "TREE.md"],
+      "note": "末叶 / 回归与判据叶（P0；强依赖叶1，须 adn-1 validated）。交付：确定性退居兜底（三情形：未配 / 未产出 / 全被拦）+ **free-input 终端恒常驻**（R8 保底不回归）+ floor 语义（AI 不进 floor；safety 不走 floor）+ 零死端 + **合并口径**（同单卡位 MAX_NEXTSTEP_CARDS_PER_ROUND=1 不动 / 前 N=3 截断 / 列表内 opId#label 去重 / 不与规则候选交错）+ **替换口径**（AI 赢槽 ⇒ 无陈旧 ref-action chip；缺席 ⇒ 照旧）+ R6 同因去重扩展覆盖 AI（refActionDigest 家系逐字复用）+ **护栏**（六常量同过 / 提案不耗回合预算双向 / 关断两相 / 零第二阈值）+ 首开保持确定性（零 LLM 往返依赖 / 让位 firstRun 零双卡）+ **S0''' 四支线终态**（Chromium 面只加断言不加文件）+ X-ADN-1~11 台账终态（已发生 4 / 未发生 6 / 等价重锚 1）+ 升级 6 门禁等价重锚终态 + 保护段逐段决策（journey [43484,59347) / binding [107780,115930)，keep 字节中立）+ 体积终态重登记（五要素 + 三值 + 两叶 Σ）。承载父 FR ≈34 条切片。"
+    }
+  ],
+  "crossLeafOrder": {
+    "structure": "2-leaf-serial",
+    "order": [
+      "specs-tree-adn-1-ai-next-produce-and-verify",
+      "specs-tree-adn-2-deterministic-fallback-and-merge"
+    ],
+    "note": "叶间不可并行（adn-2 硬依赖 adn-1 validated；R-ADN-001 / N-ADN-021）；叶内波次为唯一执行序（见各叶 tasks.md §1 关键路径）"
+  },
+  "s0ppWiring": {
+    "adr": "ADR-ADN-007（S0''' 双面验证设计 · 四支线 + 注入反证族 · 只加断言）+ FR-ADN-080~085 / AC-ADN-001；R-ADN-909 禁假 provider",
+    "fourBranches": {
+      "A_main": "已配 ∧ done ∧ AI 产出合法候选 ⇒ 过 5 道校验 ⇒ 注入 chips（替换陈旧 ref-action chip）∧ ≤3 ∧ 单卡 ∧ 终端恒最末",
+      "B_blocked": "已配 ∧ 非法候选（幻觉 op / 越界 ref / gesture op / param 越界 / label 越界）⇒ 逐类 blocked=<code> + 可读留痕（零明文）∧ 不渲染为 chip ∧ 注册表兜底 + 终端",
+      "C_notProduced": "已配 ∧ 无块 / 解析失败 / 空数组 ⇒ 零 aiNext ⇒ 确定性注册表产卡（含 floor）",
+      "D_unconfigured": "未配 LLM ⇒ 零候选产出（零网络）+ 确定性 + 终端（现状逐字）"
+    },
+    "singleSourceSample": {
+      "file": "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs",
+      "tasks": ["TASK-ADN-124", "TASK-ADN-217"],
+      "note": "扩展既有样本（node + Chromium 共用同一份；禁第二份样本）；既有 S0_CHAIN 环节逐字保留"
+    },
+    "intermediate_node": {
+      "leaf": "adn-1",
+      "tasks": ["TASK-ADN-124"],
+      "judge": "S0'''-1~10 node 面逐环节可判（主线合法被采纳 + 支线 B 非法被拦 + 支线 D 未配纯确定性 + 支线 C 未产出兜底）；真源切片（读生产模块，禁假 provider / 桩）"
+    },
+    "intermediate_chromium": {
+      "leaf": "adn-1",
+      "tasks": ["TASK-ADN-125"],
+      "judge": "s0-self-driven.mjs 四支线断言 + law8-plaintext.mjs 零明文面；驱动经 window.__v3.testing.aiNext(...) 测试缝注入已校验候选；**只加断言不加文件**（CHROMIUM_GATES === 9）"
+    },
+    "final_node": {
+      "leaf": "adn-2",
+      "tasks": ["TASK-ADN-217"],
+      "judge": "四支线终态（A 替换 + ≤3 + 单卡 + 终端恒最末 / B 逐类 blocked + 留痕 + 兜底 / C 确定性兜底 / D 零网络纯确定性）；注入「删兜底 / 删终端」⇒ 必红 + 逐字节还原"
+    },
+    "final_chromium": {
+      "leaf": "adn-2",
+      "tasks": ["TASK-ADN-218"],
+      "judge": "真面板：AI 在场 ⇒ 无陈旧 ref-action chip；≤3；单卡；终端恒最末；AI 缺席 ⇒ 陈旧 chip 照旧；law8 零明文；**只加断言不加文件**"
+    },
+    "countingRule": "两侧独立计数，禁互相掩盖；node 面与 Chromium 面各自可独立验证；真源切片读生产模块（禁假 provider / 桩）"
+  },
+  "waveSummary": [
+    { "global": "W01", "leaf": "adn-1", "wave": 1, "name": "载体与校验链（definition 类型 + chat-events 字段 + ref-context 契约句 + op-table.ask + ai-next.ts 解析/5 道链 + service-worker 装配；SG-ADN-01）", "tasks": "101~107", "count": 7, "interval": "A" },
+    { "global": "W02", "leaf": "adn-1", "wave": 2, "name": "分层与注入（admitCandidate + ai-next provider/DRIVER_DECLS_SRC 12 + driverBlockedLine + chipsFor 接线 + 注入透传 + 面板消费/测试缝 + 新门禁骨架；SG-ADN-02）", "tasks": "108~117", "count": 10, "interval": "B" },
+    { "global": "W03", "leaf": "adn-1", "wave": 3, "name": "门禁与验收（升级 6 重锚 + 间接面 + gate-integrity 下界 + S0''' 主/B/D node + Chromium 断言增量 + 红线巡检 + 体积叶1 重登记 + X-ADN 骨架；收口轮）", "tasks": "118~127", "count": 10, "interval": "C（收口轮）" },
+    { "global": "W04", "leaf": "adn-2", "wave": 1, "name": "兜底与合并（三情形兜底 + 终端恒常驻/floor + 合并口径 + 替换口径 + R6 扩展 + recommendation-sources 重锚；SG-ADN-03）", "tasks": "201~207", "count": 7, "interval": "A" },
+    { "global": "W05", "leaf": "adn-2", "wave": 2, "name": "护栏与首开（关断显示相 + 提案不耗预算 + 在飞语义 + 首开确定性 + 兜底反证 + 升级 6 终态对账 + 六常量/零第二阈值 + 窄视口 + 终端保留）", "tasks": "208~216", "count": 9, "interval": "B" },
+    { "global": "W06", "leaf": "adn-2", "wave": 3, "name": "验收与治理（S0''' 四支线终态 + X-ADN 台账终态 + 保护段 keep + 体积叶2 重登记 + Σ + 门禁守恒终态对账 + 人工面/收口；收口轮·终局）", "tasks": "217~223", "count": 7, "interval": "C（收口轮·终局）" }
+  ],
+  "checkpoints": [
+    {
+      "id": "CP-ADN-1",
+      "after": "W01~W03（adn-1 收尾 TASK-ADN-127）",
+      "criteria": "AI 候选经 chat-result type-only 加法字段 aiNext? 注入（零新增 kind：KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）；尾随 next 围栏块严格 JSON 解析（取本回合最后一条 assistant 文本的最后一块）；5 道校验链顺序即优先级（opId 在册 → tierOf 三档(gesture 恒拒) → ref 有效 → param 在 AskSpec 内 → 丢弃+blocked= 留痕；拒绝码闭集 unknown-op/tier/ref/param/label）；判定分层（admitCandidate 接受层 vs pressDecision 按下层共享 tierOf；confirm admit=true ∧ press=blocked:tier；pressDecision diff=0；零第二档位表）；ai-next provider 第 12 行（rule:'ref-action'/priority:2/prepend/chipsFor 权威）+ DRIVER_DECLS_SRC 12↔12（旧 11 逐字）；注入槽 session.aiNext 嵌套（顶层仍 7 源）；recommend.ts 仍 pure（真值 7 / 模块 5 / 零 fetch·chrome·时钟；FR-CHAT-060 不破）；面板 done 消费（事件作用域单槽消费即清 + 留痕零值）；新门禁 ai-next-candidate（AI-N-1~11 + 五类注入反证 + 三段控制 + 真源切片）入 gate-integrity 下界（只增）；S0''' 主/B/D node 面 + Chromium 只加断言（CHROMIUM_GATES === 9）；升级 6 等价重锚（白名单恒 5 / NEXTSTEP_PRIORITY 恰 4 / 12↔12 / requestTurn( 恰 1 / driver-timings 恰 5）；三冻结面零容差；体积 A 列叶1 正增量重登记（五要素 + 三值 + EC-ADN-016 二态）+ B 列不计账；X-ADN-1/X-7 骨架 + X-2/3/4/5/6/9 no-supersession 骨架"
+    },
+    {
+      "id": "CP-ADN-2",
+      "after": "W04~W06（adn-2 收尾 TASK-ADN-223）",
+      "criteria": "确定性退居兜底（未配 / 未产出 / 全被拦 ⇒ 确定性产卡含 floor）；free-input 终端恒常驻（R8 不回归；终端恒最末、非 .next-chip、不进 MAX_CHIPS_PER_CARD）；safety 不走 floor；合并口径（同单卡位=1 不动 + 前 N=3 截断 + 列表内去重 + 不与规则候选交错）；替换口径双向可判（AI 在场 ⇒ 无陈旧 ref-action chip；缺席 ⇒ 照旧）；R6 同因去重扩展覆盖 AI（家系逐字复用）+ 反证；护栏（六常量同过 / 提案不耗预算双向 / 关断两相 / 零第二阈值）；首开保持确定性（零 LLM 往返 + 让位 firstRun 零双卡）；升级 6 重锚终态三态齐 + assertionsRemoved=0；S0''' 四支线终态（注入必红 + 逐字节还原）；X-ADN-1~11 台账终态（已发生 4 / 未发生 6「no-supersession + 理由非空」/ 等价重锚 1；老条目逐字保留）；保护段 keep（journey [43484,59347) sha 7b309258… / binding [107780,115930) sha be9ad0e9…；零改动 ⇒ 字节中立双绿）；体积叶2 A 列重登记 + 两叶 Σ + EC-ADN-016 逐分支；authorConfirmation=pending-author-line；门禁守恒（npm test ≥1443 / 只增不减 / CHROMIUM_GATES === 9 / 串行 / KL-N-10 隔离复跑 ≥2）；人工面 M1~M5 ⏳ 未执行；A 列 / B 列分列如实标注；e2e PASS"
+    }
+  ],
+  "volumeLedger": {
+    "authority": "ADR-ADN-008（A/B/C 列分列 + 15% 缓冲 + 2.8× 最坏 + 逐叶重登记 + EC-ADN-016 升档 EC 路径）+ 父 plan.md §2.2 / §7.1 + 父 spec §5.12.1 / FR-ADN-120~125",
+    "sidepanelBaselineBytes": 598926,
+    "sidepanelEffectiveCeilingBytes": 628872,
+    "headroomBytes": 29946,
+    "distanceToTierBytes": 15474,
+    "tierBytes": 614400,
+    "absoluteCeilingBytes": 675840,
+    "totalBudgetBytes": 3584,
+    "totalUpperBoundBytes": 6656,
+    "bufferFactor": 1.15,
+    "bufferedUpperBoundBytes": 4608,
+    "crossingFactor": 2.8,
+    "worstCaseBufferedBytes": "≈11300（A 列 Σ 严格上界 3.5 KB × 2.8 × 1.15）",
+    "perLeaf": {
+      "adn-1": {
+        "col": "A（sidepanel.js，计账）",
+        "budgetBytes": 2048,
+        "upperBoundBytes": 3584,
+        "bufferedUpperBoundBytes": 4096,
+        "colB": { "budgetBytes": 3584, "upperBoundBytes": 3584, "accounted": false, "note": "+1.5~3.5 KB（解析 + 5 道校验链 + 留痕 + 载荷装配）" },
+        "registerTask": "TASK-ADN-126",
+        "components": {
+          "next-registry/definition.ts": "+0.1~0.3 KB（3 类型 + 2 加法字段）",
+          "next-registry/providers.ts": "+0.2~0.4 KB（ai-next 第 12 行 + 声明 + 注释订正）",
+          "next-registry/ai-drive.ts": "+0.1~0.2 KB（driverBlockedLine）",
+          "next-registry/ops.ts": "~+0.05 KB（reachableOpIds 优先 chipsFor）",
+          "recommend.ts": "+0.2~0.4 KB（session.aiNext 透传 + chipsFor 解析 + label 覆盖）",
+          "sidepanel.ts": "+0.3~0.8 KB（done 消费 + 单槽 + 留痕 + 测试缝）",
+          "shared/op-table.ts（A 侧副本）": "+0.05~0.15 KB（ask 加法字段）"
+        }
+      },
+      "adn-2": {
+        "col": "A（sidepanel.js，计账）",
+        "budgetBytes": 1536,
+        "upperBoundBytes": 3072,
+        "bufferedUpperBoundBytes": 3072,
+        "colB": { "budgetBytes": 1536, "upperBoundBytes": 1536, "accounted": false, "note": "+0.5~1.5 KB（终态接线）" },
+        "registerTask": "TASK-ADN-221（含两叶 Σ 对照）",
+        "components": {
+          "recommend.ts": "+0.2~0.4 KB（替换口径 + R6 同因去重扩展 + 合并口径）",
+          "sidepanel.ts": "+0.2~0.6 KB（关断门显示相 + 兜底接线 + 首开路径确认）",
+          "shared/op-table.ts（A 侧副本）": "+0.05~0.15 KB（一致性）"
+        }
+      },
+      "sum": { "budgetBytes": 3584, "upperBoundBytes": 6656, "bufferedUpperBoundBytes": 4608, "worstCaseBufferedBytes": 11300 }
+    },
+    "colB": {
+      "artifact": "dist/background.js（不计入 sidepanel 账本）",
+      "leaf1": ["background/ai-next.ts（NEW +1.0~2.5 KB）", "service-worker.ts（+0.2~0.5 KB）", "ref-context.ts（+0.2~0.5 KB）", "chat-events.ts（+0.05 KB）", "shared/op-table.ts（B 侧副本 +0.05~0.15 KB）"],
+      "leaf2": ["校验链接线终态 + 非法留痕接线（+0.5~1.5 KB）"],
+      "note": "B 列优先 ≠ B 列无成本（R-ADN-908）；同时给出 B 列预算并如实标注列别；不得把 A 列改动搬进 B 列规避账本（FR-ADN-125）"
+    },
+    "colC": { "artifact": "content.js / pick-layer.js", "rule": "零触碰零容差（177,076 B / 52a82620…；34,358 B / 77796bab…）" },
+    "crossingPlan": {
+      "normal": "A Σ 目标 +1.3~+3.5 KB（+15% +1.5~+4.0 KB）≤ 余量 29,946 且 ≤ 距档 15,474 ⇒ 正常口径不触发升档",
+      "worstCase": "2.8× 最坏（A Σ 上界 3.5 KB × 2.8 ≈ 9.8 KB；×1.15 ≈ 11.3 KB）⇒ 仍 < 15,474 ⇒ 不触发；按 EC-ADN-016 仍预置显式升档路径 + 作者一行",
+      "action": "越生效上限（628,872）⇒ 显式重登记基线（同源前移）；越档位（614,400）⇒ EC-ADN-016 显式升档 + 作者一行；越绝对上限（675,840）⇒ 停止并请示，不得静默改档位",
+      "authorConfirmation": "保持 pending-author-line，不得伪称已确认（N-ADN-013）"
+    },
+    "reductionPriority": [
+      "复用既有 nextstep 渲染面（零新渲染面）",
+      "复用既有文案 / 静态模板（零新字符串）",
+      "元组化声明数据（ops.ts#IMPL 先例）",
+      "纯记账 / 判定逻辑下移 background.js（不计账，须过 FR-ADN-125 反证：不得为绕门禁搬码）",
+      "显式登记未落地项为未闭合义务（绝不以删判据 / 放宽容差 / 静默下调档位实现）"
+    ],
+    "note": "spec / plan 阶段估算（非承诺）；每叶收口实测重登记（FR-ADN-124）；实测值禁预填（ADN-P-001 / 006）；偏差须显式登记"
+  },
+  "sharedSurfaces": {
+    "caliber": "FR-ADN-002/005：共享面被 ≥2 叶触碰 ⇒ 必须恰一次做完；禁止『两叶各改一次同一条目』",
+    "volume": {
+      "registerLeaf": "各叶登记自身增量；两叶 Σ 对照在叶2",
+      "tasks": ["TASK-ADN-126", "TASK-ADN-221"],
+      "check": "SIDEPANEL_BASELINE_BYTES_TIMELINE 只追加 + 逐模块归因（Σ 逐模块 Δ + 未归因 == 登记增量）+ B 列不计账显式登记 + EC-ADN-016 二态"
+    },
+    "gateReconciliation": {
+      "registerLeaf": "叶1 骨架 / 叶2 终态",
+      "tasks": ["TASK-ADN-127", "TASK-ADN-222"],
+      "check": "新增 1 + 升级 6 + 间接面三态齐（保留 / 等价重锚 / 显式取代）+ assertionsRemoved=0 + CHROMIUM_GATES === 9"
+    },
+    "supersessionLedger": {
+      "registerLeaf": "各叶各登各的条目（台账文件只追加）；叶1 登 X-ADN-1/X-7 侧 + no-supersession 骨架，叶2 增 X-ADN-8/X-11 + X-ADN-10 等价重锚 + 全 11 条终态",
+      "tasks": ["TASK-ADN-127", "TASK-ADN-219"],
+      "check": "test:supersession ≥49 + status ↔ counterCheck 一致性 + 老条目逐字保留 + X-ADN 逐条「已发生 / 未发生 / 等价重锚」如实登记"
+    },
+    "protectedSegments": {
+      "registerLeaf": "adn-2（本 Feature 预期零改动 ⇒ keep）",
+      "tasks": ["TASK-ADN-220"],
+      "check": "journey [43484,59347) / sha 7b309258aab783e7… / 249 行；binding [107780,115930) / sha be9ad0e9…；零改动 ⇒ startAnchor / endByte / sha 双绿"
+    },
+    "s0pp": {
+      "registerLeaf": "样本单源（s0-chain.mjs 扩展）；node 叶1 落 S0''' 主/B/D，Chromium 叶1 只加断言；叶2 四支线终态",
+      "tasks": ["TASK-ADN-124", "TASK-ADN-125", "TASK-ADN-217", "TASK-ADN-218"],
+      "check": "两侧独立计数禁互相掩盖；真源切片读生产模块（禁假 provider / 桩）"
+    },
+    "manualFaces": {
+      "registerLeaf": "各叶各登本叶项",
+      "tasks": ["TASK-ADN-125", "TASK-ADN-223"],
+      "check": "M1~M5 逐项 ⏳ 未执行 / PASS；不得冒充 PASS；v5.5 / F-34 / F-35 人工面零改写"
+    },
+    "frChat060": {
+      "registerLeaf": "两叶共同不破（叶1 建、叶2 保持）",
+      "tasks": ["TASK-ADN-107", "TASK-ADN-116", "TASK-ADN-213"],
+      "check": "recommend.ts 源码零 fetch( / chrome. / 时钟；零第二次 provider 调用；recommendation-sources ④ 保持绿"
+    },
+    "opTableMirror": {
+      "registerLeaf": "叶1 一次做完 ask?；两侧镜像",
+      "tasks": ["TASK-ADN-105", "TASK-ADN-112"],
+      "check": "sw-op-mirror 绿；A/B 侧副本都记（B 侧不计账）"
+    }
+  },
+  "crossCutRedlines": {
+    "N-ADN-001/002": { "item": "三冻结面零容差（content.js 177,076 B / 52a82620…；pick-layer.js 34,358 B / 77796bab…）", "tasks": ["TASK-ADN-126", "TASK-ADN-221", "TASK-ADN-222"] },
+    "N-ADN-003/004": { "item": "KIND_SET 40 逐字 / 12 kind 契约不动 / REGISTERED_STRUCTURAL_HOSTS=[] / ACT_TO_OP 6", "tasks": ["TASK-ADN-102", "TASK-ADN-103", "TASK-ADN-106", "TASK-ADN-116", "TASK-ADN-126", "TASK-ADN-219"] },
+    "N-ADN-005/006": { "item": "上游产物零改写（唯一授权例外 = X-ADN-1 产出权转移显式取代登记 + old→new 台账）", "tasks": ["TASK-ADN-127", "TASK-ADN-219"] },
+    "N-ADN-007": { "item": "packages/web-cli-base/** 零 diff", "tasks": ["TASK-ADN-126", "TASK-ADN-221", "TASK-ADN-222"] },
+    "N-ADN-008": { "item": "free-input 终端恒常驻（R8 保底；恒最末非 .next-chip）+ R8 首开入口不回归", "tasks": ["TASK-ADN-203", "TASK-ADN-211", "TASK-ADN-212", "TASK-ADN-216"] },
+    "N-ADN-009": { "item": "法八四面零明文不退化（候选 label / params / 留痕不回显值）", "tasks": ["TASK-ADN-106", "TASK-ADN-111", "TASK-ADN-125", "TASK-ADN-218"] },
+    "N-ADN-010": { "item": "AI 候选不得自造 op / 不得绕过注册表（opId ∈ 9 op；pressCandidate 铁律① 保持）", "tasks": ["TASK-ADN-106", "TASK-ADN-109"] },
+    "N-ADN-011": { "item": "特权 op（op.authorize / op.perm.request）恒 gesture；SW 永不 .request(；AI 不可自动执行", "tasks": ["TASK-ADN-106", "TASK-ADN-109", "TASK-ADN-116", "TASK-ADN-126"] },
+    "N-ADN-012": { "item": "断言零删除零降级、计数只增（唯一例外 = 保护段显式取代 + 台账）", "tasks": ["TASK-ADN-118", "TASK-ADN-119", "TASK-ADN-120", "TASK-ADN-121", "TASK-ADN-122", "TASK-ADN-213", "TASK-ADN-220", "TASK-ADN-222"] },
+    "N-ADN-013": { "item": "authorConfirmation=pending-author-line 不得伪称已确认；升档走 EC-ADN-016 显式路径", "tasks": ["TASK-ADN-126", "TASK-ADN-221"] },
+    "N-ADN-014": { "item": "F-29（A2A 候选）保持原样不动（ROADMAP 相关区段一字不动）", "tasks": ["§纪律表（各叶 build / validate 记录）"] },
+    "N-ADN-015": { "item": "保护段逐段决策（journey / binding）；哈希变更须台账留痕、禁静默改写（本 Feature 预期 keep）", "tasks": ["TASK-ADN-220"] },
+    "N-ADN-016": { "item": "判定分层不得混同（admitCandidate 与 pressDecision 必须分离；gesture 不得与 confirm 混同）", "tasks": ["TASK-ADN-108", "TASK-ADN-109", "TASK-ADN-116"] },
+    "N-ADN-017": { "item": "consent / gesture 不得被 AI 代答（含 confirm 档候选的 consent）", "tasks": ["TASK-ADN-106", "TASK-ADN-109", "TASK-ADN-117"] },
+    "N-ADN-018": { "item": "判定链零触碰（policy.ts / auto-authorize.ts zeroDiffFiles pin）", "tasks": ["TASK-ADN-126", "TASK-ADN-222"] },
+    "N-ADN-019": { "item": "门禁严格串行；CHROMIUM_GATES === 9 不动", "tasks": ["TASK-ADN-123", "TASK-ADN-125", "TASK-ADN-218", "TASK-ADN-222"] },
+    "N-ADN-020": { "item": "纪律（不碰 main / 不 force push / path-limited git add / 无新依赖 / .sddu 外零触碰）", "tasks": ["§纪律表（各叶 build / validate 记录）"] },
+    "N-ADN-021": { "item": "AI 候选校验链不可旁路（未过 5 道校验不得进 chips / 被执行）", "tasks": ["TASK-ADN-106", "TASK-ADN-114", "TASK-ADN-117"] },
+    "N-ADN-022": { "item": "校验器单源（恰 1 份）；第二份校验器 / 第二份档位表 ⇒ FAIL", "tasks": ["TASK-ADN-106", "TASK-ADN-109", "TASK-ADN-117"] },
+    "N-ADN-023": { "item": "AI 候选零新 LLM 面（不得新增 LLM 调用 / 网络；recommend.ts 零 fetch·chrome·时钟）", "tasks": ["TASK-ADN-107", "TASK-ADN-116"] },
+    "N-ADN-024": { "item": "兜底门禁必绿且禁恒真（r8-open-next-entry / free-input-next / no-dead-end 可 FAIL）", "tasks": ["TASK-ADN-203", "TASK-ADN-212", "TASK-ADN-216"] },
+    "N-ADN-025": { "item": "首开零 LLM 依赖（首开 / ready 不得引入 LLM 往返依赖；首屏必有终端）", "tasks": ["TASK-ADN-211", "TASK-ADN-217"] },
+    "N-ADN-026": { "item": "提案与回合成本分列（产出候选不得 noteProactive / 不耗预算；只有自动成回合可耗）", "tasks": ["TASK-ADN-209", "TASK-ADN-214"] },
+    "N-ADN-027": { "item": "单卡 / 3-chip / 密度不破（MAX_NEXTSTEP_CARDS_PER_ROUND=1 / MAX_CHIPS_PER_CARD=3 / 7/15·9/20·17/35）", "tasks": ["TASK-ADN-204", "TASK-ADN-215"] },
+    "N-ADN-028": { "item": "ai-next provider 不得成为第二产出内核（recommendNextStep 仍唯一内核；testing.aiNext 是测试缝非生产入口）", "tasks": ["TASK-ADN-110", "TASK-ADN-113", "TASK-ADN-114"] },
+    "N-ADN-029": { "item": "载荷加法字段缺席时行为逐字不变（向后兼容）", "tasks": ["TASK-ADN-103", "TASK-ADN-114"] },
+    "N-ADN-030": { "item": "未发生取代如实登记（no-supersession + 理由；留空 / 伪造「已取代」⇒ FAIL）", "tasks": ["TASK-ADN-127", "TASK-ADN-219"] },
+    "FR-CHAT-060": { "item": "零新 LLM 面不破（复用刚结束回合输出；无第二次 provider 调用）", "tasks": ["TASK-ADN-107", "TASK-ADN-116", "TASK-ADN-213"] },
+    "X-ADN": { "item": "X-ADN-1 产出权转移（已发生）/ 2·3·4·5·9 保持（未发生）/ 6·10 等价重锚 / 7·8·11 已发生", "tasks": ["TASK-ADN-127", "TASK-ADN-205", "TASK-ADN-206", "TASK-ADN-208", "TASK-ADN-213", "TASK-ADN-219"] }
+  },
+  "supersessionMap": {
+    "X-ADN-1": { "item": "next 推荐 = 确定性内核独占产出（recommendNextStep 单源 / 真值 7 / 规则表 4）→ AI 驱动产出候选 + 注册表退居兜底与安全闸；台账 old→new（理由 / 日期 / 落点 / 作者裁决引用）", "tasks": ["TASK-ADN-127", "TASK-ADN-202", "TASK-ADN-219"], "status": "superseded" },
+    "X-ADN-2": { "item": "recommendation-sources ④ 零新增网络 / LLM 面 → 保持（候选经 session.aiNext 注入 ⇒ recommend.ts 仍 pure）", "tasks": ["TASK-ADN-113", "TASK-ADN-118", "TASK-ADN-219"], "status": "no-supersession" },
+    "X-ADN-3": { "item": "MAX_NEXTSTEP_CARDS_PER_ROUND=1（单卡）→ 保持（AI 多候选在单卡内以 ≤3 chip 呈现）", "tasks": ["TASK-ADN-201", "TASK-ADN-204", "TASK-ADN-219"], "status": "no-supersession" },
+    "X-ADN-4": { "item": "NEXTSTEP_PRIORITY 恰 4 → 保持（AI 骑既有 ref-action 规则位 prepend；不新增第 5 规则位）", "tasks": ["TASK-ADN-110", "TASK-ADN-201", "TASK-ADN-219"], "status": "no-supersession" },
+    "X-ADN-5": { "item": "时机源恰 5（DRIVER_TIMINGS）→ 保持（复用既有 'idle'，不新增 turn-done）", "tasks": ["TASK-ADN-107", "TASK-ADN-119", "TASK-ADN-219"], "status": "no-supersession" },
+    "X-ADN-6": { "item": "maybeRecommend 调用点 8 / nextAfterSettle 1 定义·10 调用点 / requestTurn( 恰 1 → 未发生变更（复用既有 done → maybeRecommend('idle') 挂点，零新增挂点）", "tasks": ["TASK-ADN-121", "TASK-ADN-213", "TASK-ADN-219"], "status": "no-supersession" },
+    "X-ADN-7": { "item": "DRIVER_DECLS_SRC ↔ builtinProviders() 双向包含 11↔11 → 重锚 12↔12（新增 ai-next provider 行 + 声明行；旧 11 逐字保留）", "tasks": ["TASK-ADN-110", "TASK-ADN-120", "TASK-ADN-127"], "status": "superseded" },
+    "X-ADN-8": { "item": "R6 完成后同动作去重 = refId#意图摘要（refActionDigest 家系）→ 扩展覆盖 AI 候选（家系/摘要函数逐字复用，仅扩大适用对象）", "tasks": ["TASK-ADN-206", "TASK-ADN-207", "TASK-ADN-219"], "status": "superseded" },
+    "X-ADN-9": { "item": "RECOMMEND_MODULE_WHITELIST 恰 5 模块 → 保持（类型声明落 definition.ts，校验器在 SW 侧不入 recommend.ts 导入面 ⇒ 白名单恒 5）", "tasks": ["TASK-ADN-102", "TASK-ADN-113", "TASK-ADN-118"], "status": "no-supersession" },
+    "X-ADN-10": { "item": "floor = 「仅含 free-input 终端」最小卡 → 等价重锚（AI 候选不进 floor；floor 仍仅含终端；终端恒常驻；safety 仍不走 floor；判据重跑 + 双向反证）", "tasks": ["TASK-ADN-203", "TASK-ADN-212", "TASK-ADN-219"], "status": "reanchored-keep" },
+    "X-ADN-11": { "item": "关断偏好 web-cli:proactive 只涵盖「AI 主动回合」→ 扩展涵盖 AI next 候选的显示 / 自动按下（一处偏好两相）", "tasks": ["TASK-ADN-208", "TASK-ADN-209", "TASK-ADN-219"], "status": "superseded" }
+  },
+  "spikeGates": [
+    {
+      "code": "SG-ADN-01", "task": "TASK-ADN-101", "leaf": "adn-1", "wave": "W1",
+      "topic": "尾随 next 围栏块严格 JSON 解析 + chat-result 载荷 type-only 加法字段可行（零新增 kind）",
+      "gates": ["TASK-ADN-102", "TASK-ADN-103", "TASK-ADN-106", "TASK-ADN-107", "TASK-ADN-115"],
+      "stoppingRule": "不可行 ⇒ 暂停上报（禁新增 kind / 禁新增消息族 / 禁改动 KIND_SET）"
+    },
+    {
+      "code": "SG-ADN-02", "task": "TASK-ADN-108", "leaf": "adn-1", "wave": "W2",
+      "topic": "admitCandidate / pressDecision 分层共享 tierOf 且 pressDecision 语义 diff=0 可证（confirm：admit=true ∧ press=blocked:tier；gesture：admit=false）",
+      "gates": ["TASK-ADN-109", "TASK-ADN-110", "TASK-ADN-113", "TASK-ADN-114", "TASK-ADN-116"],
+      "stoppingRule": "不可行 ⇒ 暂停上报（禁复用 pressDecision 作接受判据 / 禁放宽为「非 gesture 即接受」/ 禁第二档位表）"
+    },
+    {
+      "code": "SG-ADN-03", "task": "TASK-ADN-201", "leaf": "adn-2", "wave": "W1",
+      "topic": "ai-next 骑 ref-action 位 prepend 替换陈旧候选 + 前 N=3 合并不破单卡/3chip（resolveOrder = priority asc, prepend desc, seq asc）",
+      "gates": ["TASK-ADN-202", "TASK-ADN-204", "TASK-ADN-205", "TASK-ADN-206", "TASK-ADN-207"],
+      "stoppingRule": "不可行 ⇒ 暂停上报（禁新增第 5 规则位 / 禁多卡 / 禁破 3-chip / 禁交错合并）"
+    }
+  ],
+  "independentParallelGroups": [
+    { "group": "P1", "leaf": "adn-1", "members": ["TASK-ADN-102", "TASK-ADN-103"], "note": "definition.ts 与 chat-events.ts 不相交" },
+    { "group": "P2", "leaf": "adn-1", "members": ["TASK-ADN-104", "TASK-ADN-105"], "note": "ref-context.ts 与 shared/op-table.ts 不相交" },
+    { "group": "P3", "leaf": "adn-1", "members": ["TASK-ADN-111", "TASK-ADN-112"], "note": "ai-drive.ts 与 registry.ts/ops.ts 不相交" },
+    { "group": "P4", "leaf": "adn-1", "members": ["TASK-ADN-118", "TASK-ADN-119", "TASK-ADN-120"], "note": "三门禁文件不相交（Chromium 复跑仍串行）" },
+    { "group": "Q1", "leaf": "adn-2", "members": ["TASK-ADN-202", "TASK-ADN-203"], "note": "兜底接线与终端/floor 确认不相交（皆须先于 204）" },
+    { "group": "Q2", "leaf": "adn-2", "members": ["TASK-ADN-208", "TASK-ADN-210"], "note": "侧面板关断相与在飞语义保持不相交" },
+    { "group": "Q3", "leaf": "adn-2", "members": ["TASK-ADN-214", "TASK-ADN-215"], "note": "零第二阈值扫描与密/窄视口门禁不相交" },
+    { "group": "Q4", "leaf": "adn-2", "members": ["TASK-ADN-219", "TASK-ADN-221"], "note": "台账终态与体积登记不相交（Chromium 复跑仍串行）" }
+  ],
+  "gateConservation": {
+    "baselineSource": "父 spec.md §9.5 + ADR-ADN-009 §①（引自 F-35 收口 + R8；本轮未复跑）",
+    "npmTestBaseline": 1443,
+    "chromiumGates": "=== 9（不动）",
+    "gateCount": "1 新增 + 6 升级 + 间接面",
+    "gates": [
+      { "no": 1, "layer": "node", "gate": "test/ai-next-candidate.test.ts", "baseline": "—", "expected": "NEW（AI-N-1~11 + 反证 + 三段控制 + 真源切片）", "owners": ["TASK-ADN-115", "TASK-ADN-116", "TASK-ADN-117"] },
+      { "no": 2, "layer": "node", "gate": "test/recommendation-sources.test.ts", "baseline": "族内", "expected": "等价重锚（白名单恒 5 / 规则表恰 4 / ④ 保持；零删除）", "owners": ["TASK-ADN-118", "TASK-ADN-207", "TASK-ADN-213"] },
+      { "no": 3, "layer": "node", "gate": "test/driver-timings.test.ts", "baseline": "族内", "expected": "等价重锚（恰 5 保持 + DT-6 session.aiNext）", "owners": ["TASK-ADN-119", "TASK-ADN-213"] },
+      { "no": 4, "layer": "node", "gate": "test/driver-quadruple.test.ts", "baseline": "族内", "expected": "等价重锚（DQ-1 12↔12 / DQ-3 收纳 session.aiNext）", "owners": ["TASK-ADN-120", "TASK-ADN-213"] },
+      { "no": 5, "layer": "node", "gate": "test/op-wiring.test.ts", "baseline": 14, "expected": "等价重锚（计数全保持；requestTurn( 恰 1 不动）", "owners": ["TASK-ADN-121", "TASK-ADN-213"] },
+      { "no": 6, "layer": "node", "gate": "test/proactivity-guard.test.ts", "baseline": "族内", "expected": "等价重锚（提案不耗预算双向 + 关断两相）", "owners": ["TASK-ADN-209", "TASK-ADN-214"] },
+      { "no": 7, "layer": "node", "gate": "test/op-three-tier.test.ts", "baseline": "族内", "expected": "保留 + 加严（接受层读点 = tierOf；gesture 拒）", "owners": ["TASK-ADN-122"] },
+      { "no": 8, "layer": "node", "gate": "test/next-registry.test.ts", "baseline": "族内", "expected": "等价重锚（NR-10 11→12；NR-0 顶层 7 源保持）", "owners": ["TASK-ADN-122"] },
+      { "no": 9, "layer": "node", "gate": "test/gate-integrity.test.ts", "baseline": 24, "expected": "等价重锚（下界 +1；CHROMIUM_GATES === 9）", "owners": ["TASK-ADN-123", "TASK-ADN-222"] },
+      { "no": 10, "layer": "node", "gate": "test/r8-open-next-entry.test.ts", "baseline": "R8 新", "expected": "保留（不得回归；首开保持确定性）", "owners": ["TASK-ADN-202", "TASK-ADN-211", "TASK-ADN-212"] },
+      { "no": 11, "layer": "node", "gate": "test/free-input-next.test.ts", "baseline": 22, "expected": "保留（下界只增；ids ≥11→12）", "owners": ["TASK-ADN-203", "TASK-ADN-216"] },
+      { "no": 12, "layer": "node", "gate": "test/supersession-ledger.test.ts", "baseline": 49, "expected": "保留 + 新增（X-ADN 台账段 + 保护段 keep）", "owners": ["TASK-ADN-127", "TASK-ADN-219", "TASK-ADN-220"] },
+      { "no": 13, "layer": "node", "gate": "test/turn-arbitration.test.ts", "baseline": 7, "expected": "保留 / 等价重锚（四值逐字；AI 撞车 blocked:busy 继承）", "owners": ["TASK-ADN-210", "TASK-ADN-216"] },
+      { "no": 14, "layer": "node", "gate": "test/sw-op-mirror.test.ts", "baseline": "族内", "expected": "保留（AI 校验链读同一 shared/op-table）", "owners": ["TASK-ADN-105"] },
+      { "no": 15, "layer": "node", "gate": "test/density-thresholds.test.ts", "baseline": 242, "expected": "保留 / 等价重锚（AI chips 不越 7/15·9/20·17/35）", "owners": ["TASK-ADN-204", "TASK-ADN-215"] },
+      { "no": 16, "layer": "node", "gate": "test/next-dispatch-diff0.test.ts", "baseline": "族内", "expected": "保留（data-op 单源；零 per-op 分支；ACT_TO_OP 恰 6）", "owners": ["TASK-ADN-205"] },
+      { "no": 17, "layer": "node", "gate": "test/insight-no-escalation.test.ts", "baseline": 21, "expected": "保留（../web-cli-base 零 diff）", "owners": ["TASK-ADN-126"] },
+      { "no": 18, "layer": "node", "gate": "test/size-baseline.ts / size-ruling-vol3.test.ts / size-growth-evidence.test.ts", "baseline": 13, "expected": "等价重锚 / 新增登记（逐叶五要素 + 三值 + 逐模块 + 两叶 Σ + B 列不计账）", "owners": ["TASK-ADN-126", "TASK-ADN-221"] },
+      { "no": 19, "layer": "Chromium", "gate": "test/ui/s0-self-driven.mjs", "baseline": 82, "expected": "等价重锚 + S0''' 断言增量（只加断言不加文件）", "owners": ["TASK-ADN-125", "TASK-ADN-218"] },
+      { "no": 20, "layer": "Chromium", "gate": "test/ui/recommendation.mjs", "baseline": 79, "expected": "等价重锚（替换口径 / ≤3 / 单卡 / 终端恒最末）", "owners": ["TASK-ADN-218"] },
+      { "no": 21, "layer": "Chromium", "gate": "test/ui/law8-plaintext.mjs", "baseline": 60, "expected": "等价重锚（零降级；AI label / 留痕零明文面）", "owners": ["TASK-ADN-125", "TASK-ADN-218"] },
+      { "no": 22, "layer": "Chromium", "gate": "test/ui/journey.mjs", "baseline": 171, "expected": "保留（保护段 keep；零改动 ⇒ 字节中立双绿）", "owners": ["TASK-ADN-220"] },
+      { "no": 23, "layer": "Chromium", "gate": "test/ui/binding.mjs", "baseline": 192, "expected": "保留（保护段 keep；零改动 ⇒ 字节中立双绿）", "owners": ["TASK-ADN-220"] }
+    ],
+    "newGates": [
+      { "gate": "ai-next-candidate", "file": "test/ai-next-candidate.test.ts", "leaf": "adn-1", "owners": ["TASK-ADN-115", "TASK-ADN-116", "TASK-ADN-117", "TASK-ADN-123"], "judge": "AI-N-1~11 + 五类注入反证 + 三段控制 + 真源切片" }
+    ],
+    "upgradedGates": [
+      { "gate": "recommendation-sources", "upgrade": "真值 7 / 白名单 5 / 规则表恰 4 / ④ 零新 LLM 全保持；新增 session.aiNext ∈ 既有 session 源；白名单不新增条目；替换口径判据", "owners": ["TASK-ADN-118", "TASK-ADN-207", "TASK-ADN-213"] },
+      { "gate": "driver-timings", "upgrade": "DT-2 恰 5 / DT-3 旧 4 逐字 / DT-4 恰 8 / DT-5 恰 1 全保持；新增 DT-6 session.aiNext 经 session 前缀登记", "owners": ["TASK-ADN-119", "TASK-ADN-213"] },
+      { "gate": "driver-quadruple", "upgrade": "DQ-1 双向包含 12↔12；DQ-2 ai-next 静态 chips ⊆ OP_IDS；DQ-3 收纳 session.aiNext（when-scope 同源）", "owners": ["TASK-ADN-120", "TASK-ADN-213"] },
+      { "gate": "op-wiring", "upgrade": "计数全不动（requestTurn( 恰 1 / maybeRecommend 1·8 / nextAfterSettle 1·10 / 自动按下 1 / dispatchChipAction 1）；零新增挂点（X-ADN-6 未发生）", "owners": ["TASK-ADN-121", "TASK-ADN-213"] },
+      { "gate": "op-three-tier", "upgrade": "新增「接受层读点 = tierOf」+ tierOfId('op.authorize')==='gesture' ∧ admitCandidate 拒；零第二档位表反证", "owners": ["TASK-ADN-122"] },
+      { "gate": "proactivity-guard", "upgrade": "新增「提案不耗预算」双向 + 关断两相（显示 + 按下）", "owners": ["TASK-ADN-209", "TASK-ADN-214"] }
+    ],
+    "indirect": [
+      { "gate": "next-registry", "note": "NR-10 11→12（间接面）；NR-0 顶层字段集 == 7 源保持", "owners": ["TASK-ADN-122"] },
+      { "gate": "next-obligation-table", "note": "OT-4 读 ai-next 静态 chips=['op.turn']", "owners": ["TASK-ADN-110"] },
+      { "gate": "gate-integrity", "note": "EXPECTED_AUDITED_FILES 下界 +1（按断言语义，不照抄陈旧字面）", "owners": ["TASK-ADN-123", "TASK-ADN-222"] }
+    ],
+    "sizeOnlyIncrease": "全部门禁计数 ≥ 基线（唯一例外 = 保护段显式取代 + 台账留痕；本 Feature 预期 keep ⇒ 无需取代）"
+  },
+  "stoppingRules": [
+    { "no": 1, "trigger": "dist/content.js ≠ 177,076 B / 52a82620… 或 dist/pick-layer.js ≠ 34,358 B / 77796bab…", "action": "立即停机（N-ADN-001/002 零容差）" },
+    { "no": 2, "trigger": "manifest.json / packages/web-cli-base/** 出现 diff", "action": "停机（N-ADN-007 / NG-ADN-008）" },
+    { "no": 3, "trigger": "KIND_SET 新增任一字符串 / 第 13 kind / 新宿主", "action": "停机（N-ADN-003/004/010 / R-ADN-008）" },
+    { "no": 4, "trigger": "第二校验器 / 第二档位表 / 第二 ai-next 产出入口出现", "action": "停机（N-ADN-022/028 / R-ADN-904）" },
+    { "no": 5, "trigger": "判定链（policy.ts / auto-authorize.ts）内容哈希变化", "action": "停机（N-ADN-018）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）", "action": "停机；重写注入点（FR-ADN-111）" },
+    { "no": 7, "trigger": "SG-ADN-01/02/03 结论 = 不可行 / 不可构造", "action": "被闸门任务不得开工（见 blockers）" },
+    { "no": 8, "trigger": "体积越绝对上限或静默改档位 / authorConfirmation", "action": "停机（硬墙）；升档须显式登记（ADR-ADN-008 / EC-ADN-016）" },
+    { "no": 9, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 10, "trigger": "AI 候选未经 5 道校验即进 chips / 被执行；或 gesture op 被放行 / confirm 被拒可见", "action": "停机（N-ADN-021 / R-ADN-901/902）" },
+    { "no": 11, "trigger": "特权 op 非 gesture / SW 调用 .request( / AI 自动按下 confirm（含 consent 代答）", "action": "停机（N-ADN-011/017 / R-ADN-901）" },
+    { "no": 12, "trigger": "首开 AI 化（首屏引入 LLM 往返依赖）/ 提案被记账成回合预算", "action": "停机（N-ADN-025/026 / R-ADN-010/906）" }
+  ],
+  "blockers": [
+    { "id": "BLK-ADN-1", "type": "spike-gate", "task": "TASK-ADN-102 / 103 / 106 / 107 / 115", "desc": "SG-ADN-01（TASK-ADN-101）结论 = 不可行 ⇒ 不得开工（禁新增 kind / 禁新增消息族 / 禁改动 KIND_SET）" },
+    { "id": "BLK-ADN-2", "type": "spike-gate", "task": "TASK-ADN-109 / 110 / 113 / 114 / 116", "desc": "SG-ADN-02（TASK-ADN-108）结论 = 不可行 ⇒ 不得开工（禁复用 pressDecision 作接受判据 / 禁放宽为「非 gesture 即接受」/ 禁第二档位表）" },
+    { "id": "BLK-ADN-3", "type": "spike-gate", "task": "TASK-ADN-202 / 204 / 205 / 206 / 207", "desc": "SG-ADN-03（TASK-ADN-201）结论 = 不可行 ⇒ 不得开工（禁第 5 规则位 / 禁多卡 / 禁破 3-chip / 禁交错合并）" },
+    { "id": "BLK-ADN-9", "type": "cross-leaf", "task": "TASK-ADN-201（叶2）", "desc": "叶间硬串行：叶2 以叶1（specs-tree-adn-1-ai-next-produce-and-verify）全绿（validated）为前置（R-ADN-001 / N-ADN-021）" }
+  ],
+  "unfilledPoints": [
+    { "id": "ADN-P-001", "topic": "A 列（叶1）实测净增 + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-ADN-126", "rule": "禁预填；二态显式（越生效上限 ⇒ 重登记 / 越档位 ⇒ EC-ADN-016 + 作者一行 / 未越 ⇒ 如实登记）" },
+    { "id": "ADN-P-002", "topic": "叶1 新门禁 ai-next-candidate 三段控制 ok/violated/n/a 可达性", "status": "pending-measurement", "owner": "TASK-ADN-117", "rule": "禁预填；n/a 不得冒充 ok" },
+    { "id": "ADN-P-003", "topic": "人工面 M1~M5（真机相关性 / 两张皮是否消失 / 密度观感 / 读屏 / 被拦体感）", "status": "pending-human", "owner": "TASK-ADN-125 / TASK-ADN-223", "rule": "逐项 ⏳ 未执行 / PASS，不得冒充 PASS" },
+    { "id": "ADN-P-004", "topic": "V3-VOL-3 档位升档的作者一句外部确认（跨叶共享）", "status": "pending-author-line", "owner": "TASK-ADN-126 / TASK-ADN-221", "rule": "不得伪称已确认（N-ADN-013）" },
+    { "id": "ADN-P-005", "topic": "SG-ADN-03 探针：resolveOrder prepend 顺序与替换口径可判性", "status": "pending-measurement", "owner": "TASK-ADN-201", "rule": "禁预填；不可行 ⇒ 暂停上报" },
+    { "id": "ADN-P-006", "topic": "A 列（叶2）实测净增 + 两叶 Σ + 是否触发档位上调（与 plan 预算偏差）", "status": "pending-measurement", "owner": "TASK-ADN-221", "rule": "禁预填；偏差须显式登记" },
+    { "id": "ADN-P-007", "topic": "params 本轮「仅元数据不参与派发」的已知限制是否被后续轮扩展", "status": "deferred", "owner": "TASK-ADN-106", "rule": "不得静默扩卡协议（ADR-ADN-002 §③ 诚实登记）" },
+    { "id": "ADN-P-008", "topic": "门禁基线字面量与仓内实况不一致（EXPECTED_AUDITED_FILES 现 40）", "status": "resolved-tasks", "owner": "TASK-ADN-123 / TASK-ADN-222", "rule": "按断言语义 + 语义增量重锚；收口同源前移" },
+    { "id": "ADN-P-009", "topic": "KL-N-10 家族 flake（binding CDP / page-input 陈旧 fixture / recommendation ④ 相位 / s0-self-driven ⑦A）", "status": "pending-measurement", "owner": "TASK-ADN-127 / TASK-ADN-222", "rule": "隔离复跑 ≥2 + 日志全量；仍红如实记录不阻塞收口" },
+    { "id": "ADN-P-010", "topic": "叶2 波次细化：升级 6 终态对账在 W2，S0'''/台账/保护段/Σ 归 W3", "status": "resolved-tasks", "owner": "TASK-ADN-213 / TASK-ADN-217~222", "rule": "tasks 显式裁决（共享面「恰一次」+ 每波收口门禁绿）" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "F-36 父 tasks 总览：2 叶 × 6 波 × 50 任务（TASK-ADN-101~127 / 201~223 两叶连续编号；S×9 / M×35 / L×6）。共享面「恰一次」：体积（各叶增量 + 叶2 两叶 Σ 对照）/ 门禁对账（叶1 骨架 + 叶2 终态）/ 取代台账（各登各的条目，文件只追加）/ 保护段（叶2 keep 字节中立）/ S0''' 双面（样本单源 + node 叶1 / Chromium 只加断言）/ 人工面（各叶各登本叶项）/ FR-CHAT-060 / shared/op-table 双面。S0''' 四支线：A 合法被采纳（替换陈旧候选）/ B 非法被拦 + 留痕 / C 未产出兜底 / D 未配置纯确定性。3 个 spikeGate：SG-ADN-01（围栏块解析 + 载荷加法字段）/ SG-ADN-02（分层共享 tierOf + pressDecision diff=0）/ SG-ADN-03（骑 ref-action 位 prepend 替换 + 前 N=3 合并）。新增 1 node 门禁（ai-next-candidate；入 gate-integrity EXPECTED_AUDITED_FILES 只增）、升级 6 组既有门禁、间接面 3 项。门禁守恒：npm test ≥1443 + CHROMIUM_GATES === 9。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+}
