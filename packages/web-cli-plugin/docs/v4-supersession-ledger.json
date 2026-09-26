@@ -8618,7 +8618,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
-          "count": 7,
+          "count": 8,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "  // 现网：min(675,840, floor(585,732 × 1.05) = 621543) = 621543（软纪律更紧）。",
@@ -8627,7 +8627,8 @@
             "  assert.equal(evaluateSidepanelSize(621543).ok, true, 'ceiling 本身仍 PASS（边界含等号）');",
             "  assert.equal(evaluateSidepanelSize(621_544).ok, false, '越 1 B 即 FAIL（621,544 > floor(591,946 × 1.05) = 621,543；边界不是宽松的）');",
             "  assert.equal(live.ceilingBytes, 621543, '生效上限 = min(绝对上限, 5% 公式)');",
-            "  const softCase = 630_000; // > floor(591,946 × 1.05) = 621,543，仍 < 675,840"
+            "  const softCase = 630_000; // > floor(591,946 × 1.05) = 621,543，仍 < 675,840",
+            "  const tight = evaluateSidepanelSize(630_000);"
           ]
         },
         {
@@ -8753,7 +8754,7 @@
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 22,
-        "registeredLines": 201,
+        "registeredLines": 202,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
       }
@@ -8781,6 +8782,7 @@
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/next-registry.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
@@ -8978,7 +8980,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
-          "count": 17,
+          "count": 18,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "    'IAN-1 R1 Σ 逐模块 + glue 必须 == 登记增量',",
@@ -8997,12 +8999,13 @@
             "  assert.ok(rows.length > 0, 'IAN-1 R1 逐模块 rows 必须非空（提升轮）');",
             "  console.log(`  ℹ V5.5-3 终轮：Δ=0 · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（未跨档位）`);",
             "  const rows = SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows;",
-            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows) {"
+            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows) {",
+            "      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d|NFR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*；V5.5F-1 起接受 FR-SGO-*；IAN-1 起接受 FR-IAN-*）`);"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
-          "count": 7,
+          "count": 8,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "  // 现网：min(675,840, floor(598,282 × 1.05) = 628196) = 628196（软纪律更紧）。",
@@ -9011,7 +9014,8 @@
             "  assert.equal(evaluateSidepanelSize(628196).ok, true, 'ceiling 本身仍 PASS（边界含等号）');",
             "  assert.equal(evaluateSidepanelSize(628_197).ok, false, '越 1 B 即 FAIL（628,197 > floor(598,282 × 1.05) = 628,196；边界不是宽松的）');",
             "  assert.equal(live.ceilingBytes, 628196, '生效上限 = min(绝对上限, 5% 公式)（IAN-1 R1 中间登记）');",
-            "  const softCase = 630_000; // > floor(598,282 × 1.05) = 628,196，仍 < 675,840"
+            "  const softCase = 630_000; // > floor(598,282 × 1.05) = 628,196，仍 < 675,840",
+            "  const tight = evaluateSidepanelSize(630_000);"
           ]
         },
         {
@@ -9136,11 +9140,19 @@
             "        const input = document.getElementById('input');",
             "        document.getElementById('composer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));"
           ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/next-registry.test.ts",
+          "count": 1,
+          "reason": "★ F-36 / ADN-1 R1（2026-09-26，leaf `specs-tree-adn-1-ai-next-produce-and-verify`；W01+W02）复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计；体积五要素重 pin 与门禁本体的数值重 pin）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 11, '还原 PASS（声明行恰 11：IAN-1 追加 free-input 终端声明）');"
+          ]
         }
       ],
       "summary": {
-        "filesWithUnregisteredLeafDeletions": 18,
-        "registeredLines": 192,
+        "filesWithUnregisteredLeafDeletions": 19,
+        "registeredLines": 195,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
       }
@@ -9168,6 +9180,7 @@
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/next-registry.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
@@ -9425,7 +9438,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-baseline.ts",
-          "count": 8,
+          "count": 9,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "    'SDDU **IAN-1 R2（2026-09-25, leaf specs-tree-ian-1-free-input-next；W3 = TASK-IAN-117~127；**叶1 收口终值登记**）**: re-registered on the FINAL artifact — 598,282 → **599,125 B**（**+843 B，+0.14%**）— ' +",
@@ -9435,12 +9448,13 @@
             "  finalArtifactBytes: 599_125,",
             "  unattributedHelperDeltaBytes: 2_102,",
             "export const SIDEPANEL_BASELINE_BYTES = 599_125;",
-            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 599_125;"
+            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 599_125;",
+            "  measuredOn: '2026-09-25',"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-budget.test.ts",
-          "count": 8,
+          "count": 9,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "  // 〖IAN-1 R1（2026-09-24）〗重 pin：ceiling = floor(599,125 × 1.05) = 629,081（中间登记）。",
@@ -9450,12 +9464,13 @@
             "  assert.equal(SIDEPANEL_CEILING, 629081, 'ceiling = floor(599,125 × 1.05)（未加 cap 的公式值，IAN-1 R1 中间登记）');",
             "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(599125 * 1.05), '未加 cap 的公式值必须被记录');",
             "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 629081);",
-            "  assert.equal(over.ceilingBytes, 629081);"
+            "  assert.equal(over.ceilingBytes, 629081);",
+            "  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-25');"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
-          "count": 18,
+          "count": 19,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "    'IAN-1 R2 Σ 逐模块 + glue 必须 == 登记增量',",
@@ -9475,12 +9490,13 @@
             "  console.log(`  ℹ V5.5-3 终轮：Δ=0 · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（未跨档位）`);",
             "  const leafDelta = SIDEPANEL_BASELINE_BYTES - (leafStart as number);",
             "  const rows = SIDEPANEL_GROWTH_BREAKDOWN.ian1R2Rows;",
-            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian1Rows) {"
+            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian1Rows) {",
+            "      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d|NFR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*；V5.5F-1 起接受 FR-SGO-*；IAN-1 起接受 FR-IAN-*）`);"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
-          "count": 7,
+          "count": 8,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "  // 现网：min(675,840, floor(599,125 × 1.05) = 629081) = 629081（软纪律更紧）。",
@@ -9489,7 +9505,8 @@
             "  assert.equal(evaluateSidepanelSize(629081).ok, true, 'ceiling 本身仍 PASS（边界含等号）');",
             "  assert.equal(evaluateSidepanelSize(629_082).ok, false, '越 1 B 即 FAIL（629,082 > floor(599,125 × 1.05) = 629,081；边界不是宽松的）');",
             "  assert.equal(live.ceilingBytes, 629081, '生效上限 = min(绝对上限, 5% 公式)（IAN-1 R1 中间登记）');",
-            "  const softCase = 630_000; // > floor(599,125 × 1.05) = 629,081，仍 < 675,840"
+            "  const softCase = 630_000; // > floor(599,125 × 1.05) = 629,081，仍 < 675,840",
+            "  const tight = evaluateSidepanelSize(630_000);"
           ]
         },
         {
@@ -9753,7 +9770,7 @@
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 20,
-        "registeredLines": 402,
+        "registeredLines": 406,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ R8（2026-09-25）缺陷修复轮：门禁重锚 7→8 的 6 行改写逐字追加登记（沿用本叶段同一口径）。"
       }
@@ -9774,6 +9791,7 @@
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/next-registry.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
@@ -9956,7 +9974,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-baseline.ts",
-          "count": 6,
+          "count": 7,
           "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
           "registeredUncoveredLines": [
             "  closeoutDeltaBytes: -548,",
@@ -9964,12 +9982,13 @@
             "  finalArtifactBytes: 598_577,",
             "  wiringBytes: 106_236,",
             "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
-            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_577;"
+            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_577;",
+            "  measuredOn: '2026-09-25',"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-budget.test.ts",
-          "count": 8,
+          "count": 9,
           "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
           "registeredUncoveredLines": [
             "  // 〖IAN-1 R1（2026-09-24）〗重 pin：ceiling = floor(598,577 × 1.05) = 628,505（中间登记）。",
@@ -9979,12 +9998,13 @@
             "  assert.equal(SIDEPANEL_CEILING, 628505, 'ceiling = floor(598,577 × 1.05)（未加 cap 的公式值，IAN-2 R1 净负登记）');",
             "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(598577 * 1.05), '未加 cap 的公式值必须被记录');",
             "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 628505);",
-            "  assert.equal(over.ceilingBytes, 628505);"
+            "  assert.equal(over.ceilingBytes, 628505);",
+            "  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-25');"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
-          "count": 18,
+          "count": 19,
           "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
           "registeredUncoveredLines": [
             "    'IAN-2 R1 Σ 逐模块 + glue 必须 == 登记增量（净负）',",
@@ -10004,12 +10024,13 @@
             "  assert.ok(rows.length > 0, 'IAN-2 R1 逐模块 rows 必须非空（净负轮）');",
             "  console.log(`  ℹ IAN-2 R1 净负轮：Δ=${rows.reduce((n: number, r: { deltaBytes: number }) => n + r.deltaBytes, 0)} · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（未跨档位）`);",
             "  const rows = SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows;",
-            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows) {"
+            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows) {",
+            "      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d|NFR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*；V5.5F-1 起接受 FR-SGO-*；IAN-1 起接受 FR-IAN-*）`);"
           ]
         },
         {
           "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
-          "count": 6,
+          "count": 8,
           "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
           "registeredUncoveredLines": [
             "  // 现网：min(675,840, floor(598,577 × 1.05) = 628505) = 628505（软纪律更紧）。",
@@ -10017,13 +10038,15 @@
             "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 598577, '反证必须打在**当前真实产物**上（IAN-2 R1 净负登记）');",
             "  assert.equal(evaluateSidepanelSize(628505).ok, true, 'ceiling 本身仍 PASS（边界含等号）');",
             "  assert.equal(evaluateSidepanelSize(629_082).ok, false, '越 1 B 即 FAIL（629,082 > floor(598,577 × 1.05) = 628,505；边界不是宽松的）');",
-            "  assert.equal(live.ceilingBytes, 628505, '生效上限 = min(绝对上限, 5% 公式)（IAN-2 R1 净负登记）');"
+            "  assert.equal(live.ceilingBytes, 628505, '生效上限 = min(绝对上限, 5% 公式)（IAN-2 R1 净负登记）');",
+            "  const tight = evaluateSidepanelSize(630_000);",
+            "  const softCase = 630_000; // > floor(598,577 × 1.05) = 628,505，仍 < 675,840"
           ]
         }
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 10,
-        "registeredLines": 143,
+        "registeredLines": 148,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
         "note": "★ IAN-2 R2 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
       }
@@ -12598,7 +12621,7 @@
       "oldId": null,
       "oldTitle": "{ module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544,",
       "newId": "V552-R1-ROW-CHATSTATE-reanchored",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "superseding",
       "leaf": "specs-tree-v55-2-deterministic-onboarding",
@@ -13039,7 +13062,7 @@
       "oldId": null,
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
       "newId": "V55F1-SYNC-size-baseline.ts",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-1-ref-context-and-anchor",
@@ -13104,7 +13127,7 @@
       "oldId": "V42-E-VOL-2",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
       "newId": "V55F1-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-1-ref-context-and-anchor",
@@ -13117,7 +13140,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 585_732;",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13130,7 +13153,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 585_732;",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13143,7 +13166,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "finalArtifactBytes: 585_732,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  finalArtifactBytes: 598_926,",
+      "newTitle": "  finalArtifactBytes: 603_205,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13156,7 +13179,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "deltaBytes: 290_507,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  deltaBytes: 303_701,",
+      "newTitle": "  deltaBytes: 307_980,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13169,7 +13192,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "closeoutDeltaBytes: 7_109,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  closeoutDeltaBytes: 349,",
+      "newTitle": "  closeoutDeltaBytes: 4_279,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13182,7 +13205,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "wiringBytes: 92_843,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  wiringBytes: 106_585,",
+      "newTitle": "  wiringBytes: 110_864,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13260,7 +13283,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  finalArtifactBytes: 585_732,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13273,7 +13296,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  deltaBytes: 290_507,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13286,7 +13309,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  closeoutDeltaBytes: 7_109,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13299,7 +13322,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  wiringBytes: 92_843,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13312,7 +13335,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 106714, deltaBytes: 61869, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033；〖V5-2 收口轮〗删去 `permRequest` 的重复 notice 写者 −86 B；〖V5.5-3 R1〗+722 B（`driveAnsweredTurn` 接线：`nextAfterSettle` 的 `answered` 分支 + 回合结束续流点 + `dedupeKey`/`pressCandidate` import）· FR-SELF-060/063/070；〖V5.5-3 R2〗+1,775 B（W3 `queued`/`busy-rejected` 两变体 + 草稿回填 + `#input` 回填；W4 护栏抑制前置判定 + `proactivity` seam + composer `noteUserTurn` + `op-*` 结算 `noteVeto` + 启动读偏好）· FR-SELF-061/090~094/096' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13325,7 +13348,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "{ module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\'state\\'`/`case \\'notice\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13338,7 +13361,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9221, deltaBytes: 9221, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13351,7 +13374,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 6387, deltaBytes: 6387, kind: 'new-required-module', requiredBy: 'FR-CHAT-045/046/047 + AC-CHAT-016（批准/拒绝 + 预演 + 审计入口 + 两态固化 + legacy #confirm 单一解析）· ADR-V4-030/033' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13364,7 +13387,7 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/l1/ref-scope.ts', beforeBytes: null, afterBytes: 2_572, deltaBytes: 2_572, kind: 'new-required-module', requiredBy: 'FR-SGO-011/012/018/020~024/080/083（引用快照投影 + 法九读数单源 + 写闸裁决 + 留痕单源）· ADR-SGO-001/002' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
@@ -13793,10 +13816,22 @@
       "oldId": "IAN2-E-VOL-1",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
       "newId": "R8-E-VOL-1",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_926;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 603_205;",
       "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口（`maybeRecommendOpenEntry` 复用既有 `idle` 时机）使 `sidepanel.js` 598,577 → 598,926 B（+349 B）⇒ 基线显式重登记；生效上限 floor(598,926 × 1.05) = 628,872；档位 614,400 / 绝对上限 675,840 不动；「断言零删减」由本条目承接。",
       "replacementExists": true,
       "modificationType": "in-place-edit"
+    },
+    {
+      "id": "ADN1-E-VOL-1",
+      "file": "packages/web-cli-plugin/test/size-baseline.ts",
+      "gate": "test/size-budget.test.ts / test/size-ruling-vol3.test.ts / test/size-growth-evidence.test.ts",
+      "oldId": null,
+      "oldTitle": null,
+      "newId": "adn-1-r1",
+      "newTitle": "  adn1R1Rows: [",
+      "reason": "★ F-36 / ADN-1 R1（2026-09-26，leaf `specs-tree-adn-1-ai-next-produce-and-verify`；W01+W02 = TASK-ADN-101~117）：AI next 候选通道 + 5 道校验链 + 判定分层使 `sidepanel.js` 598,926 → 603,205 B（+4,279 B，+0.71%）⇒ 基线**中间登记**（W03/R2 的 TASK-ADN-126 按全叶终态再登记）；生效上限 floor(603,205 × 1.05) = 633,365；档位 614,400 / 绝对上限 675,840 不动；`deltaBytes` 303,701 → 307,980 / `closeoutDeltaBytes` 349 → 4,279 / `wiringBytes` 106,585 → 110,864；逐模块归因新增 `adn1R1Rows`（Σ +4,279 + glue 0）。**断言零删减零降级**：既有判据只做**数值重 pin + 集合只增**（`next-registry` NR-10 声明行 11→12；`requiredBy` 引用面接受 `FR-ADN-*`；新增 `test/ai-next-candidate.test.ts` 14 用例）；`authorConfirmation` 保持 `pending-author-line`（**不伪称已确认**）。",
+      "replacementExists": true,
+      "modificationType": "pure-addition"
     },
     {
       "id": "IAN2-E-LAW4-1",
@@ -18979,7 +19014,7 @@
       "④作者确认": "见 authorConfirmation",
       "⑤三值闭合": {
         "resolved": true,
-        "newBaselineBytes": 598926,
+        "newBaselineBytes": 603205,
         "absoluteCeilingBytes": 675840,
         "resolvedOn": "2026-09-19",
         "verdict": "evaluatePendingAbsoluteCap() → ok=true",

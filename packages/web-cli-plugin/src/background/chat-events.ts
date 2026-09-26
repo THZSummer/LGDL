@@ -21,6 +21,7 @@
 // (type-only, never a `KIND_SET` member) and re-exported here — a second hand-written
 // union for the same payload would be a drift seam.
 import type { ChatResultVariant } from './messaging.js';
+import type { AiNextPayload } from '../ui/sidepanel/next-registry/definition.js';
 export type { ChatResultVariant };
 
 /**
@@ -63,6 +64,12 @@ export interface ChatResultEvent {
    * every other tool result (never a fabricated value).
    */
   targetSelector?: string;
+  /**
+   * F-36 / ADN-1 **TASK-ADN-103**（ADR-ADN-001 §② · FR-ADN-011/018）—— AI next 候选的
+   * **加法载荷字段**（`type-only` 词汇；∉ `KIND_SET`；骑既有 `chat-result` kind，与 R6
+   * `targetSelector` 同构）。**恰一处**声明；缺席 ⇒ 面板行为与现状**逐字一致**（N-ADN-029）。
+   */
+  aiNext?: AiNextPayload;
 }
 
 /** Map one `onLLMError(message, willRetry)` callback to a side-panel event. */

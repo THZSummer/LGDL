@@ -38,6 +38,26 @@ export const REF_SCOPE_GUIDANCE = [
   'it — never widen the scope on your own and never treat "no reference" as "everything is in scope".',
 ].join(' ');
 
+/**
+ * F-36 / ADN-1 **TASK-ADN-104**（ADR-ADN-001 §③ · ADR-ADN-004 PD-ADN-005 · FR-ADN-010）——
+ * **AI next 产出契约句**（B 轨 / 引导，**不是**判据）。
+ *
+ * 关键纪律：它只并入**有引用分支**（`refContextSegment` 的 `valid.length > 0` 分支）⇒
+ * 无引用 ⇒ 追加段仍为 `''` ⇒ `system` 逐字等于 `SYSTEM_PROMPT` 基座（RCT-3/RCT-4 保持绿）。
+ * 基座 5 条与 `system` 工厂形态**零改**（契约句不是第 6 条基座条款）。
+ *
+ * 说明（本轮诚实登记）：`params` 是候选**元数据**、本轮不参与派发（ADR-ADN-002 §③），
+ * 故契约句只描述 `opId` + `label` 两个必需字段。
+ */
+export const NEXT_CONTRACT_GUIDANCE = [
+  'If, and only if, you can name the next best step for the user, end your final answer',
+  'with ONE trailing fenced block tagged next, whose body is a strict JSON array of',
+  '{"opId":"op.turn","label":"<short imperative in the user\'s language>"} objects.',
+  'Only these ops may be proposed: op.turn, op.pick, op.describe, op.rebind, op.help.',
+  'At most 3 items, in priority order. A label is short display text and must never contain',
+  'a credential, a URL query string or a command argument body.',
+].join(' ');
+
 /** 一条事实的运行时校验（形状 + 语义；不通过 ⇒ 丢弃该条）。 */
 export function isChatRefFact(value: unknown): value is ChatRefFact {
   if (typeof value !== 'object' || value === null) return false;
@@ -77,5 +97,5 @@ export function refFactLine(f: ChatRefFact): string {
 export function refContextSegment(refs: readonly ChatRefFact[] | undefined): string {
   const valid = validateRefPayload(refs);
   if (valid.length === 0) return '';
-  return `\n\n[references in this turn]\n${valid.map(refFactLine).join('\n')}\n${REF_SCOPE_GUIDANCE}`;
+  return `\n\n[references in this turn]\n${valid.map(refFactLine).join('\n')}\n${REF_SCOPE_GUIDANCE} ${NEXT_CONTRACT_GUIDANCE}`;
 }

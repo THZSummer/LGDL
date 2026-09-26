@@ -80,6 +80,8 @@ import { commandEvent, llmErrorEvent, toolResultEvent } from './chat-events.js';
 import { classifyChatRequest, createTurnQueue, type QueuedTurn } from './turn-queue.js';
 // V5.5F-1 TASK-V55F-106/107 (ADR-SGO-001 §3/§4): 系统段追加段 + 载荷运行时校验 + 回合引用单源。
 import { refContextSegment, validateRefPayload } from './ref-context.js';
+// ★ F-36 / ADN-1 TASK-ADN-107：`done` 装配点的解析 + 5 道校验链（B 列纯函数模块）。
+import { validateAiNext } from './ai-next.js';
 // V5.5F-1 TASK-V55F-117：`observeIdentity` 抽为**单一实现**（本文件与 `tools/dom-anchor.ts`
 // 同源 import ⇒ 禁第二份副本；`nodeCount === 1` 为唯一通过条件，AC-SGO-022）。
 import { observeIdentity } from './ref-observe.js';
@@ -971,6 +973,8 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
     // panel can render a tool card with name + status + duration.
     let toolStartedAt = 0;
     let lastTool: { name: string; ok: boolean; ms: number; selector?: string } | null = null;
+    // ★ F-36 / ADN-1 TASK-ADN-107：本回合**最后一条** assistant 文本（中间轮次被覆盖）。
+    let lastAssistantText: string | undefined;
     await runChatTurn(user, {
       session: s.chatSession,
       // ★ V5.5F-1 TASK-V55F-106/107（ADR-SGO-001 §4 · FR-SGO-016/017）：系统段 = **基座**
@@ -996,7 +1000,13 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
       dispatch: (tc) => s.host.dispatch(tc, { origin: s.controller.get()?.origin }),
       deriveCommand: (tc) => s.host.router.deriveCommand(tc),
       events: {
-        onAssistantText: (text) => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'assistant', text })).catch(() => {}),
+        onAssistantText: (text) => {
+          // ★ F-36 / ADN-1 **TASK-ADN-107**（ADR-ADN-001 §④ · FR-ADN-010/016）—— 只累积
+          // **最后一条** assistant 文本（中间轮次不参与；结题装配时取该文本的**最后**一个
+          // `next` 围栏块）。
+          lastAssistantText = text;
+          void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'assistant', text })).catch(() => {});
+        },
         onCommandLine: (text) => {
           toolStartedAt = Date.now();
           void chrome.runtime.sendMessage(makeMessage('chat-result', { ...commandEvent(text) })).catch(() => {});
@@ -1014,7 +1024,23 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
         },
         onLLMError: (message, willRetry) =>
           void chrome.runtime.sendMessage(makeMessage('chat-result', { ...llmErrorEvent(message, willRetry) })).catch(() => {}),
-        onFinish: () => void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'done' })).catch(() => {}),
+        onFinish: () => {
+          // ★ F-36 / ADN-1 **TASK-ADN-107**（ADR-ADN-001 §①/④/⑤ · ADR-ADN-002 §② ·
+          // FR-ADN-010/016/017/018）—— **唯一产出点** = 成功结题（`done`）。
+          //   · 只在本回合成功结算时装配（`error` 结算点走既有 `maybeRecommend('idle')`，
+          //     零候选 ⇒ 确定性兜底；半成品输出不得被推荐）；
+          //   · 解析 + 5 道校验链在 SW（`background/ai-next.ts`）⇒ 面板**只接收已校验候选**；
+          //   · **零新 LLM 调用**：复用刚结束回合的输出文本（无第二次 provider 调用）。
+          //   · 「缺席 ⇒ 现状逐字」（N-ADN-029）：零候选且零拦截 ⇒ 不附加 `aiNext` 字段。
+          //   · `openAsks===0` 由面板侧 `ai-next.when(ctx)` 强制（SW 无 openAsks 事实）。
+          const payload = validateAiNext(lastAssistantText, {
+            refs: (refs ?? []).map((f) => ({ refId: f.refId, refNum: f.refNum, refState: f.refState })),
+          });
+          const hasAiNext = payload.accepted.length > 0 || payload.blocked.length > 0;
+          void chrome.runtime
+            .sendMessage(makeMessage('chat-result', { variant: 'done', ...(hasAiNext ? { aiNext: payload } : {}) }))
+            .catch(() => {});
+        },
       },
       hooks: {
         onToolDone: (tc, result) => {

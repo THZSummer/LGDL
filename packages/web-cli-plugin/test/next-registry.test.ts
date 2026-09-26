@@ -304,5 +304,5 @@ test('NR-10 反证：声明表多一行 / 少一行 ⇒ 双向包含必红 → �
   const missing = decls.filter((d) => d.driverId !== 'ref-action');
   assert.equal(missing.length, decls.length - 1);
   assert.ok([...providerIds].some((id) => !missing.some((d) => d.driverId === id)), '少一行（注册表有表无）⇒ 必红');
-  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 11, '还原 PASS（声明行恰 11：IAN-1 追加 free-input 终端声明）');
+  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 12, '还原 PASS（声明行恰 12：IAN-1 free-input + F-36/ADN-1 ai-next）');
 });

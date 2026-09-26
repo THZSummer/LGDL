@@ -113,6 +113,17 @@ export function driverSuppressedLine(driverId: string, timing: string, evidence:
   return `${driverTraceLine(driverId, timing, evidence)} | suppressed=${reason}`;
 }
 
+/**
+ * F-36 / ADN-1 **TASK-ADN-111**（ADR-ADN-006 §② · FR-ADN-013/026 · AC-ADN-012）—— 拒绝**留痕**
+ * 的单源行（与 {@link driverSuppressedLine} 同构；**恰一处**声明）。
+ *
+ * 拒绝**不是死端**：`confirm` 档候选不被自动按下（`blocked=tier`）时，用户仍可在既有确认卡作答；
+ * `gesture` 档候选在**接受层**就被挡（不进 chips）。`blocked` 是原因码闭集，**零值 / 零明文**。
+ */
+export function driverBlockedLine(driverId: string, timing: string, evidence: readonly string[], blocked: string): string {
+  return `${driverTraceLine(driverId, timing, evidence)} | blocked=${blocked}`;
+}
+
 export interface PressOutcome {
   readonly ok: boolean;
   readonly blocked?: PressBlocked;

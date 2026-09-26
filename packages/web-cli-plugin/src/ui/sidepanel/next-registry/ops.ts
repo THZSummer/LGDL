@@ -412,7 +412,10 @@ export function reachableOpIds(ctx: NextCtx): readonly string[] {
   const ids = new Set<string>();
   for (const p of resolveOrder()) {
     if (!p.when(ctx)) continue;
-    for (const chip of p.chips) if (OPS_BY_ID[chip]) ids.add(chip);
+    // ★ F-36 / ADN-1 TASK-ADN-112（ADR-ADN-004 §②）：`chipsFor` 在场 ⇒ 它才是**真实可达面**
+    // （动态 opId）；缺席 ⇒ 逐字沿用静态 `chips`（既有 11 行零改）。
+    const chips = p.chipsFor ? p.chipsFor(ctx) : p.chips;
+    for (const chip of chips) if (OPS_BY_ID[chip]) ids.add(chip);
   }
   return Object.freeze([...ids]);
 }

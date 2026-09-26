@@ -34,7 +34,7 @@
  * @module ui/sidepanel/recommend
  */
 import { label } from './stream-plaintext.js';
-import type { NextCtx } from './next-registry/definition.js';
+import type { AiNextCandidate, NextCtx } from './next-registry/definition.js';
 import { OP_TO_ACT } from './next-registry/dispatch.js';
 import { FREE_INPUT_PROVIDER_ID, registerBuiltinProviders } from './next-registry/providers.js';
 import { resolveOrder } from './next-registry/registry.js';
@@ -218,7 +218,19 @@ export interface RecommendInput {
   /** ① 引用状态 — from `l1/ref-store.ts` (`stale()` / `all()`). */
   readonly ref: { readonly validCount: number; readonly staleCount: number; readonly latestRefNum?: number };
   /** ② 会话状态 — `pending` (busy) + the open ask count. */
-  readonly session: { readonly openAsks: number; readonly busy: boolean };
+  readonly session: {
+    readonly openAsks: number;
+    readonly busy: boolean;
+    /**
+     * F-36 / ADN-1 **TASK-ADN-113**（ADR-ADN-004 §① · FR-ADN-015/018/098）—— **注入槽**
+     * （加法字段；嵌套在既有 `session` ⇒ 顶层仍 7 源）。由面板在 `done` 消费 `msg.aiNext`
+     * 后**单槽**喂入；`ai-next` provider 经 `chipsFor` 读它。缺席 ⇒ 既有 11 行逐字同前。
+     *
+     * 类型 `AiNextCandidate` 声明在 `next-registry/definition.ts`（**已在**模块白名单）⇒
+     * 本文件零新导入条目（`recommendation-sources` 白名单恒 5；PD-ADN-008）。
+     */
+    readonly aiNext?: readonly AiNextCandidate[];
+  };
   /** ③ 站点授权与信任态. */
   readonly site: { readonly authorized: boolean; readonly trust?: 'trusted' | 'untrusted' };
   /** ④ 命令档案静态面 — the runtime parity constant, never a rendered count. */
@@ -373,14 +385,15 @@ function priorityOf(rule: NextstepRuleId): number {
   return NEXTSTEP_PRIORITY.indexOf(rule) + 1;
 }
 
-function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[]): NextstepRuleCandidate {
+function candidate(rule: NextstepRuleId, chips: readonly NextstepChip[], labelOverride?: string): NextstepRuleCandidate {
   const kept = Object.freeze(
     chips.slice(0, MAX_CHIPS_PER_CARD).map((c) => Object.freeze({ text: label([c.text]), act: c.act })),
   );
   // ⚠️ The rule id itself must NOT go through `label`: `risk-recovery` contains the
   // `sk-` + 8-char shape the secret scanner flags (`sk-recovery`), and the label is a
   // user-facing string anyway. The machine-readable id stays in `rule` (never persisted).
-  return Object.freeze({ rule, priority: priorityOf(rule), chips: kept, label: label([NEXTSTEP_LABELS[rule]]) });
+  // ★ F-36 / ADN-1 TASK-ADN-113：provider 的 `label?` 加法覆盖（缺席 ⇒ 逐字沿用规则标签）。
+  return Object.freeze({ rule, priority: priorityOf(rule), chips: kept, label: label([labelOverride ?? NEXTSTEP_LABELS[rule]]) });
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -442,16 +455,21 @@ export function candidateRules(input: RecommendInput): readonly NextstepRuleCand
     const rule = p.rule ?? p.id;
     if (seen.has(rule) || !(NEXTSTEP_PRIORITY as readonly string[]).includes(rule)) continue;
     if (!p.when(ctx)) continue;
+    // ★ F-36 / ADN-1 **TASK-ADN-113**（ADR-ADN-004 §② · FR-ADN-014/015）—— `chipsFor` 在场 ⇒
+    // 它才是**权威动态面**（AI 候选的 opId 是动态的）；缺席 ⇒ 逐字沿用静态 `chips`（既有 11 行
+    // 逐字同前）。空列表 ⇒ 该 provider 不占规则位（不进 `seen` ⇒ 同规则的下一行仍可接管）。
+    const opIds = p.chipsFor ? p.chipsFor(ctx) : p.chips;
+    if (opIds.length === 0) continue;
     seen.add(rule);
     const texts = p.textOf ? p.textOf(ctx) : p.chips;
-    const chips: NextstepChip[] = p.chips.map((opId, i) => ({
+    const chips: NextstepChip[] = opIds.map((opId, i) => ({
       text: texts[i] ?? opId,
       // review R1 BLOCK-03: an op **outside** the 6-act table is op-direct — the act IS the
       // opId (resolved by `dispatchChipAction` via `OPS_BY_ID`). Mapping it to `'next'`
       // would dispatch `op.turn` instead (a wrong-op clip) — the exact lie this fixes.
       act: (OP_TO_ACT[opId] ?? opId) as ChipAct,
     }));
-    out.push(candidate(rule as NextstepRuleId, chips));
+    out.push(candidate(rule as NextstepRuleId, chips, p.label));
   }
   return Object.freeze(out.sort((a, b) => a.priority - b.priority));
 }

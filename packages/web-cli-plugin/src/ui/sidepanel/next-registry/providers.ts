@@ -151,6 +151,28 @@ export function builtinProviders(): readonly NextProvider[] {
       chips: [ACT_TO_OP.authorize, ACT_TO_OP.help],
       textOf: () => ['授权当前站点', '了解 6 个页面手势'],
     },
+    // ★ F-36 / ADN-1 **TASK-ADN-110**（ADR-ADN-004 §②/§③ · FR-ADN-013/014/096 · AC-ADN-010）
+    // —— 第 **12** 行 provider：AI 结构化产出的 next 候选。
+    //   · 骑既有 `ref-action` 规则位（`NEXTSTEP_PRIORITY` 恰 4 不动）；
+    //   · `prepend:true` ⇒ 同 priority(2) 内排在确定性 `ref-action` 之前 ⇒ **同规则内 AI 优先**；
+    //     AI `when` 为假 ⇒ `seen` 不落 ⇒ 确定性 `ref-action` 照旧接管（兜底可达）；
+    //   · `chips` 是**静态下界**（`['op.turn']`，表达「至少可产 op.turn」；`empty-chips` 判据不删）；
+    //     `chipsFor` 是**权威动态面**（在场 ⇒ 覆盖 `chips`；既有 11 行无此字段 ⇒ 逐字同前）；
+    //   · 零新增 op / 动作（`ACT_TO_OP` 仍恰 6）。
+    {
+      id: 'ai-next',
+      deps: ['session'],
+      priority: 2,
+      prepend: true,
+      mode: 'waterfall',
+      fail: 'card-boundary',
+      rule: 'ref-action',
+      label: '下一步推荐：AI 建议',
+      when: (ctx) => (ctx.session.aiNext?.length ?? 0) > 0 && ctx.session.openAsks === 0,
+      chips: [ACT_TO_OP.next],
+      chipsFor: (ctx) => (ctx.session.aiNext ?? []).map((c) => c.opId),
+      textOf: (ctx) => (ctx.session.aiNext ?? []).map((c) => c.label),
+    },
     {
       id: 'ref-action',
       deps: ['snapshot'],
@@ -220,7 +242,8 @@ export function registerBuiltinProviders(): void {
  * `when(ctx)` 实际读取的字段一致（门禁从 `providers.ts` 源文本的 when-scope 抽取比对）。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** 11 行 = 既有 provider 集合（5 触发器恢复 + 2 op 驱动恢复 + 3 规则 + IAN-1 末端终端）。 */
+/** 12 行 = 既有 provider 集合（5 触发器恢复 + 2 op 驱动恢复 + 3 规则 + IAN-1 末端终端
+ *  + F-36/ADN-1 `ai-next` 第 12 行）。 */
 export const DRIVER_DECLS_SRC: Readonly<Record<string, DriverDecl>> = Object.freeze({
   'ref.stale': { driverId: 'ref.stale', timings: ['stale', 'idle'], moments: ['pick-complete'], driverClass: 'deterministic', priority: 0, evidence: ['ref.staleCount', 'risk'] },
   'declaration.invalid': { driverId: 'declaration.invalid', timings: ['idle', 'stale'], moments: ['bind-complete'], driverClass: 'deterministic', priority: 0, evidence: ['risk'] },
@@ -236,4 +259,10 @@ export const DRIVER_DECLS_SRC: Readonly<Record<string, DriverDecl>> = Object.fre
   // ★ IAN-1：末端「自由输入…」终端。`deterministic` ⇒ **无**自动按下权（AI 不得代填手输）。
   // 手输留痕另用 `MANUAL_DRIVER_ID`（∉ 本表键集）。
   'free-input': { driverId: 'free-input', timings: ['idle'], moments: ['turn-end'], driverClass: 'deterministic', priority: 0, evidence: ['session.busy'] },
+  // ★ F-36 / ADN-1 **TASK-ADN-110**（ADR-ADN-006 §① · FR-ADN-013/096）—— 第 **12** 行声明：
+  // `driverId` = provider id（DQ-1 双向包含 12↔12 零额外桥接）；`timing='idle'`（复用既有第 3
+  // 时机 ⇒ `DRIVER_TIMINGS` 恰 5 不动）；`evidence=['session.aiNext']` 与 `ai-next.when` 的
+  // when-scope **同源**（DQ-3）；`driverClass='ai-driven'` ⇒ 具自动按下权（受 `pressDecision`
+  // 档位约束：仅 `auto` 档）。旧 11 行**逐字保留**。
+  'ai-next': { driverId: 'ai-next', timings: ['idle'], moments: ['turn-end'], driverClass: 'ai-driven', priority: 2, evidence: ['session.aiNext'] },
 });

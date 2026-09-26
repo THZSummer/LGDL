@@ -68,6 +68,10 @@ export function validateNextProvider(def: NextProvider, mountPoint: NextMountPoi
   }
   if (typeof def.when !== 'function') return { ok: false, error: 'missing-when' };
   if (!Array.isArray(def.chips) || def.chips.length === 0) return { ok: false, error: 'empty-chips' };
+  // ★ F-36 / ADN-1 **TASK-ADN-112**（ADR-ADN-004 §② · FR-ADN-014/015）—— `chipsFor` / `label`
+  // 的**加法 loud 校验**（既有判据一条不删；在场 ⇒ 必须是函数 / 字符串）。
+  if (def.chipsFor !== undefined && typeof def.chipsFor !== 'function') return { ok: false, error: 'chipsFor-not-function' };
+  if (def.label !== undefined && typeof def.label !== 'string') return { ok: false, error: 'label-not-string' };
   if (KNOWN_OPS) {
     for (const c of def.chips) {
       if (!KNOWN_OPS.has(c)) return { ok: false, error: `dangling-chip:${String(c)}` };

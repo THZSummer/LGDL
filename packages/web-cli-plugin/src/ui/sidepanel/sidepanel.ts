@@ -38,7 +38,7 @@ import { authPlanRows } from './cards/auth.js';
 import { refActionDigest, refActionTextKey, recommendCtx, recommendNextStep } from './recommend.js';
 import { bindPanelOps, dispatchOp, PARAMS_REJECTED } from './next-registry/pipeline.js';
 import { OP_PARAM_SEQUENCE } from './next-registry/ops.js';
-import type { NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definition.js';
+import type { AiNextBlockedCode, AiNextCandidate, AiNextPayload, NextCtx, NextOp, OpCtx, OpOutcome } from './next-registry/definition.js';
 // V5.5-1 TASK-V55-103 (ADR-V55-002 §1)：「时机源闭集」的唯一声明源已移到
 // `next-registry/drivers.ts`。本文件**只** re-export 类型（零第二声明）——`import type`
 // 会被擦除，因此本行对 `sidepanel.js` 体积贡献为 0；时机值的扩缩只发生在单源处。
@@ -61,7 +61,7 @@ import {
 import { registerConfigSuspension, resumeSuspension } from './next-registry/suspension.js';
 // V5.5-3 TASK-V55-306（ADR-V55-009 §3 · FR-SELF-060/063/065）——「AI 自动成回合」的**唯一**
 // 按下入口（`op.turn` 槽；`requestTurn(` 调用点计数不变）。本文件只**接线**，判据在单源模块里。
-import { MANUAL_DRIVER_ID, MANUAL_DRIVER_EVIDENCE, driverSuppressedLine, driverTraceLine, pressCandidate } from './next-registry/ai-drive.js';
+import { MANUAL_DRIVER_ID, MANUAL_DRIVER_EVIDENCE, driverBlockedLine, driverSuppressedLine, driverTraceLine, pressCandidate } from './next-registry/ai-drive.js';
 // V5.5-3 TASK-V55-312/313/314（ADR-V55-009 §1/§2/§4 · FR-SELF-090~094 · AC-SELF-006）——
 // 护栏六常量单源 + 越限抑制 + 关断偏好。本文件只**接线**（阈值全在单源模块里）。
 import { loadProactivePref, proactivity } from './next-registry/guard.js';
@@ -867,6 +867,20 @@ function installV3TestHooks(): void {
        */
       refresh(): Promise<void> {
         return refreshState();
+      },
+      /**
+       * ★ F-36 / ADN-1 **TASK-ADN-114**（N-ADN-028）—— **测试缝**：把一份已结构化的 `aiNext`
+       * 载荷喂入**事件作用域单槽**并触发一次 `idle` 求值（与 `chat-result{done}` 走**同一**
+       * 生产路径）。**不是生产第二入口**：生产候选恒由 SW 的 `background/ai-next.ts` 产出；
+       * 本缝只注入载荷（闸门 / S0''' 场景驱动用）。
+       */
+      aiNext(payload?: { accepted?: readonly AiNextCandidate[]; blocked?: readonly AiNextBlockedCode[] }): string | null {
+        return consumeAiNext(
+          Object.freeze({
+            accepted: Object.freeze([...(payload?.accepted ?? [])]),
+            blocked: Object.freeze([...(payload?.blocked ?? [])]),
+          }),
+        );
       },
       /** Reveal the fallback input (the **in-card** `.ask-fallback`; `#composer` retired by IAN-2). */
       revealFallback() {
@@ -1971,6 +1985,24 @@ let lastRecommendOutcome: { trigger: RecommendTrigger; rule: string | null; supp
 let lastRecommendCtx: NextCtx | null = null;
 
 /* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-114**（ADR-ADN-005/§ · ADR-ADN-006 §② · FR-ADN-010/018/026 ·
+ * AC-ADN-012/014）—— `chat-result{done}` 的 **AI next 事件作用域单槽**。
+ *
+ * 纪律（N-ADN-029 / 反证「常驻 ⇒ stale 复现」）：
+ *   · 本槽**只喂一次求值**：`maybeRecommend` 构造 input 后**立即清空**（事件作用域）；
+ *   · `msg.aiNext` 缺席 ⇒ 面板行为与现状**逐字一致**（零行为差）；
+ *   · 被拦留痕恰一行（codes 去重 join），经**单源** `driverBlockedLine`，零值 / 零明文。
+ * ──────────────────────────────────────────────────────────────────────────── */
+let pendingAiNext: AiNextPayload | undefined;
+
+/** 一行被拦留痕（codes **去重** join；零值 / 零明文）。 */
+function noteAiNextBlocked(blocked: readonly AiNextBlockedCode[]): void {
+  if (blocked.length === 0) return;
+  const codes = [...new Set(blocked)].join(',');
+  dispatch({ type: 'notice', text: driverBlockedLine('ai-next', 'idle', ['session.aiNext'], codes) });
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
  * R6（2026-09-23）—— **完成后同动作去重**（真机 `ty.md` 21:32:26：一次「原地翻译」完成后
  * 下一步推荐又推了同一件事）。
  *
@@ -2030,7 +2062,13 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
   }
   const input: Parameters<typeof recommendNextStep>[0] = {
     ref: { validCount: counts.validCount, staleCount: counts.staleCount, ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : {}) },
-    session: { openAsks: state.stream.openAsks.length, busy: state.pending },
+    session: {
+      openAsks: state.stream.openAsks.length,
+      busy: state.pending,
+      // ★ F-36 / ADN-1 TASK-ADN-114：注入槽（事件作用域单槽；仅在接受项非空时附加 ⇒
+      // 缺席 ⇒ provider `when` 为假 ⇒ 既有 11 行逐字同前）。
+      ...(pendingAiNext && pendingAiNext.accepted.length > 0 ? { aiNext: pendingAiNext.accepted } : {}),
+    },
     site: { authorized: state.authorized, trust: state.trust === 'trusted' ? 'trusted' : 'untrusted' },
     catalog: { toolCount: CATALOG_BASELINE_META.toolCount, subcommandCount: CATALOG_BASELINE_META.subcommandCount },
     probe: { ...(state.probe?.phase ? { phase: state.probe.phase } : {}), steady: state.probe?.steady === true },
@@ -2046,6 +2084,9 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
     ...(completedRefActions.size > 0 ? { completedActions: [...completedRefActions] } : {}),
     now: Date.now(),
   };
+  // ★ F-36 / ADN-1 TASK-ADN-114：input 已捕获本回合候选 ⇒ **立即清空**（事件作用域单槽；
+  // 常驻会让后续 stale / pick 触发复现旧候选 —— 这正是反证要判红的形态）。
+  pendingAiNext = undefined;
   lastRecommendCtx = recommendCtx(input);
   const result = recommendNextStep(input);
   const card = result.cards[0];
@@ -4172,10 +4213,11 @@ function wire(): void {
         // ★ R6（2026-09-23）—— 回合完成即**提交**「刚完成的引用动作」去重键：紧随其后的
         // 下一步推荐（`maybeRecommend('idle')`）因此不会再推同一件事（同 digest）。
         commitCompletedRefAction();
-        // BLOCK-01 (v4-4 review):「空闲 = 回合结束且无 open ask」is the third
-        // production timing. The producer itself refuses to mint while `pending`, so
-        // this runs after the settle above.
-        if (state.stream.openAsks.length === 0) maybeRecommend('idle');
+        // ★ F-36 / ADN-1 **TASK-ADN-114**（ADR-ADN-005 §① · FR-ADN-010/018）—— 消费本回合
+        // `chat-result{done}` 的**加法字段** `aiNext`：喂入事件作用域单槽 + 被拦留痕恰一行 +
+        // 既有 `'idle'` 求值（`openAsks===0`）。面板**不设第二校验器**：`accepted` 当数据消费
+        // （唯一净化仍走 `label()`，N-ADN-022）；缺席 ⇒ 行为与现状**逐字一致**（N-ADN-029）。
+        consumeAiNext(msg.aiNext as AiNextPayload | undefined);
         // V5.5-3 TASK-V55-306：回合结束（`pending` 已置假）是「在飞时被让位」的那次自动
         // 成回合的**续流点** —— 用户那句话仍在悬置里等，此时不再 busy ⇒ 交 `op.turn` 槽。
         driveAnsweredTurn();
@@ -4340,6 +4382,23 @@ function installNarrowObserver(): void {
   apply(panel.clientWidth || window.innerWidth);
   if (typeof ResizeObserver === 'undefined') return;
   new ResizeObserver(() => apply(panel.clientWidth)).observe(panel);
+}
+
+/**
+ * ★ F-36 / ADN-1 **TASK-ADN-114** —— `chat-result{done}` 分支与 `testing.aiNext` 测试缝**共用**
+ * 的唯一消费点：喂入事件作用域单槽（缺席 ⇒ 不喂）+ 被拦留痕 + 既有 `'idle'` 求值（`openAsks===0`）。
+ *
+ * 为什么把 `maybeRecommend('idle')` **移入**本函数：`op-wiring` / `driver-timings` 把
+ * `maybeRecommend(` 调用点钉死（恰 8）⇒ 测试缝复用本函数即**零新增挂点**（X-ADN-6 = 未发生取代）；
+ * 本函数定义在 `wire()` 之后（R6 判据要求「完成点先提交台账、后 idle 推荐」的文本序保持）。
+ */
+function consumeAiNext(aiNext: AiNextPayload | undefined): string | null {
+  if (aiNext) {
+    pendingAiNext = aiNext;
+    noteAiNextBlocked(aiNext.blocked);
+  }
+  if (state.stream.openAsks.length === 0) return maybeRecommend('idle');
+  return null;
 }
 
 // Only bootstrap in a real extension page; guarded so the module (and its

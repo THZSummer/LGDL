@@ -76,6 +76,42 @@ export { NEXTSTEP_MIN_INTERVAL_MS } from '../recommend.js';
 export const NEXT_SOURCE_NAMES = Object.freeze(['ref', 'session', 'site', 'catalog', 'probe', 'risk', 'onboarding'] as const);
 export type NextSourceName = (typeof NEXT_SOURCE_NAMES)[number];
 
+/* ────────────────────────────────────────────────────────────────────────────
+ * F-36 / ADN-1 **TASK-ADN-102**（ADR-ADN-001 §② · ADR-ADN-002 §① · FR-ADN-011/012/015）
+ * —— AI next 候选的**类型词汇**（**恰一处**声明；与 `NextCtx` 同居 ⇒ `recommend.ts`
+ * 零新导入 ⇒ `recommendation-sources` 模块白名单恒 5）。
+ *
+ * 三条纪律：
+ *   ① **type-only 词汇，∉ `KIND_SET`**：`AiNextCandidate` / `AiNextPayload` 是载荷字段的
+ *      类型，不是消息 / 卡 kind ⇒ 不进 `KIND_SET`（40 逐字）、不做第 13 kind、不设宿主；
+ *   ② **拒绝码闭集由 `PressBlocked` 派生**（`unknown-op` / `tier` 同字面）+ 2 新码
+ *      （`ref` / `param`）+ 1 附加码（`label`，fail-closed 加法）⇒ 零第二词表；
+ *   ③ **缺席 ⇒ 现状逐字**（N-ADN-029）：`aiNext` 不在场时面板 / 生产器行为一字不变。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 拒绝码闭集（**恰 5 枚**；`unknown-op` / `tier` 与 `PressBlocked` 同字面，见 ADR-ADN-002 §①）。 */
+export const AI_NEXT_BLOCKED_CODES = Object.freeze(['unknown-op', 'tier', 'ref', 'param', 'label'] as const);
+export type AiNextBlockedCode = (typeof AI_NEXT_BLOCKED_CODES)[number];
+
+/**
+ * 一条 AI next 候选（已过 5 道校验链）。`opId` 恒 ∈ `OP_IDS`（9 枚）；`label` 已净化 / 截断；
+ * `ref` 是**本回合快照**里的 `refId`（或规范形 `ref_<n>`）；`params` 是**元数据**（本轮不派发）。
+ */
+export interface AiNextCandidate {
+  readonly opId: string;
+  readonly label: string;
+  readonly ref?: string;
+  readonly params?: string;
+}
+
+/** `chat-result` 的加法载荷字段（type-only；缺席 ⇒ 面板行为与现状逐字一致）。 */
+export interface AiNextPayload {
+  /** 已过 5 道校验链的候选（面板只消费它 ⇒ 面板侧零第二校验器）。 */
+  readonly accepted: readonly AiNextCandidate[];
+  /** 被拦原因码（闭集，零值 / 零明文）。 */
+  readonly blocked: readonly AiNextBlockedCode[];
+}
+
 /** The pure input a `when(ctx)` predicate may read (exactly the 7 sources). */
 export interface NextCtx {
   readonly ref: { readonly validCount: number; readonly staleCount: number; readonly latestRefNum?: number };
@@ -90,6 +126,13 @@ export interface NextCtx {
      * 无需改动，填充留给主题② 的护栏落地。
      */
     readonly proactive?: { readonly enabled: boolean; readonly allowed: boolean };
+    /**
+     * F-36 / ADN-1 **TASK-ADN-102**（ADR-ADN-004 §① · FR-ADN-014/018）：**注入槽**（加法
+     * 字段，**嵌套在既有 `session`** 之下 ⇒ 顶层仍恰 7 源；NR-0 保持绿）。由面板在
+     * `chat-result{done}` 时喂入本回合候选；`ai-next` provider 的 `when` 读它 ⇒ 证据面同源
+     * （`evidence=['session.aiNext']`）。缺席 ⇒ 现状逐字。
+     */
+    readonly aiNext?: readonly AiNextCandidate[];
   };
   readonly site: { readonly authorized: boolean; readonly trust?: 'trusted' | 'untrusted' };
   readonly catalog: { readonly toolCount: number; readonly subcommandCount: number };
@@ -122,6 +165,14 @@ export interface NextProvider {
   readonly chips: readonly string[];
   /** Optional static/dynamic chip copy, positionally aligned with {@link NextProvider.chips}. */
   readonly textOf?: (ctx: NextCtx) => readonly string[];
+  /**
+   * F-36 / ADN-1 **TASK-ADN-102**（ADR-ADN-004 §② · FR-ADN-014/015）—— **动态 chip 的权威
+   * 产出**（纯加法；在场 ⇒ 覆盖 `chips`；本轮仅 `ai-next` 使用）。既有 11 行 provider 无此
+   * 字段 ⇒ 逐字同前；`chips` 仍**必填非空**（`validateNextProvider` 的 `empty-chips` 判据不删）。
+   */
+  readonly chipsFor?: (ctx: NextCtx) => readonly string[];
+  /** F-36 / ADN-1 **TASK-ADN-102**——卡片标题覆盖（加法；缺席 ⇒ 逐字沿用 `NEXTSTEP_LABELS[rule]`）。 */
+  readonly label?: string;
   /** The migrated rule id this provider belongs to (one candidate per rule). */
   readonly rule?: string;
   dispose?(): void;

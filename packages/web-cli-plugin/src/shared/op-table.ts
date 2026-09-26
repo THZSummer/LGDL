@@ -83,10 +83,21 @@ export interface OpDescriptor {
    *     is structurally guaranteed (a paper list could drift; a function cannot).
    */
   readonly hasConsent: boolean;
+  /**
+   * F-36 / ADN-1 **TASK-ADN-105**（ADR-ADN-002 §③ · FR-ADN-016/025）—— **参数形态**的
+   * descriptor 加法字段（承 `hasConsent` 提升先例，**不新建第二张表**）：
+   *
+   *   · 缺席 ⇒ 该 op **不接受参数**（与 `ops.ts#IMPL` 的 `params === null` **逐行一致**）；
+   *   · `'choice'` / `'form'` ⇒ 该 op 经既有 ask 卡收值（取值仍由用户在卡内作答；AI 不代答）。
+   *
+   * 一致性由 `test/ai-next-candidate.test.ts#AI-N-11` 机核（`ask === undefined ⟺ params === null`；
+   * **加严**，非放宽）；AI next 校验链的「param 相容」判据只读本字段（**单源**）。
+   */
+  readonly ask?: 'choice' | 'form';
 }
 
 /**
- * The nine rows, compactly: `[id, layer, fail, audit, hasConsent]` in `OP_SPECS` order.
+ * The nine rows, compactly: `[id, layer, fail, audit, hasConsent, ask]` in `OP_SPECS` order.
  * `mode` is constant across the batch (see the module note), so the mapper attaches it
  * rather than repeating it in nine tuples. (Comments inside a literal survive bundling
  * and cost bytes; the row-by-row table lives in the module JSDoc above.)
@@ -94,23 +105,27 @@ export interface OpDescriptor {
  * `hasConsent` mirrors `ops.ts#IMPL`'s third element (`op.authorize` / `op.llm-config` /
  * `op.perm.request` / `op.revoke` carry one) — the consistency is machine-checked in
  * `test/op-three-tier.test.ts`.
+ *
+ * `ask` (TASK-ADN-105) mirrors `ops.ts#IMPL`'s second element: absent ⇔ `params === null`
+ * (6 rows), `'choice'` for `op.llm-config` / `op.revoke`, `'form'` for `op.perm.request`
+ * — machine-checked in `test/ai-next-candidate.test.ts#AI-N-11`.
  */
-const OP_ROWS: readonly (readonly [string, OpLayer, OpFail, boolean, boolean])[] = Object.freeze([
+const OP_ROWS: readonly (readonly [string, OpLayer, OpFail, boolean, boolean, ('choice' | 'form')?])[] = Object.freeze([
   ['op.turn', 'panel', 'card-boundary', false, false],
   ['op.pick', 'panel', 'card-boundary', false, false],
   ['op.describe', 'panel', 'card-boundary', false, false],
   ['op.authorize', 'sw', 'snapshot-rollback', true, true],
   ['op.rebind', 'panel', 'card-boundary', false, false],
   ['op.help', 'panel', 'card-boundary', false, false],
-  ['op.llm-config', 'panel', 'snapshot-rollback', true, true],
-  ['op.perm.request', 'sw', 'snapshot-rollback', true, true],
-  ['op.revoke', 'panel', 'snapshot-rollback', true, true],
+  ['op.llm-config', 'panel', 'snapshot-rollback', true, true, 'choice'],
+  ['op.perm.request', 'sw', 'snapshot-rollback', true, true, 'form'],
+  ['op.revoke', 'panel', 'snapshot-rollback', true, true, 'choice'],
 ]);
 
 /** The **one** op table (panel registry and SW mirror both derive from it). */
 export const OP_DESCRIPTORS: readonly OpDescriptor[] = Object.freeze(
-  OP_ROWS.map(([id, layer, fail, audit, hasConsent]) =>
-    Object.freeze({ id, layer, mode: 'waterfall' as OpMode, fail, audit, hasConsent }),
+  OP_ROWS.map(([id, layer, fail, audit, hasConsent, ask]) =>
+    Object.freeze({ id, layer, mode: 'waterfall' as OpMode, fail, audit, hasConsent, ...(ask ? { ask } : {}) }),
   ),
 );
 
