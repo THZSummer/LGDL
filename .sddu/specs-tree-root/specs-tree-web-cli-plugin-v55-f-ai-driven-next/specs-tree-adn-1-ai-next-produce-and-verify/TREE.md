@@ -1,7 +1,7 @@
 # Directory: .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/
 
 ## 目录简介
-父规范 §2.2~§2.3 的**新通道根因 + 安全缺口**全部落在本叶：AI 结构化产出 next 的通道缺位（`Q-ADN-002`：`chat-r...
+**终态（2026-09-27 父收口）：phase=validated / status=completed（27/27）** —— `npm test` 1449 → 1478/0 · sidepanel 598,926 → 603,205 B（+4,279，越叶预算如实登记）· 新 node 门禁 `ai-next-candidate` 16/0 · `supersession` 49→51 · `law8` 60→64 · Chromium `s0-self-driven` 82→90 · SG-ADN-01（13/13）/ SG-ADN-02 全可行 · review ✅ 0 BLOCK / validate ⚠️ 0 阻塞 · HEAD `7d01989` · 全 Feature 总账见 ../`closeout.md`。原简介：父规范 §2.2~§2.3 的**新通道根因 + 安全缺口**全部落在本叶：AI 结构化产出 next 的通道缺位（`Q-ADN-002`：`chat-r...
 
 ## 目录结构
 ```

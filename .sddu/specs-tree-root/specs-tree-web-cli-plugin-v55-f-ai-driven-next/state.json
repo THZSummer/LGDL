@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "version": "v0.11.3",
   "name": "web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）：把「下一步推荐」的产出从确定性注册表独占改为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」」",
-  "phase": "tasked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "validated",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -14,31 +14,31 @@
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/",
       "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 1,
       "dependsOn": [],
-      "note": "首叶 / 底座叶 + 安全核心（P0）。交付：AI 结构化产出通道（`idle` 时机 + `chat-result` type-only 加法字段 + 零新增 kind）+ **5 道校验链**（opId 在册（9）/ 三档清分（gesture 恒拒）/ ref 有效 / param 在 `AskSpec` 内 / 越界+留痕）+ `tierOf` 单源复用 + **判定分层（`admitCandidate` 接受层 vs `pressDecision` 按下层）** + `ai-next` provider（rule: ref-action）+ `DRIVER_DECLS_SRC` 11→12 + `NextCtx` 加法字段登记（DT-6）+ SW 侧解析/校验（B 列优先）+ 留痕三要素 + 新 node 门禁 `test/ai-next-candidate.test.ts` + S0''' 主线/支线 B/支线 D node 面 + 注入反证族 + 体积 B 列归因。不做：兜底/合并语义（叶2）/ 首开（叶2）/ 升级 6 门禁终态与保护段（叶2）。承载父 FR ≈48 条切片。"
+      "note": "首叶 / 底座叶 + 安全核心（P0）。交付：AI 结构化产出通道（`idle` 时机 + `chat-result` type-only 加法字段 + 零新增 kind）+ **5 道校验链**（opId 在册（9）/ 三档清分（gesture 恒拒）/ ref 有效 / param 在 `AskSpec` 内 / 越界+留痕）+ `tierOf` 单源复用 + **判定分层（`admitCandidate` 接受层 vs `pressDecision` 按下层）** + `ai-next` provider（rule: ref-action）+ `DRIVER_DECLS_SRC` 11→12 + `NextCtx` 加法字段登记（DT-6）+ SW 侧解析/校验（B 列优先）+ 留痕三要素 + 新 node 门禁 `test/ai-next-candidate.test.ts` + S0''' 主线/支线 B/支线 D node 面 + 注入反证族 + 体积 B 列归因。不做：兜底/合并语义（叶2）/ 首开（叶2）/ 升级 6 门禁终态与保护段（叶2）。承载父 FR ≈48 条切片。 **终态（2026-09-27 父收口）**：27/27 · `npm test` 1449 → **1478/0**（R1 1463 → R2 1478）· `sidepanel.js` 598,926 → **603,205 B**（+4,279；**越叶预算 +0.8~2.0 KB 上界 ⇒ 如实登记不停机**）· 新 node 门禁 `ai-next-candidate` **16/0**（AI-N-1~11 + 五类注入反证 + 真源切片 + 三段控制）+ 升级 6 + 间接重锚 · `s0-self-driven` Chromium 82 → **90/0** · `supersession` 49 → **51/0** · `law8` 60 → **64/0** · `size-ruling-vol3` 14/0 · SG-ADN-01（围栏块解析 + 载荷加法字段 13/13）/ SG-ADN-02（分层共享 `tierOf` + `pressDecision` diff=0，真值表四情形）**全可行** · review **✅ 通过 / 0 BLOCK**（I-1~I-3：I-2 doc-only 已订正 / I-3 background→ui 耦合 deferred）/ validate **⚠️ 有条件通过 / 0 阻塞**（⑬A 相位 flake 非回归）· HEAD `7d01989`（validate）· 人工面 M1~M5 ⏳ 未执行。"
     },
     {
       "featureKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
       "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/",
       "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
       "leaf": true,
-      "phase": "tasked",
-      "status": "tracked",
+      "phase": "validated",
+      "status": "completed",
       "depth": 2,
       "deliveryOrder": 2,
       "dependsOn": [
         "specs-tree-adn-1-ai-next-produce-and-verify"
       ],
-      "note": "末叶 / 回归与判据叶（P0；**强依赖叶1**）。交付：确定性退居兜底（未配/未产出/非法被拦）+ **free-input 终端恒常驻**（R8 保底不回归）+ floor 语义保持 + 零死端 + **合并口径**（同单卡位 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动 / R6 同因去重扩展 / 替换陈旧候选 / 渲染零 per-op 分支）+ **护栏**（六常量同过 / 提案不耗回合预算 / 关断两相 / 零第二阈值）+ **首开保持确定性**（零 LLM 往返依赖 / 让位 firstRun 零双卡）+ **S0''' 四支线终态**（Chromium 面只加断言不加文件）+ X-ADN-1~11 台账终态（未发生者 `no-supersession`）+ 升级 6 门禁等价重锚 + 保护段逐段决策（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积终态重登记（五要素 + 三值）。承载父 FR ≈34 条切片。"
+      "note": "末叶 / 回归与判据叶（P0；**强依赖叶1**）。交付：确定性退居兜底（未配/未产出/非法被拦）+ **free-input 终端恒常驻**（R8 保底不回归）+ floor 语义保持 + 零死端 + **合并口径**（同单卡位 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动 / R6 同因去重扩展 / 替换陈旧候选 / 渲染零 per-op 分支）+ **护栏**（六常量同过 / 提案不耗回合预算 / 关断两相 / 零第二阈值）+ **首开保持确定性**（零 LLM 往返依赖 / 让位 firstRun 零双卡）+ **S0''' 四支线终态**（Chromium 面只加断言不加文件）+ X-ADN-1~11 台账终态（未发生者 `no-supersession`）+ 升级 6 门禁等价重锚 + 保护段逐段决策（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积终态重登记（五要素 + 三值）。承载父 FR ≈34 条切片。 **终态（2026-09-27 父收口）**：23/23 · `npm test` 1478 → **1507/0**（R1 1500 → R2 +7，两轮纯加法）· `sidepanel.js` 603,205 → **604,602 B**（叶2 +1,397；**两叶 Σ +5,676 越 ADR-ADN-008 §② 目标带 ⇒ 如实登记不停机**）· 升级 6 门禁等价重锚 + 间接重锚 6 + `supersession` 51 → **53/0** · `gate-integrity` **26/0**（受审下界 48 → 51）· `s0-self-driven` 90 → **93/0** · `law8` 64 → **65/0** · X-ADN-1~11 台账终态（**已发生 4 / 未发生取代 6 / 等价重锚 1**，老条目逐字保留）· 保护段 journey `[43484,59347)`/`7b309258…` ∧ binding `[107780,115930)`/`be9ad0e9…` **keep 双绿**（恰 2 段零换锚）· SG-ADN-03 可行（骑 `ref-action` 位 prepend 替换 + 前 N=3 合并 **6/6 + 1 偏差** → 父 ADR-ADN-004 §③ 文字订正，纯 `.sddu` 机制零改）· review **⚠️ 有条件通过 / 0 BLOCK**（I-1~I-7 七项非阻塞，I-7 采信 review 结论「门禁强度充分、非降级」）/ validate **⚠️ 有条件通过 / 0 阻塞**（三重判定环境 flake 非回归）· HEAD `068054c`（R1）/ 叶收口轮留工作树 · 人工面 M1~M5 ⏳ 未执行。"
     }
   ],
-  "status": "tracked",
+  "status": "completed",
   "createdAt": "2026-09-26",
-  "updatedAt": "2026-09-26",
+  "updatedAt": "2026-09-27",
   "authorization": "编排器代作者决策（作者已授权编排器代行决策、SDDU 全流程自行调度；本轮 discovery 不访谈作者基本框架，开放点收集后附推荐，spec 批量裁决）",
   "authorDecision": {
     "date": "2026-09-25",
@@ -311,7 +311,17 @@
     "specs-tree-adn-1-ai-next-produce-and-verify/plan.md",
     "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "closeout.md",
+    "specs-tree-adn-1-ai-next-produce-and-verify/review.md",
+    "specs-tree-adn-1-ai-next-produce-and-verify/review-report.md",
+    "specs-tree-adn-1-ai-next-produce-and-verify/validate.md",
+    "specs-tree-adn-1-ai-next-produce-and-verify/validate-report.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/review.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/review-report.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/validate.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/validate-report.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/discovery.md",
@@ -386,12 +396,12 @@
     "featureIdOccupancy": "measured-zero",
     "versionSlot": "v0.11.3",
     "versionSlotOccupancy": "measured-zero",
-    "registered": false,
-    "registration": "pending-on-closeout（ROADMAP 留给收口；discovery/spec/plan/tasks 阶段零 diff）",
-    "registrationOwner": "closeout",
+    "registered": true,
+    "registration": "registered-in-closeout（ROADMAP v1.33.0，2026-09-27 父收口）：文档版本 **1.32.0 → 1.33.0**；头部新增 v1.33.0 素材增补行 + 版本总览表新增 **v0.11.3** 行 + §二 新增 **v0.11.3** 段（追加注 + 「v0.11.3 同批 Feature（F-36）」表）+ 修订记录新增 v1.33.0 行；**只增不改**（唯一 −1 = 文档版本行 1.32.0 → 1.33.0）；**F-29 区段一字未动**（sha `d789c89c…` 核验相等）；**§3.1 未动**（F-28~F-35 先例同样未入 §3.1）",
+    "registrationOwner": "closeout（✅ 已完成）",
     "namingSemantics": "v0.11.3 = v0.11.0（F-33 v5.5）主题的 patch 级跟进轮（承 F-34 v0.11.1 / F-35 v0.11.2 先例）；树名承 v55-f- 惯例",
-    "roadmapDocVersion": "1.32.0（本轮实测）",
-    "f29Section": "untouched（F-29 A2A 候选未立项未排期；本阶段 ROADMAP 零 diff）"
+    "roadmapDocVersion": "1.33.0（本轮实测）",
+    "f29Section": "untouched（F-29 A2A 候选未立项未排期；收口轮仅在 F-29 区段外追加，区段字节相等 sha d789c89c…）"
   },
   "phaseHistory": [
     {
@@ -425,21 +435,31 @@
       "agent": "sddu-tasks",
       "artifact": "tasks.md + tasks.json v1.0（父总览 + 2 叶 50 任务 / 6 波）",
       "note": "tasks 阶段（2026-09-26）：产出父 tasks.md/tasks.json（总览型，0 可执行任务）+ 2 叶 tasks.md/tasks.json —— adn-1 27 任务 / 3 波（TASK-ADN-101~127；S×6 / M×17 / L×4）、adn-2 23 任务 / 3 波（TASK-ADN-201~223；S×3 / M×18 / L×2）；Σ 50 任务 / 6 波（S×9 / M×35 / L×6）。3 个 spikeGate（SG-ADN-01 围栏块解析 + 载荷加法字段 / SG-ADN-02 分层共享 tierOf + pressDecision diff=0 / SG-ADN-03 骑 ref-action 位 prepend 替换 + 前 N=3 合并）；新增 1 node 门禁（ai-next-candidate，AI-N-1~11；入 gate-integrity 下界只增）、升级 6 组既有门禁（recommendation-sources 白名单恒 5 / NEXTSTEP_PRIORITY 恰 4 / DRIVER_DECLS_SRC 12↔12 / op-wiring requestTurn( 恰 1 / R6 同因去重扩展 / driver-timings 恰 5）+ 间接面 3；S0''' 四支线（A 合法被采纳 / B 非法被拦 + 留痕 / C 未产出兜底 / D 未配置纯确定性）双面落点；体积分列（A 列 adn-1 +0.8~2.0 KB / adn-2 +0.5~1.5 KB；Σ +1.3~+3.5 KB；距档 15,474 不触发升档；B 列 SW 优先不计账；EC-ADN-016 逐分支任务化：TASK-ADN-126/221）；红线任务化（KIND_SET 40 / 12 kind 零宿主 / 法八零明文 / 特权恒手势 / 三冻结面 / 保护段 keep / R8 open 入口不回归 / FR-CHAT-060 不破）。两叶硬串行（adn-2 待 adn-1 validated）。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-27",
+      "agent": "sddu-build（父收口；编排器代作者决策）",
+      "artifact": "closeout.md v1.0（父级全 Feature 总账）+ 父 state.json 终态同步 + TREE.md（父 + 两叶导航）+ ROADMAP v1.33.0 登记",
+      "note": "F-36 父收口（sddu-build 代行，编排器代作者决策，沿用 v4-chat / v5 / v5.5 / v5.5F 先例）：（1）**ROADMAP 登记**——文档版本 1.32.0 → **1.33.0**；头部新增 v1.33.0 素材增补行 + 版本总览表新增 v0.11.3 行 + §二 新增 v0.11.3 段（追加注 + 「v0.11.3 同批 Feature（F-36）」表 + 结构 / 关键数字 / 体积 / X-ADN 终态 / 过程价值）+ 修订记录新增 v1.33.0 行；**只增不改**（唯一 −1 = 文档版本行）；**F-29（A2A）区段一字未动**（sha `d789c89c…` 前后核验相等）；**§3.1 未动**（F-28~F-35 先例同样未入 §3.1，仅历史 F-01~F-27 在表内）。（2）**父 state.json 终态同步**——`childrens[]` 两叶 phase/status 由陈旧 tasked/tracked 改为 validated/completed 并附各叶终态 note；顶层 phase tracked→**validated** / status tracked→**completed** / workflow 4.tasks→**7.validate** / agent sddu-tasks→**sddu-validate**（与 F-33/F-34/F-35 先例一致，与 F-30~F-32「父保持 tasked/tracked」先例不同，如实登记差异供作者复核）；`phaseHistory` 追加本条目；`roadmap.registered` false→**true**；登记 closeout 记录。（3）**新建 closeout.md**（父目录总账，参照 v4-chat / F-35 closeout.md 结构）：两叶终态 / 关键数字 / 门禁计数 / 体积 / deferred / 人工面 / commit 链。（4）**TREE.md 更新**（父 + 两叶导航）。（5）**提交**到 `feature/web-cli-plugin` 分支（**禁 `git add -A`**；**不合 main、不发布**，合入/发布由作者决定）。**数字总账**：`npm test` 1449 → **1507**（F-36 段 +58：1449 → 叶1 1478（+29）→ 叶2 1507（+29）；起点 1449 / sidepanel 598,926 承 **R8 修复轮 `38565ac`**：1443 → 1449 / 598,577 → 598,926）· `sidepanel.js` 598,926 → **604,602 B**（两叶 Σ **+5,676**；叶1 +4,279 越叶预算 / 叶2 +1,397）· 新门禁 1（`ai-next-candidate` 16/0）+ 升级 6 + 间接重锚 6（`CHROMIUM_GATES === 9` 不动，逐行 `assertionsRemoved = 0`）· `supersession` 49→51→**53** · `gate-integrity` 24→25→**26** · `s0-self-driven` 82→90→**93** · `law8` 60→64→**65** · `size-ruling-vol3` **14** · `insight` 125 · `density` 242 · `dead-end` 53 · `recommendation` **81**（2 环境 flake）· `binding` **191/192**（KL-N-10 同族 flake）· `journey` **171**（keep）· X-ADN 终态 **4 已发生 / 6 未发生 / 1 等价重锚** · 保护段 journey `[43484,59347)` / binding `[107780,115930)` **keep 双绿** · 3 spikeGate 全可行。**体积未升档 / 未触 EC-ADN-016**（档位 614,400 / 绝对上限 675,840 / 生效上限 `floor(604,602×1.05) = 634,832` / 距档 9,798 / B 列净增 0；`authorConfirmation.status` 保持 **pending-author-line**，承接 v5.5 两次升档历史确认事项，未伪称已确认）。两叶 review/validate 均 **⚠️ 有条件通过 / 0 阻塞**；adn-2 review 7 项非阻塞 I-1~I-7 登记（I-7 采信 review 结论）。原子级诚实登记：叶1 越叶预算 / 两叶 Σ 越 ADR 目标带 / SG-ADN-03 语义偏差→父 ADR-ADN-004 §③ 文字订正 / adn-1 I-3 background→ui 耦合 / KL-N-10 flake 家族均如实登记不停机不伪称。deferred：人工面 M1~M5 ⏳ · I-1~I-7 · `authorConfirmation` pending · 外部竞品调研未执行（O-ADN-024）。纪律：只改 SDDU 文件 + ROADMAP，**零 `src/**` 改动**，未跑门禁 / 构建 / Chromium。"
     }
   ],
   "pendingObligations": [
-    "authorConfirmation.status = pending-author-line（档位 614,400 / 绝对上限 675,840 / 生效上限 628,872）—— 承接 v5.5 两次升档，未闭合义务，不得伪称已确认",
-    "本 Feature 若触发升档 ⇒ 走 EC-ADN-016 显式路径 + 作者一行",
-    "ROADMAP 登记（F-36 / v0.11.3）留给收口（本阶段 ROADMAP 零 diff）",
-    "X-ADN-2 / 3 / 4 / 5 / 9 为「未发生取代」⇒ 须在 plan 评估后如实登记（不得留空 / 不得伪造「已取代」）",
-    "人工面 M1~M5（真机相关性/两张皮是否消失/密度观感/读屏/被拦体感）⏳ 未执行如实登记"
+    "authorConfirmation.status = pending-author-line（档位 614,400 / 绝对上限 675,840 / 生效上限 634,832）—— 承接 v5.5 两次升档，未闭合义务，不得伪称已确认",
+    "本 Feature 未触发升档（两叶 Σ +5,676 B 未越档位 614,400）⇒ EC-ADN-016 三态皆「否」；越 ADR 目标带已如实登记",
+    "ROADMAP 登记（F-36 / v0.11.3）✅ 已完成于收口（ROADMAP v1.33.0；文档版本 1.32.0 → 1.33.0；只增不改；F-29 区段字节未动）",
+    "X-ADN 终态已落定：已发生（superseded）4（X-ADN-1/7/8/11）/ 未发生取代 6（X-ADN-2/3/4/5/6/9，no-supersession 理由非空）/ 等价重锚 1（X-ADN-10）—— 已如实登记，无空字段",
+    "人工面 M1~M5（真机相关性 / 「两张皮」是否消失 / 密度观感 / 读屏 / 被拦体感）⏳ 未执行如实登记",
+    "adn-2 review I-1~I-7 七项非阻塞改进项（I-1 建议加固 / I-2 已订正 / I-3~I-6 登记 / I-7 采信 review 结论）—— 未修，如实登记",
+    "adn-1 review I-3（background→ui 运行期耦合：ai-next.ts 值导入 stream-digest.assertNoPlaintext）—— 建议后续上移 src/shared/，本轮 deferred"
   ],
   "evidenceGaps": [
     "外部竞品调研未执行",
     "门禁计数 / 体积值引自 F-35 closeout + size-baseline.ts（本轮未复跑 npm test / Chromium / build）",
     "LLM 输出的结构化解析能力未验证（取决于提示/解析设计，开放点）"
   ],
-  "notes": "spec 阶段（2026-09-26）：产出父 spec.md（v1.0，89 FR / 16 NFR / 20 EC / 20 NG / 10 US / 8 G / 30 AC / 16 DC / 30 N / 24 R / 8 GAP / 5 COR）+ 2 叶 spec.md（adn-1 / adn-2）+ 三份 state.json。O-ADN-001~016 全部裁决（DC-ADN-001~016，全按 discovery 推荐）。关键口径：AI 候选时机复用 `idle` + 载体复用 `chat-result` 载荷 type-only 加法字段（零新增 kind）；5 道校验链（opId 在册 → 三档清分（复用 `tierOf` 单源）→ ref 有效 → param 在 `AskSpec` 内 → 丢弃+留痕）；**三档清分判定分层**（`admitCandidate` 接受层 vs `pressDecision` 按下层；`auto` 可提案可按下 / `confirm` 可提案但 consent 须用户答不可自动按下 / `gesture` 恒拒绝连提案都拒）；确定性注册表退居兜底与安全闸（free-input 终端恒常驻，R8 不回归）；合并不破单卡/3-chip/`NEXTSTEP_PRIORITY` 恰 4；护栏「提案不耗回合预算」；首开保持确定性；门禁新增 1（`ai-next-candidate`）+ 升级 6 + 保留（`CHROMIUM_GATES === 9` 不动，保护段逐段决策）；体积分列预算（B 列 SW 优先，距档 15,474 B 不触发升档）。父 Feature = 轻量规范容器（不承接 build/review/validate，phase 将走 planned → tasked）；每叶承接 build/review/validate。spec 阶段零产品运行时验证，.sddu 外零触碰，ROADMAP 零 diff。routing.v1 = local_or_compute → none（未调用任何受管 Provider）。",
+  "notes": "spec 阶段（2026-09-26）：产出父 spec.md（v1.0，89 FR / 16 NFR / 20 EC / 20 NG / 10 US / 8 G / 30 AC / 16 DC / 30 N / 24 R / 8 GAP / 5 COR）+ 2 叶 spec.md（adn-1 / adn-2）+ 三份 state.json。O-ADN-001~016 全部裁决（DC-ADN-001~016，全按 discovery 推荐）。关键口径：AI 候选时机复用 `idle` + 载体复用 `chat-result` 载荷 type-only 加法字段（零新增 kind）；5 道校验链（opId 在册 → 三档清分（复用 `tierOf` 单源）→ ref 有效 → param 在 `AskSpec` 内 → 丢弃+留痕）；**三档清分判定分层**（`admitCandidate` 接受层 vs `pressDecision` 按下层；`auto` 可提案可按下 / `confirm` 可提案但 consent 须用户答不可自动按下 / `gesture` 恒拒绝连提案都拒）；确定性注册表退居兜底与安全闸（free-input 终端恒常驻，R8 不回归）；合并不破单卡/3-chip/`NEXTSTEP_PRIORITY` 恰 4；护栏「提案不耗回合预算」；首开保持确定性；门禁新增 1（`ai-next-candidate`）+ 升级 6 + 保留（`CHROMIUM_GATES === 9` 不动，保护段逐段决策）；体积分列预算（B 列 SW 优先，距档 15,474 B 不触发升档）。父 Feature = 轻量规范容器（不承接 build/review/validate，phase 将走 planned → tasked）；每叶承接 build/review/validate。spec 阶段零产品运行时验证，.sddu 外零触碰，ROADMAP 零 diff。routing.v1 = local_or_compute → none（未调用任何受管 Provider）。 ‖ 收口阶段（2026-09-27，sddu-build 代行 / 编排器代作者决策）：F-36 父收口完成 —— 父（轻量规范容器）+ 2 叶全部收口，两叶 phase=validated / status=completed；ROADMAP v1.33.0 登记；closeout.md 全 Feature 总账；父终态 phase=validated / status=completed / workflow=7.validate / agent=sddu-validate。本轮为**纯文档 / 状态收口**：零 `src/**` / 零 `test/**` / 零 `docs/**` 实义改动（工作树既有 build/review/validate 累积改动随本轮一并提交），不跑构建 / 门禁 / Chromium；不合 main、不发布。",
   "leaf": false,
   "description": "web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）」需求规范 —— 把 next 候选的**产出权**从确定性注册表独占，改为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」：① AI 结构化产出通道（时机复用既有 `idle`（回合结题挂点）+ 载体复用既有 `chat-result` 载荷 type-only 加法字段（**零新增 kind**）+ 结构 `{opId,label,ref?,params?}`）；② **5 道校验链**（opId 在册（9）→ 三档清分（复用 `tierOf` 单源）→ ref 有效 → param 在 `AskSpec` 内 → 越界/非法**丢弃 + `blocked=` 留痕**）；③ **判定分层（核心边界）**：`admitCandidate`（接受层：auto/confirm 接受、gesture 拒）与 `pressDecision`（按下层：仅 auto，语义 diff=0）分离，共享 `tierOf` 单源（解决「非 auto 一律 blocked:tier」与「confirm 可提案」的张力，分层而非混同）；④ 确定性注册表退居兜底与安全闸（未配 ⇒ 纯确定性；未产出/非法被拦 ⇒ 确定性产卡；**free-input 终端恒常驻**（R8 不回归））；⑤ 合并（同单卡位 `MAX_NEXTSTEP_CARDS_PER_ROUND=1` 不动 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动（AI 骑 `ref-action` 规则位）/ R6 同因去重扩展 / 替换陈旧候选）；⑥ 护栏（六常量同过 / **提案不耗回合预算** / 关断偏好两相涵盖 / 零第二阈值）；⑦ 首开保持确定性（零 LLM 往返依赖）；⑧ 门禁处置（新增 1 node 门禁 `ai-next-candidate` + 升级 6：`recommendation-sources` ④ 零新 LLM / `NEXTSTEP_PRIORITY` 恰 4 / `DRIVER_DECLS_SRC` 双向包含 11↔11→12↔12 / `op-wiring` 计数 / R6 同因去重扩展 / `driver-timings` 恰 5）+ 体积分列预算（B 列 SW 优先；距档 15,474 B 不触发升档）。",
   "spec": {
@@ -692,5 +712,53 @@
     "protectionDecision": "keep",
     "routing": "local_or_compute -> none（未调用任何受管 Provider）",
     "note": "父 Feature 仍为轻量规范容器（不承接 build/review/validate、不产父级 tasks.json）；实施由 2 叶串行承载（adn-1 → adn-2）。父 plan.md 与 2 叶 plan.md 同批产出（与 F-34/F-35 先例同口径，显式登记于父 plan §1.1）。"
+  },
+  "closeout": {
+    "round": "v55-f-ai-driven-next 父收口（父收口第 1 轮；两叶各自 build/review/validate 已在叶内完成）",
+    "date": "2026-09-27",
+    "authorization": "编排器代作者决策（继承 F-30 / F-31 / F-32 / F-33 / F-34 / F-35 父收口先例；作者已授权编排器代行决策、SDDU 全流程自行调度）",
+    "author": "sddu-build",
+    "conclusion": "✅ F-36 完成：父（轻量规范容器）+ 2 叶全部收口，两叶 phase=validated / status=completed。主题达成 = 「AI 驱动 next」——把「下一步推荐」的产出权从确定性注册表独占改为「**LLM 结构化产出候选 + 确定性注册表退居兜底与安全闸**」：① AI 结构化产出通道（复用 `idle` 时机 + `chat-result` type-only 加法字段 `aiNext` + 尾随 `next` 围栏块严格 JSON；零新增 kind / 零新 LLM 往返）；② 5 道校验链（opId 在册 / 三档清分 gesture 恒拒 / ref 有效 / param 在 AskSpec 内 / 越界+留痕闭集 5 枚，顺序即优先级）；③ 判定分层（admitCandidate 接受层 vs pressDecision 按下层；diff = 0）；④ `ai-next` provider 骑 `ref-action` 位（DRIVER_DECLS_SRC 11→12）；⑤ 确定性退居兜底（free-input 终端恒常驻，R8 不回归）+ 零死端 floor；⑥ 合并口径（同单卡位 / 前 N ≤3 / NEXTSTEP_PRIORITY 恰 4 不动 / R6 同因去重扩展 / 替换陈旧候选 / 渲染零 per-op 分支）；⑦ 护栏（六常量同过 / 提案不耗回合预算 / 关断两相 / 零第二阈值）；⑧ 首开保持确定性（零 LLM 往返依赖 / 让位 firstRun 零双卡）；⑨ S0''' 四支线双面（node 真源切片 + Chromium 只加断言不加文件）。作者裁决「有连接 LLM 则 next 应交给 AI 驱动输出」完整兑现。关键数字：`content.js` 177,076 B / `pick-layer.js` 34,358 B 逐字节未动；`sidepanel.js` 598,926 → 604,602 B（两叶 Σ +5,676）；`npm test` 1449 → 1507（F-36 段 +58）；新门禁 1（ai-next-candidate）+ 升级 6 + 间接重锚 6；X-ADN 终态 4/6/1；保护段 journey `7b309258…` / binding `be9ad0e9…` keep 双绿；未升档未触 EC-ADN-016（档位 614,400 / 绝对上限 675,840 / 生效 634,832 / 距档 9,798；authorConfirmation 保持 pending-author-line）。本轮为纯文档 / 状态收口：零 `src/**` / 零 `test/**` / 零 `docs/**` 实义改动，不跑构建 / 门禁 / Chromium；不合 main、不发布。",
+    "containerDiscipline": "父 Feature 为轻量规范容器（depth=1；不承接 build/review/validate、仅总览型 tasks.md/tasks.json）。**本轮按收口指令将父终态标记为 phase=validated / status=completed / workflow=7.validate / agent=sddu-validate —— 与 F-30~F-32『父 phase 保持 tasked / status tracked』先例不同，与 F-33 / F-34 / F-35 先例一致，此处如实登记该差异供作者复核（如需回归先例可一行改回 tasked/tracked）**。",
+    "artifacts": [
+      ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/closeout.md"
+    ],
+    "digitalLedger": {
+      "npmTest": "1449 → 1507（F-36 段 +58：1449 → 叶1 1478（+29）→ 叶2 1507（+29）；起点 1449 / sidepanel 598,926 承 R8 修复轮 38565ac：1443 → 1449 / 598,577 → 598,926）",
+      "sidepanelBytes": "598,926 → 604,602（两叶 Σ +5,676；逐叶 叶1 +4,279（越叶预算 +0.8~2.0 KB 上界 ⇒ 如实登记不停机）/ 叶2 +1,397（在 +0.5~1.5 KB 带内）；两叶 Σ 越 ADR-ADN-008 §② 目标带 +1.3~+3.5 KB ⇒ 如实登记不停机）",
+      "frozenFaces": "content.js 177,076 B（sha 52a82620…）/ pick-layer.js 34,358 B（sha 77796bab…）逐字节零 diff；packages/web-cli-base/** / manifest.json / 判定链（policy.ts / auto-authorize.ts）零 diff；B 列 background 1,641,872 B 净增 0",
+      "newGates": "1（node：ai-next-candidate 16/0，AI-N-1~11 + 五类注入反证 + 真源切片 + 三段控制 + 元判据；叶2 +137 行纯加法 ⇒ 计数只增）；CHROMIUM_GATES === 9 未动",
+      "gateDeltas": "supersession 49 → 51 → 53（红线终核）· gate-integrity 24 → 25 → 26（受审下界 48 → 51）· s0-self-driven Chromium 82 → 90 → 93 · law8 60 → 64 → 65 · size-ruling-vol3 14 · insight 125 · density 242 · dead-end 53 · recommendation 81（2 环境 flake）· binding 191/192（KL-N-10 同族 flake）· journey 171（keep）· 升级 6（recommendation-sources / driver-timings / driver-quadruple / op-wiring / op-three-tier / proactivity-guard）+ 间接重锚 6（next-registry NR-10 11→12 / gate-integrity / supersession / size-* 4 文件）；逐行 assertionsRemoved = 0",
+      "spikeGates": "SG-ADN-01（尾随 next 围栏块解析 + 载荷加法字段）= 13/13 可行 · SG-ADN-02（分层共享 tierOf + pressDecision diff=0，真值表四情形实跑）= 可行 · SG-ADN-03（骑 ref-action 位 prepend 替换 + 前 N=3 合并）= 6/6 可行 + 1 偏差登记（onboarding 优先级 3 < AI 2）⇒ 父 ADR-ADN-004 §③ 文字订正（纯 .sddu / 机制零改）"
+    },
+    "volumeTierUpgrades": "**无升档**（本 Feature 段）：档位保持 614,400 / 绝对上限 675,840 / 生效上限 floor(604,602×1.05)=634,832；距档 9,798 B；未跨档位、未触 EC-ADN-016 三分支；authorConfirmation.status 保持 pending-author-line（承接 v5.5 两次升档的未闭合义务，本 Feature 未新增升档）",
+    "budgetSettlement": "逐叶：叶1 +4,279 B（父 §5.11.1 分列预算 +0.8~2.0 KB 越 ⇒ 显式诚实登记不停机）· 叶2 +1,397 B（+0.5~1.5 KB 带内）；两叶 Σ +5,676 B 越 ADR-ADN-008 §② 目标带 +1.3~+3.5 KB ⇒ 如实登记（不删判据 / 不放宽容差 / 不搬列规避；R-ADN-908 反证在册）",
+    "processProblems": "① 两叶 Σ A 列 +5,676 B 越 ADR 目标带（叶1 越叶预算 / 叶2 在带内）如实登记不停机 · ② SG-ADN-03 语义偏差（onboarding priorityOf(rule)=3 < AI 骑 ref-action=2 ⇒ 并现时 AI 胜出单卡槽；冻结 NEXTSTEP_PRIORITY 既有事实）→ 父 ADR-ADN-004 §③ 文字订正（选卡键轴 vs 字段轴；纯 .sddu / src 零字节）· ③ adn-1 review I-3 background→ui 运行期耦合（ai-next.ts 值导入 stream-digest.assertNoPlaintext ⇒ B 列拉入 UI 模块；零门禁违反，建议后续上移 src/shared/）· ④ 环境性 flake 家族 KL-N-10（s0-self-driven ⑬A/⑲ 相位 flake（rule=risk-recovery 抢槽）⇒ 隔离复跑；recommendation ④/⑭ 首跑 78/3 → 79/1（HEAD 基线同款）⇒ 隔离复跑；binding 191/192（CDP/相位）；npm test 1 = NFR-007 perf-budget 计时 flake ⇒ 隔离 3/3 绿；均不伪称首跑绿）· ⑤ adn-2 review R1 7 项非阻塞 I-1~I-7（I-1 建议加固非放宽 / I-2 已订正 / I-3~I-6 登记 / I-7 采信 review 结论「门禁强度充分、非降级」）· ⑥ 两叶 review/validate 均 ⚠️ 有条件通过 / 0 阻塞（validate 独立复跑 12/16 门禁不采信自报；三重判定环境 flake 非回归）",
+    "handover": {
+      "ownerParent": [
+        "adn-2 review I-1~I-7 七项非阻塞改进项（I-1 ⑲ 严格规则断言与 ⑦A 口径不一致（建议加固）/ I-2 build.md §1.1 措辞矛盾（已实际订正）/ I-3 size-growth-evidence 归因轴混用 / I-4 rows 死参 / I-5 gate-integrity 升级 6 存在性判据过弱 / I-6 s0-self-driven-chain B 标签名实不符 / I-7 recommendation 夹具不建真页面（采信 review 结论：非降级））",
+        "adn-1 review I-1/I-2/I-3（I-1 Chromium S0C-13 A flake 加固 / I-2 gate-integrity 注释陈旧字面已 doc-only 订正 / I-3 background→ui 零明文字段耦合，建议后续上移 src/shared/）",
+        "两叶 validate 环境 flake 观察项（KL-N-10 家族：s0-self-driven 相位 / recommendation ④⑭ / binding CDP / NFR-007 perf-budget 计时）"
+      ],
+      "ownerManual": [
+        "adn-1 / adn-2 人工面 M1~M5（真机相关性 / 「两张皮」是否消失 / 密度观感 / 读屏 / 被拦体感）"
+      ],
+      "closedInLeaf": [
+        "adn-1：review I-2（gate-integrity 注释陈旧字面 doc-only 订正）",
+        "adn-2：review I-2（build.md §1.1 措辞与台账矛盾 ⇒ 已实际订正）；SG-ADN-03 语义偏差 ⇒ 父 ADR-ADN-004 §③ 落账"
+      ],
+      "deferred": [
+        "人工面 M1~M5（headless 不可合成，不冒充 PASS）",
+        "adn-2 review I-1~I-7（七项非阻塞改进项）",
+        "adn-1 review I-3（background→ui 运行期耦合，建议上移 src/shared/）",
+        "adn-1 validate V8 Chromium S0C-13 A 支线相位 flake（KL-N-10 家族）",
+        "authorConfirmation pending-author-line（承接 v5.5 两次升档，未闭合义务）",
+        "外部竞品调研未执行（O-ADN-024，如实登记）",
+        "F-29 A2A 未立项未排期（ROADMAP 区段一字未动）"
+      ]
+    },
+    "manualFaces": "⏳ 未执行（headless 不可合成，不冒充 PASS）：M1 adn-1 真机相关性 · M2 adn-2「两张皮」（AI 口述下一步进 chips）是否消失 · M3 密度观感 · M4 读屏可用性 · M5 被拦候选体感 = **5 项**；并列 v5 / v5.5 / v5.5.1 / v0.11.2 人工面清单（零改写）",
+    "xAdnTerminal": "X-ADN 终态 = **已发生（superseded）4**（X-ADN-1 / 7 / 8 / 11）+ **未发生取代 6**（X-ADN-2/3/4/5/6/9，no-supersession 理由非空）+ **等价重锚 1**（X-ADN-10）——xAdnLedgerFull 11 条并集恰 11（缺条 / ID 冲突 / 空字段 / counterCheck 悬空 ⇒ 必红）；老条目逐字保留；test:supersession 49 → 51 → 53/0",
+    "roadmapRegistration": "ROADMAP v1.33.0 登记 F-36（v0.11.3 patch 主题「AI 驱动 next」）；只增不改（唯一 −1 = 文档版本行），F-29 区段一字未动（sha d789c89c… 核验相等）；§3.1 未动（F-28~F-35 先例同样未入）；文档版本 1.32.0 → 1.33.0"
   }
 }

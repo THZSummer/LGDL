@@ -1,7 +1,7 @@
 # Directory: .sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/
 
 ## 目录简介
-web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）」需求规范 —— 把作者裁决（**有连接 LLM 则 AI...
+web-cli-plugin v5.5.3 / v0.11.3「AI 驱动 next（AI-driven next）」需求规范 **（父收口完成：父 + 2 叶 validated / completed，2026-09-27）** —— 把作者裁决（**有连接 LLM 则 AI 驱动 next 产出**）兑现为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」：父 = 轻量规范容器（不承接 build/review/validate），两叶 `specs-tree-adn-1-ai-next-produce-and-verify`（27 任务 / 产出通道 + 5 道校验链 + 判定分层）→ `specs-tree-adn-2-deterministic-fallback-and-merge`（23 任务 / 兜底 + 合并 + 首开 + 门禁重锚）硬串行；全 Feature 总账见 `closeout.md`。
 
 ## 目录结构
 ```
@@ -20,11 +20,12 @@ specs-tree-web-cli-plugin-v55-f-ai-driven-next/
 ├── discovery.md          # 问题挖掘报告：specs-tree-web-cli-plugin-v55-f-ai-driven-next
 ├── plan.md          # 技术计划：specs-tree-web-cli-plugin-v55-f-ai-driven-next（web-cli-plugin v0.11.3「AI 驱动 next」；父 Feature 统领性技术方案）
 ├── spec.md          # Feature Specification：specs-tree-web-cli-plugin-v55-f-ai-driven-next（web-cli-plugin v5.5.3「AI 驱动 next：LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」）
-├── state.json          # 状态文件 (🟢 tracked [tasked])
+├── state.json          # 状态文件 (✅ completed [validated]；父 = 轻量规范容器，phase=validated / status=completed)
 ├── tasks.json          # 任务清单 (机器可读)
 ├── tasks.md          # 任务分解：specs-tree-web-cli-plugin-v55-f-ai-driven-next（web-cli-plugin v0.11.3「AI 驱动 next」；父 Feature 统领性任务总览）
-├── specs-tree-adn-1-ai-next-produce-and-verify/          # 父规范 §2.2~§2.3 的**新通道根因 + 安全缺口**全部落在本叶：AI 结构化产出 nex
-└── specs-tree-adn-2-deterministic-fallback-and-merge/          # 父规范 §2.2~§2.3 的**回归风险面 + 判据治理面**全部落在本叶：确定性注册表的**兜底
+├── closeout.md          # 🏁 全 Feature 总账（父收口）：两叶终态 / 关键数字 / 门禁计数 / 体积 / deferred / 人工面 / commit 链
+├── specs-tree-adn-1-ai-next-produce-and-verify/          # 父规范 §2.2~§2.3 的**新通道根因 + 安全缺口**全部落在本叶（27 任务；**validated / completed**）：AI 结构化产出 next 候选 + 5 道校验链 + 判定分层（安全核心）
+└── specs-tree-adn-2-deterministic-fallback-and-merge/          # 父规范 §2.2~§2.3 的**回归风险面 + 判据治理面**全部落在本叶（23 任务；**validated / completed**）：确定性注册表的**兜底** + 合并口径 + 首开边界 + 体积/门禁重锚
 ```
 
 ## 文件说明
@@ -43,16 +44,18 @@ specs-tree-web-cli-plugin-v55-f-ai-driven-next/
 | discovery.md | 问题挖掘报告：specs-tree-web-cli-plugin-v55-f-ai-driven-next — web-cli-plugin「**AI 驱动 next（AI-driven next）**」问题挖掘报告 —— 把作者裁决（**「有连接 LLM 的情况下... | ✅ 存在 |
 | plan.md | 技术计划：specs-tree-web-cli-plugin-v55-f-ai-driven-next（web-cli-plugin v0.11.3「AI 驱动 next」；父 Feature 统领性技术方案） — v5（F-32）把「一切操作皆 next 流内闭环」立法；v5.5（F-33）把「**下一步由谁按**」转移到系统 / AI 侧（`pressCandid... | ✅ 存在 |
 | spec.md | Feature Specification：specs-tree-web-cli-plugin-v55-f-ai-driven-next（web-cli-plugin v5.5.3「AI 驱动 next：LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」） — web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）」需求规范 —— 把作者裁决（**有连接 LLM 则 AI... | ✅ 存在 |
-| state.json | 状态文件 | 🟢 tracked [tasked] |
+| state.json | 状态文件 | ✅ completed [validated] |
 | tasks.json | 任务清单（机器可读） | ✅ 存在 |
 | tasks.md | 任务分解：specs-tree-web-cli-plugin-v55-f-ai-driven-next（web-cli-plugin v0.11.3「AI 驱动 next」；父 Feature 统领性任务总览） — `npm test` **1443**（`state.json#domainBaseline`）· `op-wiring` **14**（`request... | ✅ 存在 |
+| closeout.md | 🏁 全 Feature 总账（父收口，2026-09-27）：两叶终态（adn-1 27/27 / adn-2 23/23）· 关键数字（npm 1449→1507 / sidepanel 598,926→604,602 / 两叶 Σ +5,676）· 门禁计数（1507 / 53 / 26 / 14 / 93 / 65）· 体积未升档（档 614,400 / 生效 634,832 / 绝对 675,840 / 距档 9,798）+ `pending-author-line` · X-ADN 终态 4/6/1 · 保护段 journey `7b309258…` / binding `be9ad0e9…` keep · deferred 14 条 · 人工面 M1~M5 ⏳ · commit 链 · ROADMAP v1.33.0 登记 | ✅ 存在（v1.0） |
 
 ## Feature 状态
 | 字段 | 值 |
 |------|-----|
-| Feature ID | N/A |
-| Phase | 任务分解 (4/7) |
-| Status | 🟢 tracked [tasked] |
+| Feature ID | F-36 |
+| 版本位 | v0.11.3（= v0.11.0 / F-33 主题的 patch 级跟进轮） |
+| Phase | 验证完成 (7/7) |
+| Status | ✅ 已完成（父 = 轻量规范容器；phase=validated / status=completed；2 叶全部 validated / completed） |
 
 ## 上级目录
 - [返回上级](../TREE.md)
