@@ -369,3 +369,13 @@ test('DQ 元判据：每条 judgement 的 expectFailPattern 非占位', () => {
   for (const j of JUDGEMENTS) assert.ok(j.expectFailPattern.trim().length >= 8, `${j.id}: expectFailPattern 不得为空/占位`);
   for (const c of DRIVER_CLASSES) assert.ok(['deterministic', 'ai-driven'].includes(c));
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-213**（ADR-ADN-009 §② · FR-ADN-110/111 · AC-ADN-024）——
+ * 升级 6 终态：双向包含 **12↔12** 随 count 自动前移（旧 11 行逐字保留 + `ai-next` 第 12 行）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-2 213（DQ 终态）：声明表 ↔ 注册表 12↔12 双向包含逐条成立', () => {
+  assert.equal(DECL_IDS.length, 12, '声明表恰 12（11 + ai-next）');
+  assert.equal(PROVIDER_IDS.length, 12, '注册表恰 12（11 + ai-next）');
+  assert.deepEqual(bidirectionalProblems(DECL_IDS, PROVIDER_IDS), [], '终态双向包含必须逐条成立');
+  assert.ok(DECL_IDS.includes('ai-next') && PROVIDER_IDS.includes('ai-next'), 'ai-next 必须在两侧');
+});

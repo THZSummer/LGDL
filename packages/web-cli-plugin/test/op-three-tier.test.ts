@@ -497,3 +497,12 @@ test('★ ADN-1 122：接受层读点 = tierOf ∧ tierOfId(op.authorize)=gestur
   assert.ok(acceptTierReadPointProblems(`${AI_NEXT_SRC}\nconst OP_TIER_TABLE = {} as const;\n`).length > 0, '第二档位表 ⇒ 必红');
   assert.deepEqual(acceptTierReadPointProblems(AI_NEXT_SRC), [], '还原 ⇒ PASS');
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-213**（ADR-ADN-009 §② · FR-ADN-110/111 · AC-ADN-024）——
+ * 升级 6 终态：接受层读点 = `tierOf` 单源 ∧ 特权恒 gesture（加严保持，零降级）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-2 213（O3 终态）：接受层读点 = tierOf 单源 ∧ 特权恒 gesture', () => {
+  assert.deepEqual(acceptTierReadPointProblems(AI_NEXT_SRC), [], '接受层读点终态保持（零第二档位表）');
+  assert.equal(tierOfId('op.authorize'), 'gesture', '特权恒 gesture');
+  assert.equal(tierOfId('op.perm.request'), 'gesture', '特权恒 gesture（perm.request）');
+});

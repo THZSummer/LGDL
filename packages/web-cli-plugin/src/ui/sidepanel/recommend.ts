@@ -99,6 +99,17 @@ export function refActionTextKey(text: string): string | undefined {
   return m ? refActionDigest(`ref_${m[1]}`, text) : undefined;
 }
 
+/**
+ * ★ F-36 / ADN-2 **TASK-ADN-206**（ADR-ADN-004 §④⑤ · FR-ADN-053 · AC-ADN-007 · EC-ADN-012）
+ * —— 候选**列表内**去重键（`opId#意图摘要`）。摘要函数与 R6 去重家系**逐字复用**同一个
+ * `intentDigest`（**非放宽**：仅把「谁进该家系」从确定性候选扩到 AI 候选）。
+ *
+ * 同一条 `opId#label` 在一次候选列表里重复 ⇒ **不占第二个槽**（同台争的是同一个单卡位）。
+ */
+export function chipDedupKey(opId: string, text: string): string {
+  return `${opId}#${intentDigest(text)}`;
+}
+
 /** The chips copy the ref-action provider proposes (matching {@link REF_ACTION_TEMPLATE}). */
 function isRefActionRule(rule: string): boolean {
   return rule === 'ref-action';
@@ -115,6 +126,46 @@ export function completedActionKey(
 ): string | undefined {
   if (!isRefActionRule(rule) || latestRefNum === undefined) return undefined;
   return refActionDigest(`ref_${latestRefNum}`, chips[0]?.text ?? '');
+}
+
+/**
+ * ★ F-36 / ADN-2 **TASK-ADN-206**（ADR-ADN-004 §⑤ · FR-ADN-053 · AC-ADN-007 · EC-ADN-012）
+ * —— R6 同因去重**扩展覆盖 AI 候选**：在构造 ctx **之前**，用**同一** `refActionDigest` /
+ * `intentDigest` 家系预过滤 `session.aiNext`：
+ *
+ *   `key = refActionDigest(candidate.ref ?? \`ref_${latestRefNum}\`, candidate.label)`
+ *   若 `key ∈ input.completedActions` ⇒ 压掉该条（同 digest ⟺ 同意图）。
+ *
+ * 纪律：
+ *   · **不动**既有 post-filter 对确定性 `ref-action` 候选的行为（`completedActionKey` 逐字保留）；
+ *   · 无法构成键（无 `latestRefNum` 且候选无 `ref`）⇒ **不压**（fail-open 到确定性兜底面，零静默丢弃）；
+ *   · 全部被压掉 ⇒ 返回空列表 ⇒ `ai-next.chipsFor` 空 ⇒ 该 provider 不占规则位 ⇒ 确定性接管。
+ */
+export function aiNextAfterCompleted(
+  candidates: readonly AiNextCandidate[],
+  input: RecommendInput,
+): readonly AiNextCandidate[] {
+  const completed = input.completedActions;
+  if (candidates.length === 0 || !completed || completed.length === 0) return candidates;
+  const done = new Set(completed);
+  const fallbackRef = input.ref.latestRefNum === undefined ? undefined : `ref_${input.ref.latestRefNum}`;
+  return candidates.filter((c) => {
+    const refId = c.ref ?? fallbackRef;
+    if (refId === undefined) return true;
+    return !done.has(refActionDigest(refId, c.label));
+  });
+}
+
+/**
+ * ★ ADN-2 **TASK-ADN-206** —— 把 R6 预过滤后的 `session.aiNext` 交给 ctx 构造。
+ * 无可压项（或缺席 / 空）⇒ **逐字返回原 input**（既有 11 行 provider 行为零变化）。
+ */
+function aiGatedInput(input: RecommendInput): RecommendInput {
+  const list = input.session.aiNext;
+  if (list === undefined || list.length === 0) return input;
+  const filtered = aiNextAfterCompleted(list, input);
+  if (filtered.length === list.length) return input;
+  return { ...input, session: { ...input.session, aiNext: filtered } };
 }
 
 /** The 7 allowed truth sources (asserted verbatim by the source gate). */
@@ -448,7 +499,8 @@ export function recommendCtx(input: RecommendInput): NextCtx {
  */
 export function candidateRules(input: RecommendInput): readonly NextstepRuleCandidate[] {
   registerBuiltinProviders();
-  const ctx = recommendCtx(input);
+  // ★ ADN-2 TASK-ADN-206：R6 同因去重扩展覆盖 AI —— **在构造 ctx 之前**预过滤（同一家系）。
+  const ctx = recommendCtx(aiGatedInput(input));
   const out: NextstepRuleCandidate[] = [];
   const seen = new Set<string>();
   for (const p of resolveOrder()) {
@@ -462,13 +514,22 @@ export function candidateRules(input: RecommendInput): readonly NextstepRuleCand
     if (opIds.length === 0) continue;
     seen.add(rule);
     const texts = p.textOf ? p.textOf(ctx) : p.chips;
-    const chips: NextstepChip[] = opIds.map((opId, i) => ({
-      text: texts[i] ?? opId,
+    // ★ ADN-2 TASK-ADN-204（ADR-ADN-004 §④ · FR-ADN-051/054）—— **列表内去重**：同 `opId#摘要`
+    // 的重复项不占第二个槽（既有确定性候选的 `opId#label` 两两不同 ⇒ 逐字同前；AI 多候选
+    // 里的重复项被压掉）。顺序保持首次出现（AI 给出的数组顺序 = 排序）。
+    const chips: NextstepChip[] = [];
+    const seenChip = new Set<string>();
+    for (let i = 0; i < opIds.length; i += 1) {
+      const opId = opIds[i];
+      const text = texts[i] ?? opId;
+      const key = chipDedupKey(opId, text);
+      if (seenChip.has(key)) continue;
+      seenChip.add(key);
       // review R1 BLOCK-03: an op **outside** the 6-act table is op-direct — the act IS the
       // opId (resolved by `dispatchChipAction` via `OPS_BY_ID`). Mapping it to `'next'`
       // would dispatch `op.turn` instead (a wrong-op clip) — the exact lie this fixes.
-      act: (OP_TO_ACT[opId] ?? opId) as ChipAct,
-    }));
+      chips.push({ text, act: (OP_TO_ACT[opId] ?? opId) as ChipAct });
+    }
     out.push(candidate(rule as NextstepRuleId, chips, p.label));
   }
   return Object.freeze(out.sort((a, b) => a.priority - b.priority));

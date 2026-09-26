@@ -2067,7 +2067,11 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
       busy: state.pending,
       // ★ F-36 / ADN-1 TASK-ADN-114：注入槽（事件作用域单槽；仅在接受项非空时附加 ⇒
       // 缺席 ⇒ provider `when` 为假 ⇒ 既有 11 行逐字同前）。
-      ...(pendingAiNext && pendingAiNext.accepted.length > 0 ? { aiNext: pendingAiNext.accepted } : {}),
+      // ★ ADN-2 **TASK-ADN-208**（ADR-ADN-006 §④ · FR-ADN-062 · AC-ADN-008 · X-ADN-11）——
+      // **显示相关断门**：关断偏好 OFF ⇒ **不注入** ⇒ AI 候选不显示（主题① 确定性仍工作、
+      // 手输仍可用 —— 关断 = 不打扰，非禁用）。一处偏好两相：本处（显示）+ `driveAnsweredTurn`
+      // 既有 `guardAllowed` 缝（按下）；**零第二偏好键 / 零第二阈值**。
+      ...(pendingAiNext && pendingAiNext.accepted.length > 0 && proactivity.enabled() ? { aiNext: pendingAiNext.accepted } : {}),
     },
     site: { authorized: state.authorized, trust: state.trust === 'trusted' ? 'trusted' : 'untrusted' },
     catalog: { toolCount: CATALOG_BASELINE_META.toolCount, subcommandCount: CATALOG_BASELINE_META.subcommandCount },

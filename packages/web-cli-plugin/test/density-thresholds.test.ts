@@ -1089,3 +1089,43 @@ test('V5-3 W4: 宽度 → 控件计数不变（测量口径与宽度解耦）', 
   assert.equal(baseline.v5Ledger?.widthInvariance.length, 1);
   assert.equal(baseline.v5Ledger?.widthInvariance[0]?.decoupled, true);
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-204 / 215**（ADR-ADN-004 §④ · ADR-ADN-009 §④ · FR-ADN-051/054 ·
+ * AC-ADN-007 · EC-ADN-015）—— AI 候选不得破**显示上界**：单卡 3-chip / 单卡位 / 320px 窄视口
+ * 仍在既有矩阵内；三档阈值逐字不动。纯追加（§9.2 既有判据逐字保留）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test('★ ADN-2 215：AI 候选不越密度阈值（单卡 ≤3 chip / 单卡位 / 320px 视口仍在矩阵内）', async () => {
+  const { recommendNextStep, MAX_CHIPS_PER_CARD, MAX_NEXTSTEP_CARDS_PER_ROUND } = await import('../src/ui/sidepanel/recommend.js');
+  // ① 三档阈值逐字（AI 合并面不得借它放宽）。
+  assert.deepEqual(DENSITY_LIMITS, {
+    default: { clickables: 7, lines: 15 },
+    firstRun: { clickables: 9, lines: 20 },
+    risk: { clickables: 17, lines: 35 },
+  });
+  assert.deepEqual(DENSITY_VIEWPORTS, [320, 400, 520], '窄视口 320 必须在矩阵内（EC-ADN-015）');
+  assert.equal(MAX_CHIPS_PER_CARD, 3, '单卡 3-chip 上限不动');
+  assert.equal(MAX_NEXTSTEP_CARDS_PER_ROUND, 1, '单卡位不动');
+  // ② 行为面：塞 5 条 AI 候选 ⇒ 仍恰 1 卡、chips ≤3（密度判定只可能更松，不会更紧）。
+  const input = {
+    ref: { validCount: 1, staleCount: 0, latestRefNum: 3 },
+    session: { openAsks: 0, busy: false, aiNext: [
+      { opId: 'op.turn', label: 'a' }, { opId: 'op.turn', label: 'b' }, { opId: 'op.turn', label: 'c' },
+      { opId: 'op.turn', label: 'd' }, { opId: 'op.turn', label: 'e' },
+    ] },
+    site: { authorized: true, trust: 'trusted' as const },
+    catalog: { toolCount: 122, subcommandCount: 40 },
+    probe: { phase: 'ready', steady: true },
+    risks: [] as string[],
+    onboarding: { firstRun: false, pendingSteps: [] as string[] },
+    now: 1_000_000,
+  };
+  const r = recommendNextStep(input);
+  assert.equal(r.cards.length, 1, 'AI 多候选仍恰 1 卡（单卡位）');
+  assert.ok((r.cards[0]?.chips.length ?? 0) <= MAX_CHIPS_PER_CARD, 'AI 候选不越单卡 3-chip（显示上界不破）');
+  assert.equal(r.cards[0]?.terminal, true, '终端恒常驻（不进 MAX_CHIPS_PER_CARD）');
+  // ③ 源码面：截断由单源常量承重（去掉 ⇒ 判据可见）。
+  const src = readFileSync(resolve(PKG, 'src/ui/sidepanel/recommend.ts'), 'utf8');
+  assert.match(src, /chips\.slice\(0, MAX_CHIPS_PER_CARD\)/, '单卡 3-chip 截断必须由单源常量承重');
+  assert.match(src, /MAX_CHIPS_PER_CARD = 3/, '上限常量必须逐字 3');
+});

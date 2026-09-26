@@ -30,6 +30,7 @@
  * @module test/r8-open-next-entry
  */
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -42,7 +43,11 @@ import { buildOnboarding, firstRunCard } from '../src/ui/sidepanel/view-model.js
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const SIDEPANEL_REL = 'src/ui/sidepanel/sidepanel.ts';
+const PROVIDERS_REL = 'src/ui/sidepanel/next-registry/providers.ts';
+const RECOMMEND_REL = 'src/ui/sidepanel/recommend.ts';
 const SIDEPANEL_SRC = readFileSync(join(PKG, SIDEPANEL_REL), 'utf8');
+const PROVIDERS_SRC = readFileSync(join(PKG, PROVIDERS_REL), 'utf8');
+const RECOMMEND_SRC = readFileSync(join(PKG, RECOMMEND_REL), 'utf8');
 
 export interface Judgement {
   readonly id: string;
@@ -56,6 +61,10 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'R8-4-open-steady-card-terminal', expectFailPattern: '首开稳态必须铸含 free-input 终端的卡（零死端 floor）' },
   { id: 'R8-5-injection-red', expectFailPattern: '移除首开入口必须判红（首开零卡）' },
   { id: 'R8-6-yield-to-firstRun', expectFailPattern: '首开入口必须让位 firstRun（零双卡）' },
+  // ★ ADN-2 TASK-ADN-211 / 212（纯追加；R8-1~6 逐字保留）。
+  { id: 'R8-7-open-deterministic-no-ai-next', expectFailPattern: '首开求值必须保持确定性（结构上无 AI 初始 next；零 LLM 往返依赖）' },
+  { id: 'R8-8-fallback-deletion-red', expectFailPattern: '删 free-input 恒真 when / 删零死端 floor ⇒ 必红（兜底判据非恒真）' },
+  { id: 'R8-9-byte-for-byte-restore', expectFailPattern: '注入反证必须逐字节还原（sha256 前后相同）后 PASS' },
 ];
 
 const isComment = (line: string): boolean => {
@@ -219,3 +228,119 @@ test('R8 元判据：每条 judgement 的 expectFailPattern 非占位', () => {
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);
   }
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-211 / 212**（ADR-ADN-005 §①⑤ · ADR-ADN-007 ·
+ * FR-ADN-044/045/070~073 · AC-ADN-006/009/019 · EC-ADN-013/019 · N-ADN-025）——
+ * 首开确定性 + 兜底反证（删兜底 / 删终端 ⇒ 必红）+ 逐字节还原。
+ * 纯追加：R8-1~6 与既有用例逐字保留（断言零删除、计数只增）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** ★ ADN-2 211 —— 首开求值保持确定性：入口体内**不得**出现 AI 注入面（结构上无 AI 初始 next）。 */
+export function openDeterministicProblems(sidepanelSrc: string): string[] {
+  const problems: string[] = [];
+  const body = functionBody(sidepanelSrc, 'maybeRecommendOpenEntry');
+  if (body.length === 0) return [`${JUDGEMENTS[6].expectFailPattern}：首开入口体必须可定位（否则判据空转）`];
+  if (/aiNext|pendingAiNext|proactivity/.test(stripComments(body))) {
+    problems.push(`${JUDGEMENTS[6].expectFailPattern}：首开入口体内不得出现 AI 注入面（AI 初始 next 明列后续轮）`);
+  }
+  return problems;
+}
+
+/** ★ ADN-2 212 —— 兜底 / 终端的**存在性**判据（删掉任一 ⇒ 同一判据必红）。 */
+export function fallbackProblems(providersSrc: string, recommendSrc: string): string[] {
+  const problems: string[] = [];
+  const fail = JUDGEMENTS[7].expectFailPattern;
+  const cleanP = stripComments(providersSrc);
+  const cleanR = stripComments(recommendSrc);
+  // ① 终端存在性单源：`free-input` provider 的恒真 `when`（读 `session.busy` 的两条穷尽分支）。
+  if (!/id:\s*FREE_INPUT_PROVIDER_ID/.test(cleanP)) problems.push(`${fail}：free-input provider 声明处必须仍在`);
+  if (!/when:\s*\(ctx\)\s*=>\s*ctx\.session\.busy === true \|\| ctx\.session\.busy === false/.test(cleanP)) {
+    problems.push(`${fail}：free-input 的恒真 when 必须仍在（删掉 ⇒ 终端消失 ⇒ 零死端回归）`);
+  }
+  // ② 零死端 floor：无候选 ∧ 终端在场 ⇒ 铸「仅含终端」最小卡。
+  if (!/suppression:\s*'empty'/.test(cleanR)) problems.push(`${fail}：floor 的 empty 分支必须仍在`);
+  if (!/freeInputOnlyCard\(\)/.test(cleanR)) problems.push(`${fail}：floor 必须铸「仅含终端」最小卡（freeInputOnlyCard）`);
+  if (!/cards:\s*Object\.freeze\(terminal \? \[freeInputOnlyCard\(\)\] : \[\]\)/.test(cleanR)) {
+    problems.push(`${fail}：floor 必须由「终端在场」决定（不得无条件铸卡 / 不得删终端条件）`);
+  }
+  // ③ fail-closed：`safety` 仍不走 floor。
+  if (!/suppression:\s*'safety'/.test(cleanR)) problems.push(`${fail}：safety 必须仍保持「不推荐」（不走 floor）`);
+  return problems;
+}
+
+/** 逐字节还原判据（sha256 前后相同）。 */
+const sha256 = (text: string): string => createHash('sha256').update(text, 'utf8').digest('hex');
+
+export type TriState = 'ok' | 'violated' | 'n/a';
+/** 三段控制：`true ⇒ ok` / `false ⇒ violated` / 读不到（undefined）⇒ `n/a`（不冒充 ok）。 */
+export function triState(reading: boolean | undefined): TriState {
+  if (reading === undefined) return 'n/a';
+  return reading ? 'ok' : 'violated';
+}
+
+test('★ ADN-2 211：首开保持确定性（结构上无 AI 初始 next / 零 LLM 往返依赖 / 让位 firstRun）', () => {
+  assert.deepEqual(openDeterministicProblems(SIDEPANEL_SRC), [], JUDGEMENTS[6].expectFailPattern);
+  // 结构事实：首开稳态输入**不含** `session.aiNext`（面板刚起、无回合结题）。
+  const input = openSteadyInput('probing');
+  assert.equal('aiNext' in input.session, false, '首开求值时结构上不可能有 AI 初始 next');
+  // 行为面：首开稳态仍由确定性路径铸卡（floor / capability-discovery），零 LLM 依赖。
+  const probing = recommendNextStep(input);
+  assert.equal(probing.cards.length, 1, JUDGEMENTS[6].expectFailPattern);
+  assert.equal(probing.cards[0]?.terminal, true, '首开卡必须带 free-input 终端');
+  assert.equal(probing.cards[0]?.label.includes('AI'), false, '首开不得出现 AI 建议标题');
+  // 反证：把 AI 注入面塞进首开入口 ⇒ 同一判据必红。
+  const forged = SIDEPANEL_SRC.replace(
+    '  openEntryHandled = true;',
+    "  openEntryHandled = true;\n  void pendingAiNext;",
+  );
+  assert.notEqual(forged, SIDEPANEL_SRC, '前置：首开入口注入锚点必须存在');
+  assert.ok(openDeterministicProblems(forged).some((p) => p.includes(JUDGEMENTS[6].expectFailPattern)), '首开混入 AI 注入面 ⇒ 必红');
+});
+
+test('★ ADN-2 212：兜底反证（删恒真 when / 删 floor ⇒ 必红）+ 逐字节还原（sha256 前后相同）', () => {
+  // 生产源实测 PASS。
+  assert.deepEqual(fallbackProblems(PROVIDERS_SRC, RECOMMEND_SRC), [], JUDGEMENTS[7].expectFailPattern);
+  const before = { p: sha256(PROVIDERS_SRC), r: sha256(RECOMMEND_SRC) };
+
+  // 反证①：删掉 free-input 的恒真 when（改成恒假）⇒ 终端消失 ⇒ 必红。
+  const noTerminal = PROVIDERS_SRC.replace(
+    'when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,',
+    'when: () => false,',
+  );
+  assert.notEqual(noTerminal, PROVIDERS_SRC, '前置：恒真 when 锚点必须存在');
+  assert.ok(fallbackProblems(noTerminal, RECOMMEND_SRC).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)), '删恒真 when ⇒ 必红');
+
+  // 反证②：删掉零死端 floor 的「仅含终端」最小卡 ⇒ 必红。
+  const noFloor = RECOMMEND_SRC.replace('cards: Object.freeze(terminal ? [freeInputOnlyCard()] : []),', 'cards: Object.freeze([]),');
+  assert.notEqual(noFloor, RECOMMEND_SRC, '前置：floor 锚点必须存在');
+  assert.ok(fallbackProblems(PROVIDERS_SRC, noFloor).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)), '删 floor ⇒ 必红');
+
+  // 反证③：把 safety 也走 floor（放宽 fail-closed）⇒ 必红。
+  const safetyFloor = RECOMMEND_SRC.replace("suppression: 'safety'", "suppression: undefined");
+  assert.ok(fallbackProblems(PROVIDERS_SRC, safetyFloor).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)), 'safety 走 floor ⇒ 必红');
+
+  // 逐字节还原：sha256 前后相同 ⇒ PASS（判据不得靠持久改写源码通过）。
+  assert.equal(sha256(PROVIDERS_SRC), before.p, 'fixture 未被就地改写');
+  assert.equal(sha256(RECOMMEND_SRC), before.r, 'fixture 未被就地改写');
+  assert.deepEqual(fallbackProblems(PROVIDERS_SRC, RECOMMEND_SRC), [], `${JUDGEMENTS[8].expectFailPattern}：还原 ⇒ PASS`);
+});
+
+test('★ ADN-2 212：三段控制 ok / violated / n/a 逐态可达（n/a 不冒充 ok）', () => {
+  assert.equal(triState(fallbackProblems(PROVIDERS_SRC, RECOMMEND_SRC).length === 0), 'ok', '生产事实 ⇒ ok');
+  const forged = PROVIDERS_SRC.replace('when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,', 'when: () => false,');
+  assert.equal(triState(fallbackProblems(forged, RECOMMEND_SRC).length === 0), 'violated', '注入 ⇒ violated');
+  assert.equal(triState(undefined), 'n/a', '读不到 ⇒ n/a（证据面不可达）');
+  assert.notEqual(triState(undefined), 'ok', 'n/a 不得冒充 ok');
+  assert.deepEqual([triState(true), triState(false), triState(undefined)], ['ok', 'violated', 'n/a'], '三段互斥且可达');
+});
+
+test('★ ADN-2 212：判据表随纯追加增长（R8-7~9 ∈ JUDGEMENTS，旧 6 条逐字保留）', () => {
+  const ids = JUDGEMENTS.map((j) => j.id);
+  for (const legacy of ['R8-1-open-entry-single-source', 'R8-2-reuse-idle-timing', 'R8-3-once-and-facts-gate', 'R8-4-open-steady-card-terminal', 'R8-5-injection-red', 'R8-6-yield-to-firstRun']) {
+    assert.ok(ids.includes(legacy), `旧判据 ${legacy} 必须逐字保留（断言零删除）`);
+  }
+  for (const added of ['R8-7-open-deterministic-no-ai-next', 'R8-8-fallback-deletion-red', 'R8-9-byte-for-byte-restore']) {
+    assert.ok(ids.includes(added), `新增判据 ${added} 必须登记`);
+  }
+});
+

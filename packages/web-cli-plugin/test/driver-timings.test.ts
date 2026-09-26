@@ -319,3 +319,14 @@ test('DT 元判据：每条 judgement 的 expectFailPattern 非占位', () => {
   assert.ok((FILES.find((f) => f.rel === DRIVERS_REL)?.text ?? '').includes('DRIVER_TIMINGS_LEGACY4'), '旧 4 值集必须也在单源里');
   assert.ok(Object.keys(CTX_FIELD_SERVICE).includes('session.proactive'), 'CTX_FIELD_SERVICE 必须登记 session.proactive');
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-213**（ADR-ADN-009 §② · FR-ADN-110/111 · AC-ADN-024）——
+ * 升级 6 **终态对账**（保留 / 等价重锚 / 显式取代三态齐；断言零删除、计数只增）。
+ * 真源：既有导入的常量（DT-2 恰 5 / DT-3 旧 4 逐字 / answered 唯一新增）。纯追加。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-2 213（DT 终态）：时机源恰 5 ∧ 旧 4 逐字 ∧ answered 唯一加法（等价重锚，非取代）', () => {
+  assert.equal(DRIVER_TIMINGS.length, 5, 'DT-2：时机源恰 5（AI 骑既有 idle ⇒ 零新增第 6 触发词）');
+  assert.deepEqual([...DRIVER_TIMINGS_LEGACY4], ['pick', 'stale', 'idle', 'firstRun'], 'DT-3：旧 4 项逐字保留');
+  assert.equal(DRIVER_TIMING_ANSWERED, 'answered', 'DT：answered 单源');
+  assert.deepEqual([...DRIVER_TIMINGS], [...DRIVER_TIMINGS_LEGACY4, 'answered'], '纯加法（零删除）');
+});

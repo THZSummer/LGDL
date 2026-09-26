@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
   "version": "v0.11.3",
   "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
-  "phase": "tasked",
-  "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "phase": "building",
+  "status": "in_progress",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "childrens": [],
@@ -44,14 +44,16 @@
     "state.json",
     "plan.md",
     "tasks.md",
-    "tasks.json"
+    "tasks.json",
+    "build.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/state.json",
     "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md",
     "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.md",
-    "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.json"
+    "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/build.md"
   ],
   "coversFr": [
     "FR-ADN-040~046",
@@ -94,6 +96,14 @@
       "agent": "sddu-tasks",
       "artifact": "tasks.md + tasks.json v1.0（23 任务 / 3（W04~W06））",
       "note": "adn-2 叶 tasks 阶段：23 任务 / 3（W04~W06）（TASK-ADN-201~223；S×3 / M×18 / L×2）；spikeGate + 门禁落点 + S0''' 双面 + 体积分列见 tasks.md/ tasks.json。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "building",
+      "status": "in_progress",
+      "at": "2026-09-26",
+      "agent": "sddu-build",
+      "artifact": "build.md v1.0（R1 = W04+W05 / TASK-ADN-201~216）",
+      "note": "adn-2 build **R1（W04 兜底与合并 + W05 护栏与首开）**：SG-ADN-03 = **可行**（6/6 硬判据 + 1 偏差登记：`onboarding` 卡片优先级=3 < AI 骑 `ref-action`=2，属冻结 `NEXTSTEP_PRIORITY` 既有事实，非本机制引入，修正需改冻结表=红线 ⇒ 记为语义订正项）。落地：recommend.ts（R6 同因去重扩展覆盖 AI 的预过滤 + `opId#摘要` 列表内去重；`chipsFor`/`seen` 替换口径逐字复用）+ sidepanel.ts（关断**显示相**：注入前检查 `proactivity.enabled()`）。门禁：`npm test` 1478→**1500 / 0**（纯加法，测试零删除行）+ `test:density` **242/0** + `test:dead-end` **53/0** + `typecheck` 过；`test:binding` 隔离复跑 3 次命中 KL-N-10 同族环境 flake（第 1 次 `#54B7`；第 2/3 次 `#6l residual=undefined` / `#confirm-allow not found`；load 12 / free 1G；与历史登记变体逐条一致 ⇒ 非本叶回归，保护段 pin 由 `supersession-ledger` 独立机核）。三冻结面（content.js 177,076 / `52a82620…`；pick-layer.js 34,358 / `77796bab…`）+ base + manifest + journey/binding 零 diff。体积五要素（临时构建，不改 dist）：A 列 sidepanel 603,205→**604,583 B（+1,378 B，+1.35 KB）**，余量 28,782 B，未越生效上限 633,365（距档 614,400 余 9,817 B）；B 列 ~0；W06 重登记。**W06（TASK-ADN-217~223：S0' 终态双面 / 体积收口重登记 / 门禁重锚对账 / X-ADN 台账终态 / 保护段 keep 双绿）留 R2**。"
     }
   ],
   "openPointsRuled": [

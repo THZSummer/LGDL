@@ -421,3 +421,12 @@ test('★ ADN-1 121：AI 候选经既有 done → maybeRecommend(\'idle\') 挂�
   // 反证：新增第 9 个 maybeRecommend( 调用点 ⇒ 必红。
   assert.ok(occurrenceProblems(`${SIDEPANEL}\nmaybeRecommend('idle');`, 'maybeRecommend', 8, 'maybeRecommend 调用点').length > 0, '第 9 个调用点必须红');
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-213**（ADR-ADN-009 §② · FR-ADN-110/111 · AC-ADN-024）——
+ * 升级 6 终态：`requestTurn(` 恰 1 / `maybeRecommend` 1 定义 · 8 调用点（零新增挂点）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-2 213（OW 终态）：计数全保持（requestTurn 恰 1 / maybeRecommend 1 定义 8 调用点）', () => {
+  assert.deepEqual(requestTurnProblems(SIDEPANEL), [], 'requestTurn 判据终态保持');
+  assert.equal(definitionCount(SIDEPANEL, 'maybeRecommend'), 1, 'maybeRecommend 定义恰 1');
+  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 8, 'maybeRecommend 调用点'), [], '调用点仍恰 8（AI 经既有挂点）');
+});

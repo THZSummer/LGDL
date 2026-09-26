@@ -901,8 +901,42 @@ npm --prefix packages/web-cli-plugin run test:e2e
 
 ---
 
+---
+
+## 6. R1 执行状态（build R1 = W04 + W05，TASK-ADN-201~216）
+
+> **本轮范围**：`SG-ADN-03` 先验 + W04（兜底与合并：`201`~`207`）+ W05（护栏与首开：`208`~`216`）。**W06（`217`~`223`）留 R2**。
+
+| 任务 | 状态 | 证据 / 判据 |
+|------|:--:|------|
+| TASK-ADN-201 | ✅ completed（SG-ADN-03 = **可行**） | 探针 `test/_spike/sg-adn-03-probe.mjs` **6/6 PASS**（探毕删除，不入提交）：prepend 赢槽 / AI when 假 ⇒ 确定性接管 / 前 N=3 截断 + 单卡 + 3-chip + `NEXTSTEP_PRIORITY` 恰 4 / `risk-recovery` 优先 / 反证可红。**偏差登记 1 项**：`onboarding` 卡片优先级 = 3（冻结表 index 2 + 1），AI 骑 `ref-action` = 2 ⇒ 「onboarding 命中时 AI 不显示」在冻结表下不成立（属 `NEXTSTEP_PRIORITY` 既有事实，修正需改冻结表 = 红线；记为语义订正项，详见 build.md §1.1） |
+| TASK-ADN-202 | ✅ completed | 三情形兜底（未配 / 未产出 / 全被拦）逐字复用；`recommendation-sources`「★ ADN-2 207/213」+ `free-input-next`「★ ADN-2 203/216」行为面覆盖 |
+| TASK-ADN-203 | ✅ completed | 终端恒常驻（FIN-1 / FIN-10）+ floor 只含终端（AI 不进 floor）+ `safety` 不走 floor；反证「删恒真 when / 删 floor ⇒ 必红」 |
+| TASK-ADN-204 | ✅ completed | `recommend.ts#candidateRules` 列表内 `opId#摘要` 去重 + `candidate()` 截断 ≤3；`recommendation-sources` 204 断言 |
+| TASK-ADN-205 | ✅ completed | 替换口径双向可判（AI 在场 ⇒ 无陈旧 chip；缺席 ⇒ 照旧）+ `data-op` 单源；`recommendation-sources` 205 断言 |
+| TASK-ADN-206 | ✅ completed | `aiNextAfterCompleted` 预过滤（`refActionDigest` 家系逐字复用）；同因命中 ⇒ 压掉 ⇒ 确定性接管；反证「无预过滤 ⇒ AI 赢槽」 |
+| TASK-ADN-207 | ✅ completed | 规则表恰 4 / 单卡 / 真值 7 / 模块白名单恒 5 / ④ 零新 LLM 保持；断言零删除 |
+| TASK-ADN-208 | ✅ completed | `maybeRecommend` 注入前检查 `proactivity.enabled()`（显示相）；按下相走既有 `guardAllowed`（`blocked:guard`）；零第二偏好键 |
+| TASK-ADN-209 | ✅ completed | `proactivity-guard`：提案不耗预算双向（`verdict` 零副作用 / `noteProactive` 才 −1）+ 关断两相 + 源码面反证 |
+| TASK-ADN-210 | ✅ completed | `pending` 硬门逐字（源码正则 + 行为）+ AI 撞车 `blocked:busy`（不排队）+ `ARBITRATION_RESULTS` 四值逐字 |
+| TASK-ADN-211 | ✅ completed | 首开入口复用既有 `idle` 逐字；首开求值结构上无 AI 初始 next；零 LLM 往返；让位 `firstRun` |
+| TASK-ADN-212 | ✅ completed | `r8-open-next-entry` R8-7~9：兜底反证（删恒真 when / 删 floor / `safety` 走 floor ⇒ 各必红）+ `sha256` 逐字节还原 + 三段控制可达 |
+| TASK-ADN-213 | ✅ completed | 升级 6 终态对账（`UPGRADE6_FILES` cross-file 判据 + 各文件 `★ ADN-2 213` 终态块）；三态齐 / `assertionsRemoved = 0`（本轮取代面 = 0） |
+| TASK-ADN-214 | ✅ completed | 六常量各恰一处（同源复用）+ `secondThresholdProblems`（`background/ai-next.ts` / `providers.ts` 零第二阈值，反证可红）+ `AI_NEXT_LABEL_MAX=48` / `AI_NEXT_PARAM_MAX=128` 登记为显示 / 结构上限 |
+| TASK-ADN-215 | ✅ completed | 阈值 7/15 · 9/20 · 17/35 逐字 + AI 多候选 ≤3 chip / 单卡位 + 320px 在矩阵内；`test:density` **242/0** |
+| TASK-ADN-216 | ✅ completed | `turn-arbitration`（撞车 `blocked:busy` + 四值 + `pending` 硬门）+ `free-input-next` 声明集下界 ≥12（旧 `>=11` 逐字保留） |
+
+**R1 门禁对账**：`npm test` **1478 → 1500 / 0**（+22，测试文件 **0 删除行**）；`test:density` **242/0**；`test:dead-end` **53/0**；`typecheck` PASS；`test:binding` 隔离复跑 ×3 命中 KL-N-10 同族环境 flake（失败项互异、与历史登记变体一致、保护段零 diff ⇒ 非本叶回归，如实登记不阻塞）。
+
+**三冻结面 / base**：`content.js` 177,076 B / sha `52a82620…`、`pick-layer.js` 34,358 B / sha `77796bab…` 逐字节不变；`packages/web-cli-base/**`、`manifest.json`、`test/ui/journey.mjs`、`test/ui/binding.mjs` 零 diff。
+
+**体积五要素（R1 临时构建，不改 `dist/`）**：① 登记基线 `603,205 B`；② 实测 `604,583 B`；③ 增量 **+1,378 B（+1.35 KB）**（A 列预算 +0.5~1.5 KB 内）；④ 生效上限 `633,365 B`（余量 28,782 B）；⑤ 档位 `614,400` 余 9,817 B（未越档，`pending-author-line` 保持）；B 列 ≈ 0（`background.js` 未受影响）。**W06 收口重登记**。
+
+**反证摘要（重点 5 条）**：删兜底 / 删终端 ⇒ `r8` / `free-input-next` 必红；AI 赢槽后终端仍 `terminal===true`（且 floor 铸造点不读 `aiNext`）；多候选 >3 ⇒ 截断到 3 且仍恰 1 卡；同因重复 ⇒ 预过滤命中即压掉（无预过滤则 AI 赢槽 ⇒ 可红）；关断后仍注入 AI ⇒ `displayPhaseGateProblems` 必红。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（ADN-2 叶任务：**23 任务 / 3 波**（`TASK-ADN-201~223`；S×3 / M×18 / L×2）+ 1 个 spikeGate（`SG-ADN-03`）+ 升级 6 门禁等价重锚终态 + S0''' 四支线终态 + X-ADN-1~11 台账终态 + 保护段 keep（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积叶2 重登记（+0.5~1.5 KB）+ 两叶 Σ + 门禁守恒终态对账 + 人工面 M1~M5 ⏳。**本轮只做 tasks**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = `local_or_compute → none`） | 2026-09-26 | SDDU Tasks Agent |
+| v1.1（R1 build） | **R1（W04+W05 / TASK-ADN-201~216）**：SG-ADN-03 可行（6/6 + 1 偏差登记）；`recommend.ts` R6 同因去重扩展覆盖 AI + 列表内去重；`sidepanel.ts` 关断显示相；`npm test` 1478→1500/0（测试零删除行）+ density 242/0 + dead-end 53/0；三冻结面/base 零 diff；体积 A +1,378 B（临时构建，W06 重登记）；binding 3 跑命中 KL-N-10 同族 flake。**W06（217~223）留 R2** | 2026-09-26 | SDDU Build Agent |

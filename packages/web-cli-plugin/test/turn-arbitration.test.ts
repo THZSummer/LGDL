@@ -229,3 +229,48 @@ test('TA ⑤/⑥: 仲裁词表 type-only（KIND_SET 仍恰 40）+ 队列落 back
   // ⑥ 队列本体在 background（源码事实，非注释）。
   assert.match(QUEUE, /export const TURN_QUEUE_MAX\s*=\s*1/, '常量单源在 background/turn-queue.ts');
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-210 / 216**（ADR-ADN-005 §③ · ADR-ADN-009 §② · FR-ADN-046/065 ·
+ * AC-ADN-014 · EC-ADN-010 · X-ADN-3）—— 在飞语义保持：`pending` 硬门逐字不动；AI 撞车继承
+ * `blocked:busy`（不排队）；`ARBITRATION_RESULTS` 四值逐字；`turn-queue` 语义 diff=0。
+ * 纯追加（TA-1~8 逐字保留）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 本追加块的失败文本（不改 `JUDGEMENTS` 表的既有计数行 ⇒ v4 段删除行为零）。 */
+const TA9_FAIL = 'ADN-2：AI 候选撞车必须继承 blocked:busy（不排队）+ pending 硬门不动 + 队列语义 diff=0';
+
+test('★ ADN-2 210/216：AI 候选撞车继承 blocked:busy（不排队）+ pending 硬门逐字不动', () => {
+  // ① AI（driverId=ai-next）撞车 ⇒ blocked:busy，且**不是** queued / ai-deferred。
+  const base = { actor: 'ai' as const, driverId: 'ai-next', driverClass: 'ai-driven' as const, configured: true, armed: true };
+  const busyAi = pressDecision('op.turn', { ...base, busy: true });
+  assert.deepEqual(busyAi, { ok: false, blocked: 'busy' }, TA9_FAIL);
+  assert.ok(!busyAi.ok && busyAi.blocked === 'busy', '撞车必须 blocked:busy（不排队；queued 不是按下拒绝码）');
+  assert.deepEqual(pressDecision('op.turn', base), { ok: true }, '对照：非在飞 ⇒ 放行（判据非恒真）');
+  // ② 同一组四值逐字（新值注入 ⇒ 必红）。
+  assert.deepEqual([...ARBITRATION_RESULTS], ['executed', 'queued', 'busy-rejected', 'ai-deferred'], TA9_FAIL);
+  assert.equal((ARBITRATION_RESULTS as readonly string[]).includes('ai-next'), false, 'AI 不得新增第 5 种仲裁结果');
+  // ③ `pending` 硬门逐字不动（源文本 + 行为面）。
+  const recommendSrc = read('src/ui/sidepanel/recommend.ts');
+  assert.match(recommendSrc, /if \(input\.session\.busy\) return Object\.freeze\(\{ cards: Object\.freeze\(\[\]\), suppression: 'pending' \}\);/, `${TA9_FAIL}：pending 硬门必须逐字`);
+  // ④ 队列语义 diff=0：四值判据 / 上限 1 / 三路径分类都仍承重（同源重跑）。
+  assert.equal(TURN_QUEUE_MAX, 1, '队列硬上限仍恰 1');
+  assert.equal(classifyChatRequest(true, 0), 'queued', '在飞 ∧ 有余量 ⇒ 排队');
+  assert.equal(classifyChatRequest(true, 1), 'busy-rejected', '在飞 ∧ 已满 ⇒ 明确拒绝');
+  // ⑤ AI 自动按下路径仍经唯一 `op.turn` 槽（零新增挂点 / 零第二入口）。
+  assert.equal(callSitesOf(PANEL, 'dispatchChipAction').length, 1, '集 B 分发入口仍恰 1');
+});
+
+/** `name(` 的调用点行数（注释 / import / 定义除外；与 free-input-next 同口径的最小切片）。 */
+export function callSitesOf(source: string, name: string): number[] {
+  const out: number[] = [];
+  source.split('\n').forEach((raw, i) => {
+    const t = raw.trim();
+    if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return;
+    if (!new RegExp(`${name}\\s*\\(`).test(raw)) return;
+    if (/^\s*import\b/.test(raw)) return;
+    if (new RegExp(`^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+${name}\\s*\\(`).test(raw)) return;
+    if (new RegExp(`^\\s*(?:export\\s+)?const\\s+${name}\\s*=`).test(raw)) return;
+    out.push(i + 1);
+  });
+  return out;
+}

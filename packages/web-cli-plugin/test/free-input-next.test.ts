@@ -32,6 +32,9 @@ import { listDriverDecls, serviceOfCtxField } from '../src/ui/sidepanel/next-reg
 import { registerBuiltinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
 import { resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';
 import { recommendNextStep, type RecommendInput } from '../src/ui/sidepanel/recommend.js';
+// ★ ADN-2 TASK-ADN-203/216 —— 纯加法导入（不改既有导入行 ⇒ v4 段删除行为零）：
+// R6 同因摘要（family 单源）用于「AI 候选被压掉 ⇒ floor 仍只含终端」的行为面判据。
+import { refActionDigest as adn2RefActionDigest } from '../src/ui/sidepanel/recommend.js';
 import { FREE_INPUT_REQUEST_ID, askFixedText } from '../src/ui/sidepanel/cards/askuser.js';
 import { ASK_COPY } from '../src/ui/sidepanel/stream-plaintext.js';
 
@@ -269,6 +272,8 @@ test('FIN-4 MANUAL_DRIVER_ID 单源 ∧ 与声明集反向不相交 ∧ AI 路�
   registerBuiltinProviders();
   const ids = listDriverDecls().map((d) => d.driverId);
   assert.ok(ids.length >= 11, '前置：声明集必须已注册（否则判据空转）');
+  // ★ ADN-2 TASK-ADN-216（下界只增）：叶1 落了 `ai-next` 第 12 行 ⇒ 下界抬到 12（旧 >=11 判据逐字保留）。
+  assert.ok(ids.length >= 12, '★ ADN-2 216：声明集下界必须 ≥12（11 + ai-next）');
   assert.ok(!ids.includes(MANUAL_DRIVER_ID), `${JUDGEMENTS[3].expectFailPattern}：手输值不得出现在驱动者声明集`);
   // 手输路径写该值；AI 路径（pressCandidate）写 ctx.driverId。
   assert.ok(/driverTraceLine\(MANUAL_DRIVER_ID/.test(functionBody(SIDEPANEL, 'submitFreeInput')), `${JUDGEMENTS[3].expectFailPattern}：手输路径必须写 driver=manual`);
@@ -535,3 +540,44 @@ test('FIN 元判据：每条 judgement 都声明非占位 expectFailPattern', ()
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);
   }
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-203 / 216**（ADR-ADN-005 §② · FR-ADN-041/042/045 ·
+ * AC-ADN-006 · EC-ADN-019）—— **AI 候选不进 floor**：终端恒常驻、floor 仍只含终端；
+ * AI 只可能**替换**规则候选，不得改变终端语义。纯追加（FIN-0~9 与元判据逐字保留）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 本追加块的失败文本（不改 `JUDGEMENTS` 表的既有计数行 ⇒ v4 段删除行为零）。 */
+const FIN10_FAIL = 'AI 候选不得进入零死端 floor（floor 仍只含终端；终端语义不被 AI 改变）';
+
+test('★ ADN-2 203/216：AI 候选不进 floor —— 在场 ⇒ AI 卡（终端恒常驻）；被压掉 ⇒ floor 仍只含终端', () => {
+  registerBuiltinProviders();
+  const aiCand = [{ opId: 'op.turn', label: 'AI 想抢槽' }];
+  // ① AI 在场且未被去重 ⇒ AI 卡（非 floor），终端恒常驻。
+  const aiCard = recommendNextStep(emptyInput({ session: { openAsks: 0, busy: false, aiNext: aiCand } }));
+  assert.equal(aiCard.cards.length, 1, `${FIN10_FAIL}：AI 在场仍恰 1 卡`);
+  assert.deepEqual(aiCard.cards[0]?.chips.map((c) => c.text), ['AI 想抢槽'], 'AI 候选替换规则候选（不是叠加）');
+  assert.equal(aiCard.cards[0]?.terminal, true, '终端恒常驻（AI 不得改变终端语义）');
+  // ② AI 被 R6 同因压掉 ⇒ `aiNext` 空 ⇒ 零死端 floor 仍只含终端（AI **不进** floor）。
+  const floored = recommendNextStep(
+    emptyInput({
+      ref: { validCount: 0, staleCount: 0, latestRefNum: 3 },
+      session: { openAsks: 0, busy: false, aiNext: aiCand },
+      completedActions: [adn2RefActionDigest('ref_3', 'AI 想抢槽')],
+    }),
+  );
+  assert.equal(floored.cards.length, 1, `${FIN10_FAIL}：AI 全被压 + 无规则候选 ⇒ floor 必须仍在（零死端）`);
+  assert.equal(floored.cards[0]?.terminal, true, 'floor 卡必须带终端');
+  assert.deepEqual([...(floored.cards[0]?.chips ?? [])], [], 'floor 卡不得含 chip（AI 候选不进 floor）');
+  assert.equal(floored.cards[0]?.rule, undefined, 'floor 卡不是任何规则候选（含 AI）');
+  assert.ok(floored.cards[0]?.chips.every((c) => c.text !== 'AI 想抢槽'), '被压掉的 AI 候选不得从 floor 漏回');
+  // ③ 源码面：floor 铸造点不读 aiNext（存在性单源 = free-input provider 的 when）。
+  const floorBody = /function freeInputOnlyCard\(\)[\s\S]*?\n\}/.exec(read('src/ui/sidepanel/recommend.ts'))?.[0] ?? '';
+  assert.ok(floorBody.length > 0, `${FIN10_FAIL}：floor 铸造点必须可定位（判据不得空转）`);
+  assert.equal(/aiNext/.test(floorBody), false, `${FIN10_FAIL}：floor 铸造点不得读 AI 注入槽`);
+  // ④ 反证：把 AI 注入槽塞进 floor 铸造点 ⇒ 同一判据必红（判据非恒真）。
+  const forged = read('src/ui/sidepanel/recommend.ts').replace('function freeInputOnlyCard(): NextstepCandidate {', 'function freeInputOnlyCard(): NextstepCandidate {\n  void input.session.aiNext;');
+  const forgedFloor = /function freeInputOnlyCard\(\)[\s\S]*?\n\}/.exec(forged)?.[0] ?? '';
+  assert.equal(/aiNext/.test(forgedFloor), true, '反证：注入 AI 读取 ⇒ 判据必须能看到');
+});
+
+

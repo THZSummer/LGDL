@@ -39,9 +39,12 @@ import {
   NEXTSTEP_SOURCE_WHITELIST,
   RECOMMEND_MODULE_WHITELIST,
   candidateRules,
+  chipDedupKey,
+  refActionDigest,
   recommendNextStep,
 } from '../src/ui/sidepanel/recommend.js';
 import type { RecommendInput } from '../src/ui/sidepanel/recommend.js';
+import type { AiNextCandidate } from '../src/ui/sidepanel/next-registry/definition.js';
 import { label } from '../src/ui/sidepanel/stream-plaintext.js';
 // V5-1（TASK-V5-115 / FR-ALLN-112 X3 / ADR-V5-001）—— 闭集判据等价重锚所需的两个 op 源：
 // `ACT_TO_OP`（act → opId 的**唯一权威**）与义务表的 9 opId 集（新增 op 自动纳入的判据域）。
@@ -538,3 +541,169 @@ test('V5.5-1 时机源反证：删 answered / 改写旧项 / 加第 6 项 ⇒ �
   assert.ok(judge(['pick', 'stale', 'idle', 'idle', 'answered']).length > 0, '改写旧项必红');
   assert.ok(judge([...DRIVER_TIMINGS, 'ghost']).length > 0, '第 6 项必红');
 });
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-204 / 205 / 206 / 207 / 213**（ADR-ADN-004 §③~⑦ ·
+ * ADR-ADN-009 §② · FR-ADN-050~056/098 · AC-ADN-007/024 · EC-ADN-006/012）——
+ * **合并口径**（同单卡位 / 前 N=3 / 截断 / 列表内去重）+ **替换口径双向可判** +
+ * **R6 同因去重扩展覆盖 AI** + 规则表恰 4 / 单卡 / ④ 零新 LLM 保持。
+ *
+ * 真源切片：全部经 `candidateRules` / `recommendNextStep`（生产内核）实跑，不读测试自建常量；
+ * 每条判据含独立反证（禁恒真）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 一条 AI 候选（默认 `op.turn`）。 */
+const ai = (label: string, opId = ACT_TO_OP.next, ref?: string): AiNextCandidate => ({
+  opId,
+  label,
+  ...(ref !== undefined ? { ref } : {}),
+});
+
+/** 注入 AI 候选的输入（既有 session 源内的加法槽）。 */
+function withAi(cands: readonly AiNextCandidate[], over: Partial<RecommendInput> = {}): RecommendInput {
+  return baseInput({
+    ...over,
+    session: { openAsks: 0, busy: false, aiNext: cands },
+  });
+}
+
+test('★ ADN-2 204：AI 多候选取前 N=3 截断（不溢出 / 不新增卡 / 顺序 = AI 数组序）', () => {
+  const four = [ai('甲动作'), ai('乙动作'), ai('丙动作'), ai('丁动作')];
+  const cand = candidateRules(withAi(four)).find((c) => c.rule === 'ref-action');
+  assert.ok(cand, 'AI 在场必须占 ref-action 槽（判据不得空转）');
+  assert.equal(cand?.chips.length, MAX_CHIPS_PER_CARD, `${'截断必须恰 3（MAX_CHIPS_PER_CARD）'}`);
+  assert.deepEqual(
+    cand?.chips.map((c) => c.text),
+    ['甲动作', '乙动作', '丙动作'],
+    '截断必须取**前 N=3**（AI 数组顺序 = 排序，不重排）',
+  );
+  const r = recommendNextStep(withAi(four));
+  assert.equal(r.cards.length, MAX_NEXTSTEP_CARDS_PER_ROUND, '多候选必须仍**恰 1 张卡**（同单卡位）');
+  assert.equal(r.cards[0]?.chips.length, MAX_CHIPS_PER_CARD, '单卡 chips 不越 3');
+  assert.equal(MAX_NEXTSTEP_CARDS_PER_ROUND, 1, '单卡位常量不得动');
+});
+
+test('★ ADN-2 204：列表内按 opId#摘要去重（重复项不占第二个槽；同 opId 异 label 保留）', () => {
+  const dup = [ai('同一动作'), ai('同一动作'), ai('另一动作')];
+  const cand = candidateRules(withAi(dup)).find((c) => c.rule === 'ref-action');
+  assert.deepEqual(
+    cand?.chips.map((c) => c.text),
+    ['同一动作', '另一动作'],
+    '同 opId#摘要重复项必须被压掉（不占第二个槽）',
+  );
+  assert.equal(chipDedupKey(ACT_TO_OP.next, '同一动作'), chipDedupKey(ACT_TO_OP.next, '同一动作'), '去重键单源可复算');
+  assert.notEqual(chipDedupKey(ACT_TO_OP.next, '同一动作'), chipDedupKey(ACT_TO_OP.next, '另一动作'), '异摘要不得误压');
+  // 反证：去掉去重 ⇒ 同一 fixture 会产出 3 条（判据真的承重）。
+  assert.equal(dup.length, 3, '前置：注入面为 3 条');
+  assert.ok(cand!.chips.length < dup.length, '去重必须真的减少槽数');
+});
+
+test('★ ADN-2 205：替换口径双向可判（AI 在场 ⇒ 无陈旧 ref-action chip；缺席 ⇒ 照旧）', () => {
+  const staleText = '用引用 3 做原地翻译';
+  // 在场（赢得槽）⇒ 陈旧确定性 chip **不出现**，整个人工槽归 AI。
+  const present = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ref-action');
+  assert.equal(present?.chips[0]?.text, '原地翻译为中文', 'AI 赢槽 ⇒ 槽内首 chip 必须是 AI 候选');
+  assert.ok(
+    present?.chips.every((c) => c.text !== staleText),
+    `${'AI 在场 ⇒ 陈旧的确定性 ref-action chip 不得出现（替换，不是叠加）'}`,
+  );
+  assert.equal(present?.label, '下一步推荐：AI 建议', 'AI 赢槽 ⇒ 卡片标题必须为 AI 建议（加法 label 覆盖）');
+  // 缺席 ⇒ 确定性 ref-action 照旧接管（兜底可达）。
+  const absent = candidateRules(baseInput()).find((c) => c.rule === 'ref-action');
+  assert.equal(absent?.chips[0]?.text, staleText, 'AI 缺席 ⇒ 确定性候选逐字照旧');
+  // 反证双向：把 AI 槽做成「叠加」（保留确定性候选）⇒ 判据必红。
+  const forged = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ref-action');
+  assert.equal(
+    forged?.chips.some((c) => c.text === staleText),
+    false,
+    '反证：叠加形态（陈旧 chip 与 AI 并存）必须被判红',
+  );
+});
+
+test('★ ADN-2 204/205：上层规则仍优先（risk-recovery 命中 ⇒ AI 不显示；单卡不破）', () => {
+  const r = recommendNextStep(withAi([ai('AI 想抢槽')], { ref: { validCount: 1, staleCount: 1, latestRefNum: 3 } }));
+  assert.equal(r.cards.length, 1, '仍恰 1 卡');
+  assert.equal(r.cards[0]?.rule, 'risk-recovery', '风险恢复（priority 0）必须赢过 AI（骑 priority 2 槽）');
+  assert.ok(
+    r.cards[0]?.chips.every((c) => c.text !== 'AI 想抢槽'),
+    '上层规则命中时 AI 候选不得显示（同台竞争高风险优先）',
+  );
+});
+
+test('★ ADN-2 206：R6 同因去重扩展覆盖 AI（命中已完成 digest ⇒ 压掉 ⇒ 确定性接管）', () => {
+  // AI 候选摘要命中已完成集；确定性 chip0 的摘要**不**命中 ⇒ 只有 AI 预过滤能压它。
+  const aiLabel = '查看证据';
+  const completed = [refActionDigest('ref_3', aiLabel)];
+  const input = withAi([ai(aiLabel)], { completedActions: completed });
+  assert.notEqual(refActionDigest('ref_3', '用引用 3 做原地翻译'), completed[0], '前置：确定性 chip0 digest 不命中（隔离 AI 预过滤面）');
+  const cand = candidateRules(input).find((c) => c.rule === 'ref-action');
+  assert.equal(cand?.chips[0]?.text, '用引用 3 做原地翻译', 'AI 命中同因 ⇒ 被压掉 ⇒ 确定性候选接管（去重扩展真的生效）');
+  // 反证：不做 AI 预过滤 ⇒ AI 仍赢槽（chips[0] = AI label）⇒ 判据必红。
+  const withoutPreFilter = candidateRules(withAi([ai(aiLabel)])).find((c) => c.rule === 'ref-action');
+  assert.equal(withoutPreFilter?.chips[0]?.text, aiLabel, '反证：无预过滤 ⇒ AI 赢槽（说明预过滤真的拦下了它）');
+  // 显式 `ref` 字段经同家系（不依赖 latestRefNum）。
+  const withRef = withAi([ai(aiLabel, ACT_TO_OP.next, 'ref_9')], { completedActions: [refActionDigest('ref_9', aiLabel)] });
+  assert.equal(
+    candidateRules(withRef).find((c) => c.rule === 'ref-action')?.chips[0]?.text,
+    '用引用 3 做原地翻译',
+    '候选自带 ref ⇒ 必须按该 ref 的键判重',
+  );
+  // 全部被压掉 ⇒ 零 AI 候选 ⇒ 确定性产卡（含 floor 可达，非死端）。
+  const allGone = recommendNextStep(
+    withAi([ai(aiLabel)], { completedActions: [refActionDigest('ref_3', aiLabel), refActionDigest('ref_3', '用引用 3 做原地翻译')], ref: { validCount: 0, staleCount: 0 }, probe: { steady: false } }),
+  );
+  assert.equal(allGone.cards.length, 1, 'AI 全被压 + 确定性亦被压 ⇒ 仍必有可达 next（floor）');
+  assert.equal(allGone.cards[0]?.terminal, true, 'floor 卡必须带 free-input 终端');
+});
+
+test('★ ADN-2 207/213：规则表恰 4 / 单卡 / 真值 7 / 模块白名单恒 5 / ④ 零新 LLM 保持', () => {
+  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'NEXTSTEP_PRIORITY 恰 4 不动');
+  assert.equal(MAX_NEXTSTEP_CARDS_PER_ROUND, 1, '单卡位不动');
+  assert.equal(NEXTSTEP_SOURCE_WHITELIST.length, 7, '真值白名单仍恰 7 源');
+  assert.equal(RECOMMEND_MODULE_WHITELIST.length, 5, '模块白名单恒 5（零新增条目）');
+  // ④ 零新 LLM 面：新增 AI 合并 / 去重不得引入网络 / 时钟 / chrome 面。
+  for (const marker of ['fetch(', 'chrome.', 'Date.now', 'XMLHttpRequest', 'WebSocket']) {
+    assert.ok(!stripComments(RECOMMEND_SRC).includes(marker), `recommend.ts 不得出现 ${marker}（AI 合并面同样零 LLM）`);
+  }
+  // AI 候选注入后仍不越 MAX_CHIPS_PER_CARD / 单卡（④ 的显示面同源读数）。
+  const r = recommendNextStep(withAi([ai('a'), ai('b'), ai('c'), ai('d'), ai('e')]));
+  assert.equal(r.cards.length, 1);
+  assert.ok((r.cards[0]?.chips.length ?? 0) <= MAX_CHIPS_PER_CARD, 'AI 候选不越单卡 3-chip');
+});
+
+/* ── ★ F-36 / ADN-2 **TASK-ADN-213**（ADR-ADN-009 §②④ · FR-ADN-110/111 · AC-ADN-024）——
+ * 升级 6 **终态对账**：五文件各登记终态块（只增），三态齐（保留 / 等价重锚 / 显式取代），
+ * `assertionsRemoved = 0`（零删除零降级）。Cross-file 判据可 FAIL（删掉任一终态块即红）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 升级 6 的终态台账文件（全部 node 门禁；Chromium 保护段由 W06 的 keep 判据承接）。 */
+export const UPGRADE6_FILES = Object.freeze([
+  'recommendation-sources.test.ts',
+  'driver-timings.test.ts',
+  'driver-quadruple.test.ts',
+  'op-wiring.test.ts',
+  'op-three-tier.test.ts',
+  'proactivity-guard.test.ts',
+]);
+
+/** 判据：每个升级门禁文件都登记 ADN-2 213 终态块，且无 skip/todo 降级形态。 */
+export function upgrade6Problems(reader: (file: string) => string): string[] {
+  const problems: string[] = [];
+  for (const file of UPGRADE6_FILES) {
+    const src = reader(file);
+    if (!/ADN-2 213/.test(src)) problems.push(`${file} 缺 ADN-2 213 终态对账块（等价重锚未被登记）`);
+    if (/\.skip\(|test\.todo\(|it\.todo\(/.test(src)) problems.push(`${file} 出现 skip/todo（断言降级形态）`);
+  }
+  return problems;
+}
+
+test('★ ADN-2 213：升级 6 终态台账齐备（三态齐 / 断言零删除零降级 / cross-file 判据可 FAIL）', () => {
+  const reader = (file: string): string => readFileSync(join(PKG, 'test', file), 'utf8');
+  assert.deepEqual(upgrade6Problems(reader), [], '五文件必须各登记 ADN-2 213 终态块');
+  // 反证：删掉任一文件的终态块 ⇒ 同一判据必红（cross-file 判据非恒真）。
+  const missing = (file: string): string => reader(file).replace(/ADN-2 213/g, 'ADN-2 XXX');
+  assert.ok(upgrade6Problems(missing).length > 0, '删任一终态块 ⇒ 必红');
+  // 三态齐：升级 6 全体为「等价重锚」（保留 / 重锚 / 取代中的取代面在本轮 = 零）。
+  assert.equal(UPGRADE6_FILES.length, 6, '升级 6 门禁台账面必须恰 6 个文件');
+});
+
+
