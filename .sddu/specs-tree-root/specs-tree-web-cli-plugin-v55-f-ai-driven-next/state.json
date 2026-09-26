@@ -3,9 +3,9 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "version": "v0.11.3",
   "name": "web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）：把「下一步推荐」的产出从确定性注册表独占改为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」」",
-  "phase": "specified",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "phase": "planned",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 1,
   "parent": null,
   "childrens": [
@@ -296,7 +296,20 @@
     "specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
     "specs-tree-adn-1-ai-next-produce-and-verify/state.json",
     "specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
-    "specs-tree-adn-2-deterministic-fallback-and-merge/state.json"
+    "specs-tree-adn-2-deterministic-fallback-and-merge/state.json",
+    "plan.md",
+    "ADR-ADN-001-candidate-channel-and-protocol.md",
+    "ADR-ADN-002-five-chain-validation-and-sw-location.md",
+    "ADR-ADN-003-admit-vs-press-tier-layering.md",
+    "ADR-ADN-004-injection-and-merge-caliber.md",
+    "ADR-ADN-005-fallback-first-open-boundary.md",
+    "ADR-ADN-006-guards-budget-traces.md",
+    "ADR-ADN-007-s0pp-dual-face-validation.md",
+    "ADR-ADN-008-volume-split-budget.md",
+    "ADR-ADN-009-gate-reanchor-list.md",
+    "ADR-ADN-010-supersession-ledger-x-adn.md",
+    "specs-tree-adn-1-ai-next-produce-and-verify/plan.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/discovery.md",
@@ -305,7 +318,20 @@
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/state.json",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/state.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-001-candidate-channel-and-protocol.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-002-five-chain-validation-and-sw-location.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-003-admit-vs-press-tier-layering.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-004-injection-and-merge-caliber.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-005-fallback-first-open-boundary.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-006-guards-budget-traces.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-007-s0pp-dual-face-validation.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-008-volume-split-budget.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-009-gate-reanchor-list.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/ADR-ADN-010-supersession-ledger-x-adn.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/plan.md"
   ],
   "coversIssues": [
     "Q-ADN-001 母问题：next 产出权与「AI 驱动」原则脱钩",
@@ -379,6 +405,14 @@
       "agent": "sddu-spec",
       "artifact": "spec.md v1.0 + 2 叶 spec.md v1.0 + 三份 state.json",
       "note": "spec 阶段：FR 89 / NFR 16 / EC 20 / NG 20 / US 10 / G 8 / AC 30 / DC 16 / N 30（20 编成 + 10 新增）/ R 24（14 继承 + 10 新增）/ GAP 8 / COR 5；O-ADN-001~016 全裁决；2 叶依存序（adn-1 产出+校验链 → adn-2 兜底+合并+首开边界+体积+门禁重锚）；S0''' 四支线机核口径；体积分列预算（B 列 SW 优先；距档 15,474 B 不升档）；X-ADN-1~11 逐条重锚。父 Feature = 轻量规范容器（不承接 build/review/validate）；spec 阶段零运行时验证，.sddu 外零触碰，ROADMAP 零 diff。"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-plan",
+      "artifact": "plan.md v1.0 + 10 ADR（ADR-ADN-001~010）+ 2 叶 plan.md v1.0 + 三份 state.json",
+      "note": "plan 阶段：父 plan.md（跨切契约与索引）+ 2 叶 plan.md（adn-1 产出+校验链 / adn-2 兜底+合并+门禁重锚）+ ADR-ADN-001~010 正文。PD-ADN-001~008 全部裁决（首开不做 deferred / 围栏块协议 / SW 侧 5 道校验链 / ref 语义 / 仅 ref-action 上下文 / driver=ai-next+evidence=session.aiNext / 前 N=3 / 白名单不新增）。关键定案：chat-result 加法字段 aiNext（type-only 单声明，零新增 kind）；refContextSegment 有引用分支追加产出契约（基座/工厂零改）；session.aiNext 注入槽（顶层仍 7 源；白名单恒 5）；NextProvider.chipsFor/label 纯加法契约；ai-next provider 骑 ref-action 位（prepend 同规则优先）；admitCandidate vs pressDecision 分层（共享 tierOf；按下 diff=0）；ops descriptor ask 加法字段；体积分列预算 A 叶1 +0.8~2.0/叶2 +0.5~1.5 KB（距档 15,474 不升档；2.8× 最坏 ≈9.8KB 仍不升档）；门禁新增 1 + 升级 6 + 间接重锚，保护段 journey/binding keep，CHROMIUM_GATES===9 不动；X-ADN 终态 = 已发生 4 / 未发生取代 6 / 等价重锚 1。本阶段只做 plan（不写 tasks/代码）；.sddu 外零触碰；ROADMAP 零 diff；routing.v1 = local_or_compute -> none。"
     }
   ],
   "pendingObligations": [
@@ -576,5 +610,75 @@
       "topic": "recommendation-sources 白名单是否需为注入槽新增条目",
       "status": "deferred"
     }
-  ]
+  ],
+  "plan": {
+    "version": "v1.0",
+    "createdAt": "2026-09-26",
+    "agent": "sddu-plan",
+    "adr": 10,
+    "adrIds": [
+      "ADR-ADN-001",
+      "ADR-ADN-002",
+      "ADR-ADN-003",
+      "ADR-ADN-004",
+      "ADR-ADN-005",
+      "ADR-ADN-006",
+      "ADR-ADN-007",
+      "ADR-ADN-008",
+      "ADR-ADN-009",
+      "ADR-ADN-010"
+    ],
+    "leafPlans": 2,
+    "pdRuled": {
+      "PD-ADN-001": "首开 AI 化：本轮不做（首开保持确定性，零 LLM 往返依赖）；后续轮若做须保留兜底 + 超时降级",
+      "PD-ADN-002": "协议形态：尾随 next 围栏块 + 严格 JSON 数组；取最后一条 assistant 文本的最后一块；逐项容错；无块/非数组 ⇒ 零候选；零新 LLM 调用",
+      "PD-ADN-003": "label 净化/截断：SW 侧形状 + 零明文 caliber 预筛（命中 ⇒ blocked=label）+ AI_NEXT_LABEL_MAX=48（先扫后截）；面板 label() 仍唯一净化工厂",
+      "PD-ADN-004": "ref 语义：字符串 refId（或规范形 ref_<n>），必须命中本回合 ChatRefFact[] 且 refState==='valid'；不接受裸数字",
+      "PD-ADN-005": "是否仅 ref-action 上下文：本轮是（提示只在有引用分支 + 骑 ref-action 位）；更泛产出面登记后续轮",
+      "PD-ADN-006": "driver id 与 evidence 字段名：driverId='ai-next' / timing='idle' / evidence=['session.aiNext']；driverBlockedLine 拒绝行（零值）",
+      "PD-ADN-007": "前 N 与排序：N=3（=MAX_CHIPS_PER_CARD）；AI 数组顺序；超出截断；不与规则候选交错；列表内 opId#label 去重",
+      "PD-ADN-008": "recommendation-sources 白名单：不新增条目（类型落 definition.ts，校验器在 SW）；白名单恒 5；X-ADN-9 未发生取代"
+    },
+    "xAdnDisposition": {
+      "superseded": [
+        "X-ADN-1",
+        "X-ADN-7",
+        "X-ADN-8",
+        "X-ADN-11"
+      ],
+      "noSupersession": [
+        "X-ADN-2",
+        "X-ADN-3",
+        "X-ADN-4",
+        "X-ADN-5",
+        "X-ADN-6",
+        "X-ADN-9"
+      ],
+      "reanchoredKeep": [
+        "X-ADN-10"
+      ],
+      "note": "父 spec §12 的临时标注（已发生 4 / 未发生 5 / 预登记 2）在 plan 阶段落定为终态：X-6 触发条件（新增挂点）未满足 ⇒ 未发生取代；X-10 语义保持 ⇒ 等价重锚（非取代）。不伪造「已取代」。"
+    },
+    "volumeSplitBudget": {
+      "columnA": {
+        "leaf1": "+0.8~2.0 KB",
+        "leaf2": "+0.5~1.5 KB",
+        "sum": "+1.3~3.5 KB",
+        "plus15": "+1.5~4.0 KB"
+      },
+      "columnB": {
+        "leaf1": "+1.5~3.5 KB",
+        "leaf2": "+0.5~1.5 KB",
+        "sum": "+2.0~5.0 KB",
+        "accounted": false
+      },
+      "worst2p8x": "~9.8 KB (+15% ~11.3 KB) 仍 < 距档 15,474 ⇒ 不触发升档",
+      "tierRemainingBytes": 15474,
+      "ecPath": "EC-ADN-016 预置（越生效上限 ⇒ 重登记基线；越档位 ⇒ 显式升档 + 作者一行）"
+    },
+    "gates": "新增 1 node 门禁 test/ai-next-candidate.test.ts（AI-N-1~11）+ 升级 6（recommendation-sources / driver-timings / driver-quadruple / op-wiring / op-three-tier / proactivity-guard）+ 间接重锚（next-registry NR-10 11→12 / size-baseline / size-growth-evidence / supersession-ledger）+ 保留（CHROMIUM_GATES===9 不动）；断言零删除零降级；保护段 journey [43484,59347) sha 7b309258… + binding [107780,115930) sha be9ad0e9… 逐段 keep（零改动 ⇒ 字节中立双绿）",
+    "protectionDecision": "keep",
+    "routing": "local_or_compute -> none（未调用任何受管 Provider）",
+    "note": "父 Feature 仍为轻量规范容器（不承接 build/review/validate、不产父级 tasks.json）；实施由 2 叶串行承载（adn-1 → adn-2）。父 plan.md 与 2 叶 plan.md 同批产出（与 F-34/F-35 先例同口径，显式登记于父 plan §1.1）。"
+  }
 }

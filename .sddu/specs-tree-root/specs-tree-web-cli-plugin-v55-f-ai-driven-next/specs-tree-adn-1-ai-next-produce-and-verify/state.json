@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-adn-1-ai-next-produce-and-verify",
   "version": "v0.11.3",
   "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
-  "phase": "specified",
+  "phase": "planned",
   "status": "tracked",
-  "workflow": "2.spec",
-  "agent": "sddu-spec",
+  "workflow": "3.plan",
+  "agent": "sddu-plan",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "childrens": [],
@@ -40,11 +40,13 @@
   },
   "artifacts": [
     "spec.md",
-    "state.json"
+    "state.json",
+    "plan.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/state.json"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/state.json",
+    "specs-tree-adn-1-ai-next-produce-and-verify/plan.md"
   ],
   "coversFr": [
     "FR-ADN-001~007",
@@ -73,6 +75,14 @@
       "agent": "sddu-spec",
       "artifact": "spec.md v1.0 + state.json",
       "note": "spec 阶段：产出叶 spec.md（承载父 FR ≈48 条切片：GOV 001~007 / CHAN 010~019 / VERIFY 020~029 / TIER 030~035 / S0''' 080·081·082·085 主线侧 / SUPERSEDE 096 / GATE 110~117 新增门禁侧 / VOL 120~125 B 列归因侧）。首叶 / 底座叶 + 安全核心；plan → tasks → build → review → validate 由本叶承接。spec 阶段零运行时验证。"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-plan",
+      "artifact": "plan.md v1.0",
+      "note": "ADN-1 叶 plan：围栏块协议 + chat-result 加法字段 aiNext + SW 侧 5 道校验链（background/ai-next.ts）+ admitCandidate vs pressDecision 分层 + ai-next provider（rule:ref-action, prepend）+ chipsFor/label 加法契约 + DRIVER_DECLS_SRC 11→12 + session.aiNext 注入槽 + driverBlockedLine + 新 node 门禁 ai-next-candidate（AI-N-1~11）+ S0''' 主线/B/D node 面 + 注入反证族 + 体积叶1 重登记（A +0.8~2.0 / B +1.5~3.5 KB 不计账）。依赖父 plan §7.1 PD 裁决 + ADR-ADN-001~004/006~009。"
     }
   ],
   "openPointsRuled": [
@@ -99,5 +109,13 @@
     "PD-ADN-004",
     "PD-ADN-006",
     "PD-ADN-008"
-  ]
+  ],
+  "plan": {
+    "version": "v1.0",
+    "createdAt": "2026-09-26",
+    "agent": "sddu-plan",
+    "parentPlan": "../plan.md v1.0",
+    "dependsOn": [],
+    "note": "叶级技术方案：父 ADR-ADN-001~010 的叶内落地切片；不动上游产物；.sddu 外零触碰。"
+  }
 }
