@@ -151,6 +151,15 @@ interface S0Module {
   readonly S0PP_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
   readonly s0ppChain: () => readonly { readonly id: string; readonly label: string }[];
   readonly s0ppProblems: (reading?: Record<string, unknown>) => readonly string[];
+  /** ★ F-36 / ADN-1 TASK-ADN-124：S0''' 四支线（A/B/C/D）样本 + 判据（node / Chromium 双面同一份）。 */
+  readonly S0PPP_CHAIN: readonly { readonly id: string; readonly label: string }[];
+  readonly S0PPP_BRANCHES: readonly string[];
+  readonly S0PPP_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly S0PPP_ACCEPTED: { readonly opId: string; readonly label: string };
+  readonly S0PPP_STALE_LABEL: string;
+  readonly S0PPP_UNCONFIGURED_RISK: string;
+  readonly s0pppChain: () => readonly { readonly id: string; readonly label: string }[];
+  readonly s0pppProblems: (reading?: Record<string, unknown>) => readonly string[];
 }
 const s0 = (await import(S0_FIXTURE)) as unknown as S0Module;
 const s2 = (await import(S2_FIXTURE)) as unknown as { readonly S2_CHAIN: readonly { readonly id: string }[] };
@@ -164,6 +173,8 @@ const { S0P_ANCHOR_SELECTOR, S0P_BEATS, S0P_ITEMS, S0P_REF_NUM, s0PChain, s0pPro
 const { S0P_B_BEATS, S0P_B_ITEMS, s0pBChain, s0pBProblems } = s0;
 /** IAN-1 TASK-IAN-123（W3，纯追加解构）：S0''-A 中间态保护样本与判据（双面共用同一份）。 */
 const { S0PP_BACKFILL_CARRIERS, S0PP_CHAIN, S0PP_ITEMS, S0PP_LEGACY_IDS, S0PP_REJECTED_TEXT, s0ppChain, s0ppProblems } = s0;
+/** ★ F-36 / ADN-1 TASK-ADN-124（W3，纯追加解构）：S0''' 四支线样本与判据（双面共用同一份）。 */
+const { S0PPP_CHAIN, S0PPP_BRANCHES, S0PPP_ITEMS, S0PPP_ACCEPTED, S0PPP_STALE_LABEL, S0PPP_UNCONFIGURED_RISK, s0pppChain, s0pppProblems } = s0;
 
 export interface Judgement {
   readonly id: string;
@@ -1268,4 +1279,54 @@ test("S0PP-B 真源切片：唯一入口经生产 op.turn 槽（零第二回合�
   for (const j of S0PP_JUDGEMENTS) {
     assert.ok(j.expectFailPattern.trim().length >= 8 && !j.expectFailPattern.includes('TODO'), `${j.id} 不得占位`);
   }
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-124**（ADR-ADN-007 §①②③ · FR-ADN-080/081/082/085 ·
+ * **AC-ADN-001**）—— **S0''' 四支线样本单源 + A/C/D 机制侧 node 面**。
+ *
+ * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs#S0PPP_*`（与 Chromium 面**同一份**）；
+ * 全十环节的**强判据实跑**在 `test/ai-next-candidate.test.ts`（生产 `admitCandidate` /
+ * `recommendNextStep` / `validateAiNext` 驱动）；本面负责 **样本登记 + 机制侧对照**，
+ * 并机核「与既有 S0 / S0'' 链独立（禁互相掩盖）」。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+function pppInput(over: Record<string, unknown> = {}): Parameters<typeof candidateRules>[0] {
+  return {
+    ref: { validCount: 1, staleCount: 0, latestRefNum: 1 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 1, subcommandCount: 1 },
+    probe: { phase: 'ready', steady: true },
+    risks: [],
+    onboarding: { firstRun: false, pendingSteps: [] },
+    now: 5_000_000,
+    ...over,
+  };
+}
+
+test("S0''' 四支线：样本登记单源 + A/C/D 机制侧对照（判据本体在 ai-next-candidate 面实跑）", () => {
+  assert.deepEqual([...S0PPP_BRANCHES], ['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured'], '四支线词表单源');
+  assert.equal(S0PPP_CHAIN.length, 10, "S0''' 十环节");
+  assert.equal(S0PPP_ITEMS.length, 10, "S0''' 十条必判项");
+  assert.deepEqual(s0pppChain().map((b) => b.id), S0PPP_CHAIN.map((b) => b.id), "S0''' 逐拍 id 与共享样本逐序一致");
+  // 与既有两条链独立计数（禁互相掩盖）。
+  assert.notDeepEqual(S0PPP_CHAIN.map((b) => b.id), S0_CHAIN.map((b) => b.id), "S0''' 与 S0 不得同链");
+  assert.notDeepEqual(S0PPP_CHAIN.map((b) => b.id), S0PP_CHAIN.map((b) => b.id), "S0''' 与 S0'' 不得同链");
+  // 判据非恒真：空读数必须逐条 FAIL（10 条），且「未校验候选进 chips」可红。
+  assert.ok(s0pppProblems({}).length >= 10, "空读数必须逐条判红（判据不得恒真）");
+  assert.ok(s0pppProblems({ blockedNotRendered: false }).some((p) => p.includes('S0PPP-3')), "未校验候选进 chips ⇒ 必红");
+  // 支线 A 机制侧：注入合法候选 ⇒ 替换确定性 `ref-action` 候选（真源 `candidateRules`）。
+  const withAi = candidateRules(pppInput({ session: { openAsks: 0, busy: false, aiNext: [S0PPP_ACCEPTED] } }));
+  const aiCand = withAi.find((c) => c.rule === 'ref-action');
+  assert.ok(aiCand?.chips.some((c) => c.text === S0PPP_ACCEPTED.label), `A：注入候选必须替换确定性候选（实测 ${JSON.stringify(aiCand?.chips)}）`);
+  assert.equal(aiCand?.chips.some((c) => c.text === S0PPP_STALE_LABEL), false, 'A：替换后不得再出现陈旧确定性文案');
+  assert.ok((aiCand?.chips.length ?? 9) <= 3, 'A：单卡 chips ≤3');
+  // 支线 C 机制侧：零 aiNext ⇒ 确定性注册表产卡（现状逐字）。
+  const noAi = candidateRules(pppInput());
+  assert.equal(noAi.find((c) => c.rule === 'ref-action')?.chips[0]?.text, S0PPP_STALE_LABEL, 'C：零 aiNext ⇒ 确定性候选逐字');
+  // 支线 D 机制侧：未配置 ⇒ 恢复卡（`op.llm-config`），非 AI 候选。
+  const unconfig = candidateRules(pppInput({ ref: { validCount: 0, staleCount: 0 }, risks: [S0PPP_UNCONFIGURED_RISK] })).find((c) => c.rule === 'risk-recovery');
+  assert.ok(unconfig?.chips.some((c) => c.act === 'op.llm-config'), 'D：未配置 ⇒ 确定性恢复卡（op.llm-config）');
+  assert.equal(unconfig?.chips.some((c) => c.text === S0PPP_ACCEPTED.label), false, 'D：不得混入 AI 候选');
 });

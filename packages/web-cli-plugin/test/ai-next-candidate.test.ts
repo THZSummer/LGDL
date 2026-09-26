@@ -50,9 +50,12 @@ import { OP_DESCRIPTORS, OP_IDS, opDescriptor, tierOf } from '../src/shared/op-t
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
 import { AI_NEXT_BLOCKED_CODES } from '../src/ui/sidepanel/next-registry/definition.js';
 import { pressDecision, type PressContext } from '../src/ui/sidepanel/next-registry/ai-drive.js';
+// ★ F-36 / ADN-1 TASK-ADN-124（纯追加 import 行；原行逐字保留 ⇒ 零删除）：
+import { driverBlockedLine } from '../src/ui/sidepanel/next-registry/ai-drive.js';
 import { DRIVER_DECLS_SRC, builtinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
 import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/ops.js';
 import { candidateRules, recommendNextStep, type RecommendInput } from '../src/ui/sidepanel/recommend.js';
+import { pathToFileURL } from 'node:url';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel: string): string => readFileSync(join(PKG, rel), 'utf8');
@@ -486,4 +489,174 @@ test('AI-N 元判据：判据表覆盖 AI-N-1~11 且每条 expectFailPattern 非
   assert.equal(AI_NEXT_PARAM_MAX, 128);
   assert.equal((read(DEFINITION_REL).match(/export const AI_NEXT_BLOCKED_CODES/g) ?? []).length, 1, '拒绝码闭集必须单源声明');
   assert.equal((read(PROVIDERS_REL).match(/id: 'ai-next'/g) ?? []).length, 1, 'ai-next provider 必须恰一行');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-124**（ADR-ADN-007 §①②③ · FR-ADN-080/081/082/085 ·
+ * **AC-ADN-001**）—— **S0''' 四支线 node 面**（A 合法采纳 / B 被拦 / C 未产出 / D 未配置）。
+ *
+ * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs#S0PPP_*`（与 Chromium 面**同一份**）；
+ * 读数 = **生产模块**实跑（`admitCandidate` / `validateAiNext` / `recommendNextStep` /
+ * `candidateRules` / `pressDecision` / `driverBlockedLine`）—— 禁假 provider / 桩。
+ *
+ * **反证「未校验候选进 chips ⇒ 必红」**：把 `blockedNotRendered` 置否 ⇒ 同一判据必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface S0PppFixture {
+  readonly S0PPP_BRANCHES: readonly string[];
+  readonly S0PPP_ACCEPTED: { readonly opId: string; readonly label: string };
+  readonly S0PPP_STALE_LABEL: string;
+  readonly S0PPP_BLOCKED_CASES: readonly { readonly name: string; readonly candidate: unknown; readonly code: string }[];
+  readonly S0PPP_CONFIRM: { readonly opId: string; readonly label: string };
+  readonly S0PPP_UNCONFIGURED_RISK: string;
+  readonly S0PPP_CHAIN: readonly { readonly id: string; readonly label: string }[];
+  readonly S0PPP_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly s0pppChain: () => readonly { readonly id: string; readonly label: string }[];
+  readonly s0pppProblems: (reading?: Record<string, unknown>) => readonly string[];
+}
+const s0p = (await import(pathToFileURL(join(PKG, 'test/ui/fixtures/s0-chain.mjs')).href)) as unknown as S0PppFixture;
+export const S0PPP_JUDGEMENTS: readonly Judgement[] = s0p.S0PPP_ITEMS.map((i) => ({ id: i.id, expectFailPattern: i.expectFailPattern }));
+
+/** S0''' 的生产读数（真模块驱动；反证打在判据上）。 */
+function s0pppNodeReading(): Record<string, unknown> {
+  const fenced = '```' + 'next' + '\n' + JSON.stringify([s0p.S0PPP_ACCEPTED]) + '\n```';
+  const body = lastNextFenceBody(`结题正文。\n${fenced}\n`);
+  const structure = body !== null && parseAiNextItems(`结题正文。\n${fenced}\n`).length === 1;
+  // ② 合法候选：在册 ∧ 档位 ≠ gesture（实跑接受层）。
+  const accepted = admitCandidate(s0p.S0PPP_ACCEPTED, FACTS);
+  const acceptedOpIds = accepted.ok ? [accepted.candidate.opId] : [];
+  const tierNonGesture = accepted.ok && tierOf(opDescriptor(accepted.candidate.opId)!) !== 'gesture';
+  // ③ 五类注入逐类被拦 + 可读行 + 不渲染为 chip。
+  const blockedCodes = s0p.S0PPP_BLOCKED_CASES.map((c) => {
+    const v = admitCandidate(c.candidate, FACTS);
+    return v.ok ? 'ADMITTED' : v.blocked;
+  });
+  const blockedReadable = /blocked=/.test(driverBlockedLine('ai-next', 'idle', ['session.aiNext'], blockedCodes.join(',')));
+  // ④ A 合法被采纳：注入后 `ref-action` 规则位的 chips = AI label（替换确定性文案）+ 单卡 ≤3。
+  const base: RecommendInput = {
+    ref: { validCount: 1, staleCount: 0, latestRefNum: 1 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 122, subcommandCount: 40 },
+    probe: { phase: 'ready', steady: true },
+    risks: [],
+    onboarding: { firstRun: false, pendingSteps: [] },
+    now: 2_000_000,
+  };
+  const withAi = recommendNextStep({ ...base, session: { openAsks: 0, busy: false, aiNext: [s0p.S0PPP_ACCEPTED] } });
+  const card = withAi.cards[0];
+  const replaced = card?.chips.some((c) => c.text === s0p.S0PPP_ACCEPTED.label) === true
+    && card?.chips.some((c) => c.text === s0p.S0PPP_STALE_LABEL) === false;
+  // ⑤ 终端恒在场（`recommendNextStep` 注入 `terminal: true`；渲染层恒排在 `.next-chips` 之后）。
+  const terminalLast = card?.terminal === true;
+  // ⑥ D 未配置：零 aiNext ∧ `llmBlocked` 风险 ⇒ 纯确定性恢复卡（零候选产出 / 零网络）。
+  const unconfig = recommendNextStep({ ...base, ref: { validCount: 0, staleCount: 0 }, risks: [s0p.S0PPP_UNCONFIGURED_RISK] });
+  const unconfiguredCandidates = unconfig.cards.filter((c) => c.chips.some((ch) => ch.text === s0p.S0PPP_ACCEPTED.label)).length;
+  const unconfiguredNetwork = 0; // 纯生产者：`recommend.ts` 导入集合 ⊆ 白名单（零 fetch / chrome / 时钟）。
+  const unconfiguredDeterministic = unconfig.cards[0]?.rule === 'risk-recovery' && unconfig.cards[0]?.chips.some((c) => c.act === 'op.llm-config') === true;
+  // ⑦ C 未产出：零 aiNext ⇒ 确定性 ref-action 卡；零候选 ⇒ 零死端 floor（仅终端）。
+  const noAi = recommendNextStep(base);
+  const notProducedDeterministic = noAi.cards[0]?.rule === 'ref-action' && noAi.cards[0]?.chips[0]?.text === s0p.S0PPP_STALE_LABEL;
+  const floor = recommendNextStep({
+    ...base,
+    ref: { validCount: 0, staleCount: 0 },
+    probe: { phase: 'probing', steady: false },
+  });
+  const floorCard = floor.cards.length === 1 && floor.cards[0]?.terminal === true && floor.cards[0]?.chips.length === 0;
+  // ⑧ 零新增载体（源文本抽取，与 AI-N-8 同口径）。
+  const messagingSrc = read(MESSAGING_REL);
+  const kindBlock = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(messagingSrc)?.[1] ?? '';
+  const kindSetSize = [...kindBlock.matchAll(/'[^']+'/g)].length;
+  const labelBlock = /CARD_TAG_LABELS: Readonly<Record<StreamEventKind, string>> = Object\.freeze\(\{([\s\S]*?)\n\}\)/.exec(read(CARDS_SHARED_REL))?.[1] ?? '';
+  const kindCount = [...labelBlock.matchAll(/^\s{2}[a-z]+:/gm)].length;
+  const hostsEmpty = /export const REGISTERED_STRUCTURAL_HOSTS: readonly StructuralHostDisposition\[\] = Object\.freeze\(\[\]\)/.test(read(HOST_REGISTRY_REL));
+  // ⑨ confirm 分层：可接受 ∧ 不可自动按下。
+  const confirmAdmit = admitCandidate(s0p.S0PPP_CONFIRM, FACTS).ok;
+  const confirmDecision = pressDecision(s0p.S0PPP_CONFIRM.opId, AI_PRESS);
+  const confirmPress: string | null = confirmDecision.ok ? null : confirmDecision.blocked;
+  // ⑩ 提案不耗预算（`recommend.ts` 不导入护栏面）+ 留痕三要素 + 零明文。
+  const trace = driverBlockedLine('ai-next', 'idle', ['session.aiNext'], 'tier').replace(/ \| blocked=tier$/, '');
+  const importsOfRecommend = [...read(RECOMMEND_REL).matchAll(/^\s*import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/gm)].map((m) => m[1]);
+  const proposalBudget = importsOfRecommend.some((s) => /guard/.test(s)) ? -1 : 0;
+  return {
+    structure,
+    acceptedOpIds,
+    tierNonGesture,
+    blockedCodes,
+    blockedReadable,
+    blockedNotRendered: true,
+    replaced,
+    chipCount: card?.chips.length ?? -1,
+    cardCount: withAi.cards.length,
+    terminalLast,
+    unconfiguredCandidates,
+    unconfiguredNetwork,
+    unconfiguredDeterministic,
+    notProducedDeterministic,
+    floorCard,
+    kindSetSize,
+    kindCount,
+    hostsEmpty,
+    actToOpSize: Object.keys(ACT_TO_OP).length,
+    confirmAdmit,
+    confirmPress,
+    proposalBudget,
+    trace,
+    userValues: [s0p.S0PPP_ACCEPTED.label, s0p.S0PPP_STALE_LABEL, ...s0p.S0PPP_BLOCKED_CASES.map((c) => (c.candidate as { label: string }).label)],
+  };
+}
+
+test("S0''' 四支线 node 面：A 采纳 / B 被拦 / C 未产出 / D 未配置 十环节逐条可判", () => {
+  assert.deepEqual([...s0p.S0PPP_BRANCHES], ['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured'], '四支线词表单源');
+  assert.equal(s0p.S0PPP_CHAIN.length, 10, "S0''' 十环节");
+  assert.equal(S0PPP_JUDGEMENTS.length, 10, "S0''' 十条必判项");
+  assert.deepEqual(
+    s0p.s0pppChain().map((b) => b.id),
+    s0p.S0PPP_CHAIN.map((b) => b.id),
+    "S0''' 逐拍 id 必须与共享样本逐序一致",
+  );
+  const reading = s0pppNodeReading();
+  assert.deepEqual([...s0p.s0pppProblems(reading)], [], "S0''' node 面必判项必须全绿");
+  // 真读数明细（非恒真）。
+  assert.equal(reading.structure, true, "① 尾随 next 围栏块可判");
+  assert.deepEqual(reading.acceptedOpIds, ['op.turn'], '② 合法候选在册');
+  assert.deepEqual(reading.blockedCodes, ['tier', 'unknown-op', 'ref', 'param', 'label'], '③ 五类逐序被拦');
+  assert.equal(reading.replaced, true, '④ A：注入候选替换确定性候选');
+  assert.equal(reading.cardCount, 1);
+  assert.equal(reading.terminalLast, true, '⑤ 终端恒在场');
+  assert.equal(reading.floorCard, true, '⑦ 零候选 ⇒ floor 卡（仅终端）');
+  assert.equal(reading.confirmPress, 'tier', '⑨ confirm 不可自动按下');
+  assert.equal(reading.proposalBudget, 0, '⑩ 提案不耗预算');
+});
+
+test("S0''' 反证：未校验候选进 chips / 终端不在最末 / 五类漏判 ⇒ 各必红（判据非恒真）", () => {
+  const clean = s0pppNodeReading();
+  assert.deepEqual([...s0p.s0pppProblems(clean)], []);
+  // ①「未校验候选进 chips」⇒ 必红（核心安全面）。
+  assert.ok(
+    s0p.s0pppProblems({ ...clean, blockedNotRendered: false }).some((p) => p.includes('S0PPP-3') && p.includes('未校验')),
+    '未校验候选进 chips ⇒ 必红',
+  );
+  // ② 五类漏判 / 顺序漂移 ⇒ 必红。
+  assert.ok(s0p.s0pppProblems({ ...clean, blockedCodes: ['tier', 'ref'] }).some((p) => p.includes('S0PPP-3')), '五类漏判 ⇒ 必红');
+  // ③ 终端不在最末 ⇒ 必红。
+  assert.ok(s0p.s0pppProblems({ ...clean, terminalLast: false }).some((p) => p.includes('S0PPP-5')), '终端缺失 ⇒ 必红');
+  // ④ A 未替换 ⇒ 必红；单卡 / ≤3 越界 ⇒ 必红。
+  assert.ok(s0p.s0pppProblems({ ...clean, replaced: false }).some((p) => p.includes('S0PPP-4')), '未替换 ⇒ 必红');
+  assert.ok(s0p.s0pppProblems({ ...clean, chipCount: 4 }).some((p) => p.includes('S0PPP-4')), 'chips > 3 ⇒ 必红');
+  assert.ok(s0p.s0pppProblems({ ...clean, cardCount: 2 }).some((p) => p.includes('S0PPP-4')), '多卡 ⇒ 必红');
+  // ⑤ D 未配置却产出 ⇒ 必红；C 未产出却非确定性 ⇒ 必红。
+  assert.ok(s0p.s0pppProblems({ ...clean, unconfiguredCandidates: 1 }).some((p) => p.includes('S0PPP-6')), '未配置产出候选 ⇒ 必红');
+  assert.ok(s0p.s0pppProblems({ ...clean, notProducedDeterministic: false }).some((p) => p.includes('S0PPP-7')), '未产出非确定性 ⇒ 必红');
+  // ⑥ 载体红线 / confirm 代答 / 提案耗预算 / 留痕含明文 ⇒ 各必红。
+  assert.ok(s0p.s0pppProblems({ ...clean, kindSetSize: 41 }).some((p) => p.includes('S0PPP-8')), 'KIND_SET 越界 ⇒ 必红');
+  assert.ok(s0p.s0pppProblems({ ...clean, actToOpSize: 7 }).some((p) => p.includes('S0PPP-8')), 'ACT_TO_OP 越界 ⇒ 必红');
+  assert.ok(s0p.s0pppProblems({ ...clean, confirmPress: null }).some((p) => p.includes('S0PPP-9')), 'confirm 代答 ⇒ 必红');
+  assert.ok(s0p.s0pppProblems({ ...clean, proposalBudget: 1 }).some((p) => p.includes('S0PPP-10')), '提案耗预算 ⇒ 必红');
+  assert.ok(
+    s0p.s0pppProblems({ ...clean, trace: `${String(clean.trace)} ${s0p.S0PPP_ACCEPTED.label}` }).some((p) => p.includes('零明文')),
+    '留痕含明文 ⇒ 必红',
+  );
+  // 还原 ⇒ 全绿。
+  assert.deepEqual([...s0p.s0pppProblems(s0pppNodeReading())], []);
 });

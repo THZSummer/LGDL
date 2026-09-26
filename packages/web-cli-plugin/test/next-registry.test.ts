@@ -84,6 +84,9 @@ test('NR-0 NextCtx 字段集 == 7 源白名单（源文本逐字集合相等）'
   assert.ok(body, 'definition.ts 必须声明 NextCtx');
   const fields = [...body![1].matchAll(/^ {2}readonly ([a-zA-Z]+)\s*:/gm)].map((m) => m[1]).sort();
   assert.deepEqual(fields, [...NEXT_SOURCE_NAMES].sort(), 'NextCtx 字段必须恰为 7 源白名单');
+  // ★ ADN-1 TASK-ADN-122：注入槽 `aiNext` 是**一层嵌套**（4 空格缩进）⇒ 不成为第 8 个顶层源（NR-0 保持绿）。
+  assert.ok(/^ {4}readonly aiNext\?:/m.test(body![1]), 'aiNext 必须以一层嵌套字段声明（不得提升为顶层源）');
+  assert.equal((fields as readonly string[]).includes('aiNext'), false, 'aiNext 不得成为第 8 个 NextCtx 顶层字段（NR-0 逐字保持）');
 });
 
 test('NR-1 validateNextProvider：未知 deps / 非法 mode / 挂载点不符 / priority 缺失 / 空 chips ⇒ loud', () => {
@@ -253,13 +256,18 @@ test('NR-9 chips 悬空：setKnownOpIds 后未知 chip ⇒ loud', () => {
  * 既有 16 条判据一条不减；以下只**增**。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('NR-10（V5.5-1）：驱动者声明 11 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
+test('NR-10（V5.5-1）：驱动者声明 12 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
   const decls = Object.values(DRIVER_DECLS_SRC);
   const providerIds = new Set(builtinProviders().map((p) => p.id));
   assert.equal(decls.length, providerIds.size, `驱动者集合 ≡ provider 集合（实测 ${decls.length} vs ${providerIds.size}）`);
+  // ★ ADN-1 TASK-ADN-122（间接面）：`DRIVER_DECLS_SRC.length === 11` → **12**（只增：新增 ai-next 第 12 行）。
+  assert.equal(decls.length, 12, '声明行必须恰 12（IAN-1 free-input + F-36/ADN-1 ai-next）');
   // ★ IAN-1：新面必须**真的**被双向包含判据覆盖（不得只把计数从 10 改成 11 就了事）。
   assert.ok(providerIds.has('free-input'), 'free-input 终端必须在注册表内');
   assert.ok(decls.some((d) => d.driverId === 'free-input'), 'free-input 必须有声明行（双向包含）');
+  // ★ ADN-1：第 12 行 `ai-next` 同样必须**真的**被双向包含覆盖（不得只改计数）。
+  assert.ok(providerIds.has('ai-next'), 'ai-next provider 必须在注册表内');
+  assert.ok(decls.some((d) => d.driverId === 'ai-next'), 'ai-next 必须有声明行（双向包含）');
   for (const d of decls) assert.ok(providerIds.has(d.driverId), `声明行 ${d.driverId} 必须在注册表内`);
   for (const id of providerIds) assert.ok(decls.some((d) => d.driverId === id), `注册表 ${id} 必须有声明行（双向包含，不得漂移）`);
   // 「答完之后谁会接手」必须在声明层可回答（FR-SELF-036 / ADR-V55-002 §4）。

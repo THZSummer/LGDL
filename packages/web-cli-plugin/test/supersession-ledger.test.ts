@@ -3116,3 +3116,128 @@ test('ledger(V4 段 · IAN-2): T220 三文件法四重锚登记（redlineRemap +
     assert.ok(!(v4.zeroDiffFiles ?? []).some((z) => z.endsWith(f)), `${f} 不得在 zeroDiffFiles 内（否则需要显式解冻登记）`);
   }
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-127**（ADR-ADN-009 · ADR-ADN-010 §① · FR-ADN-090/096/101/112 ·
+ * AC-ADN-010/020）—— **X-ADN-1~9 台账骨架** + **本叶门禁对账骨架**（叶1 收口；终态由叶2）。
+ *
+ * 判据（注入 `exists` ⇒ 反证可打在判据上）：
+ *   · 逐条登记 `X-ADN-1/2/3/4/5/6/7/9`；`status` 显式 ∈ {`superseded`, `no-supersession`}；
+ *   · X-ADN-1（产出权转移）/ X-ADN-7（12↔12）标 `superseded`；
+ *   · X-ADN-2/3/4/5/6/9 标 `no-supersession` + **理由非空**（如实登记，不得留空 / 伪造）；
+ *   · 每行 `old`（逐字）/ `new` / `reason` / `date` / `landing` / `counterCheck`（指向真实门禁文件）；
+ *   · 门禁对账：新增 1 + 升级 6 + 间接面 ≥1，逐项 old→new ∧ `assertionsRemoved === 0`。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XAdnRow {
+  readonly id: string;
+  readonly status: string;
+  readonly owner?: string;
+  readonly old: string;
+  readonly new: string;
+  readonly reason: string;
+  readonly date: string;
+  readonly landing: string;
+  readonly counterCheck: string;
+}
+interface XAdnGateRow {
+  readonly gate: string;
+  readonly disposition: string;
+  readonly before: string;
+  readonly after: string;
+  readonly assertionsRemoved: number;
+  readonly reason: string;
+}
+
+/** X-ADN 台账行判据（注入 `exists` ⇒ 反证可打在判据上）。 */
+export function xAdnLedgerProblems(rows: readonly XAdnRow[], exists: (rel: string) => boolean): string[] {
+  const p = 'X-ADN-1~9 取代台账骨架一致性';
+  const problems: string[] = [];
+  const expected = ['X-ADN-1', 'X-ADN-2', 'X-ADN-3', 'X-ADN-4', 'X-ADN-5', 'X-ADN-6', 'X-ADN-7', 'X-ADN-9'];
+  const ids = rows.map((r) => r.id);
+  for (const id of expected) if (!ids.includes(id)) problems.push(`${p}：${id} 必须逐条登记（不得留空）`);
+  if (new Set(ids).size !== ids.length) problems.push(`${p}：ID 不得重复`);
+  for (const r of rows) {
+    if (!['superseded', 'no-supersession'].includes(r.status)) problems.push(`${p}：${r.id} 的 status="${r.status}" 非法`);
+    if ((r.old ?? '').trim().length < 8) problems.push(`${p}：${r.id} 的 old 必须逐字（≥8 字符）`);
+    if ((r.new ?? '').trim().length < 8) problems.push(`${p}：${r.id} 的 new 必须逐字（≥8 字符）`);
+    if ((r.reason ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的理由必须非套话（≥20 字符）`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date ?? ''))) problems.push(`${p}：${r.id} 的 date 必须 YYYY-MM-DD`);
+    if ((r.landing ?? '').trim().length < 8) problems.push(`${p}：${r.id} 的 landing 必须可定位（≥8 字符）`);
+    const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
+    if (refs.length === 0) problems.push(`${p}：${r.id} 的 counterCheck 必须指向真实门禁文件`);
+    for (const ref of refs) if (!exists(ref) && !exists(`packages/web-cli-plugin/${ref}`)) problems.push(`${p}：${r.id} 的 counterCheck 悬空（${ref} 不存在）`);
+  }
+  for (const id of ['X-ADN-1', 'X-ADN-7']) {
+    if (rows.find((r) => r.id === id)?.status !== 'superseded') problems.push(`${p}：${id} 必须标 superseded（已发生取代）`);
+  }
+  for (const id of ['X-ADN-2', 'X-ADN-3', 'X-ADN-4', 'X-ADN-5', 'X-ADN-6', 'X-ADN-9']) {
+    const row = rows.find((r) => r.id === id);
+    if (row?.status !== 'no-supersession') problems.push(`${p}：${id} 必须标 no-supersession（未发生取代须如实登记）`);
+    if ((row?.reason ?? '').trim().length < 20) problems.push(`${p}：${id} 的 no-supersession 必须写明理由（不得留空）`);
+  }
+  return problems;
+}
+
+/** 本叶门禁对账骨架判据（注入 `exists` ⇒ 反证可打在判据上）。 */
+export function xAdnGateReconciliationProblems(rows: readonly XAdnGateRow[], exists: (rel: string) => boolean): string[] {
+  const p = 'ADN-1 门禁对账骨架一致性';
+  const problems: string[] = [];
+  const need = ['recommendation-sources', 'driver-timings', 'driver-quadruple', 'op-wiring', 'next-registry', 'op-three-tier'];
+  if (!rows.some((r) => r.gate === 'ai-next-candidate' && r.disposition === 'new')) problems.push(`${p}：必须登记「新增 1」（ai-next-candidate）`);
+  for (const gate of need) {
+    if (!rows.some((r) => r.gate === gate && r.disposition === 'equivalent-reanchor')) {
+      problems.push(`${p}：必须登记「升级」${gate}（equivalent-reanchor）`);
+    }
+  }
+  if (!rows.some((r) => r.disposition === 'indirect')) problems.push(`${p}：必须登记间接面（≥1）`);
+  for (const r of rows) {
+    if (r.assertionsRemoved !== 0) problems.push(`${p}：${r.gate} 必须零删除零降级（assertionsRemoved=${r.assertionsRemoved}）`);
+    if ((r.before ?? '').trim().length === 0 || (r.after ?? '').trim().length === 0) problems.push(`${p}：${r.gate} 必须给出 old→new`);
+    if ((r.reason ?? '').trim().length < 10) problems.push(`${p}：${r.gate} 的理由过短`);
+  }
+  void exists;
+  if (rows.length < 10) problems.push(`${p}：至少登记 10 行（1 新增 + 6 升级 + 间接面）`);
+  return problems;
+}
+
+test('ledger(V4 段 · ADN-1): X-ADN-1~9 逐条登记 ∧ 2 superseded + 6 no-supersession ∧ counterCheck 可定位', () => {
+  const v4 = readV4Ledger() as unknown as { xAdnLedger?: { rows?: readonly XAdnRow[]; leaf?: string; adr?: string; note?: string } };
+  const rows = v4.xAdnLedger?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xAdnLedgerProblems(rows, existsRel), [], 'X-ADN 台账骨架一致性未通过');
+  assert.equal(v4.xAdnLedger?.leaf, 'specs-tree-adn-1-ai-next-produce-and-verify');
+  assert.match(String(v4.xAdnLedger?.adr ?? ''), /ADR-ADN-0(04|06|09|10)/);
+  assert.match(String(v4.xAdnLedger?.note ?? ''), /叶2/, 'note 必须写明终态由叶2 收口');
+  // 反证（判据非恒真）：非法 status / 缺条 / counterCheck 悬空 / superseded 缺项 ⇒ 同一判据必红。
+  assert.ok(xAdnLedgerProblems(rows.map((r) => (r.id === 'X-ADN-1' ? { ...r, status: 'maybe' } : r)), existsRel).some((x) => x.includes('非法')));
+  assert.ok(xAdnLedgerProblems(rows.filter((r) => r.id !== 'X-ADN-3'), existsRel).some((x) => x.includes('X-ADN-3')));
+  assert.ok(xAdnLedgerProblems(rows.map((r) => (r.id === 'X-ADN-2' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), existsRel).some((x) => x.includes('悬空')));
+  assert.ok(xAdnLedgerProblems(rows.map((r) => (r.id === 'X-ADN-7' ? { ...r, status: 'no-supersession' } : r)), existsRel).some((x) => x.includes('X-ADN-7')));
+  assert.deepEqual(xAdnLedgerProblems(rows, existsRel), []);
+});
+
+test('ledger(V4 段 · ADN-1): 门禁对账骨架（新增 1 + 升级 6 + 间接面）∧ 断言零删除零降级', () => {
+  const v4 = readV4Ledger() as unknown as {
+    xAdnGateReconciliation?: { rows?: readonly XAdnGateRow[]; note?: string; manualFaces?: string };
+    xAdnLedger?: { rows?: readonly XAdnRow[]; leaf?: string; adr?: string; note?: string };
+  };
+  const rows = v4.xAdnGateReconciliation?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xAdnGateReconciliationProblems(rows, existsRel), [], 'ADN-1 门禁对账骨架未通过');
+  for (const gate of ['ai-next-candidate', 'op-wiring', 'gate-integrity', 's0-self-driven.mjs', 'law8-plaintext.mjs']) {
+    assert.ok(rows.some((r) => r.gate.includes(gate)), `门禁对账必须登记 ${gate}`);
+  }
+  // 人工面必须以 ⏳ 登记（未执行 ≠ PASS）。
+  assert.match(String(v4.xAdnGateReconciliation?.manualFaces ?? ''), /⏳/, '人工面必须以 ⏳ 登记');
+  // 反证：断言数非零 / 三态漂移 / 缺 before-after ⇒ 必红。
+  assert.ok(xAdnGateReconciliationProblems(rows.map((r) => ({ ...r, assertionsRemoved: 1 })), existsRel).some((x) => x.includes('零删除')));
+  assert.ok(xAdnGateReconciliationProblems(rows.map((r) => (r === rows[0] ? { ...r, before: '' } : r)), existsRel).some((x) => x.includes('old→new')));
+  assert.ok(xAdnGateReconciliationProblems(rows.filter((r) => r.disposition === 'indirect'), existsRel).some((x) => x.includes('ai-next-candidate')));
+  assert.deepEqual(xAdnGateReconciliationProblems(rows, existsRel), []);
+  // X-ADN-6「未发生取代」在同一台账内可读（与 op-wiring 复合读数互证）。
+  const x6 = (v4.xAdnLedger?.rows ?? []).find((r) => r.id === 'X-ADN-6');
+  assert.ok(x6, 'X-ADN-6 必须逐条登记');
+  assert.equal(x6?.status, 'no-supersession', 'X-ADN-6 必须登记为未发生取代（不得伪造「已取代」）');
+  assert.match(String(x6?.counterCheck ?? ''), /op-wiring/, 'X-ADN-6 的 counterCheck 必须指向 op-wiring');
+});

@@ -741,3 +741,168 @@ export function s0ppProblems(reading = {}) {
   }
   return problems;
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-124 / 125**（ADR-ADN-007 §①②③ · FR-ADN-080/081/082/083/084/085 ·
+ * **AC-ADN-001/013** · R-ADN-908）—— **S0''' 四支线**（A 合法采纳 / B 被拦 / C 未产出 /
+ * D 未配置）的样本 + 判据。node 面与 Chromium 面**共用同一份**（禁第二份样本 / 第二份判据）；
+ * 生产读数由调用方注入（node 面注入**产物模块**，Chromium 面注入**真面板 DOM + `testing.aiNext` 缝**）。
+ *
+ * ── 四支线 ──────────────────────────────────────────────────────────────────
+ *
+ *   · **A 合法采纳**：已产出 ∧ 合法（`opId ∈ OP_IDS` ∧ 档位 ≠ `gesture`）⇒ 注入候选**替换**既有
+ *     确定性候选（同 `ref-action` 规则位），单卡 ≤3 chips，终端恒最末；
+ *   · **B 被拦**：五类注入（gesture / 幻觉 op / 越界 ref / 越界 param / label 含凭据）逐类
+ *     `blocked=<code>` ∧ **可读留痕** ∧ **不渲染为 chip** ⇒ 注册表兜底候选照旧可见；
+ *   · **C 未产出**：零 `aiNext` ⇒ 确定性注册表产卡（含零死端 floor），行为与现状逐字一致；
+ *   · **D 未配置**：未配置 ⇒ **零候选产出（零网络）** + 纯确定性 + 终端恒在。
+ *
+ * ── 反证（判据不得恒真）─────────────────────────────────────────────────────
+ *
+ *   · 「未校验候选进 chips」⇒ `blockedNotRendered === false` ⇒ 必红（B 支线的核心断言）；
+ *   · 「AI 在场却未替换」⇒ `replaced === false` ⇒ 必红（A 支线的核心断言）；
+ *   · 「终端不在场 / 不在最末」⇒ `terminalLast === false` ⇒ 必红（四支线共同底线）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** S0''' 的四支线（唯一分流依据；与 `S0_BRANCHES` 正交，不共用词表）。 */
+export const S0PPP_BRANCHES = Object.freeze(['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured']);
+
+/** 围栏块的 info 串（与 `background/ai-next.ts#AI_NEXT_FENCE_INFO` 同字面；样本不新增第二词汇）。 */
+export const S0PPP_FENCE_INFO = 'next';
+
+/** A 支线的合法候选（`op.turn` = `auto` 档；label 走零明文白名单）。 */
+export const S0PPP_ACCEPTED = Object.freeze({ opId: 'op.turn', label: '把这页图改成架构图' });
+/** A 支线要**替换**的既有确定性候选（`ref-action` 规则位的静态文案，用于「替换」判据对照）。 */
+export const S0PPP_STALE_LABEL = '用引用 1 做原地翻译';
+
+/** B 支线的五类注入（逐类期望 `blocked=<code>`；码集与 `AI_NEXT_BLOCKED_CODES` 同字面）。 */
+export const S0PPP_BLOCKED_CASES = Object.freeze([
+  { name: 'gesture', candidate: Object.freeze({ opId: 'op.authorize', label: '授权当前站点' }), code: 'tier' },
+  { name: 'hallucination', candidate: Object.freeze({ opId: 'op.delete-everything', label: '删除' }), code: 'unknown-op' },
+  { name: 'out-of-range-ref', candidate: Object.freeze({ opId: 'op.turn', label: '继续', ref: 'ref_999' }), code: 'ref' },
+  { name: 'out-of-range-param', candidate: Object.freeze({ opId: 'op.turn', label: '继续', params: 'x' }), code: 'param' },
+  { name: 'label-credential', candidate: Object.freeze({ opId: 'op.turn', label: 'sk-ABCDEFGHIJKLMNOP' }), code: 'label' },
+]);
+
+/** ⑨ confirm 分层：`op.llm-config`（可接受 ⇒ 可见提案；**不可自动按下**）。 */
+export const S0PPP_CONFIRM = Object.freeze({ opId: 'op.llm-config', label: '配置 LLM 凭据' });
+
+/** D 支线的阻塞事实（`llm.unconfigured` 的派生风险 id，与 `providers.ts#LLM_BLOCKED_RISK` 同值）。 */
+export const S0PPP_UNCONFIGURED_RISK = 'llmBlocked';
+
+/** 终端按钮的选择器（`cards/nextstep.ts` 的渲染契约：`.next-terminal[data-act="free-input"]`）。 */
+export const S0PPP_TERMINAL_SELECTOR = '.next-terminal[data-act="free-input"]';
+/** 终端文案（与 `dispatch.ts#FREE_INPUT_LABEL` 同字面）。 */
+export const S0PPP_TERMINAL_LABEL = '自由输入…';
+
+/** S0''' 的十环节（id + 人读标签；顺序即判据序）。 */
+export const S0PPP_CHAIN = Object.freeze([
+  { id: 'structure', label: "S0'''-1 尾随 next 围栏块 + 严格 JSON 数组（结构可判）" },
+  { id: 'registry-op', label: "S0'''-2 opId ∈ OP_IDS ∧ 档位 ≠ gesture" },
+  { id: 'blocked', label: "S0'''-3 五类注入各 admit=false + 可读行 + 不渲染为 chip" },
+  { id: 'accepted', label: "S0'''-4 A 合法被采纳（替换陈旧候选 + ≤3 + 单卡）" },
+  { id: 'terminal', label: "S0'''-5 终端恒在场且最末（四支线）" },
+  { id: 'unconfigured', label: "S0'''-6 D 未配置（零候选 + 零网络 + 纯确定性）" },
+  { id: 'not-produced', label: "S0'''-7 C 未产出（零 aiNext ⇒ 确定性产卡含 floor）" },
+  { id: 'carrier', label: "S0'''-8 零新增载体（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）" },
+  { id: 'confirm', label: "S0'''-9 confirm admit=true ∧ press=blocked:tier（不代答）" },
+  { id: 'proposal-budget', label: "S0'''-10 提案不耗预算 + 留痕三要素 + 零明文" },
+]);
+
+/** S0''' 的十条必判项（`expectFailPattern` 逐字；node / Chromium 两面共用）。 */
+export const S0PPP_ITEMS = Object.freeze([
+  { id: 'S0PPP-1-structure', expectFailPattern: "S0'''：尾随 next 围栏块 + 严格 JSON 数组必须可判（结构可判）" },
+  { id: 'S0PPP-2-registry-op', expectFailPattern: "S0'''：合法候选 opId 必须在册且档位 ≠ gesture（AI 不得触达特权面）" },
+  { id: 'S0PPP-3-blocked', expectFailPattern: "S0'''：五类注入必须逐类被拦（blocked=<code>）+ 可读留痕 + 不渲染为 chip" },
+  { id: 'S0PPP-4-accepted', expectFailPattern: "S0'''：A 合法被采纳（替换既有确定性候选 + 单卡 ≤3 chips）" },
+  { id: 'S0PPP-5-terminal', expectFailPattern: "S0'''：终端必须恒在场且恒最末（四支线共同底线）" },
+  { id: 'S0PPP-6-unconfigured', expectFailPattern: "S0'''：D 未配置 ⇒ 零候选产出（零网络）+ 纯确定性（现状逐字）" },
+  { id: 'S0PPP-7-not-produced', expectFailPattern: "S0'''：C 未产出 ⇒ 零 aiNext ⇒ 确定性注册表产卡（含零死端 floor）" },
+  { id: 'S0PPP-8-carrier', expectFailPattern: "S0'''：零新增载体（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）" },
+  { id: 'S0PPP-9-confirm', expectFailPattern: "S0'''：confirm 可接受（可见）但不得自动按下（AI 不代答 consent）" },
+  { id: 'S0PPP-10-proposal-budget', expectFailPattern: "S0'''：提案不耗护栏预算 + 留痕三要素可读 + 零明文" },
+]);
+
+/** S0''' 逐拍读数（两面各自登记自己真的驱动的拍；收尾机核「登记 ⇔ 读数」）。 */
+export function s0pppChain() {
+  return S0PPP_CHAIN.map((b) => ({ id: b.id, label: b.label }));
+}
+
+/**
+ * **S0''' 四支线必判项判据**（纯函数，双面共用）。`reading`（注入读数）:
+ * ```
+ * {
+ *   structure: boolean,             // ① 尾随 next 围栏块 + 严格 JSON 数组
+ *   acceptedOpIds: string[],        // ② 合法候选 opId 集（∈ OP_IDS）
+ *   tierNonGesture: boolean,        // ② 合法候选档位 ≠ gesture
+ *   blockedCodes: string[],         // ③ 五类逐类 blocked 码（逐序）
+ *   blockedReadable: boolean,       // ③ 可读留痕（blocked=<code> 行）
+ *   blockedNotRendered: boolean,    // ③ 被拦候选未渲染为 chip
+ *   replaced: boolean,              // ④ A：注入候选替换既有确定性候选
+ *   chipCount: number,              // ④ 单卡 chips（≤3）
+ *   cardCount: number,              // ④ 单卡（恰 1）
+ *   terminalLast: boolean,          // ⑤ 终端恒在场且最末
+ *   unconfiguredCandidates: number, // ⑥ D：零候选
+ *   unconfiguredNetwork: number,    // ⑥ D：零网络
+ *   unconfiguredDeterministic: boolean, // ⑥ D：纯确定性
+ *   notProducedDeterministic: boolean,  // ⑦ C：确定性产卡
+ *   floorCard: boolean,             // ⑦ C：含零死端 floor
+ *   kindSetSize: number, kindCount: number, hostsEmpty: boolean, actToOpSize: number, // ⑧
+ *   confirmAdmit: boolean, confirmPress: string | null, // ⑨
+ *   proposalBudget: number,         // ⑩ 提案耗预算（必须 0）
+ *   trace: string,                  // ⑩ 留痕三要素
+ *   userValues: string[],           // ⑩ 零明文被判对象
+ *   freeze?: { contentBytes: number, pickBytes: number }, // 只读双锚（可选）
+ * }
+ * ```
+ * **「未校验候选进 chips」（`blockedNotRendered=false`）/「终端不在最末」（`terminalLast=false`）
+ * ⇒ 必 FAIL** —— 这是 S0''' 的核心安全面，不是注释。
+ */
+export function s0pppProblems(reading = {}) {
+  const problems = [];
+  const item = (id) => S0PPP_ITEMS.find((x) => x.id === id);
+  const fail = (id, msg) => problems.push(`${item(id).id} ${item(id).expectFailPattern}：${msg}`);
+  // ① 结构可判。
+  if (reading.structure !== true) fail('S0PPP-1-structure', '尾随 next 围栏块 + 严格 JSON 数组必须可判');
+  // ② 在册 ∧ 非 gesture。
+  const opIds = Array.isArray(reading.acceptedOpIds) ? reading.acceptedOpIds : [];
+  if (opIds.length === 0) fail('S0PPP-2-registry-op', '合法候选 opId 集不得为空（判据不得空转）');
+  if (reading.tierNonGesture !== true) fail('S0PPP-2-registry-op', '合法候选档位必须 ≠ gesture');
+  // ③ 五类被拦 + 可读 + 不渲染。
+  const codes = Array.isArray(reading.blockedCodes) ? reading.blockedCodes : [];
+  const expected = S0PPP_BLOCKED_CASES.map((c) => c.code);
+  if (codes.join('|') !== expected.join('|')) fail('S0PPP-3-blocked', `五类注入必须逐序被拦（实测 ${codes.join('|') || '<空>'}）`);
+  if (reading.blockedReadable !== true) fail('S0PPP-3-blocked', '被拦必须留可读行（blocked=<code>）');
+  if (reading.blockedNotRendered !== true) fail('S0PPP-3-blocked', '**未校验候选进 chips ⇒ FAIL**：被拦候选不得渲染为 chip');
+  // ④ A 合法采纳。
+  if (reading.replaced !== true) fail('S0PPP-4-accepted', 'AI 在场必须替换既有确定性候选（注入 chips）');
+  if (!(Number(reading.chipCount) <= 3)) fail('S0PPP-4-accepted', `单卡 chips 必须 ≤3（实测 ${String(reading.chipCount)}）`);
+  if (Number(reading.cardCount) !== 1) fail('S0PPP-4-accepted', `必须单卡（实测 ${String(reading.cardCount)}）`);
+  // ⑤ 终端恒最末。
+  if (reading.terminalLast !== true) fail('S0PPP-5-terminal', '终端必须恒在场且恒最末');
+  // ⑥ D 未配置。
+  if (Number(reading.unconfiguredCandidates) !== 0) fail('S0PPP-6-unconfigured', `未配置 ⇒ 零候选（实测 ${String(reading.unconfiguredCandidates)}）`);
+  if (Number(reading.unconfiguredNetwork) !== 0) fail('S0PPP-6-unconfigured', `未配置 ⇒ 零网络（实测 ${String(reading.unconfiguredNetwork)}）`);
+  if (reading.unconfiguredDeterministic !== true) fail('S0PPP-6-unconfigured', '未配置 ⇒ 纯确定性（注册表产卡）');
+  // ⑦ C 未产出。
+  if (reading.notProducedDeterministic !== true) fail('S0PPP-7-not-produced', '零 aiNext ⇒ 确定性注册表产卡');
+  if (reading.floorCard !== true) fail('S0PPP-7-not-produced', '零候选 ⇒ 含零死端 floor（终端恒在）');
+  // ⑧ 零新增载体。
+  if (Number(reading.kindSetSize) !== 40) fail('S0PPP-8-carrier', `KIND_SET 必须仍 40（实测 ${String(reading.kindSetSize)}）`);
+  if (Number(reading.kindCount) !== 12) fail('S0PPP-8-carrier', `12 kind 契约不动（实测 ${String(reading.kindCount)}）`);
+  if (reading.hostsEmpty !== true) fail('S0PPP-8-carrier', 'REGISTERED_STRUCTURAL_HOSTS 必须仍为空');
+  if (Number(reading.actToOpSize) !== 6) fail('S0PPP-8-carrier', `ACT_TO_OP 必须仍恰 6（实测 ${String(reading.actToOpSize)}）`);
+  // ⑨ confirm 分层。
+  if (reading.confirmAdmit !== true) fail('S0PPP-9-confirm', 'confirm 必须可接受（可见提案）');
+  if (reading.confirmPress !== 'tier') fail('S0PPP-9-confirm', `confirm 不得自动按下（press=${String(reading.confirmPress)}）`);
+  // ⑩ 提案不耗预算 + 留痕 + 零明文。
+  if (Number(reading.proposalBudget) !== 0) fail('S0PPP-10-proposal-budget', `提案不得耗护栏预算（实测 ${String(reading.proposalBudget)}）`);
+  const trace = String(reading.trace ?? '');
+  if (!/^driver=ai-next \| timing=idle \| evidence=session\.aiNext$/.test(trace)) {
+    fail('S0PPP-10-proposal-budget', `留痕必须三要素（driver/timing/evidence）可读（实测 ${JSON.stringify(trace)}）`);
+  }
+  for (const v of reading.userValues ?? []) {
+    if (String(v).length > 0 && trace.includes(String(v))) fail('S0PPP-10-proposal-budget', '留痕必须零明文（法八）');
+  }
+  return problems;
+}

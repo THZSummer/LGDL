@@ -9143,18 +9143,19 @@
         },
         {
           "file": "packages/web-cli-plugin/test/next-registry.test.ts",
-          "count": 1,
-          "reason": "★ F-36 / ADN-1 R1（2026-09-26，leaf `specs-tree-adn-1-ai-next-produce-and-verify`；W01+W02）复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计；体积五要素重 pin 与门禁本体的数值重 pin）。",
+          "count": 2,
+          "reason": "★ F-36 / ADN-1 R1（2026-09-26，leaf `specs-tree-adn-1-ai-next-produce-and-verify`；W01+W02）复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计；体积五要素重 pin 与门禁本体的数值重 pin）。 〖★ F-36 / ADN-1 R2（2026-09-26，W03 = TASK-ADN-118~127）复核〗：NR-10 标题 11 行 → 12 行（只增断言 + 间接面重锚），该被改写行逐字追加登记（断言语义零删减）。",
           "registeredUncoveredLines": [
-            "  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 11, '还原 PASS（声明行恰 11：IAN-1 追加 free-input 终端声明）');"
+            "  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 11, '还原 PASS（声明行恰 11：IAN-1 追加 free-input 终端声明）');",
+            "test('NR-10（V5.5-1）：驱动者声明 11 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {"
           ]
         }
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 19,
-        "registeredLines": 195,
+        "registeredLines": 196,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ F-36 / ADN-1 R2（2026-09-26，W03 = TASK-ADN-118~127）：NR-10 标题 11→12 的 1 行改写逐字追加登记（沿用本叶段同一口径）。"
       }
     },
     {
@@ -20108,5 +20109,214 @@
       }
     ]
   },
-  "reviewFixNotes": {}
+  "reviewFixNotes": {},
+  "xAdnLedger": {
+    "leaf": "specs-tree-adn-1-ai-next-produce-and-verify",
+    "adr": "ADR-ADN-004 §② · ADR-ADN-006 §① · ADR-ADN-009 · ADR-ADN-010 §①",
+    "registeredOn": "2026-09-26",
+    "registeredBy": "SDDU build（ADN-1 R1+R2；W01+W02+W03 = TASK-ADN-101~127）",
+    "note": "叶1 对 X-ADN-1~11 的**逐条终态骨架登记**（终态由叶2 `specs-tree-adn-2-*` 收口）：**2 条 superseded（X-ADN-1 产出权转移 / X-ADN-7 12↔12）** + **6 条 no-supersession（X-ADN-2/3/4/5/6/9）**。未发生取代者必须如实登记 `no-supersession` + 非空理由（不得留空 / 不得伪造「已取代」；N-ADN-030）。X-ADN-8/10/11 属叶2，本段**移交登记**（handed-over，不在叶1 伪称已取代）。每行 `id` / `status` / `old`（逐字）/ `new` / `reason` / `date` / `landing` / `counterCheck`（可定位判据）。",
+    "rows": [
+      {
+        "id": "X-ADN-1",
+        "status": "superseded",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "next 推荐 = 确定性内核独占产出（recommendNextStep 单源 / 真值白名单 7 / 规则表 4 / 候选全来自注册表）",
+        "new": "AI 驱动产出候选 + 确定性注册表退居兜底与安全闸（session.aiNext 注入槽 + 5 道校验链 + ai-next provider 第 12 行；注册表兜底仍可达）",
+        "reason": "本 Feature 的**唯一授权立法例外**（作者裁决）；产出权由「确定性内核独占」等价转移为「AI 产出 + 注册表兜底」，走 supersession 台账 old→new（非静默改写）。分流判据 = AI 候选在场 ⇒ ai-next 骑 ref-action 规则位接管；缺席 ⇒ 确定性 ref-action 逐字接管（test/ai-next-candidate.test.ts 替换语义可达）。",
+        "date": "2026-09-26",
+        "landing": "src/background/ai-next.ts（NEW）· next-registry/providers.ts 第 12 行 · recommend.ts 注入槽 · sidepanel.ts done 消费",
+        "counterCheck": "`test/ai-next-candidate.test.ts`（AI-N-5 分层 / AI-N-9 12↔12+替换语义 / S0PPP-4 A 合法采纳）∧ `test/driver-quadruple.test.ts`（DQ-1 12↔12）"
+      },
+      {
+        "id": "X-ADN-7",
+        "status": "superseded",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "`DRIVER_DECLS_SRC` ↔ `builtinProviders()` 双向包含 **11↔11**",
+        "new": "**12↔12**：新增 ai-next provider 行 + ai-next 声明行（evidence=session.aiNext，与 when 同源；旧 11 行逐字保留）",
+        "reason": "双向包含随计数**只增**到 12↔12（少 / 多 / 漂移 ⇒ 必红）；ai-next 的 evidence 必须与 when-scope 源文本同源（DQ-3），不得只改计数。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/next-registry/providers.ts（provider 第 12 行 + DRIVER_DECLS_SRC 第 12 行）",
+        "counterCheck": "`test/driver-quadruple.test.ts`（DQ-1 12↔12 + DQ-3 evidence 同源）∧ `test/next-registry.test.ts`（NR-10 11→12）"
+      },
+      {
+        "id": "X-ADN-2",
+        "status": "no-supersession",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "recommendation-sources ④「零新增网络 / LLM 面：源码不含 fetch/chrome/时钟」（recommendation-sources.test.ts:238；recommend.ts:11 FR-CHAT-060）",
+        "new": "**保持**：候选经 RecommendInput.session.aiNext 注入槽 ⇒ recommend.ts 仍 pure（④ 逐字绿）",
+        "reason": "**未发生取代（如实登记）**：O-ADN-016 裁决「不破」——AI 候选**复用刚结束回合的 LLM 输出**（非新增 LLM 调用），注入式落点已定 ⇒ 无需在 recommend.ts 内触达 AI；「条件性取代」的触发条件**未成立**。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/recommend.ts（注入槽；零 fetch/chrome/时钟）",
+        "counterCheck": "`test/recommendation-sources.test.ts`（④ 零新增网络 / LLM 面 + 导入 ⊆ 白名单 5）"
+      },
+      {
+        "id": "X-ADN-3",
+        "status": "no-supersession",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "`MAX_NEXTSTEP_CARDS_PER_ROUND = 1`（单卡，recommend.ts:51）",
+        "new": "**保持**：AI 多候选在**同一单卡**内以 ≤3 chip 呈现",
+        "reason": "**未发生取代（如实登记）**：多候选无须多卡 ⇒ 单卡常量逐字不动；MAX_CHIPS_PER_CARD = 3 上界由既有判据 + S0PPP-4 机核。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/recommend.ts（单卡常量不动）",
+        "counterCheck": "`test/recommendation-sources.test.ts` ∧ `test/ai-next-candidate.test.ts`（S0PPP-4 单卡 ≤3）"
+      },
+      {
+        "id": "X-ADN-4",
+        "status": "no-supersession",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "`NEXTSTEP_PRIORITY` 恰 4（recommend.ts:60；recommendation-sources.test.ts:139）",
+        "new": "**保持**：AI 骑既有 ref-action 规则位（prepend 同规则内优先），**不新增第 5 规则位**",
+        "reason": "**未发生取代（如实登记）**：「若 AI 候选成第 5 规则」的取代路径**未触发** —— 第 12 行 provider 的 rule = ref-action（骑位而非新位）。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/next-registry/providers.ts（rule: ref-action）",
+        "counterCheck": "`test/recommendation-sources.test.ts`（恰 4）∧ `test/driver-quadruple.test.ts`（DQ-6 单源）"
+      },
+      {
+        "id": "X-ADN-5",
+        "status": "no-supersession",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "时机源「恰 5」（drivers.ts:31；DT-2/DT-3 旧 4 逐字）",
+        "new": "**保持**：复用既有 idle，**不新增 turn-done**",
+        "reason": "**未发生取代（如实登记）**：「若新增触发词 ⇒ 等价重锚」的路径**未触发** ⇒ DRIVER_TIMINGS 恰 5 逐字 + 旧 4 逐字（DT-2/DT-3 保持绿）。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/next-registry/providers.ts（timings: [idle]）",
+        "counterCheck": "`test/driver-timings.test.ts`（DT-2 恰 5 / DT-3 旧 4 逐字）∧ `test/insight-no-escalation.test.ts`（ADN-1 扩面 DRIVER_TIMINGS 5）"
+      },
+      {
+        "id": "X-ADN-6",
+        "status": "no-supersession",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "maybeRecommend 调用点 **8** / nextAfterSettle 1 定义·**10** 调用点 / requestTurn( 恰 **1**",
+        "new": "**未发生变更**：AI 候选复用**既有** done → maybeRecommend(idle) 挂点，**零新增挂点 / 零新增调用点**",
+        "reason": "**未发生取代（如实登记）**：原「预登记」的触发条件**未满足** ⇒ 三条计数逐字不动；consumeAiNext 的单次 maybeRecommend(idle) 与 chat-result{done} 共用（测试缝复用同函数）。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/sidepanel.ts（consumeAiNext）",
+        "counterCheck": "`test/op-wiring.test.ts`（OP-W ⑥/⑦ 复合读数 + ADN-1 121 挂点机核）"
+      },
+      {
+        "id": "X-ADN-9",
+        "status": "no-supersession",
+        "owner": "specs-tree-adn-1-ai-next-produce-and-verify（叶1 落地）",
+        "old": "`RECOMMEND_MODULE_WHITELIST` 恰 5 模块",
+        "new": "**保持**：AI 候选**类型**声明落在既在白名单的 next-registry/definition.ts；校验器在 SW 侧、不入 recommend.ts 导入面 ⇒ **白名单恒 5**",
+        "reason": "**未发生取代（如实登记）**：「若注入槽落新模块」的条件**未成立**（PD-ADN-008 裁决 ⇒ 零新导入条目）。",
+        "date": "2026-09-26",
+        "landing": "src/ui/sidepanel/next-registry/definition.ts（AiNextCandidate 类型）",
+        "counterCheck": "`test/recommendation-sources.test.ts`（模块白名单恒 5 + 导入 ⊆ 白名单 5）"
+      }
+    ]
+  },
+  "xAdnGateReconciliation": {
+    "leaf": "specs-tree-adn-1-ai-next-produce-and-verify",
+    "registeredOn": "2026-09-26",
+    "note": "本叶门禁对账**骨架**（终态由叶2 收口）：**新增 1**（ai-next-candidate）+ **升级 6**（等价重锚：recommendation-sources / driver-timings / driver-quadruple / op-wiring / next-registry / op-three-tier）+ **间接面**（gate-integrity 受审下界只增 / insight-no-escalation 红线巡检 / s0-self-driven-chain + ai-next-candidate S0(3-prime) 双面 / s0-self-driven.mjs + law8-plaintext.mjs Chromium 断言增量 / size-ruling-vol3 叶1 体积终值）逐项 old→new；**断言零删除零降级**（assertionsRemoved=0）；CHROMIUM_GATES === 9 逐字不动。",
+    "rows": [
+      {
+        "gate": "ai-next-candidate",
+        "disposition": "new",
+        "before": "（不存在）",
+        "after": "AI-N-1~11（解析 / 5 道链 / 分层 / 注入反证 / 真源切片 / 三段控制）+ S0PPP-1~10",
+        "assertionsRemoved": 0,
+        "reason": "本叶**新增** node 门禁（TASK-ADN-115~117 + 124）。"
+      },
+      {
+        "gate": "recommendation-sources",
+        "disposition": "equivalent-reanchor",
+        "before": "真值 7 / 模块 5 / 规则表 4 / ④ 零新 LLM",
+        "after": "逐字保留 ∧ 新增 session.aiNext 注入槽 ∈ 既有 session 源（顶层仍 7）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-118 等价重锚（只增断言）。"
+      },
+      {
+        "gate": "driver-timings",
+        "disposition": "equivalent-reanchor",
+        "before": "DT-1~6（DT-2 恰 5 / DT-3 旧 4 逐字）",
+        "after": "DT-1~6 逐字保留 ∧ DT-6 扩：session.aiNext 经 session 前缀登记（登记表零新增行）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-119 等价重锚。"
+      },
+      {
+        "gate": "driver-quadruple",
+        "disposition": "equivalent-reanchor",
+        "before": "DQ-1 双向包含 11↔11",
+        "after": "12↔12 ∧ DQ-2 ai-next 静态 chips ⊆ OP_IDS ∧ DQ-3 evidence 同源",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-120 等价重锚（X-ADN-7）。"
+      },
+      {
+        "gate": "op-wiring",
+        "disposition": "equivalent-reanchor",
+        "before": "requestTurn( 恰 1 / maybeRecommend 1·8 / nextAfterSettle 1·10",
+        "after": "全部数值不动 ∧ 新增「AI 经既有 done→maybeRecommend(idle) 挂点」机核",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-121 等价重锚（X-ADN-6 = 未发生取代）。"
+      },
+      {
+        "gate": "next-registry",
+        "disposition": "equivalent-reanchor",
+        "before": "NR-10 声明 11 行 / NR-0 顶层 7 源",
+        "after": "NR-10 12 行 ∧ NR-0 7 源逐字保留 ∧ ai-next 双向包含真检",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-122（间接面）。"
+      },
+      {
+        "gate": "op-three-tier",
+        "disposition": "equivalent-reanchor",
+        "before": "OT-1~11 + OT-⑩ 扩批量变体",
+        "after": "逐字保留 ∧ 新增「接受层读点 = tierOf」+ admitCandidate 拒（gesture / 特权）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-122 加严。"
+      },
+      {
+        "gate": "gate-integrity",
+        "disposition": "indirect",
+        "before": "EXPECTED_AUDITED_FILES 现场 47 项（陈旧字面 40）",
+        "after": "48 项（末位只追加 ai-next-candidate）∧ V_ADN_NODE_GATE_FILES 下界 ≥1",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-123（受审下界只增）。"
+      },
+      {
+        "gate": "insight-no-escalation",
+        "disposition": "indirect",
+        "before": "V55F-1 红线巡检（IAN-1 扩面）",
+        "after": "逐字保留 ∧ ADN-1 扩面（零新增载体 + 计数红线 + 特权恒 gesture + SW 永不 permissions.request）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-126 红线巡检。"
+      },
+      {
+        "gate": "s0-self-driven-chain",
+        "disposition": "indirect",
+        "before": "S0 / S0′ / S0′ 批量 / S0″-B 面",
+        "after": "逐字保留 ∧ S0(3-prime) 四支线样本单源 + A/C/D 机制侧",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-124 node 面。"
+      },
+      {
+        "gate": "s0-self-driven.mjs",
+        "disposition": "indirect",
+        "before": "S0C-1~12",
+        "after": "逐字保留 ∧ S0C-13 S0(3-prime) 四支线（testing.aiNext 缝）；只加断言不加文件（CHROMIUM_GATES === 9）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-125 Chromium 面。"
+      },
+      {
+        "gate": "law8-plaintext.mjs",
+        "disposition": "indirect",
+        "before": "法八四面 + ⑤~⑩ 零明文面",
+        "after": "逐字保留 ∧ ⑪ AI 候选 label / 留痕行零明文面（只加断言，零降级）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-125 法八扩面。"
+      },
+      {
+        "gate": "size-ruling-vol3",
+        "disposition": "indirect",
+        "before": "SIDEPANEL_IAN2_FINAL_ROUND 终值机核",
+        "after": "逐字保留 ∧ SIDEPANEL_ADN1_FINAL_ROUND 叶1 终值（Δ0 / 五要素 / EC-ADN-016 二态 / adn1Rows Σ）",
+        "assertionsRemoved": 0,
+        "reason": "TASK-ADN-126 体积终值。"
+      }
+    ],
+    "manualFaces": "人工面 M1~M5：⏳ **未执行**（headless 不可合成，不冒充 PASS）。"
+  }
 }

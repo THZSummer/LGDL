@@ -42,6 +42,8 @@ import {
   VIEWPORT_HEIGHT,
   waitFor,
 } from './_v3-helpers.mjs';
+// ★ F-36 / ADN-1 TASK-ADN-125（纯追加 import）：S0''' 四支线样本单源（与 s0 面**同一份** fixture）。
+import { S0PPP_CHAIN, S0PPP_ITEMS, s0pppChain, s0pppProblems } from './fixtures/s0-chain.mjs';
 
 /** D-005 runtime floor（本叶台账 `v4GateFloors`）：首次实测后只增不减。 */
 const RECOMMENDATION_RUNTIME_FLOOR = 30;
@@ -742,6 +744,19 @@ async function main() {
       '⑰ 终端点击就地展开卡内输入（复用 `.ask-fallback` 家系；`#ask-input` 可见并获焦点）',
       term.askCard === true && term.askInputVisible === true && term.focusId === 'ask-input',
       terminalRaw,
+    );
+
+    // ── ★ F-36 / ADN-1 TASK-ADN-125（只加断言，零降级）─────────────────────────────
+    // S0''' 四支线的样本 / 判据与 `s0-self-driven.mjs` **共用同一份** fixture（禁第二份样本）；
+    // 本门禁只机核「单源 + 判据非恒真 + AI 候选不进 `MAX_CHIPS_PER_CARD` 预算」三条静态事实。
+    check(
+      "★ ADN-1 S0'''：样本单源（十环节 / 十必判项与 s0 面同一份 fixture）∧ 判据非恒真",
+      S0PPP_CHAIN.length === 10 &&
+        S0PPP_ITEMS.length === 10 &&
+        s0pppChain().length === 10 &&
+        s0pppProblems({}).length >= 10 &&
+        s0pppProblems({ blockedNotRendered: false }).some((p) => p.includes('S0PPP-3')),
+      JSON.stringify({ chain: S0PPP_CHAIN.length, items: S0PPP_ITEMS.length }),
     );
 
     cdp.close();

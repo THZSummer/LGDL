@@ -468,6 +468,61 @@ test('V5.5-1 时机源：恰 5 含 answered ∧ 旧 4 逐字 ∧ 语义不复用
   assert.match(panic, /MAX_CHIPS_PER_CARD\s*=\s*3/, '单卡 ≤3 逐字');
 });
 
+/* ── ★ F-36 / ADN-1 **TASK-ADN-118**（ADR-ADN-004 §① · ADR-ADN-009 · FR-ADN-052/098/110 ·
+ * AC-ADN-007/024/029）—— **等价重锚（判据力只升，零删除）**。
+ *
+ * `session.aiNext` 是**嵌套在既有 `session` 源**里的注入槽（顶层仍恰 7 源）；
+ * `recommend.ts` 的导入集合仍 ⊆ 既有 5 条模块白名单（`AiNextCandidate` 类型经已在册的
+ * `./next-registry/definition.js` 取得 ⇒ **零新导入条目**，PD-ADN-008）。
+ * `NEXTSTEP_PRIORITY` 仍恰 4 条规则；④ 零新 LLM 面由既有 :238 用例逐字承担。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test('★ ADN-1 118：模块白名单恒 5（零新增条目）∧ 真值白名单仍 7 ∧ NEXTSTEP_PRIORITY 恰 4', () => {
+  // ① 模块白名单**恒 5**（PD-ADN-008：注入槽类型经既有定义模块 ⇒ 零新条目）。
+  assert.equal(RECOMMEND_MODULE_WHITELIST.length, 5, '模块白名单必须恒 5（不新增条目）');
+  assert.deepEqual(
+    [...RECOMMEND_MODULE_WHITELIST],
+    [
+      './stream-plaintext.js',
+      './next-registry/definition.js',
+      './next-registry/dispatch.js',
+      './next-registry/providers.js',
+      './next-registry/registry.js',
+    ],
+    '模块白名单必须逐字不变（只增不改的加法槽经既有条目）',
+  );
+  // ② 导入集合仍 ⊆ 白名单 5（结构上够不到设置 / 计数投影）——与 :104 同判据，此处显式点名计数。
+  const imports = importsOf(RECOMMEND_SRC);
+  assert.ok(imports.length >= 1, 'recommend.ts 必须至少导入文案工厂');
+  assert.ok(imports.length <= RECOMMEND_MODULE_WHITELIST.length, `导入条目数 ${imports.length} 不得超过白名单条目数（零新导入条目）`);
+  for (const spec of imports) {
+    assert.ok((RECOMMEND_MODULE_WHITELIST as readonly string[]).includes(spec), `recommend.ts 导入了白名单外模块 ${spec}`);
+  }
+  // ③ 真值白名单仍 7 ∧ 规则表恰 4（注入槽不得成为第 8 源 / 第 5 规则）。
+  assert.deepEqual(sourceWhitelistProblems([...NEXTSTEP_SOURCE_WHITELIST]), []);
+  assert.equal(NEXTSTEP_SOURCE_WHITELIST.length, 7, '真值白名单必须仍恰 7 源');
+  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'NEXTSTEP_PRIORITY 必须仍恰 4（AI 候选骑既有规则位）');
+});
+
+test('★ ADN-1 118：`session.aiNext` 注入槽 ∈ 既有 `session` 源（顶层仍 7 源，零扩项）', () => {
+  const code = stripComments(RECOMMEND_SRC);
+  const sessionBlock = /readonly session: \{([\s\S]*?)\n  \};/.exec(code)?.[1] ?? '';
+  assert.ok(sessionBlock.length > 0, '必须能从源文本抽取 `RecommendInput.session` 字段块（判据不得空转）');
+  assert.match(
+    sessionBlock,
+    /readonly aiNext\?: readonly AiNextCandidate\[\]/,
+    'aiNext 必须声明在既有 session 源内（嵌套注入槽）',
+  );
+  // 顶层仍恰 7 源：aiNext 不得成为第 8 个顶层真值源（sourceWhitelistProblems 对「多出一项」必红）。
+  assert.equal((NEXTSTEP_SOURCE_WHITELIST as readonly string[]).includes('aiNext'), false, 'aiNext 不得成为顶层第 8 源');
+  assert.equal(sourceWhitelistProblems([...NEXTSTEP_SOURCE_WHITELIST, 'aiNext']).length > 0, true, '把 aiNext 提升为顶层源 ⇒ 白名单判据必红');
+  // 反证：从 session 块里删掉注入槽 ⇒ 抽取判据必红（判据非恒真）。
+  const removed = code.replace('    readonly aiNext?: readonly AiNextCandidate[];', '');
+  assert.notEqual(removed, code, '前置：注入槽锚点必须存在');
+  const removedBlock = /readonly session: \{([\s\S]*?)\n  \};/.exec(removed)?.[1] ?? '';
+  assert.equal(/readonly aiNext\?/.test(removedBlock), false, '删掉注入槽 ⇒ 抽取结果必须不含 aiNext（判据非恒真）');
+});
+
 test('V5.5-1 时机源反证：删 answered / 改写旧项 / 加第 6 项 ⇒ 值集判据各必红 → 还原 PASS', () => {
   const judge = (set: readonly string[]): string[] => {
     const problems: string[] = [];

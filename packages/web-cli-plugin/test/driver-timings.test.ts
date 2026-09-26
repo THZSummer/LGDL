@@ -273,6 +273,29 @@ test('DT-6 NextCtx 加法字段经 CTX_FIELD_SERVICE 登记（含 session.proact
   for (const f of fields) assert.ok(serviceOfCtxField(f) !== undefined || f.startsWith('session.proactive'), `${f} 必须可解析到服务面`);
 });
 
+/* ★ F-36 / ADN-1 **TASK-ADN-119**（ADR-ADN-009 · FR-ADN-010/013 · AC-ADN-002/012）——
+ * **DT-6 加法字段显式重锚（判据力只升）**：`session.aiNext` 注入槽经**既有 `session` 前缀**
+ * 登记 ⇒ `CTX_FIELD_SERVICE` **零新增登记行**（登记表长度不变）。
+ * 反证：把 `session.aiNext` 改成顶层 `aiNext`（无前缀登记）⇒ 同一登记判据必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-1 119（DT-6 扩）：`session.aiNext` 经既有 session 前缀登记 ⇒ CTX_FIELD_SERVICE 零新增登记行', () => {
+  const fields = nextCtxFieldPaths(DEFINITION_SRC);
+  assert.ok(fields.includes('session.aiNext'), 'DT-6：ADN-1 注入槽 session.aiNext 必须被抽取到');
+  assert.equal(serviceOfCtxField('session.aiNext'), 'session', 'session.aiNext 必须经既有 session 前缀解析');
+  // 零新增登记行：登记表长度仍为既有 8 行（session 前缀覆盖 ⇒ 不为 aiNext 另立一行）。
+  assert.equal(Object.keys(CTX_FIELD_SERVICE).length, 8, 'CTX_FIELD_SERVICE 必须零新增登记行（实测恰 8）');
+  assert.equal(Object.prototype.hasOwnProperty.call(CTX_FIELD_SERVICE, 'session.aiNext'), false, '不得为 aiNext 另立登记行');
+  // 反证：把注入槽挪成**未登记的顶层字段** ⇒ 同一判据必红（判据非恒真）。
+  const forged = DEFINITION_SRC.replace(
+    '    readonly aiNext?: readonly AiNextCandidate[];',
+    '',
+  ).replace('  readonly session: {', '  readonly aiNextRogue: readonly string[];\n  readonly session: {');
+  assert.notEqual(forged, DEFINITION_SRC, '前置：注入槽锚点必须存在');
+  assert.ok(nextCtxFieldPaths(forged).includes('aiNextRogue'), '注入字段必须被抽取到（判据不得空转）');
+  assert.ok(ctxFieldRegistrationProblems(forged).some((p) => p.includes(JUDGEMENTS[5].expectFailPattern)), '未登记顶层字段必须被判红');
+  assert.deepEqual(ctxFieldRegistrationProblems(DEFINITION_SRC), [], '还原必须 PASS');
+});
+
 test('DT-6 反证：加一个未登记字段 ⇒ 注册校验 FAIL → 还原 PASS；既有 7 源零改名零删除', () => {
   const forged = DEFINITION_SRC.replace(
     '  readonly onboarding:',

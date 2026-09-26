@@ -24,6 +24,9 @@ import {
   SIDEPANEL_TIER_FLOOR_BYTES,
   SIDEPANEL_W4W5_FINAL_ROUND,
   SIDEPANEL_IAN2_FINAL_ROUND,
+  // ★ F-36 / ADN-1 TASK-ADN-126：叶1 终值定稿 + 整叶逐模块归因。
+  SIDEPANEL_ADN1_FINAL_ROUND,
+  SIDEPANEL_GROWTH_BREAKDOWN,
   reRegistrationDirectionCoverageProblems,
   reRegistrationDirectionProblems,
   SIDEPANEL_CEILING_CAP_RECORD,
@@ -580,4 +583,65 @@ test('★ IAN-2 R2: 叶2 终值五要素（λ0 零字节轮）+ EC-IAN-016 三�
   // ⑧ 作者确认占位不得被本常量伪称。
   assert.match(r.reason, /pending-author-line/, '终值登记必须写明作者确认仍为 pending-author-line');
   assert.match(r.reason, /三态/, '终值登记必须显式写明 EC-IAN-016 三态');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-126**（ADR-ADN-008 §③ · ADR-ADN-009 · ADR-ADN-010 ·
+ * FR-ADN-112/120/122/124 · AC-ADN-025/026）—— **叶1 终值定稿机核**（零字节轮）：
+ * 五要素 + 三值同源 + **越叶预算结算如实登记** + **EC-ADN-016 二态显式** + 逐模块 `adn1Rows`
+ * （Σ + 未归因 == 登记增量）。全部读数与源码常量同源，禁止散文自证。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-1 R2: 叶1 终值五要素（零字节轮）+ EC-ADN-016 二态 + 越叶预算结算 + adn1Rows Σ 机核', () => {
+  const r = SIDEPANEL_ADN1_FINAL_ROUND;
+  // ① Δ = 0 ∧ 方向 = unchanged（零字节轮不得伪装成提升 / 净减）。
+  assert.equal(r.baselineAfterBytes - r.baselineBeforeBytes, 0, 'ADN-1 R2 必须登记为 Δ=0（src/** 零字节改动）');
+  assert.equal(r.direction, 'unchanged', '零字节轮方向必须是 unchanged');
+  // ② 终值必须与当前基线 / ceiling 同源（不得另立一套数字）。
+  assert.equal(r.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '叶1 终值必须等于现行登记基线（603,205）');
+  assert.equal(r.baselineBeforeBytes, 603_205, '零字节轮前值 = 后值 = 603,205（R2 零 src 字节）');
+  assert.match(r.reason, /598,926/, '整叶前值 598,926 必须逐字留在 reason（历史保真）');
+  assert.equal(r.ceilingAfterBytes, SIDEPANEL_CEILING, '叶1 终轮 ceiling 必须等于现行生效上限');
+  assert.equal(r.ceilingAfterBytes, Math.floor(r.baselineAfterBytes * 1.05), '生效上限 = floor(基线 × 1.05) = 633,365');
+  assert.equal(r.ceilingUncappedFormulaBytes, Math.floor(603_205 * 1.05), '未封顶公式值必须同源复算');
+  // ③ 五要素齐备（date / source / buildCommand / measuredBy / reason）。
+  for (const f of ['date', 'source', 'buildCommand', 'measuredBy', 'reason'] as const) {
+    assert.ok(String(r[f] ?? '').trim().length >= 8, `叶1 终值五要素缺 ${f}`);
+  }
+  assert.ok(r.assertionNonRemovalEntries.length > 0, '断言零删减登记不得为空');
+  // ④ 前值 / 终值仍在历史链上（历史不得被改写）。
+  assert.ok((SIDEPANEL_BASELINE_BYTES_TIMELINE as readonly number[]).includes(r.baselineBeforeBytes), '叶1 前值必须仍在历史链上');
+  assert.ok((SIDEPANEL_BASELINE_BYTES_TIMELINE as readonly number[]).includes(598_926), '整叶前值 598,926 必须仍在历史链上（历史不得被改写）');
+  assert.ok(603_205 >= SIDEPANEL_TIER_FLOOR_BYTES, '现行登记值不得掉出档位下界');
+  // ⑤ 三值同源（V3-VOL-3）：档位 / 绝对上限 / 生效上限。
+  assert.equal(ceilTo50KB(r.baselineAfterBytes), 614_400, '三值②a：档位 = 614,400（未跨档位）');
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 675_840, '三值②b：绝对上限 = 675,840');
+  assert.equal(r.ceilingAfterBytes, Math.min(675_840, Math.floor(r.baselineAfterBytes * 1.05)), '生效上限 = min(绝对上限, floor(基线 × 1.05))');
+  // ⑥ **EC-ADN-016 二态**显式：越生效上限（旧 628,872 / 现行 633,365）/ 越档位 / 越绝对上限 三者皆否。
+  const ecAdn016 = {
+    overLegacyEffectiveCeiling: r.baselineAfterBytes > 628_872,
+    overEffectiveCeiling: r.baselineAfterBytes > r.ceilingAfterBytes,
+    overTier: r.baselineAfterBytes > 614_400,
+    overAbsoluteCeiling: r.baselineAfterBytes > 675_840,
+  };
+  assert.deepEqual(
+    ecAdn016,
+    { overLegacyEffectiveCeiling: false, overEffectiveCeiling: false, overTier: false, overAbsoluteCeiling: false },
+    'EC-ADN-016 二态必须皆「否」（无需重登记基线 / 无需显式升档 + 作者一行）',
+  );
+  assert.match(r.reason, /EC-ADN-016/,'终值登记必须显式写明 EC-ADN-016 二态');
+  assert.match(r.reason, /pending-author-line/, '终值登记必须写明作者确认仍为 pending-author-line');
+  // ⑦ 逐模块 `adn1Rows`：Σ + 未归因 == 整叶登记增量（+4,279）——「越叶预算结算如实登记」的机器落点。
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.adn1Rows;
+  const rowSum = rows.reduce((s, x) => s + x.deltaBytes, 0);
+  assert.equal(rowSum, 4_279, `adn1Rows Σ 必须 = +4,279（实测 ${rowSum}）`);
+  assert.equal(
+    rowSum + SIDEPANEL_GROWTH_BREAKDOWN.adn1UnattributedGlueBytes,
+    r.baselineAfterBytes - 598_926,
+    'Σ 逐模块 + 未归因 == 整叶登记增量（598,926 → 603,205 = +4,279；越叶预算结算的算术自洽）',
+  );
+  for (const row of rows) assert.equal(row.deltaBytes, row.afterBytes - (row.beforeBytes ?? 0), `${row.module}: Δ 必须自洽`);
+  // ⑧ 越叶预算**如实登记**（不删判据 / 不放宽容差 / 不搬列规避）：+4,279 B 越 +0.8~2.0 KB 预算。
+  assert.ok(4_279 > 2_000, 'ADN-1 叶1 整叶增量必须确实越过 +2.0 KB 上界（否则本机核空转）');
+  assert.match(r.reason, /越叶预算/, '终值登记必须写明越叶预算结算');
+  assert.match(r.reason, /R-ADN-908/, '终值登记必须写明搬列规避反证（R-ADN-908）');
 });

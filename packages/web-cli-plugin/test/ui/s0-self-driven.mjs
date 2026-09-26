@@ -37,6 +37,16 @@ import {
 } from './fixtures/s0-chain.mjs';
 // IAN-1 TASK-IAN-124（W3，纯追加）：S0''-A **中间态保护**样本 + 判据（与 node 面**同一份**）。
 import { S0PP_CHAIN, S0PP_LEGACY_IDS, S0PP_REJECTED_TEXT, s0ppChain, s0ppProblems } from './fixtures/s0-chain.mjs';
+// ★ F-36 / ADN-1 TASK-ADN-125（W3，纯追加）：S0''' 四支线样本 + 判据（与 node 面**同一份**）。
+import {
+  S0PPP_ACCEPTED,
+  S0PPP_CHAIN,
+  S0PPP_ITEMS,
+  S0PPP_STALE_LABEL,
+  S0PPP_TERMINAL_SELECTOR,
+  s0pppChain,
+  s0pppProblems,
+} from './fixtures/s0-chain.mjs';
 
 /** One judgement per line of the gate (`expectFailPattern` = the readable failure text). */
 export const JUDGEMENTS = [
@@ -57,6 +67,8 @@ export const JUDGEMENTS = [
   { id: 'S0C-11-s0p-batch', expectFailPattern: 'S0′ 批量：一条 confirm-request{plan} ⇒ 单张 auth 卡承载 N 行 ∧ 一次手势留痕（gesture=user / results=N/N）∧ 扩围二择走既有 askuser' },
   // IAN-1 TASK-IAN-124（W3，只增不减）：**S0''-A 中间态保护**的真面板面（双入口 + 双回填载体）。
   { id: 'S0C-12-s0pp-mid-state', expectFailPattern: "S0''-A 中间态：点末端项 ⇒ 卡内输入展开获焦 ⇒ 真键入 ⇒ 真提交成回合 ∧ 旧 #composer 仍可用 ∧ 双回填载体互不覆盖（破坏旧入口 / 回填覆盖非空 ⇒ FAIL）" },
+  // ★ F-36 / ADN-1 TASK-ADN-125（W3，只增不减）：**S0''' 四支线**的真面板面（测试缝 `testing.aiNext`）。
+  { id: 'S0C-13-s0ppp-branches', expectFailPattern: "S0'''：AI 合法 ⇒ chips 替换陈旧候选（≤3 单卡）；非法 ⇒ 可读 blocked= 行且不渲染为 chip；未产出 / 未配 ⇒ 确定性 + 终端恒最末（未校验候选进 chips ⇒ FAIL）" },
 ];
 
 /**
@@ -1330,6 +1342,153 @@ async function main() {
     );
     check(
       "S0C-12 人工面 M1（末端项可发现性）/ M2（时隐时现困扰）/ M5（排队体感）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
+      true,
+      '⏳ 未执行',
+    );
+
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⑱ ★ F-36 / ADN-1 TASK-ADN-125（ADR-ADN-007 §①②③ · FR-ADN-080/083/084 ·
+    //   AC-ADN-001/013）—— **S0''' 四支线**真面板面（驱动经 `window.__v3.testing.aiNext`
+    //   测试缝 = 与 `chat-result{done}` **同一**生产消费路径；样本 / 判据单源 =
+    //   `test/ui/fixtures/s0-chain.mjs`，与 node 面**同一份**）。
+    //   反证「未校验候选进 chips ⇒ 必红」在本面同样实跑（判据不是恒真）。
+    // ═════════════════════════════════════════════════════════════════════════
+    console.log("\n▶ ⑱ S0''' 四支线：A 合法采纳 / B 被拦 / C 未产出 / D 未配置（测试缝 testing.aiNext）");
+    check(
+      "S0C-13 样本单源：S0''' 十环节 / 十必判项与 node 面共用同一份 fixture（不写第二份）",
+      S0PPP_CHAIN.length === 10 && S0PPP_ITEMS.length === 10 && s0pppChain().length === 10,
+      JSON.stringify({ chain: S0PPP_CHAIN.map((b) => b.id) }),
+    );
+    // 干净的已知态：reset（清流 / 清间隔 / 清完成台账）+ 真授权 + 真拾取（同一真路径）。
+    await evaluate(cdp, `window.__v3.testing.reset(); true`);
+    await evaluate(
+      cdp,
+      `(async () => {
+        await chrome.runtime.sendMessage({ kind: 'discover', origin: ${JSON.stringify(S0_ORIGIN)}, state: 'supported' });
+        await chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(S0_ORIGIN)}, hostPermissionGranted: true });
+        await window.__v3.testing.refresh();
+        return true;
+      })()`,
+    );
+    const pppPick = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const origin = ${JSON.stringify(S0_ORIGIN)};
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin,
+            documentId: 'doc-ppp', navSeq: 1,
+            declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: origin, authorized: true, documentId: 'doc-ppp', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          return JSON.stringify({ refId: rec.facts.refId });
+        })()`,
+      ),
+    );
+    check('S0C-13 前置：拾取引用已铸（A/B/C/D 四支线共用同一已知态）', /^ref_\d+$/.test(String(pppPick.refId)), pppPick.refId);
+
+    // ── A 合法采纳：注入合法候选 ⇒ `ai-next` provider 接管 `ref-action` 规则位 ⇒ 替换陈旧候选 ──
+    const pppRule = await evaluate(
+      cdp,
+      `(() => {
+        const rule = window.__v3.testing.aiNext({ accepted: [{ opId: ${JSON.stringify(S0PPP_ACCEPTED.opId)}, label: ${JSON.stringify(S0PPP_ACCEPTED.label)} }] });
+        const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+        const card = cards[cards.length - 1];
+        const chips = [...(card?.querySelectorAll('button.next-chip') ?? [])].map((c) => c.textContent);
+        const terminal = card?.querySelector(${JSON.stringify(S0PPP_TERMINAL_SELECTOR)}) ?? null;
+        return JSON.stringify({
+          rule,
+          chips,
+          cards: cards.length,
+          terminal: terminal ? terminal.textContent : null,
+          terminalLast: terminal !== null && terminal.parentElement?.lastElementChild === terminal,
+        });
+      })()`,
+    ).then((s) => JSON.parse(s));
+    // A 支线的读数（**只读取真面板可测面**；十环节全判据在 node 面实跑）：
+    //   · 规则位被 `ai-next` 接管 ⇒ `rule === 'ref-action'`；
+    //   · chips = 注入候选 label（替换陈旧确定性文案）∧ ≤3 ∧ 单卡；
+    //   · 终端恒最末（`.next-terminal` 是其父的末元素）。
+    check(
+      `S0C-13 A 合法采纳：注入候选替换陈旧确定性候选（≤3 ∧ 单卡 ∧ 终端恒最末）${pppRule.chips.join(' / ')}`,
+      pppRule.rule === 'ref-action' &&
+        pppRule.chips.includes(S0PPP_ACCEPTED.label) &&
+        !pppRule.chips.includes(S0PPP_STALE_LABEL) &&
+        pppRule.chips.length <= 3 &&
+        pppRule.cards === 1 &&
+        pppRule.terminalLast,
+      JSON.stringify(pppRule),
+    );
+
+    // ── B 被拦：注入被拦码 ⇒ 可读 `blocked=` 行 ∧ 被拦候选**不得**渲染为 chip ──────────
+    const pppB = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.aiNext({ accepted: [], blocked: ['tier'] });
+        const text = document.querySelector('#stream')?.textContent ?? '';
+        const chips = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')].map((c) => c.textContent);
+        return JSON.stringify({ blockedReadable: text.includes('driver=ai-next') && text.includes('blocked=tier'), chips });
+      })()`,
+    ).then((s) => JSON.parse(s));
+    check(
+      `S0C-13 B 被拦：可读 blocked=tier 行 ∧ 被拦候选不渲染为 chip`,
+      pppB.blockedReadable === true && !pppB.chips.some((t) => t.includes('授权当前站点')),
+      JSON.stringify(pppB),
+    );
+
+    // ── C 未产出：零 aiNext ⇒ 确定性注册表产卡（终端恒在）────────────────────────────
+    const pppC = JSON.parse(await evaluate(cdp, `window.__v3.testing.recommend('idle')`));
+    const pppCDom = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+          const card = cards[cards.length - 1];
+          const chips = [...(card?.querySelectorAll('button.next-chip') ?? [])].map((c) => c.textContent);
+          const terminal = card?.querySelector(${JSON.stringify(S0PPP_TERMINAL_SELECTOR)}) ?? null;
+          return JSON.stringify({ chips, terminalLast: terminal !== null && terminal.parentElement?.lastElementChild === terminal });
+        })()`,
+      ),
+    );
+    check(
+      `S0C-13 C 未产出：零 aiNext ⇒ 确定性候选逐字（${S0PPP_STALE_LABEL}）+ 终端恒最末`,
+      pppC.rule === 'ref-action' && pppCDom.chips.includes(S0PPP_STALE_LABEL) && pppCDom.terminalLast,
+      JSON.stringify({ ...pppC, ...pppCDom }),
+    );
+
+    // ── D 未配置：确定性恢复卡（`op.llm-config`）+ 终端恒在（现状逐字）─────────────────
+    const pppD = JSON.parse(await evaluate(cdp, `window.__v3.testing.recommend('llm')`));
+    const pppDDom = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+          const card = cards[cards.length - 1];
+          const ops = [...(card?.querySelectorAll('[data-op]') ?? [])].map((n) => n.getAttribute('data-op'));
+          const terminal = card?.querySelector(${JSON.stringify(S0PPP_TERMINAL_SELECTOR)}) ?? null;
+          return JSON.stringify({ ops, terminalLast: terminal !== null && terminal.parentElement?.lastElementChild === terminal });
+        })()`,
+      ),
+    );
+    check(
+      `S0C-13 D 未配置：确定性恢复卡（op.llm-config）+ 终端恒最末`,
+      pppD.rule === 'risk-recovery' && pppDDom.ops.includes('op.llm-config') && pppDDom.terminalLast,
+      JSON.stringify({ ...pppD, ...pppDDom }),
+    );
+
+    // ── 判据本体（共享样本，双面同一份）+ 反证「未校验候选进 chips ⇒ 必红」──────────────
+    // 本面只驱动**四支线**（十环节全判据在 node 面用生产模块实跑）；此处机核共享判据非恒真。
+    check(
+      "S0C-13 共享判据非恒真：空读数逐条判红 ∧ 反证（未校验候选进 chips / 终端缺失）必 FAIL",
+      s0pppProblems({}).length >= 10 &&
+        s0pppProblems({ blockedNotRendered: false }).some((p) => p.includes('S0PPP-3')) &&
+        s0pppProblems({ terminalLast: false }).some((p) => p.includes('S0PPP-5')),
+      JSON.stringify({ empty: s0pppProblems({}).length }),
+    );
+    check(
+      "S0C-13 人工面 M1（AI 建议可读性）/ M3（替换陈旧候选的突兀感）/ M5（提案节奏）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
       true,
       '⏳ 未执行',
     );

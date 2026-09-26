@@ -391,3 +391,33 @@ test('OP-W ⑨（V5.5F-1）主流程 diff = 0 复合读数 + 台账 X-SGO-7「�
   const forged = rows.find((r) => r.id === 'X-SGO-7');
   assert.notEqual({ ...forged, decision: 'superseded' }.decision, 'no-supersession');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-121**（ADR-ADN-005 §② · ADR-ADN-009 · FR-ADN-064/110 ·
+ * AC-ADN-011/024）—— **AI 候选骑既有挂点（零新增挂点）+ 计数全保持**（X-ADN-6 = 未发生取代）。
+ *
+ * `chat-result{done}` 的 AI 候选消费与 `testing.aiNext` 测试缝**共用**唯一 `consumeAiNext`
+ * ⇒ 「答案驱动化」的三处结算路径与 AI 路径都经**既有** `nextAfterSettle → maybeRecommend('idle')`
+ * 挂点：`maybeRecommend(` 仍 **1 定义 / 8 调用点**，`requestTurn(` 仍 **恰 1**。
+ * 反证：AI 路径直连 `requestTurn` ⇒ 必红（`ai-drive.ts` 零 `requestTurn(`）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-1 121：AI 候选经既有 done → maybeRecommend(\'idle\') 挂点（零新增挂点）', () => {
+  const at = SIDEPANEL.indexOf('function consumeAiNext(');
+  assert.ok(at >= 0, 'consumeAiNext 必须存在于面板源码（done 分支与测试缝共用）');
+  const body = SIDEPANEL.slice(at, at + 600);
+  const calls = [...body.matchAll(/maybeRecommend\(\s*'([A-Za-z]+)'/g)].map((m) => m[1]);
+  assert.deepEqual(calls, ['idle'], 'consumeAiNext 必须恰一次经既有 `maybeRecommend(\'idle\')` 挂点（零新增挂点）');
+  assert.equal((body.match(/maybeRecommend\(/g) ?? []).length, 1, 'consumeAiNext 内 maybeRecommend( 恰 1 处');
+  // 复合读数：三条计数全保持（X-ADN-6 = 未发生取代）。
+  assert.deepEqual(requestTurnProblems(SIDEPANEL), [], JUDGEMENTS[2].expectFailPattern);
+  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'maybeRecommend', 8, 'maybeRecommend 调用点'), [], JUDGEMENTS[5].expectFailPattern);
+  assert.equal(definitionCount(SIDEPANEL, 'maybeRecommend'), 1, `${JUDGEMENTS[5].expectFailPattern}：maybeRecommend 定义恰 1`);
+  assert.equal(definitionCount(SIDEPANEL, 'nextAfterSettle'), 1, `${JUDGEMENTS[7].expectFailPattern}：nextAfterSettle 定义恰 1`);
+  assert.deepEqual(occurrenceProblems(SIDEPANEL, 'nextAfterSettle', NEXT_AFTER_SETTLE_CALLSITES, 'nextAfterSettle 调用点'), [], JUDGEMENTS[7].expectFailPattern);
+  assert.equal(callSites(AI_DRIVE, 'dispatchChipAction').length, 1, JUDGEMENTS[6].expectFailPattern);
+  // 反证保留：AI 直连 requestTurn ⇒ 必红（ai-drive 零 requestTurn(）。
+  assert.equal(callSites(AI_DRIVE, 'requestTurn').length, 0, 'AI 路径不得直连 requestTurn（必须经 op.turn 槽）');
+  assert.equal(callSites(`${AI_DRIVE}\nrequestTurn('ghost');`, 'requestTurn').length, 1, '注入 requestTurn ⇒ 判据可见（非恒真）');
+  // 反证：新增第 9 个 maybeRecommend( 调用点 ⇒ 必红。
+  assert.ok(occurrenceProblems(`${SIDEPANEL}\nmaybeRecommend('idle');`, 'maybeRecommend', 8, 'maybeRecommend 调用点').length > 0, '第 9 个调用点必须红');
+});

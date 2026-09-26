@@ -42,6 +42,8 @@ import {
 import { pressDecision } from '../src/ui/sidepanel/next-registry/ai-drive.js';
 import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/pipeline.js';
 import { OPS_RECOVERY_ROWS } from '../src/ui/sidepanel/next-registry/providers.js';
+// ★ F-36 / ADN-1 TASK-ADN-122：接受层判定（`admitCandidate`）与档位读取点同源机核。
+import { admitCandidate, type AiNextFacts } from '../src/background/ai-next.js';
 
 /** `expectFailPattern` of every judgement this gate declares (the meta-gate marker). */
 export interface ThreeTierJudgement {
@@ -448,4 +450,50 @@ test('OT ⑩ 扩批量变体：批量准入 ⊆ auto ∧ tierOf 逐 op 不变 �
   assert.deepEqual(bulkAdmitProblems(batchAdmitted, OP_TIER_TABLE), []);
   // ⑦ `auth` 6 终态语义保持：本文件不持有终态词表，只机核「档位不被批量改变」（OT-⑩ 原判据）。
   assert.equal(OP_TIERS.length, 3, '档位枚举必须恰 3（无第四档）');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-122**（ADR-ADN-003 §① · ADR-ADN-009 · FR-ADN-021/033/096 ·
+ * AC-ADN-005/010）—— **接受层加严（判据力只升，零删除）**：
+ *   · 接受层的档位**读取点 = `tierOf` 单源**（`background/ai-next.ts` 只经 `tierOf(d)` 读档，
+ *     零第二档位表 / 零手写白名单）；
+ *   · `tierOfId('op.authorize') === 'gesture'` ∧ `admitCandidate` 拒（连接受都拒）；
+ *   · 既有派生式三档 / `OP_TIER_TABLE` 物化 / 特权恒 `gesture` 判据**逐字保留**（上文用例）。
+ * 反证：把读取点换掉（删 `tierOf(` 调用）/ 内联第二档位表 ⇒ 真源切片判据必红。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const AI_NEXT_SRC = readFileSync(`${PKG2}src/background/ai-next.ts`, 'utf8');
+
+/** 接受层档位读取点判据：必须经 `tierOf(` 单源读档，且不得内联第二份档位表。 */
+export function acceptTierReadPointProblems(src: string): string[] {
+  const p = '接受层档位读取点必须 = tierOf（零第二档位表）';
+  const problems: string[] = [];
+  if (!/tierOf\s*\(/.test(src)) problems.push(`${p}：未发现 tierOf( 调用（读取点漂移 / 手写白名单）`);
+  if (/OP_TIER_TABLE|OP_TIERS\b/.test(src)) problems.push(`${p}：ai-next 不得内联 / 复制第二份档位表`);
+  return problems;
+}
+
+test('★ ADN-1 122：接受层读点 = tierOf ∧ tierOfId(op.authorize)=gesture ∧ admitCandidate 拒', () => {
+  const FACTS: AiNextFacts = { refs: [] };
+  // ① 真源切片：接受层只经 tierOf( 单源读档（零第二档位表）。
+  assert.deepEqual(acceptTierReadPointProblems(AI_NEXT_SRC), [], 'ai-next 必须经 tierOf 单源读档');
+  assert.match(AI_NEXT_SRC, /tierOf\(d\) === 'gesture'/, 'gesture 档判定必须由 tierOf(d) 派生');
+  // ② 特权 op 恒 gesture ∧ 接受层即拒（连提案都拒）。
+  assert.equal(tierOfId('op.authorize'), 'gesture');
+  assert.equal(admitCandidate({ opId: 'op.authorize', label: '授权当前站点' }, FACTS).ok, false, 'gesture 候选连接受都拒');
+  assert.equal(admitCandidate({ opId: 'op.perm.request', label: '申请权限' }, FACTS).ok, false, '特权 op 一律拒');
+  // ③ 对照：auto / confirm 档接受（分层不混同）——confirm 可接受但不可自动按下。
+  assert.equal(admitCandidate({ opId: 'op.turn', label: '继续' }, FACTS).ok, true, 'auto 档接受');
+  assert.equal(admitCandidate({ opId: 'op.llm-config', label: '配置 LLM' }, FACTS).ok, true, 'confirm 档接受');
+  assert.equal(
+    pressDecision('op.llm-config', { actor: 'ai', driverId: 'ai-next', driverClass: 'ai-driven', configured: true, armed: true }).ok,
+    false,
+    'confirm 不得自动按下（AI 不得代答 consent）',
+  );
+  // ④ 反证：把读取点换掉（删 tierOf( 调用）/ 内联第二档位表 ⇒ 必红 → 还原 PASS。
+  const forged = AI_NEXT_SRC.replace("if (tierOf(d) === 'gesture') return { ok: false, blocked: 'tier' };", 'void 0;');
+  assert.notEqual(forged, AI_NEXT_SRC, '前置：读取点锚点必须存在');
+  assert.ok(acceptTierReadPointProblems(forged).length > 0, '删读取点 ⇒ 必红');
+  assert.ok(acceptTierReadPointProblems(`${AI_NEXT_SRC}\nconst OP_TIER_TABLE = {} as const;\n`).length > 0, '第二档位表 ⇒ 必红');
+  assert.deepEqual(acceptTierReadPointProblems(AI_NEXT_SRC), [], '还原 ⇒ PASS');
 });

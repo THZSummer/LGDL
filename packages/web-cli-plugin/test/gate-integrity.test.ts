@@ -285,6 +285,11 @@ export const EXPECTED_AUDITED_FILES = [
   // ⇒ 首开零卡必红）∧ 让位 firstRun（零双卡）。**只追加** ⇒ 改名 / 删除仍 FAIL；
   // `CHROMIUM_GATES.length === 9` 逐字不动（R8 零新增 Chromium 门禁文件）。
   'test/r8-open-next-entry.test.ts',
+  // ── ★ F-36 / ADN-1（leaf `specs-tree-adn-1-ai-next-produce-and-verify`）叶1 新 node 门禁 ──
+  // W1+W2（TASK-ADN-115~117）落地 `ai-next-candidate`（AI-N-1~11 + 五类注入反证 + 真源切片 +
+  // 三段控制）。**只追加** ⇒ 改名 / 删除仍 FAIL；`CHROMIUM_GATES.length === 9` 逐字不动
+  // （叶1 零新增 Chromium 门禁文件：S0''' 四支线走既有 `test/ui/s0-self-driven.mjs`，只加断言）。
+  'test/ai-next-candidate.test.ts',
 ] as const;
 
 /**
@@ -363,6 +368,17 @@ export const IAN1_NODE_GATE_FILES = ['test/free-input-next.test.ts'] as const;
  * `IAN1_NODE_GATE_FILES` 逐字保留；`CHROMIUM_GATES === 9` 逐字不动。
  */
 export const IAN2_NODE_GATE_FILES = ['test/law4-input-as-next.test.ts'] as const;
+
+/**
+ * ★ F-36 / ADN-1（leaf `specs-tree-adn-1-ai-next-produce-and-verify`）—— **AI next 候选通道
+ * + 5 道校验链叶**的新增 node 门禁（叶1 落地 **1** 枚：`ai-next-candidate`，AI-N-1~11）。
+ *
+ * **只增不减**：既有下界（`V5_*` / `V551_*` / `V552_*` / `V553_*` / `V55F*` / `IAN1_` /
+ * `IAN2_`）逐字保留；`CHROMIUM_GATES === 9` 逐字不动（叶1 零新增 Chromium 门禁文件）。
+ * `EXPECTED_AUDITED_FILES` 下界 **+1**（R2 实测 40 → **41**；按断言语义 + 语义增量重锚，
+ * 不照抄陈旧字面 —— COR-ADN-3）。
+ */
+export const V_ADN_NODE_GATE_FILES = ['test/ai-next-candidate.test.ts'] as const;
 
 /** V5.5F-2 W3 收口轮**实际改动、承载新判据**的受判门禁（只增不减；含叶1 的法九门禁重锚）。 */
 export const V55F2_W3_AUDITED_FILES = [
@@ -1208,6 +1224,60 @@ test('元门禁（★ IAN-2）：`law4-input-as-next` 由 JUDGEMENTS 标记纳�
   }
   assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（叶2 零新增 Chromium 门禁文件）');
   console.log(`  ℹ ★ IAN-2 新门禁受审：${IAN2_NODE_GATE_FILES.length}/${IAN2_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中）`);
+});
+
+/**
+ * ★ F-36 / ADN-1 **TASK-ADN-123**（ADR-ADN-009 · FR-ADN-115 · AC-ADN-022）—— 叶1 新 node 门禁
+ * `ai-next-candidate` **只增**进受审下界（目录扫描 ∧ 下界声明双命中）。
+ *
+ * `EXPECTED_AUDITED_FILES` 下界 **+1**（R2 实测 40 → **41**：语义增量 = 只追加一架新 node 门禁，
+ * 既有 40 项逐字保留）；既有下界（`V5_*` / `V551_*` / `V552_*` / `V553_*` / `V55F*` / `IAN1_` /
+ * `IAN2_`）逐字保留；`CHROMIUM_GATES === 9` 逐字不动。
+ */
+test('元门禁（★ ADN-1）：`ai-next-candidate` 由 JUDGEMENTS 标记纳入受审集合（下界 ≥1，CHROMIUM_GATES 仍为 9）', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V_ADN_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（新门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    if ((text.match(/expectFailPattern\s*:/g) ?? []).length < 3) problems.push(`${file}: 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  assert.deepEqual(problems, [], `★ ADN-1 新门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  assert.ok(V_ADN_NODE_GATE_FILES.length >= 1, 'ADN-1 叶1 新增 node 门禁下界不得低于 1（ai-next-candidate）');
+  // 反证：未在受审集合的门禁必须被判红（判据非恒真）。
+  const forgedProblems: string[] = [];
+  for (const file of [...V_ADN_NODE_GATE_FILES, 'test/ghost-gate.test.ts']) {
+    if (!discovered.includes(file)) forgedProblems.push(`${file}: 未被目录扫描纳入`);
+  }
+  assert.ok(forgedProblems.length > 0, '未在受审集合的门禁必须被判红（判据非恒真）');
+  // 既有下界逐字保留（只增不减）——逐项仍在目录扫描集合与下界声明里。
+  for (const file of [
+    ...V5_NEW_GATE_FILES,
+    ...V551_NODE_GATE_FILES,
+    ...V552_NODE_GATE_FILES,
+    ...V553_NODE_GATE_FILES,
+    ...V55F1_NODE_GATE_FILES,
+    ...V55F2_NODE_GATE_FILES,
+    ...IAN1_NODE_GATE_FILES,
+    ...IAN2_NODE_GATE_FILES,
+  ]) {
+    assert.ok(discovered.includes(file), `${file} 不得脱离受审集合`);
+    assert.ok((EXPECTED_AUDITED_FILES as readonly string[]).includes(file), `${file} 必须仍在下界声明里（只增不减）`);
+  }
+  // 下界计数：任务书陈旧字面记「40」，R1 现场实测 **47** ⇒ 本叶 +1 = **48**（只增 1）。
+  // 按**语义增量**重锚（末位追加一架新 node 门禁；前序 47 项逐字保留），不照抄陈旧字面 —— COR-ADN-3。
+  assert.equal(EXPECTED_AUDITED_FILES.length, 48, `EXPECTED_AUDITED_FILES 下界必须恰 48（R1 现场 47 + ai-next-candidate；实测 ${EXPECTED_AUDITED_FILES.length}）`);
+  assert.equal(EXPECTED_AUDITED_FILES[EXPECTED_AUDITED_FILES.length - 1], 'test/ai-next-candidate.test.ts', '本叶必须在末位**只追加**一架（前序逐字保留）');
+  assert.equal(
+    EXPECTED_AUDITED_FILES.filter((f) => f === 'test/ai-next-candidate.test.ts').length,
+    1,
+    'ai-next-candidate 必须恰出现一次（重复登记即红）',
+  );
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（叶1 零新增 Chromium 门禁文件）');
+  console.log(`  ℹ ★ ADN-1 新门禁受审：${V_ADN_NODE_GATE_FILES.length}/${V_ADN_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中；下界 ${EXPECTED_AUDITED_FILES.length}）`);
 });
 
 test('元门禁反证（合成夹具）：N-01 中间语句绕过 / N-02 注释满足有界性 必须被判红', () => {

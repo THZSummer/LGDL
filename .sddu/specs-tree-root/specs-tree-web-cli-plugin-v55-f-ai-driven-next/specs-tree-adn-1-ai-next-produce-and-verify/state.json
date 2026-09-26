@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-adn-1-ai-next-produce-and-verify",
   "version": "v0.11.3",
   "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
-  "phase": "tasked",
+  "phase": "builded",
   "status": "tracked",
-  "workflow": "4.tasks",
-  "agent": "sddu-tasks",
+  "workflow": "5.build",
+  "agent": "sddu-build",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "childrens": [],
@@ -95,6 +95,14 @@
       "agent": "sddu-tasks",
       "artifact": "tasks.md + tasks.json v1.0（27 任务 / 3（W01~W03））",
       "note": "adn-1 叶 tasks 阶段：27 任务 / 3（W01~W03）（TASK-ADN-101~127；S×6 / M×17 / L×4）；spikeGate + 门禁落点 + S0''' 双面 + 体积分列见 tasks.md/ tasks.json。零产品代码改动、零门禁 / 构建 / Chromium、routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-build",
+      "artifact": "build.md v1.1 + 18 文件（test/** + docs/**，零 src/**）",
+      "note": "adn-1 叶 build 阶段（两轮）：R1（W01+W02 = TASK-ADN-101~117）落 `src/background/ai-next.ts`（NEW）+ `ai-next-candidate` 新门禁（1463/0）；R2（W03 = TASK-ADN-118~127）**零 src/** 字节**：5 门禁等价重锚 + `gate-integrity` 受审下界 47→48 + S0''' 四支线 node+Chromium 双面（`s0-chain.mjs` 单源扩展 / S0C-13 / ⑪ 法八）+ 红线巡检 + 体积叶1 终值（`SIDEPANEL_ADN1_FINAL_ROUND` Δ0 / `adn1Rows` Σ +4,279 / EC-ADN-016 二态 / 越叶预算结算如实登记）+ X-ADN-1~9 台账骨架 + 门禁对账骨架。门禁：`npm test` **1478/0**（+15 零删除）/ `supersession` **51/0** / `s0-self-driven` **90/0** / `law8` **64/0** / `recommendation` 79/0 / `dead-end` 53/0 / journey 171（环境 flake，第三轮 0 红）；`binding` 环境红（KL-N-10 隔离复跑 ≥2 失败点漂移，保护段由 supersession 双绿机核）。三冻结面 base 零 diff；routing.v1 = local_or_compute → none。"
     }
   ],
   "openPointsRuled": [

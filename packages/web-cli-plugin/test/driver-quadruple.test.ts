@@ -24,6 +24,8 @@ import { fileURLToPath } from 'node:url';
 
 import { OP_IDS } from '../src/shared/op-table.js';
 import { SET_A_PROTOCOL_ACTIONS } from '../src/ui/sidepanel/next-registry/dispatch.js';
+// ★ F-36 / ADN-1 TASK-ADN-120（纯追加 import 行；原行逐字保留 ⇒ 零删除）。
+import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
 import {
   CTX_FIELD_SERVICE,
   DRIVER_CLASSES,
@@ -227,6 +229,10 @@ const SOURCE_READS = ctxReads(whenScope(PROVIDERS_SRC));
 test('DQ-1 驱动者声明表 ↔ 注册表双向包含（两个手写源）', () => {
   assert.deepEqual(bidirectionalProblems(DECL_IDS, PROVIDER_IDS), [], JUDGEMENTS[0].expectFailPattern);
   assert.ok(DECL_IDS.length >= 10, '驱动者集合必须覆盖既有 provider 集合（不得空转）');
+  // ★ F-36 / ADN-1 TASK-ADN-120：既有 11 行 + `ai-next` 第 12 行 ⇒ 双向包含随 count **12↔12**。
+  assert.equal(DECL_IDS.length, 12, `${JUDGEMENTS[0].expectFailPattern}：声明表必须恰 12 行（11 + ai-next）`);
+  assert.equal(PROVIDER_IDS.length, 12, `${JUDGEMENTS[0].expectFailPattern}：注册表必须恰 12 行（11 + ai-next）`);
+  assert.deepEqual([...DECL_IDS].sort(), [...PROVIDER_IDS].sort(), '12↔12 必须逐项同集（不是只对数）');
 });
 
 test('DQ-1 反证：声明表多一行 / 少一行 ⇒ 必红 → 还原 PASS', () => {
@@ -268,6 +274,29 @@ test('DQ-3 反证：未登记字段 / 声明失真 ⇒ 必红 → 还原 PASS', 
   assert.ok(evidenceProblems(DECLS, [...SOURCE_READS, 'ghost.field']).some((p) => p.includes('未登记')), `${JUDGEMENTS[2].expectFailPattern}：源读未登记字段必须红`);
   const missing = DECLS.map((d) => (d.driverId === 'onboarding' ? { ...d, evidence: ['risk'] } : d));
   assert.ok(evidenceProblems(missing, SOURCE_READS).length > 0, `${JUDGEMENTS[2].expectFailPattern}：声明与实读脱钩必须红`);
+  assert.deepEqual(evidenceProblems(DECLS, SOURCE_READS), []);
+});
+
+/* ★ F-36 / ADN-1 **TASK-ADN-120**（ADR-ADN-004 §②/§③ · ADR-ADN-009 · FR-ADN-096 · AC-ADN-010）——
+ * DQ-2 静态下界 + DQ-3 **evidence 同源**（`session.aiNext` 由 `when`-scope 源文本抽取）。
+ * 缺声明 / 多声明 / evidence 漂移 ⇒ 必红（三类反证逐条实跑）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-1 120：ai-next 静态 chips=["op.turn"] ⊆ OP_IDS ∧ DQ-3 evidence=session.aiNext 与 when-scope 同源', () => {
+  // ① 静态下界：`chips` 是**下界面**（≥1 opId），必须 ⊆ OP_IDS（`op.turn`）。
+  const ai = PROVIDERS.find((p) => p.id === 'ai-next');
+  assert.ok(ai, 'ai-next provider 必须注册（第 12 行）');
+  assert.deepEqual([...(ai?.chips ?? [])], [ACT_TO_OP.next], 'ai-next 静态 chips 必须 = [op.turn]（`ACT_TO_OP.next` 单源）');
+  for (const op of ai?.chips ?? []) assert.ok(OP_IDS.includes(op), `${JUDGEMENTS[1].expectFailPattern}：静态 chip ${op} 必须 ∈ OP_IDS`);
+  assert.equal(typeof ai?.chipsFor, 'function', 'chipsFor 必须是权威动态面');
+  // ② DQ-3 收纳 `session.aiNext`：when-scope 源文本抽取必须真的读到它（与 evidence 同源）。
+  assert.ok(SOURCE_READS.includes('session.aiNext'), `${JUDGEMENTS[2].expectFailPattern}：when-scope 必须抽取到 session.aiNext（实测 ${JSON.stringify(SOURCE_READS)}）`);
+  assert.deepEqual([...DRIVER_DECLS_SRC['ai-next'].evidence], ['session.aiNext'], 'evidence 必须与 when-scope 同源');
+  // ③ 反证三类：缺声明 / 多声明 / evidence 漂移 ⇒ 各必红 → 还原 PASS。
+  assert.ok(bidirectionalProblems(DECL_IDS.filter((id) => id !== 'ai-next'), PROVIDER_IDS).length > 0, `${JUDGEMENTS[0].expectFailPattern}：缺声明 ⇒ 必红`);
+  assert.ok(bidirectionalProblems([...DECL_IDS, 'ghost-driver'], PROVIDER_IDS).length > 0, `${JUDGEMENTS[0].expectFailPattern}：多声明 ⇒ 必红`);
+  const drifted = DECLS.map((d) => (d.driverId === 'ai-next' ? { ...d, evidence: ['telemetry'] } : d));
+  assert.ok(evidenceProblems(drifted, SOURCE_READS).length > 0, `${JUDGEMENTS[2].expectFailPattern}：evidence 漂移 ⇒ 必红`);
+  assert.deepEqual(bidirectionalProblems(DECL_IDS, PROVIDER_IDS), []);
   assert.deepEqual(evidenceProblems(DECLS, SOURCE_READS), []);
 });
 

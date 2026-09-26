@@ -921,3 +921,45 @@ test('IAN-1 体积叶1 收口：整叶 Σ（ian1Rows）== 叶起点 → 叶终�
   assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_CEILING, '基线必须在生效上限内');
   console.log(`  ℹ IAN-1 叶1 收口：整叶 +${leafDelta} B（R1 +${r1Sum} / R2 +${r2Sum} / glue ${b.ian1UnattributedGlueBytes}）· 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line`);
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-1 **TASK-ADN-126**（ADR-ADN-008 §③ · FR-ADN-112/120/122 ·
+ * AC-ADN-025）—— **叶1 整叶逐模块 `adn1Rows`** 的算术与 metafile 同源机核：
+ * `Σ 逐模块 + 未归因胶水 == 登记增量`（`adn-1-r1`：598,926 → 603,205 = +4,279），
+ * 且每行 `afterBytes` == 真实 `dist/build-meta.json` 的 `bytesInOutput`（不得只写在散文里）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-1 R2 ⑥ growth: 叶1 整叶 `adn1Rows` Σ + 未归因 == 登记增量 ∧ 与真实 metafile 同源', () => {
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.adn1Rows;
+  const reg = SIDEPANEL_RE_REGISTRATIONS.find((r) => r.id === 'adn-1-r1');
+  assert.ok(reg, 'adn-1-r1 登记必须存在（整叶逐模块行的被判对象）');
+  const delta = reg!.baselineAfterBytes - reg!.baselineBeforeBytes;
+  assert.equal(delta, 4_279, 'adn-1-r1 登记增量必须 = +4,279（598,926 → 603,205）');
+  const rowSum = rows.reduce((s, r) => s + r.deltaBytes, 0);
+  assert.equal(rowSum, 4_279, `adn1Rows Σ 必须 = +4,279（实测 ${rowSum}）`);
+  assert.equal(rows.length, 8, 'adn1Rows 必须恰 8 行（逐模块归因）');
+  for (const r of rows) assert.equal(r.deltaBytes, r.afterBytes - (r.beforeBytes ?? 0), `${r.module}: Δ 必须自洽`);
+  assert.equal(
+    rowSum + SIDEPANEL_GROWTH_BREAKDOWN.adn1UnattributedGlueBytes,
+    delta,
+    'Σ 逐模块 + 未归因 == 登记增量（越叶预算结算的算术自洽）',
+  );
+  // 与真实 metafile 同源（`afterBytes` 必须逐模块命中 bytesInOutput）。
+  let inputs: Record<string, { bytesInOutput: number }> | null = null;
+  try {
+    const meta = JSON.parse(readFileSync(distArtifact('build-meta.json'), 'utf8')) as {
+      outputs?: Record<string, { bytes: number; inputs: Record<string, { bytesInOutput: number }> }>;
+    };
+    const outKey = Object.keys(meta.outputs ?? {}).find((k) => k.endsWith('sidepanel.js'));
+    inputs = outKey ? meta.outputs![outKey].inputs : null;
+  } catch {
+    inputs = null;
+  }
+  if (inputs) {
+    const paths = Object.keys(inputs);
+    for (const row of rows) {
+      const key = paths.find((p) => p.endsWith(row.module));
+      assert.ok(key, `metafile 缺少整叶行模块 ${row.module}`);
+      assert.equal(inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 真实 metafile ≠ adn1Rows.afterBytes`);
+    }
+  }
+});

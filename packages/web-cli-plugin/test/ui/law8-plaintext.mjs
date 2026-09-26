@@ -581,6 +581,44 @@ async function main() {
     check('⑩ (FAIL 段) 自由输入零明文判据非恒真：注入含哨兵 payload ⇒ payload 命中数 1 → ≥2', inj10.hits >= 2, JSON.stringify(inj10));
     await evaluate(cdp, `window.__v3.testing.streamReset(); true`);
 
+    // ── ⑪ ★ F-36 / ADN-1 **TASK-ADN-125**（ADR-ADN-007 §③ · FR-ADN-084 · AC-ADN-013）——
+    //    **AI 候选 label / 留痕行的零明文面**（只加断言，零降级）：AI 路径的留痕行只携带
+    //    字段名 + 机器码（`driver` / `timing` / `evidence` / `blocked`），**零用户内容值**；
+    //    候选 label 不落 digest / 不落持久化明文面。
+    // ────────────────────────────────────────────────────────────────────────────
+    console.log("\n▶ ⑪ S0'''：AI 候选 label / 留痕行零明文面");
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const aiTrace = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.aiNext({ accepted: [{ opId: 'op.turn', label: '把这页图改成架构图' }], blocked: ['label'] });
+          const rows = Array.from(document.querySelectorAll('#stream .msg-notice, #stream .msg-system')).map((n) => n.textContent || '');
+          const chips = Array.from(document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')).map((n) => n.textContent || '');
+          const digest = JSON.stringify(window.__v3.testing.payloads());
+          return JSON.stringify({ rows, chips, digestHasSentinel: digest.includes(${JSON.stringify(SENTINEL)}) });
+        })()`,
+      ),
+    );
+    check(
+      '⑪ AI 留痕行零明文（只含 driver/timing/evidence/blocked 字段名 ∧ 零用户内容值）',
+      aiTrace.rows.some((t) => /driver=ai-next \| timing=idle \| evidence=session\.aiNext \| blocked=label/.test(t)) &&
+        aiTrace.rows.every((t) => !t.includes(SENTINEL)) &&
+        aiTrace.chips.every((t) => !t.includes(SENTINEL)) &&
+        aiTrace.digestHasSentinel === false,
+      JSON.stringify(aiTrace.rows.map((t) => t.slice(0, 60))),
+    );
+    const f2ai = JSON.parse(await evaluate(cdp, SCAN_2));
+    check(`⑪ AI 候选 label 零落盘（digest 面零命中，${f2ai.keys.length} 键）`, f2ai.hits.length === 0, JSON.stringify(f2ai.hits));
+    // 反证（判据非恒真）：把凭据形哨兵塞进 digest ⇒ 同一扫描必命中 ⇒ 还原 ⇒ 零命中。
+    const injAi = JSON.parse(
+      await evaluate(cdp, `(async () => { await chrome.storage.local.set({ 'adn-stream-digest-probe': ${JSON.stringify(SENTINEL)} }); return ${SCAN_2}; })()`),
+    );
+    check('⑪ (FAIL 段) AI 零明文判据非恒真：注入含哨兵 digest ⇒ 命中 > 0', injAi.hits.length > 0, JSON.stringify(injAi.hits));
+    await evaluate(cdp, `chrome.storage.local.remove('adn-stream-digest-probe'); true`);
+    const resAi = JSON.parse(await evaluate(cdp, SCAN_2));
+    check('⑪ (PASS 段) 还原后 digest 零命中（判据非恒真）', resAi.hits.length === 0, JSON.stringify(resAi.hits));
+
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

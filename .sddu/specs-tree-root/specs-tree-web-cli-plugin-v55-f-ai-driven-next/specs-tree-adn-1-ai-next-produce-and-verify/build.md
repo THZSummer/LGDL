@@ -4,22 +4,22 @@
 > **前置依赖**: 本叶 `tasks.md` / `tasks.json`（v1.0）、本叶 `plan.md`（v1.0）、父 `plan.md` / `spec.md`（ADR-ADN-001~010）  
 > **创建人**: SDDU Build Agent  
 > **创建时间**: 2026-09-26  
-> **版本**: v1.0  
+> **版本**: v1.1  
 > **更新人**: SDDU Build Agent  
 > **更新时间**: 2026-09-26  
-> **更新说明**: 初始创建（ADN-1 R1 = W01+W02 / TASK-ADN-101~117；W03 留 R2）
+> **更新说明**: R2（W03 / TASK-ADN-118~127）—— S0''' 四支线双面 + 5 门禁等价重锚 + gate-integrity 受审下界 + 红线巡检 + 体积叶1 终值 + X-ADN 台账骨架
 
 ---
 
-## 0. 本轮范围与结论（R1 = W01+W02）
+## 0. 本轮范围与结论（R1 = W01+W02；R2 = W03）
 
 | 项 | 内容 |
 |---|---|
-| 范围 | **W01（载体与校验链）+ W02（分层与注入）** = `TASK-ADN-101~117`（17 任务） |
-| 留待 R2 | W03 = `TASK-ADN-118~127`（升级 6 重锚 / S0''' 四支线双面 / gate-integrity 受审下界 / 体积叶1 终态收口 / X-ADN 台账终态） |
-| 先验闸门 | **SG-ADN-01 = 可行（13/13，探毕删除）**；**SG-ADN-02 = 可行（真值表四情形实跑，见 §2/§5）** |
-| 交付 | `src/background/ai-next.ts`（NEW）+ 12 源文件/测试变更 + `test/ai-next-candidate.test.ts`（NEW，14 用例） |
-| 门禁 | `npm test` **1463 / 0**（基线 1449 ⇒ +14，零删除） |
+| R1 范围 | **W01（载体与校验链）+ W02（分层与注入）** = `TASK-ADN-101~117`（17 任务） |
+| **R2 范围** | **W03（门禁与验收）** = `TASK-ADN-118~127`（10 任务）：升级 6 等价重锚 + S0''' 四支线双面 + `gate-integrity` 受审下界只增 + 红线巡检 + 体积叶1 终值 + X-ADN 台账骨架 |
+| 先验闸门 | **SG-ADN-01 = 可行（13/13）**；**SG-ADN-02 = 可行（真值表四情形实跑）** |
+| 交付 | R1：`src/background/ai-next.ts`（NEW）+ 12 源/测试变更 + `test/ai-next-candidate.test.ts`（NEW）；**R2 零 `src/**` 字节**（只改 `test/**` + `docs/**`） |
+| 门禁 | R1 `npm test` **1463 / 0**；**R2 `npm test` 1478 / 0**（1463 ⇒ +15，零删除） |
 
 ---
 
@@ -27,10 +27,11 @@
 
 | 维度 | 数值 |
 |------|:--:|
-| 完成任务数 | 17 / 17（本轮 W01+W02；W03 10 任务留 R2） |
-| 复杂度分布 | S×6 / M×7 / L×4（TASK-ADN-106 / 114 / 115 + 107 计入 M） |
-| 新增文件 | 2 个（`src/background/ai-next.ts`、`test/ai-next-candidate.test.ts`） |
-| 修改文件 | 17 个（12 源码/文档 + 5 测试/台账） |
+| 完成任务数 | **27 / 27**（R1 = W01+W02 17 个；**R2 = W03 10 个**） |
+| 复杂度分布 | S×6 / M×17 / L×4 |
+| 新增文件 | 2 个（R1：`src/background/ai-next.ts`、`test/ai-next-candidate.test.ts`）；R2 **零新增文件** |
+| 修改文件 | R1 17 个（12 源码/文档 + 5 测试/台账）；**R2 18 个（全部 `test/**` + `docs/**`，零 `src/**`）** |
+| 门禁对账 | `npm test` 1449 → **1463**（R1）→ **1478 / 0**（R2，+15 零删除） |
 
 ### 1.1 SG-ADN-01（TASK-ADN-101）先验结论
 
@@ -119,11 +120,86 @@
 | TASK-ADN-116 | `ai-next-candidate` AI-N-5/8/9/10 | M | ✅ completed | FR-ADN-030/035/011/096/017 |
 | TASK-ADN-117 | `ai-next-candidate` AI-N-6/7 五类注入反证 + 真源切片 + 三段控制 | M | ✅ completed | FR-ADN-029/082/085/111 |
 
-**W03（留 R2）**：TASK-ADN-118~127（`recommendation-sources`/`driver-timings`/`driver-quadruple`/`op-wiring`/`next-registry`/`op-three-tier`/`gate-integrity` 重锚 + `s0-self-driven.mjs`/`law8-plaintext.mjs` 断言增量 + 红线巡检 + 体积叶1 终态重登记 + X-ADN 台账骨架）。
+### 3.1 R2 / W03 任务完成清单（TASK-ADN-118~127）
+
+| 任务 | 名称 | 复杂度 | 状态 | 对应 FR |
+|------|------|:--:|:--:|------|
+| TASK-ADN-118 | `recommendation-sources` 等价重锚（白名单恒 5 / 规则表恰 4 / ④ 零新 LLM） | M | ✅ completed | FR-ADN-052/098/110 |
+| TASK-ADN-119 | `driver-timings` DT-6 `session.aiNext`（恰 5 保持） | M | ✅ completed | FR-ADN-010/013 |
+| TASK-ADN-120 | `driver-quadruple` DQ-1/DQ-3（12↔12 / evidence 同源） | M | ✅ completed | FR-ADN-096 |
+| TASK-ADN-121 | `op-wiring` 计数全保持（`requestTurn(` 1 / `maybeRecommend` 1·8 / `nextAfterSettle` 1·10） | M | ✅ completed | FR-ADN-064/110 |
+| TASK-ADN-122 | `next-registry` NR-10（11→12）+ `op-three-tier` 加严（接受层读点 = `tierOf`） | M | ✅ completed | FR-ADN-021/033/096 |
+| TASK-ADN-123 | `gate-integrity` 受审下界只增 `ai-next-candidate` | M | ✅ completed | FR-ADN-115 |
+| TASK-ADN-124 | S0''' 主线/支线 B/支线 D node 面（+ 支线 C 兜底） | L | ✅ completed | FR-ADN-080/081/082/085 |
+| TASK-ADN-125 | Chromium 断言增量（`s0-self-driven.mjs` + `law8-plaintext.mjs`） | M | ✅ completed | FR-ADN-080/083/084 |
+| TASK-ADN-126 | 红线巡检 + 体积叶1 重登记（五要素 + 三值 + 逐模块 + EC-ADN-016 二态） | M | ✅ completed | FR-ADN-003/112/120/122/124 |
+| TASK-ADN-127 | X-ADN-1/X-7 台账骨架 + `no-supersession` 骨架 + 门禁对账骨架（本叶收口） | M | ✅ completed | FR-ADN-090/096/101/112 |
+
+**W03（R2）已全部完成**：`recommendation-sources` / `driver-timings` / `driver-quadruple` / `op-wiring` / `next-registry` / `op-three-tier` 六门禁等价重锚 + `gate-integrity` 受审下界只增（`V_ADN_NODE_GATE_FILES`）+ S0''' 四支线 node+Chromium 双面 + `law8-plaintext` 断言增量 + 红线巡检 + 体积叶1 终值（`SIDEPANEL_ADN1_FINAL_ROUND` / `adn1Rows`）+ X-ADN 台账骨架 + 门禁对账骨架。
+
+### 3.2 R1 任务完成清单（TASK-ADN-101~117）
+
+---
+
+## 3.1 R2 文件变更（零 `src/**`）
+
+| 操作 | 文件路径 | 对应任务 | 说明 |
+|:--:|------|:--:|------|
+| MODIFY | `test/recommendation-sources.test.ts` | TASK-ADN-118 | 模块白名单恒 5 / `NEXTSTEP_PRIORITY` 恰 4 / `session.aiNext` ∈ 既有 `session` 源（+2 用例） |
+| MODIFY | `test/driver-timings.test.ts` | TASK-ADN-119 | DT-6 扩：`session.aiNext` 经 `session` 前缀登记（登记表零新增行）（+1） |
+| MODIFY | `test/driver-quadruple.test.ts` | TASK-ADN-120 | DQ-1 12↔12 ∧ DQ-2 静态 chips ⊆ `OP_IDS` ∧ DQ-3 `evidence=session.aiNext` 同源（+1） |
+| MODIFY | `test/op-wiring.test.ts` | TASK-ADN-121 | 计数全保持 ∧ AI 经既有 `done→maybeRecommend('idle')` 挂点（零新增挂点）（+1） |
+| MODIFY | `test/next-registry.test.ts` | TASK-ADN-122 | NR-0 7 源保持 ∧ NR-10 12 行真检（间接面；标题 11→12 逐字登记台账） |
+| MODIFY | `test/op-three-tier.test.ts` | TASK-ADN-122 | 接受层读点 = `tierOf` ∧ `tierOfId('op.authorize')='gesture'` ∧ `admitCandidate` 拒（+1） |
+| MODIFY | `test/gate-integrity.test.ts` | TASK-ADN-123 | `V_ADN_NODE_GATE_FILES` + `EXPECTED_AUDITED_FILES` 现场 47 → **48**（只增 1；陈旧字面 40 不照抄）（+1） |
+| MODIFY | `test/ui/fixtures/s0-chain.mjs` | TASK-ADN-124/125 | S0''' 四支线样本 + 判据（`S0PPP_*`；双面单源；10 拍 / 10 必判项） |
+| MODIFY | `test/ai-next-candidate.test.ts` | TASK-ADN-124 | S0''' 十环节 node 面（真模块驱动）+ 反证「未校验候选进 chips ⇒ 必红」（+2） |
+| MODIFY | `test/s0-self-driven-chain.test.ts` | TASK-ADN-124 | S0''' 样本单源 + A/C/D 机制侧（+1） |
+| MODIFY | `test/ui/s0-self-driven.mjs` | TASK-ADN-125 | S0C-13 四支线（`testing.aiNext` 缝；A/B/C/D）+ 人工面 M1~M5 ⏳ |
+| MODIFY | `test/ui/law8-plaintext.mjs` | TASK-ADN-125 | ⑪ AI 候选 label / 留痕行零明文面（只加断言，零降级） |
+| MODIFY | `test/insight-no-escalation.test.ts` | TASK-ADN-126 | ADN-1 红线巡检扩面（零新增载体 + 计数红线 + 特权恒 gesture）（+1） |
+| MODIFY | `test/size-baseline.ts` | TASK-ADN-126 | `SIDEPANEL_ADN1_FINAL_ROUND`（零字节终轮）+ `adn1Rows`（整叶逐模块）+ `adn1UnattributedGlueBytes` |
+| MODIFY | `test/size-ruling-vol3.test.ts` | TASK-ADN-126 | 叶1 终值机核（Δ0 / 五要素 / EC-ADN-016 二态 / `adn1Rows` Σ）（+1） |
+| MODIFY | `test/size-growth-evidence.test.ts` | TASK-ADN-126 | `adn1Rows` Σ + 未归因 == 登记增量 ∧ metafile 同源（+1） |
+| MODIFY | `docs/v4-supersession-ledger.json` | TASK-ADN-127 | `xAdnLedger`（X-ADN-1~9）+ `xAdnGateReconciliation`（新增 1 + 升级 6 + 间接面）+ 逐字删除面登记 |
+| MODIFY | `test/supersession-ledger.test.ts` | TASK-ADN-127 | X-ADN 台账骨架 + 门禁对账骨架判据（+2） |
+
+### 3.2 R2 红线巡检（全项，零 `src/**` diff）
+
+| 红线 | 实测 | 结论 |
+|---|---|---|
+| `KIND_SET` | **40** 逐字（`aiNext` ∉ kind） | ✅ 零新增 kind |
+| 12 kind / 零宿主 / `ACT_TO_OP` / `NEXTSTEP_PRIORITY` / `DRIVER_TIMINGS` | 12 / `[]` / 6 / 4 / 5 | ✅ |
+| 特权恒 gesture | `op.authorize` / `op.perm.request` 恒 `gesture`；接受层即拒 | ✅ |
+| SW 永不 `.request(` | `service-worker.ts` 零 `permissions.request(` | ✅ |
+| 三冻结面 | `content.js` 177,076 B / sha `52a82620…`；`pick-layer.js` 34,358 B / sha `77796bab…` | ✅ 逐字节 |
+| `manifest.json` / `packages/web-cli-base/**` / 判定链 | 零 diff（`git status --porcelain` 空） | ✅ |
+| 法八四面零明文 | `test:law8` **64 / 0**（≥60，零降级） | ✅ |
+| 零 `src/**` 变更 | `git status --porcelain -- src` **空** | ✅ |
 
 ---
 
 ## 4. 测试覆盖
+
+### 4.0 R2（W03）门禁对账
+
+| 门禁 | 用例 | 结论 | 日志 |
+|---|:--:|:--:|---|
+| `npm test`（node，全量） | **1478** | ✅ **1478 / 0**（R1 1463 ⇒ **+15**，零删除） | `/tmp/opencode/v4-gate-logs/adn-1-r2/test-final2.log` |
+| `ai-next-candidate`（新，含 S0''' 十环节 + 反证） | 16 | ✅ 16 / 0 | 同上（含） |
+| `gate-integrity` | — | ✅ `EXPECTED_AUDITED_FILES` 现场 **47 → 48**（只增 1；`CHROMIUM_GATES === 9` 不动） | 同上（含） |
+| `supersession` | **51** | ✅ 51 / 0（R1 49 ⇒ +2；binding 保段 sha `be9ad0e9…` + startByte 107780 双绿） | `supersession.log` |
+| `test:size-ruling-vol3` | 14 | ✅ 14 / 0（≥13；含叶1 终值机核） | 同上（含） |
+| `test:ui`（journey） | 171 | ✅ PASS（**环境 flake**：首轮 6 红 / 次轮 1 红 `#33n` / 第三轮 **0 红**；保护段由 `supersession` 双绿） | `journey.log` / `journey2.log` / `journey3.log` |
+| `test:s0-self-driven` | **90** | ✅ **90 / 0**（R1 82 ⇒ +8；含 S0C-13 四支线）。**环境 flake**：另两轮 1~3 红落在**既有** `[A:guarded]` / ⑥⑦A（探测相位），与 S0C-13 无交集 | `s0-run2.log`（绿）/ `s0.log` / `s0-run1.log` |
+| `test:law8` | **64** | ✅ 64 / 0（R1 60 ⇒ +4，零降级） | `law8.log` |
+| `test:recommendation` | 79 | ✅ 79 / 0 | `recommendation.log` |
+| `test:dead-end` | 53 | ✅ 53 / 0 | `dead-end.log` |
+| `test:binding` | — | ⚠️ **环境红（如实记录）**：3 次隔离复跑失败点漂移（`#6l` / `#8f~#8i` `#confirm-allow`），与 ADN 改动面无交集（R2 零 `src/**` 字节）；保护段 sha `be9ad0e9…` + startByte 107780 由 `supersession` 双绿机核。KL-N-10 处置：≥2 隔离复跑 + 全量日志，仍红不阻塞收口 | `binding.log` / `binding-iso1.log` / `binding-iso2.log` |
+
+> **计数对账**：`npm test` 1463 → **1478（+15）**；`s0-self-driven` 82 → **90（+8）**；`law8` 60 → **64（+4）**；`supersession` 49 → **51（+2）**；`test:size-ruling-vol3` ≥13（**14**）。**零删除**。
+
+### 4.1（R1）门禁
 
 | 门禁 | 用例 | 结论 | 日志 |
 |---|:--:|:--:|---|
@@ -139,7 +215,7 @@
 
 > **注**：`ai-next-candidate` 入 `gate-integrity` 受审下界（`EXPECTED_AUDITED_FILES` + `V_ADN_NODE_GATE_FILES`）为 **W03 / TASK-ADN-123**（留 R2）；本轮新门禁已由目录扫描自动纳入受审集合（`gate-integrity` 在 `npm test` 内 0 fail）。
 
-### 4.1 反证摘要（五类注入 + 分层双向 + 载体注入）
+### 4.2（R1）反证摘要（五类注入 + 分层双向 + 载体注入）
 
 | 注入 | 期望 | 实测 |
 |---|---|---|
@@ -160,6 +236,21 @@
 
 ## 5. 已知偏差与诚实登记
 
+### 5.1 R2 新增登记
+
+7. **体积叶1 终值（零字节终轮）**：R2 **零 `src/**` 字节** ⇒ `dist/sidepanel.js` 仍 **603,205 B**；`SIDEPANEL_ADN1_FINAL_ROUND`（`adn-1-r2`，`direction='unchanged'`，Δ 0）为叶1 **终值定稿**：五要素 = 598,926 → 603,205（整叶 **+4,279 B / +0.71%**）/ 2026-09-26 / `dist/sidepanel.js` / 逐模块 `adn1Rows`（Σ **+4,279** + glue **0** == +4,279）/ 历史 `[603,205, 598,926, 598,577, 599,125, 598,282]`。
+   - **越叶预算结算如实登记**：ADR-ADN-008 §② 叶1 预算 **+0.8~2.0 KB** 与 +15% 上界被整叶 **+4,279 B** 超越 —— 不删判据 / 不放宽容差 / 不搬列规避（`R-ADN-908`）。
+   - 三值：`newBaselineBytes = 603,205` / 档位 `614,400` / 绝对上限 `675,840` / 生效上限 `633,365`；`authorConfirmation = pending-author-line`（**不伪称已确认**）。
+   - **EC-ADN-016 二态显式**：越生效上限（旧 628,872 / 现行 633,365）= **否**；越档位 614,400 = **否**；越绝对上限 675,840 = 否。B 列 `dist/background.js` 1,641,872 B（+5,251 B，**不计账**）列别如实标注。
+8. **`gate-integrity` 受审下界实测**：任务书陈旧字面记「现 40 项」，**R1 现场实测 47 项** ⇒ R2 末位只追加 `ai-next-candidate` = **48**（按语义增量重锚，不照抄陈旧字面 —— COR-ADN-3）；`CHROMIUM_GATES === 9` 逐字不动。
+9. **Chromium 环境 flake（如实记录，不阻塞）**：
+   - `test:binding`：3 次隔离复跑失败点漂移（`#6l` / `#8f~#8i` / `#confirm-allow`），与 R2 零 `src/**` 变更面无交集；保护段 sha `be9ad0e9…` + startByte 107780 由 `supersession` **51 / 0** 双绿机核（KL-N-10）。
+   - `test:ui`（journey）：3 轮 = 6 红 → 1 红（`#33n`）→ **0 红**；`test:s0-self-driven`：3 轮 = 3 红（S0C-13 初版授权位）→ 1 红（既有 `[A:guarded]`）→ **90 / 0**。落点均在**既有**判据（探测相位 / 视图返回），与 S0C-13 无交集；已取干净绿轮为记录。
+10. **S0''' 双面力分配（诚实登记）**：**十环节全判据**（S0PPP-1~10）在 node 面用**生产模块**（`admitCandidate` / `validateAiNext` / `recommendNextStep` / `candidateRules` / `pressDecision` / `driverBlockedLine`）实跑；**Chromium 面**驱动**四支线**（A/B/C/D）真面板读数（`testing.aiNext` 缝），**不**伪造未测面（kindSet / floor / confirm 等不在此面硬凑）；共享判据的**非恒真**由两面各自的空读数 / 注入反证机核。
+11. **X-ADN 台账为叶1 骨架**：`xAdnLedger` 登记 X-ADN-1/2/3/4/5/6/7/9（2 superseded + 6 no-supersession）；**X-ADN-8/10/11 属叶2**（移交登记，不在叶1 伪称）。门禁对账 `xAdnGateReconciliation` 为骨架（终态由叶2 收口）。
+
+### 5.2 R1 登记（历史保留）
+
 1. **ADR-ADN-002 §③ 真值表的 `op.perm.request` 行**：该 op 是 `gesture` 档 ⇒ 5 道链**② 即拒**（`blocked='tier'`），**到不了 ④ param 判**。其 `ask='form'` 仍由 AI-N-11（descriptor ↔ `ops.ts#IMPL` 逐行一致）机核。已在 `test/ai-next-candidate.test.ts#AI-N-4` 显式登记该口径（不是放宽）。
 2. **体积（A 列，中间登记；W03/R2 终态）**：`dist/sidepanel.js` **598,926 → 603,205 B（+4,279 B，+0.71%）** —— 越 ADR-ADN-008 §② 叶1 预算（+0.8~2.0 KB）与 +15% 上界（+0.9~+2.3 KB）；按「**越叶预算登记不停机**」如实登记。
    - 五要素：前值 598,926 / 后值 603,205 / 日期 2026-09-26 / 来源 `dist/sidepanel.js`（`npm run build`；真实 `dist/build-meta.json`）/ 理由 = 见 `SIDEPANEL_RE_REGISTRATIONS['adn-1-r1']`；历史保留 `[598_926, 598_577, 599_125, 598_282]`。
@@ -178,8 +269,8 @@
 
 | 场景 | 操作 |
 |------|------|
-| R1 完成 | 运行 `@sddu-review specs-tree-adn-1-ai-next-produce-and-verify`（或直接进入 R2 执行 W03） |
-| R2（W03） | `TASK-ADN-118~127`：升级 6 等价重锚 + S0''' 四支线双面 + `gate-integrity` 受审下界只增（`ai-next-candidate`）+ 体积叶1 终态重登记 + X-ADN 台账骨架 |
+| R1 完成（历史） | `TASK-ADN-101~117` ✅（`npm test` 1449 → 1463/0） |
+| **R2（W03）完成** | `TASK-ADN-118~127` ✅（`npm test` **1478 / 0**）⇒ 运行 `@sddu-review specs-tree-adn-1-ai-next-produce-and-verify` |
 
 ---
 
@@ -188,3 +279,4 @@
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（ADN-1 R1 = W01+W02，TASK-ADN-101~117；SG-ADN-01/02 可行；npm test 1449→1463/0；体积中间登记 +4,279 B） | 2026-09-26 | SDDU Build Agent |
+| v1.1 | R2（W03 = TASK-ADN-118~127）：5 门禁等价重锚 + `gate-integrity` 受审下界 47→48 + S0''' 四支线 node/Chromium 双面 + `law8` 断言增量 + 红线巡检 + 体积叶1 终值（零字节终轮 / `adn1Rows` / EC-ADN-016 二态）+ X-ADN 台账骨架；`npm test` 1463→**1478/0**（+15，零删除），零 `src/**` 字节 | 2026-09-26 | SDDU Build Agent |
