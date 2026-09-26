@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-adn-1-ai-next-produce-and-verify",
   "version": "v0.11.3",
   "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
-  "phase": "builded",
-  "status": "tracked",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "childrens": [],
@@ -48,9 +48,15 @@
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/TREE.md",
     "specs-tree-adn-1-ai-next-produce-and-verify/plan.md",
     "specs-tree-adn-1-ai-next-produce-and-verify/tasks.md",
-    "specs-tree-adn-1-ai-next-produce-and-verify/tasks.json"
+    "specs-tree-adn-1-ai-next-produce-and-verify/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/build.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/validate-report.md"
   ],
   "coversFr": [
     "FR-ADN-001~007",
@@ -103,6 +109,22 @@
       "agent": "sddu-build",
       "artifact": "build.md v1.1 + 18 文件（test/** + docs/**，零 src/**）",
       "note": "adn-1 叶 build 阶段（两轮）：R1（W01+W02 = TASK-ADN-101~117）落 `src/background/ai-next.ts`（NEW）+ `ai-next-candidate` 新门禁（1463/0）；R2（W03 = TASK-ADN-118~127）**零 src/** 字节**：5 门禁等价重锚 + `gate-integrity` 受审下界 47→48 + S0''' 四支线 node+Chromium 双面（`s0-chain.mjs` 单源扩展 / S0C-13 / ⑪ 法八）+ 红线巡检 + 体积叶1 终值（`SIDEPANEL_ADN1_FINAL_ROUND` Δ0 / `adn1Rows` Σ +4,279 / EC-ADN-016 二态 / 越叶预算结算如实登记）+ X-ADN-1~9 台账骨架 + 门禁对账骨架。门禁：`npm test` **1478/0**（+15 零删除）/ `supersession` **51/0** / `s0-self-driven` **90/0** / `law8` **64/0** / `recommendation` 79/0 / `dead-end` 53/0 / journey 171（环境 flake，第三轮 0 红）；`binding` 环境红（KL-N-10 隔离复跑 ≥2 失败点漂移，保护段由 supersession 双绿机核）。三冻结面 base 零 diff；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-review",
+      "artifact": "review-report.md v1.0（R1：C1~C24 / 23 ✅ + 1 ⚠️ / 0 BLOCK / 3 I）",
+      "note": "adn-1 叶 review 阶段（补记）：C1~C24 四维度静态审查 23 通过 / 1 警告（C16 Chromium A 支线 flake）/ 0 失败 / **0 阻塞**；规范符合性偏差 0 项；改进建议 I-1（Chromium S0C-13 A flaky，node S0PPP-4 已确定性覆盖）/ I-2（`gate-integrity` 注释陈旧字面 40→41，判据本体 48 正确）/ I-3（`ai-next.ts` bg→ui 值导入，建议后续上移 shared）。状态 passed，可进入 validate。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-26",
+      "agent": "sddu-validate",
+      "artifact": "validate.md v1.0 + validate-report.md v1.0（R1）",
+      "note": "adn-1 叶 validate 阶段（R1 动手验证，**工作流终点**）：结论 **⚠️ 有条件通过 / 0 阻塞**。V1~V16 逐项亲跑：**npm test 1478/0**（duration 516,322 ms，基线一致）；构建 / 类型检查 EXIT 0；ADN 子门禁逐个独立复跑全绿（ai-next-candidate 16/0 · gate-integrity 25/0 · op-three-tier 12/0 · driver-quadruple 16/0 · driver-timings 12/0 · recommendation-sources 23/0 · op-wiring 15/0 · next-registry 19/0 · size-ruling-vol3 14/0 · size-growth-evidence 20/0 · size-budget 16/0）；`law8` 64/0；自写四脚本（`/tmp/sddu-validate-adn-1-20260926/`）**107 断言全绿**（5 道链五类注入逐类拒 + 闭集恰 5 + 顺序即优先级 + 判定分层 + 解析纪律 + 载体纪律四类注入必红 + S0''' 四支线 node + 体积三值）。S0''' 四支线 node 面十必判项全绿；Chromium 面 89/1 ×2（**A 支线既有环境 flake**：`risk-recovery` 抢 priority-0 槽；B/C/D + 共享判据非恒真全绿）—— 安全语义不受影响，node 面确定性覆盖。红线终核：三冻结面 + 9 `zeroDiffFiles` + manifest + base + 判定链 + journey/binding **全 0 diff**；`KIND_SET` 40 / 12 kind / 零宿主 / `ACT_TO_OP` 6 / `NEXTSTEP_PRIORITY` 4 / `DRIVER_DECLS_SRC` 12 逐字不动；体积 603,205 B ≤ 生效上限 633,365 / 档位 614,400 / 绝对 675,840，越叶预算 +4,279 B 如实登记（pending-author-line）。I 项处置：**I-1 登记 N**（Chromium flaky，node S0PPP-4 确定性覆盖）/ **I-2 已订正**（`test/gate-integrity.test.ts` 注释 40→41 改 47→48，doc-only 零断言 / 零产品代码，门禁复跑 25/0）/ **I-3 登记 N（deferred）**（bg→ui 值导入，建议后续上移 shared）。漂移 0（孤立 / 缺失 / 规格）。"
     }
   ],
   "openPointsRuled": [

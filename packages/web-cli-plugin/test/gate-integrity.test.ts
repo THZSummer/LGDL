@@ -375,8 +375,10 @@ export const IAN2_NODE_GATE_FILES = ['test/law4-input-as-next.test.ts'] as const
  *
  * **只增不减**：既有下界（`V5_*` / `V551_*` / `V552_*` / `V553_*` / `V55F*` / `IAN1_` /
  * `IAN2_`）逐字保留；`CHROMIUM_GATES === 9` 逐字不动（叶1 零新增 Chromium 门禁文件）。
- * `EXPECTED_AUDITED_FILES` 下界 **+1**（R2 实测 40 → **41**；按断言语义 + 语义增量重锚，
- * 不照抄陈旧字面 —— COR-ADN-3）。
+ * `EXPECTED_AUDITED_FILES` 下界 **+1**（R1 现场实测 **47 ⇒ 本叶 +1 = 48**；按断言语义 +
+ * 语义增量重锚，不照抄任务书陈旧字面 40 —— COR-ADN-3）。
+ * ★ ADN-1 validate R1 I-2 注释订正（doc-only，零断言 / 零产品代码）：原注释误写「40 → 41」，
+ * 与同文件断言（实测 48）不一致，本轮按实测订正为「47 → 48」。
  */
 export const V_ADN_NODE_GATE_FILES = ['test/ai-next-candidate.test.ts'] as const;
 
