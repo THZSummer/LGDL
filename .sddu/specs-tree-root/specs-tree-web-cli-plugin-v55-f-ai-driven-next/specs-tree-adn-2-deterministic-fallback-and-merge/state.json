@@ -1,0 +1,100 @@
+{
+  "feature": "specs-tree-adn-2-deterministic-fallback-and-merge",
+  "featureKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
+  "version": "v0.11.3",
+  "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 2,
+  "dependsOn": [
+    "specs-tree-adn-1-ai-next-produce-and-verify"
+  ],
+  "createdAt": "2026-09-26",
+  "updatedAt": "2026-09-26",
+  "description": "ADN-2 叶规范（末叶 / 回归与判据叶，**强依赖叶1**）：确定性退居兜底与安全闸（未配 / AI 未产出 / 非法被拦 ⇒ 确定性产卡）+ **free-input 终端恒常驻（R8 保底不回归）** + floor 语义保持（safety 不走 floor）+ 零死端+ **AI / 规则候选合并 / 优先级 / 去重 / 上限**（同台争单卡位 `MAX_NEXTSTEP_CARDS_PER_ROUND=1` 不动 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动（AI 骑 ref-action 位）/ R6 同因去重扩展 / **替换陈旧候选** / 渲染零 per-op 分支）+ **护栏**（六常量同过 / **提案不耗回合预算** / 关断偏好两相涵盖 / 零第二阈值 / 在飞仲裁保持）+ **首开保持确定性**（零 LLM 往返依赖 / 让位 firstRun 零双卡）+ **S0''' 四支线终态**（Chromium 面只加断言不加文件）+ X-ADN-1~11 台账终态（未发生者 `no-supersession`）+ 升级 6 门禁等价重锚 + 保护段逐段决策（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积终态重登记。",
+  "scope": {
+    "in": [
+      "确定性兜底（三情形：未配 / 未产出 / 非法被拦）+ free-input 终端恒常驻（R8 不回归）+ floor 语义保持 + 零死端",
+      "在飞（`pending`）语义不变（不产卡）",
+      "合并 / 优先级 / 去重 / 上限（同单卡位 / 前 N ≤3 / 规则表恰 4 不动 / R6 同因去重扩展 / 替换陈旧候选 / 渲染零 per-op 分支）",
+      "护栏（六常量同过 / 提案不耗回合预算 / 关断两相涵盖 / 零第二阈值 / 在飞仲裁保持）",
+      "首开保持确定性（零 LLM 往返依赖 / 让位 firstRun 零双卡）",
+      "S0''' 四支线终态（Chromium 面只加断言不加文件）+ 人工面如实登记",
+      "X-ADN-1~11 台账终态（未发生者如实登记）+ 升级 6 门禁等价重锚 + 保护段逐段决策",
+      "体积终态重登记（五要素 + 三值；A/B 列分列）"
+    ],
+    "out": [
+      "通道载体 / 候选结构 / 5 道校验链 / `admitCandidate` / `ai-next` provider 的建立（叶1）",
+      "`pressCandidate` / `driveAnsweredTurn` / `turn-queue.ts` 语义改动",
+      "三档档位定义 / 六常量阈值改动",
+      "多卡 / 破 3-chip / 新增第 5 规则位",
+      "首开 AI 化（明列后续轮 PD-ADN-001）",
+      "在 `recommend.ts` 内直接调用 LLM / 新 kind / 新 op / 新宿主",
+      "断言删除 / 降级 / 保护段静默改写"
+    ]
+  },
+  "artifacts": [
+    "spec.md",
+    "state.json"
+  ],
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/state.json"
+  ],
+  "coversFr": [
+    "FR-ADN-040~046",
+    "FR-ADN-050~056",
+    "FR-ADN-060~065",
+    "FR-ADN-070~073",
+    "FR-ADN-083~084",
+    "FR-ADN-090~095",
+    "FR-ADN-097~101",
+    "FR-ADN-110~117（重锚终态侧）",
+    "FR-ADN-121~125（终态侧）"
+  ],
+  "openPoints": [
+    "PD-ADN-001",
+    "PD-ADN-005",
+    "PD-ADN-007"
+  ],
+  "notes": "承载父 FR ≈34 条切片；交付 8 项；执行序 7 步；风险 10 条；开放问题 3 条（PD-ADN-001/005/007）。关键：AI 化不回归（兜底 / 终端 / 首开 / 零死端）；多候选不溢出（前 N ≤3 + 同单卡位 + 替换口径）；门禁强度不降（升级 6 等价重锚 + 保护段逐段决策 + `assertionsRemoved=0`）。",
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-spec",
+      "artifact": "spec.md v1.0 + state.json",
+      "note": "spec 阶段：产出叶 spec.md（承载父 FR ≈34 条切片：FALLBACK 040~046 / MERGE 050~056 / GUARD 060~065 / OPEN 070~073 / S0''' 083·084 终态侧 / SUPERSEDE 090~095·097~101 / GATE 110~117 重锚终态侧 / VOL 121~125 终态侧）。硬依赖叶1（先立通道与安全闸，再收兜底与合并口径）；plan → tasks → build → review → validate 由本叶承接。spec 阶段零运行时验证。"
+    }
+  ],
+  "openPointsRuled": [
+    "O-ADN-001",
+    "O-ADN-002",
+    "O-ADN-003",
+    "O-ADN-004",
+    "O-ADN-005",
+    "O-ADN-006",
+    "O-ADN-007",
+    "O-ADN-008",
+    "O-ADN-009",
+    "O-ADN-010",
+    "O-ADN-011",
+    "O-ADN-012",
+    "O-ADN-013",
+    "O-ADN-014",
+    "O-ADN-015",
+    "O-ADN-016"
+  ],
+  "openPointsDeferred": [
+    "PD-ADN-001",
+    "PD-ADN-005",
+    "PD-ADN-007"
+  ]
+}

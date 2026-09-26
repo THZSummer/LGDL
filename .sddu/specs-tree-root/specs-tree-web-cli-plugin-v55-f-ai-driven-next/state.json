@@ -3,12 +3,39 @@
   "featureKey": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "version": "v0.11.3",
   "name": "web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）：把「下一步推荐」的产出从确定性注册表独占改为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」」",
-  "phase": "discovered",
-  "workflow": "0.discovery",
-  "agent": "sddu-discovery",
+  "phase": "specified",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
   "depth": 1,
   "parent": null,
-  "childrens": [],
+  "childrens": [
+    {
+      "featureKey": "specs-tree-adn-1-ai-next-produce-and-verify",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/",
+      "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 1,
+      "dependsOn": [],
+      "note": "首叶 / 底座叶 + 安全核心（P0）。交付：AI 结构化产出通道（`idle` 时机 + `chat-result` type-only 加法字段 + 零新增 kind）+ **5 道校验链**（opId 在册（9）/ 三档清分（gesture 恒拒）/ ref 有效 / param 在 `AskSpec` 内 / 越界+留痕）+ `tierOf` 单源复用 + **判定分层（`admitCandidate` 接受层 vs `pressDecision` 按下层）** + `ai-next` provider（rule: ref-action）+ `DRIVER_DECLS_SRC` 11→12 + `NextCtx` 加法字段登记（DT-6）+ SW 侧解析/校验（B 列优先）+ 留痕三要素 + 新 node 门禁 `test/ai-next-candidate.test.ts` + S0''' 主线/支线 B/支线 D node 面 + 注入反证族 + 体积 B 列归因。不做：兜底/合并语义（叶2）/ 首开（叶2）/ 升级 6 门禁终态与保护段（叶2）。承载父 FR ≈48 条切片。"
+    },
+    {
+      "featureKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
+      "path": ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/",
+      "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
+      "leaf": true,
+      "phase": "specified",
+      "status": "tracked",
+      "depth": 2,
+      "deliveryOrder": 2,
+      "dependsOn": [
+        "specs-tree-adn-1-ai-next-produce-and-verify"
+      ],
+      "note": "末叶 / 回归与判据叶（P0；**强依赖叶1**）。交付：确定性退居兜底（未配/未产出/非法被拦）+ **free-input 终端恒常驻**（R8 保底不回归）+ floor 语义保持 + 零死端 + **合并口径**（同单卡位 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动 / R6 同因去重扩展 / 替换陈旧候选 / 渲染零 per-op 分支）+ **护栏**（六常量同过 / 提案不耗回合预算 / 关断两相 / 零第二阈值）+ **首开保持确定性**（零 LLM 往返依赖 / 让位 firstRun 零双卡）+ **S0''' 四支线终态**（Chromium 面只加断言不加文件）+ X-ADN-1~11 台账终态（未发生者 `no-supersession`）+ 升级 6 门禁等价重锚 + 保护段逐段决策（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积终态重登记（五要素 + 三值）。承载父 FR ≈34 条切片。"
+    }
+  ],
   "status": "tracked",
   "createdAt": "2026-09-26",
   "updatedAt": "2026-09-26",
@@ -125,34 +152,36 @@
     ]
   },
   "scope": {
-    "core": [
-      "核心 1 AI 结构化产出 next 候选（形态：时机 + 载体；零新增 kind 优先）",
-      "核心 2 AI 候选校验链（三档清分闸 + opId 在册 + ref + param + 丢弃+留痕）",
-      "核心 3 确定性注册表退居兜底与安全闸（未配/未产出/非法被拦）+ free-input 终端恒常驻 + 合并/优先级/去重/上限",
-      "核心 4 AI 候选护栏与预算（六常量；提案 vs 回合成本；防刷屏；关断偏好）",
-      "核心 5 首开（open）AI 化边界（边界裁决点）",
-      "核心 6 时机源扩展辨析（复用 idle vs 新 turn-done）"
+    "in": [
+      "AI 结构化产出 next 候选（`idle` 时机 + `chat-result` type-only 加法字段 + 零新增 kind）",
+      "5 道校验链（opId 在册 / 三档清分 / ref / param / 丢弃+留痕）",
+      "`tierOf` 单源复用 + 「候选接受判定」与「按下判定」分层（`admitCandidate` vs `pressDecision`）",
+      "`ai-next` provider（rule: ref-action）+ `DRIVER_DECLS_SRC` 11→12 + `NextCtx` 加法字段登记",
+      "SW 侧解析 + 校验（B 列优先；复用 `shared/op-table.ts` 双面镜像）",
+      "确定性退居兜底与安全闸 + free-input 终端恒常驻（R8 不回归）",
+      "AI / 规则候选合并 / 优先级 / 去重 / 上限（同单卡位 / 前 N ≤3 / R6 同因去重扩展 / 替换陈旧候选）",
+      "护栏（六常量同过 / 提案不耗回合预算 / 关断偏好两相涵盖 / 零第二阈值）",
+      "首开保持确定性（零 LLM 往返依赖 / 让位 firstRun）",
+      "S0''' 四支线机器化（已配置 AI 合法 / AI 非法被拦 / AI 未产出 / 未配置纯确定性）",
+      "门禁新增 1 + 升级 6 + 保留（`CHROMIUM_GATES === 9` 不动；保护段逐段决策）",
+      "体积分列预算（A/B/C 列；B 列 SW 优先不计 sidepanel 账本）"
     ],
-    "incidental": [
-      "附带 1 门禁重锚与保护段处置（recommendation-sources / DT-2/3/4 / DQ-1 / op-wiring）",
-      "附带 2 体积分列预算（距档 15,474 B；解析+校验 B 列优先）",
-      "附带 3 零新增 kind / 零宿主 / 法八不破",
-      "附带 4 留痕 / driver 三要素扩展"
+    "out": [
+      "LLM 回合内工具/命令驱动（v5.5 已建）",
+      "`pressCandidate` / `driveAnsweredTurn` / `turn-queue.ts` 语义改动",
+      "三档档位定义（`tierOf` / `OP_TIER_TABLE` / `hasConsent`）改动",
+      "护栏六常量阈值改动 / 第二份阈值",
+      "多卡 / 破 3-chip / 新增第 5 规则位",
+      "首开（open/ready）AI 化",
+      "新增消息 kind（第 41）/ 卡 kind（第 13）/ 新宿主",
+      "在 `recommend.ts` 内直接调用 LLM",
+      "F-35 / F-34 / R8 / v5.5 / v5 产物改写（唯一授权例外 = X-ADN-1 产出权转移显式取代登记）",
+      "`src/content/**` / `pick-layer.js` / `packages/web-cli-base/**` / 判定链（`policy.ts` / `auto-authorize.ts`）/ `zeroDiffFiles`",
+      "F-29（A2A 候选）",
+      "外部竞品调研",
+      "断言删除/降级/保护段静默改写"
     ],
-    "nonGoals": [
-      "改动 LLM 回合内工具/命令驱动（v5.5 已建）",
-      "改动 pressCandidate / driveAnsweredTurn 自动按下/成回合语义（diff=0）",
-      "改动三档清分闸档位定义（只接入）",
-      "改动护栏六常量阈值（只接线）",
-      "改动 SW 有界队列裁决逻辑（turn-queue.ts 零 diff）",
-      "F-35/F-34/F-33/F-32/R8/v4/v5 产物改写（D7 并列新主题）",
-      "src/content/**（content.js 177,076 B）/ pick-layer.js（34,358 B）语义改动（零容差冻结）",
-      "packages/web-cli-base/** 改动（零 diff 机核）",
-      "判定链（security/policy.ts / auto-authorize.ts）与 zeroDiffFiles 冻结面触碰",
-      "新增消息 kind（KIND_SET 40→41）/ 新增卡 kind / 新宿主",
-      "特权 op（op.authorize / op.perm.request）发起方式 / AI 代答 consent",
-      "法八（零明文）放宽；F-29（A2A）状态变更；安装期静态权限 / 存储加密 / 会话分组收编 op"
-    ]
+    "theme": "v5.5 主题（一切操作皆 next / 让助手像助手）的 next 产出权收编补丁级跟进轮（v0.11.3 = v0.11.0（F-33）patch 级跟进）"
   },
   "risks": [
     "R-ADN-001 AI 候选幻觉 op/越界 ref/越界 param 触达特权/不可逆面（高；校验链先于接受 + gesture 恒拒 + 纯函数校验器注入反证必红）",
@@ -227,8 +256,10 @@
       {
         "name": "specs-tree-adn-2-deterministic-fallback-and-merge",
         "deliveryOrder": 2,
-        "scope": "确定性退居兜底 + 合并 + 门禁：未配/未产出/非法被拦时注册表兜底 + free-input 终端恒常驻 + AI/规则候选合并/优先级/去重/上限 + 首开边界落地 + 体积重登记 + 门禁逐条重锚（含保护段决策）+ S0 双面",
-        "dependsOn": ["specs-tree-adn-1-ai-next-produce-and-verify"]
+        "scope": "确定性退居兜底 + 合并 + 门禁：未配/未产出/非法被拦时注册表兜底 + free-input 终端恒常驻 + AI/规则候选合并/优先级/去重/上限 + 首开边界落地 + 体积重登记 + 门禁逐条重锚（含保护段决策）+ S0''' 双面",
+        "dependsOn": [
+          "specs-tree-adn-1-ai-next-produce-and-verify"
+        ]
       }
     ],
     "alternative3": "若首开 AI 化与体积/门禁体量足够，可拆 3 叶（adn-1 产出+校验 / adn-2 兜底+合并 / adn-3 首开+门禁+体积），仍硬串行；默认推荐 2 叶（与 F-35 先例一致）"
@@ -260,13 +291,21 @@
   },
   "artifacts": [
     "discovery.md",
+    "spec.md",
     "state.json",
-    "TREE.md"
+    "specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
+    "specs-tree-adn-1-ai-next-produce-and-verify/state.json",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
+    "specs-tree-adn-2-deterministic-fallback-and-merge/state.json"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/discovery.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/spec.md",
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/state.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/TREE.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/state.json"
   ],
   "coversIssues": [
     "Q-ADN-001 母问题：next 产出权与「AI 驱动」原则脱钩",
@@ -332,17 +371,210 @@
       "agent": "sddu-discovery",
       "artifact": "discovery.md v1.0 + state.json + TREE.md",
       "note": "初始创建（F-36 AI 驱动 next 问题挖掘）：作者裁决逐字 + 现状架构诊断（确定性面 A-1~A-13 / AI 面 B-1~B-9 / 结题点 C-1~C-4 / 关键事实 F-1~F-6）+ 推荐层现状映射 + AI 候选校验链 5 判据 + 三档清分闸落点 + Q-ADN-001~024 + A-ADN-001~011 + R-ADN-001~014 + X-ADN-1~11 + O-ADN-001~016（附推荐）+ 2 叶拆分建议。零产品运行时验证、零受管 Provider 调用（routing.v1 = local_or_compute → none）。.sddu 外零触碰；ROADMAP 零 diff。"
+    },
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-spec",
+      "artifact": "spec.md v1.0 + 2 叶 spec.md v1.0 + 三份 state.json",
+      "note": "spec 阶段：FR 89 / NFR 16 / EC 20 / NG 20 / US 10 / G 8 / AC 30 / DC 16 / N 30（20 编成 + 10 新增）/ R 24（14 继承 + 10 新增）/ GAP 8 / COR 5；O-ADN-001~016 全裁决；2 叶依存序（adn-1 产出+校验链 → adn-2 兜底+合并+首开边界+体积+门禁重锚）；S0''' 四支线机核口径；体积分列预算（B 列 SW 优先；距档 15,474 B 不升档）；X-ADN-1~11 逐条重锚。父 Feature = 轻量规范容器（不承接 build/review/validate）；spec 阶段零运行时验证，.sddu 外零触碰，ROADMAP 零 diff。"
     }
   ],
   "pendingObligations": [
-    "authorConfirmation.status = pending-author-line（档位 614,400 / 绝对上限 675,840）—— 承接 v5.5 两次升档，未闭合义务，不得伪称已确认",
-    "本 Feature 若触发升档 ⇒ 走 EC 显式路径 + 作者一行",
-    "ROADMAP 登记（F-36 / v0.11.3）留给收口（本阶段 ROADMAP 零 diff）"
+    "authorConfirmation.status = pending-author-line（档位 614,400 / 绝对上限 675,840 / 生效上限 628,872）—— 承接 v5.5 两次升档，未闭合义务，不得伪称已确认",
+    "本 Feature 若触发升档 ⇒ 走 EC-ADN-016 显式路径 + 作者一行",
+    "ROADMAP 登记（F-36 / v0.11.3）留给收口（本阶段 ROADMAP 零 diff）",
+    "X-ADN-2 / 3 / 4 / 5 / 9 为「未发生取代」⇒ 须在 plan 评估后如实登记（不得留空 / 不得伪造「已取代」）",
+    "人工面 M1~M5（真机相关性/两张皮是否消失/密度观感/读屏/被拦体感）⏳ 未执行如实登记"
   ],
   "evidenceGaps": [
     "外部竞品调研未执行",
     "门禁计数 / 体积值引自 F-35 closeout + size-baseline.ts（本轮未复跑 npm test / Chromium / build）",
     "LLM 输出的结构化解析能力未验证（取决于提示/解析设计，开放点）"
   ],
-  "notes": "本轮 discovery 零产品运行时验证（未跑 npm test / Chromium / build）；零受管 Provider 调用（routing.v1 = local_or_compute → none）。作者裁决（2026-09-25）为方向性原则（非实现约束），形态/载体/校验/合并/首开/体积位置全部登记为开放点（spec 批量裁决）。叶拆分建议 2 叶（依存序）：adn-1 AI next 产出+校验链（安全核心）→ adn-2 确定性兜底+合并+门禁（R8 保底不回归）。完成协议：phase → discovered / status → tracked；state.json 由 discovery Agent 直接写入（sddu_update_state 等价物），ROADMAP 零 diff。"
+  "notes": "spec 阶段（2026-09-26）：产出父 spec.md（v1.0，89 FR / 16 NFR / 20 EC / 20 NG / 10 US / 8 G / 30 AC / 16 DC / 30 N / 24 R / 8 GAP / 5 COR）+ 2 叶 spec.md（adn-1 / adn-2）+ 三份 state.json。O-ADN-001~016 全部裁决（DC-ADN-001~016，全按 discovery 推荐）。关键口径：AI 候选时机复用 `idle` + 载体复用 `chat-result` 载荷 type-only 加法字段（零新增 kind）；5 道校验链（opId 在册 → 三档清分（复用 `tierOf` 单源）→ ref 有效 → param 在 `AskSpec` 内 → 丢弃+留痕）；**三档清分判定分层**（`admitCandidate` 接受层 vs `pressDecision` 按下层；`auto` 可提案可按下 / `confirm` 可提案但 consent 须用户答不可自动按下 / `gesture` 恒拒绝连提案都拒）；确定性注册表退居兜底与安全闸（free-input 终端恒常驻，R8 不回归）；合并不破单卡/3-chip/`NEXTSTEP_PRIORITY` 恰 4；护栏「提案不耗回合预算」；首开保持确定性；门禁新增 1（`ai-next-candidate`）+ 升级 6 + 保留（`CHROMIUM_GATES === 9` 不动，保护段逐段决策）；体积分列预算（B 列 SW 优先，距档 15,474 B 不触发升档）。父 Feature = 轻量规范容器（不承接 build/review/validate，phase 将走 planned → tasked）；每叶承接 build/review/validate。spec 阶段零产品运行时验证，.sddu 外零触碰，ROADMAP 零 diff。routing.v1 = local_or_compute → none（未调用任何受管 Provider）。",
+  "leaf": false,
+  "description": "web-cli-plugin v5.5.3「AI 驱动 next（AI-driven next）」需求规范 —— 把 next 候选的**产出权**从确定性注册表独占，改为「LLM 结构化产出 next 候选 + 确定性注册表退居兜底与安全闸」：① AI 结构化产出通道（时机复用既有 `idle`（回合结题挂点）+ 载体复用既有 `chat-result` 载荷 type-only 加法字段（**零新增 kind**）+ 结构 `{opId,label,ref?,params?}`）；② **5 道校验链**（opId 在册（9）→ 三档清分（复用 `tierOf` 单源）→ ref 有效 → param 在 `AskSpec` 内 → 越界/非法**丢弃 + `blocked=` 留痕**）；③ **判定分层（核心边界）**：`admitCandidate`（接受层：auto/confirm 接受、gesture 拒）与 `pressDecision`（按下层：仅 auto，语义 diff=0）分离，共享 `tierOf` 单源（解决「非 auto 一律 blocked:tier」与「confirm 可提案」的张力，分层而非混同）；④ 确定性注册表退居兜底与安全闸（未配 ⇒ 纯确定性；未产出/非法被拦 ⇒ 确定性产卡；**free-input 终端恒常驻**（R8 不回归））；⑤ 合并（同单卡位 `MAX_NEXTSTEP_CARDS_PER_ROUND=1` 不动 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动（AI 骑 `ref-action` 规则位）/ R6 同因去重扩展 / 替换陈旧候选）；⑥ 护栏（六常量同过 / **提案不耗回合预算** / 关断偏好两相涵盖 / 零第二阈值）；⑦ 首开保持确定性（零 LLM 往返依赖）；⑧ 门禁处置（新增 1 node 门禁 `ai-next-candidate` + 升级 6：`recommendation-sources` ④ 零新 LLM / `NEXTSTEP_PRIORITY` 恰 4 / `DRIVER_DECLS_SRC` 双向包含 11↔11→12↔12 / `op-wiring` 计数 / R6 同因去重扩展 / `driver-timings` 恰 5）+ 体积分列预算（B 列 SW 优先；距档 15,474 B 不触发升档）。",
+  "spec": {
+    "version": "v1.0",
+    "createdAt": "2026-09-26",
+    "agent": "sddu-spec",
+    "fr": 89,
+    "nfr": 16,
+    "ec": 20,
+    "ng": 20,
+    "us": 10,
+    "g": 8,
+    "ac": 30,
+    "dc": 16,
+    "n": 30,
+    "r": 24,
+    "gap": 8,
+    "cor": 5,
+    "frGroups": {
+      "GOV": "001~007",
+      "CHAN": "010~019",
+      "VERIFY": "020~029",
+      "TIER": "030~035",
+      "FALLBACK": "040~046",
+      "MERGE": "050~056",
+      "GUARD": "060~065",
+      "OPEN": "070~073",
+      "S0ppp": "080~085",
+      "SUPERSEDE": "090~101",
+      "GATE": "110~117",
+      "VOL": "120~125"
+    },
+    "keyCalibers": [
+      "S0''' 首验收四支线：已配置 AI 合法 ⇒ 5 道校验 ⇒ 注入 chips 替代陈旧候选 / AI 非法被拦+留痕 / AI 未产出 ⇒ 确定性兜底 / 未配置 ⇒ 纯确定性；free-input 恒在",
+      "判定分层：`admitCandidate`（接受层：auto/confirm 接受、gesture 恒拒）与 `pressDecision`（按下层：仅 auto；diff=0）分离，共享 `tierOf` 单源",
+      "载体 = 既有 `chat-result` 载荷 type-only 加法字段（零新增 kind：KIND_SET 40 / 12 kind / 零宿主）",
+      "头 provider `ai-next` 骑 `ref-action` 规则位（NEXTSTEP_PRIORITY 恰 4 不动）",
+      "X-ADN-1 产出权转移（已发生）/ 2·3·4·5·9 保持（未发生）/ 6·10 等价重锚 / 7·8·11 已发生",
+      "体积：A 基线 598,926 B · 距档 15,474 B · 生效上限 628,872 · B 列 SW 优先不计账 · 2.8× 最坏 ≈9.8 KB 仍不升档"
+    ],
+    "leaves": 2,
+    "leafSplit": "adn-1-ai-next-produce-and-verify → adn-2-deterministic-fallback-and-merge（硬串行）"
+  },
+  "openPointsRuled": [
+    {
+      "id": "O-ADN-001",
+      "status": "ruled",
+      "record": "DC-ADN-001",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-002",
+      "status": "ruled",
+      "record": "DC-ADN-002",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-003",
+      "status": "ruled",
+      "record": "DC-ADN-003",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-004",
+      "status": "ruled",
+      "record": "DC-ADN-004",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-005",
+      "status": "ruled",
+      "record": "DC-ADN-005",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-006",
+      "status": "ruled",
+      "record": "DC-ADN-006",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-007",
+      "status": "ruled",
+      "record": "DC-ADN-007",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-008",
+      "status": "ruled",
+      "record": "DC-ADN-008",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-009",
+      "status": "ruled",
+      "record": "DC-ADN-009",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-010",
+      "status": "ruled",
+      "record": "DC-ADN-010",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-011",
+      "status": "ruled",
+      "record": "DC-ADN-011",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-012",
+      "status": "ruled",
+      "record": "DC-ADN-012",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-013",
+      "status": "ruled",
+      "record": "DC-ADN-013",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-014",
+      "status": "ruled",
+      "record": "DC-ADN-014",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-015",
+      "status": "ruled",
+      "record": "DC-ADN-015",
+      "decision": "采纳 discovery 推荐"
+    },
+    {
+      "id": "O-ADN-016",
+      "status": "ruled",
+      "record": "DC-ADN-016",
+      "decision": "采纳 discovery 推荐"
+    }
+  ],
+  "openPointsDeferred": [
+    {
+      "id": "PD-ADN-001",
+      "topic": "首开 AI 化",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-002",
+      "topic": "LLM 结构化输出的精确提示/协议形态与解析严格度",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-003",
+      "topic": "label 净化/截断口径",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-004",
+      "topic": "AI 候选 ref 字段语义面",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-005",
+      "topic": "AI 候选是否只在 ref-action 规则上下文产出",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-006",
+      "topic": "AI 候选驱动者 id 字面量与 evidence 字段名",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-007",
+      "topic": "多候选前 N 的精确 N 与排序依据",
+      "status": "deferred"
+    },
+    {
+      "id": "PD-ADN-008",
+      "topic": "recommendation-sources 白名单是否需为注入槽新增条目",
+      "status": "deferred"
+    }
+  ]
 }

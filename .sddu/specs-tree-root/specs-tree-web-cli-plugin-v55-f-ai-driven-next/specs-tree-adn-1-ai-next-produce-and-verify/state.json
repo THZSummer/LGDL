@@ -1,0 +1,103 @@
+{
+  "feature": "specs-tree-adn-1-ai-next-produce-and-verify",
+  "featureKey": "specs-tree-adn-1-ai-next-produce-and-verify",
+  "version": "v0.11.3",
+  "name": "ADN-1 AI 结构化产出 next 候选 + 5 道校验链：通道 + 安全核心",
+  "phase": "specified",
+  "status": "tracked",
+  "workflow": "2.spec",
+  "agent": "sddu-spec",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 1,
+  "dependsOn": [],
+  "createdAt": "2026-09-26",
+  "updatedAt": "2026-09-26",
+  "description": "ADN-1 叶规范（首叶 / 底座叶 + 安全核心）：AI 结构化产出通道（复用既有 `idle` 时机 + 既有 `chat-result` 载荷 type-only 加法字段（零新增 kind）+ 结构 `{opId,label,ref?,params?}`）+ **5 道校验链**（① opId 在册（9 op）② 三档清分（复用 `tierOf` 单源）③ ref 有效 ④ param 在 `AskSpec` 内 ⑤ 越界/非法**丢弃 + `blocked=` 留痕**）+ `tierOf` 单源复用 + **判定分层（`admitCandidate` 接受层：auto/confirm 接受、gesture 拒；`pressDecision` 按下层：仅 auto，语义 diff=0）**+ `ai-next` provider（rule: ref-action）+ `DRIVER_DECLS_SRC` 11→12 + `NextCtx` 加法字段登记（DT-6）+ SW 侧解析/校验（B 列优先，复用 `shared/op-table.ts` 双面镜像）+ 留痕三要素（零明文）+ 新 node 门禁 `test/ai-next-candidate.test.ts`（校验器纯函数 + 注入反证族 + 真源切片 + 禁恒真）+ S0''' 主线/支线 B/支线 D node 面 + 体积 B 列归因。",
+  "scope": {
+    "in": [
+      "AI 结构化产出通道（`idle` 时机 + `chat-result` type-only 加法字段 + 零新增 kind）",
+      "5 道校验链（opId 在册 / 三档清分 / ref / param / 丢弃+留痕）",
+      "`tierOf` 单源复用 + `admitCandidate`（接受层）与 `pressDecision`（按下层）判定分层",
+      "`ai-next` provider（rule: ref-action）+ `DRIVER_DECLS_SRC` 11→12 + `NextCtx` 加法字段登记",
+      "SW 侧解析 + 校验（B 列优先）",
+      "留痕三要素 + `blocked=` 可读行（零明文）",
+      "新 node 门禁 `ai-next-candidate` 入 `gate-integrity` 下界（只增）；反证必须实跑",
+      "S0''' 主线 / 支线 B / 支线 D 的 node 面 + 注入反证族",
+      "体积 B 列归因（解析/校验在 `background.js`，不计 sidepanel 账本）+ A 列薄接线预算"
+    ],
+    "out": [
+      "确定性兜底语义 / free-input 终端恒常驻终态（叶2）",
+      "AI / 规则候选合并 / 优先级 / 去重 / 上限（叶2）",
+      "护栏六常量接线 / 提案不耗预算 / 关断偏好涵盖（叶2）",
+      "首开（open/ready）边界落地（叶2）",
+      "X-ADN 台账终态 + 保护段决策 + 升级 6 门禁重锚（叶2）",
+      "在 `recommend.ts` 内直接调用 LLM / 新 op / 新 kind / 新宿主",
+      "`pressCandidate` / `driveAnsweredTurn` / `turn-queue.ts` 语义改动"
+    ]
+  },
+  "artifacts": [
+    "spec.md",
+    "state.json"
+  ],
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-1-ai-next-produce-and-verify/state.json"
+  ],
+  "coversFr": [
+    "FR-ADN-001~007",
+    "FR-ADN-010~019",
+    "FR-ADN-020~029",
+    "FR-ADN-030~035",
+    "FR-ADN-080~082",
+    "FR-ADN-085",
+    "FR-ADN-096",
+    "FR-ADN-110~117（新增门禁侧）",
+    "FR-ADN-120~125（B 列归因侧）"
+  ],
+  "openPoints": [
+    "PD-ADN-002",
+    "PD-ADN-003",
+    "PD-ADN-004",
+    "PD-ADN-006",
+    "PD-ADN-008"
+  ],
+  "notes": "承载父 FR ≈48 条切片；交付 9 项；执行序 7 步（先立通道与安全闸）；风险 10 条；开放问题 5 条（PD-ADN-002/003/004/006/008）。关键：5 道校验链先于任何候选接受；`gesture` 恒拒绝连提案都拒；`confirm` 可提案但 consent 须用户答、AI 不可自动按下（判定分层而非混同）；`recommend.ts` 仍 pure（零新 LLM / 真值 7 / 模块 5）。",
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-spec",
+      "artifact": "spec.md v1.0 + state.json",
+      "note": "spec 阶段：产出叶 spec.md（承载父 FR ≈48 条切片：GOV 001~007 / CHAN 010~019 / VERIFY 020~029 / TIER 030~035 / S0''' 080·081·082·085 主线侧 / SUPERSEDE 096 / GATE 110~117 新增门禁侧 / VOL 120~125 B 列归因侧）。首叶 / 底座叶 + 安全核心；plan → tasks → build → review → validate 由本叶承接。spec 阶段零运行时验证。"
+    }
+  ],
+  "openPointsRuled": [
+    "O-ADN-001",
+    "O-ADN-002",
+    "O-ADN-003",
+    "O-ADN-004",
+    "O-ADN-005",
+    "O-ADN-006",
+    "O-ADN-007",
+    "O-ADN-008",
+    "O-ADN-009",
+    "O-ADN-010",
+    "O-ADN-011",
+    "O-ADN-012",
+    "O-ADN-013",
+    "O-ADN-014",
+    "O-ADN-015",
+    "O-ADN-016"
+  ],
+  "openPointsDeferred": [
+    "PD-ADN-002",
+    "PD-ADN-003",
+    "PD-ADN-004",
+    "PD-ADN-006",
+    "PD-ADN-008"
+  ]
+}
