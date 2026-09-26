@@ -57,7 +57,9 @@ export interface NextProvider {
 ```
 
 - **顺序**：`resolveOrder` = `(priority asc, prepend desc, seq asc)` ⇒ `ai-next`（priority 2, prepend）排在确定性 `ref-action`（priority 2, 无 prepend）之前 ⇒ **同规则内 AI 优先**；AI `when` 为假 ⇒ `seen` 不落，确定性 `ref-action` 照旧接管 ⇒ **兜底可达**。
-- **上层规则仍优先**：`risk-recovery`（0）/ `onboarding`（1）命中时 AI 候选**不显示**（同台竞争 → 高风险优先），与既有语义一致。
+- **上层规则仍优先（★ SG-ADN-03 语义订正，2026-09-27 review R1 —— 见文末「修订记录」）**：按**实际选卡键** `priorityOf(rule) = NEXTSTEP_PRIORITY.indexOf(rule) + 1`（`recommend.ts:435`）—— **`risk-recovery`（1）**命中时其卡片优先级低于 AI 骑的 `ref-action`（2）⇒ AI 候选**不显示**（同台竞争 → 高风险优先），与既有语义一致；**`onboarding` 不在此列**（`priorityOf(onboarding) = 3` > 2 ⇒ 二者并现时 **AI 胜出**该单个卡片槽，二者分属不同 `rule` 组 ⇒ `seen` 不互斥、两卡皆入候选后按选卡键取单卡位）。
+  - **轴区别（易错点）**：上文原措辞的「（0）/（1）」是 `NextProvider.priority` **字段**（`providers.ts`：recovery 行 = 0 / `onboarding` 行 = 1 / `ai-next` 行 = 2），而选卡排序用的是 `priorityOf(rule)` **选卡键**——两者**不是同一轴**，不得混读。
+  - **生产可达性**：`onboarding.when` 需 `onboarding.firstRun`，该字段仅 `trigger === 'firstRun'` 时置位（`sidepanel.ts:2080-2083`）；而 AI 候选仅在 `configured` 且回合刚结束时可产出 ⇒ 二者**实际不并现**。本订正属**纵深防御层口径**；机制（冻结 `NEXTSTEP_PRIORITY` 恰 4 / `prepend` 赢槽替换）**零改动**。
 - **不新增第 5 规则位 / 不新增 op / 不新增动作**：`ACT_TO_OP` 仍恰 6 行。
 
 ### ④ 合并口径：**同单卡位 + 前 N ≤3 + 截断**
@@ -95,3 +97,11 @@ chip 的 `data-op` 由 `ACT_TO_OP` / `OP_TO_ACT` 单源派生；`dispatchChipAct
 - 题眼达成（AI 候选替代陈旧 chip）而**不破**单卡 / 3-chip / 规则表恰 4；
 - **代价**：`NextProvider` 两次纯加法扩展（`chipsFor` / `label`）+ `shared/op-table` 的 `ask` 字段 ⇒ 两侧 bundle 各 +数十字节；`recommend.ts` 增 AI 同因预过滤（A 列，薄）；
 - **判据**：新增 `ai-next-candidate` 断言「`chipsFor` 权威」、「截断 ≤3」、「替换双向」、「R6 家系覆盖 AI」；既有 `recommendation-sources` / `next-registry` / `driver-quadruple` / `next-obligation-table` 判据**零删**。
+
+## 修订记录
+
+| 版本 | 变更说明 | 日期 | 修订人 |
+|------|---------|------|--------|
+| v1.0.1 | **SG-ADN-03 语义订正**（ADN-2 leaf review R1 裁决 · `specs-tree-adn-2-deterministic-fallback-and-merge`）：§③「上层规则仍优先」按**实际选卡键** `priorityOf(rule)` 重述 —— 仅 `risk-recovery`（1）真优先于 AI（骑 `ref-action` = 2）；**`onboarding`（3）不抑制 AI**；厘清 `NextProvider.priority` 字段轴与选卡键轴的区别；补充「生产不并现」可达性事实。**纯 `.sddu` 文字订正，机制零改**（冻结 `NEXTSTEP_PRIORITY` 恰 4 不动 / `src/**` 零字节 / 既有门禁判据零影响）。承 build 上报（`build.md §5.2①` + 台账 `xAdnLedgerFull.note`）| 2026-09-27 | SDDU Review Agent |
+
+> （本 `修订记录` 段随本次订正新增；v1.0 原文由 plan 阶段产出，未含版本段。SG-ADN-03 的**机制结论**「AI 骑 `ref-action` 位 + `prepend` 赢槽 ⇒ 替换陈旧候选」**不受本订正影响**。）
