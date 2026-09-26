@@ -44,6 +44,8 @@ import {
 } from './_v3-helpers.mjs';
 // ★ F-36 / ADN-1 TASK-ADN-125（纯追加 import）：S0''' 四支线样本单源（与 s0 面**同一份** fixture）。
 import { S0PPP_CHAIN, S0PPP_ITEMS, s0pppChain, s0pppProblems } from './fixtures/s0-chain.mjs';
+// ★ F-36 / ADN-2 TASK-ADN-218（W06，纯追加 import）：S0''' 终态口径真面板面（替换 / ≤3 / 终端）。
+import { S0PPP_ACCEPTED, S0PPP_STALE_LABEL, S0PPP_TERMINAL_SELECTOR } from './fixtures/s0-chain.mjs';
 
 /** D-005 runtime floor（本叶台账 `v4GateFloors`）：首次实测后只增不减。 */
 const RECOMMENDATION_RUNTIME_FLOOR = 30;
@@ -757,6 +759,81 @@ async function main() {
         s0pppProblems({}).length >= 10 &&
         s0pppProblems({ blockedNotRendered: false }).some((p) => p.includes('S0PPP-3')),
       JSON.stringify({ chain: S0PPP_CHAIN.length, items: S0PPP_ITEMS.length }),
+    );
+
+    // ── ★ F-36 / ADN-2 TASK-ADN-218（只加断言，零降级）─────────────────────────────
+    // S0''' **终态口径**真面板面：多候选 ⇒ 前 N=3 截断 ∧ 单卡；AI 在场 ⇒ 无陈旧
+    // `ref-action` chip；终端恒最末。驱动经测试缝 `window.__v3.testing.aiNext`
+    // （与 `chat-result{done}` 同一消费路径）。
+    // 已知态自持：`reset()` 清流 + 清**防抖时钟**（否则 `idle` 求值被上一夹具的
+    // `lastNextstepProducedAt` 压掉 ⇒ `rule=null` 空转）。
+    await evaluate(cdp, `window.__v3.testing.reset(); true`);
+    // 本夹具从不创建真页面、且 ⑪ 已驱动过真实 `ref-captured` ⇒ 自动探测相位**非就绪/非
+    // steady**（实测：`probe.unsettled` 的 priority 0 恢复卡恒压过规则位 ⇒ 本面无法构造
+    // 「AI 赢槽」态）。因此本面机核**与相位无关的可观测不变量**（恰 1 卡 / ≤3 / 终端恒最末 /
+    // 无陈旧 `ref-action` chip）；「AI 在场 ⇒ 替换陈旧候选」的**裁决面双向判据**在
+    // `s0-self-driven.mjs` ⑲（真面板 settled 态）与 node 面（`ai-next-candidate` 217）同判据机核。
+    // 再走真拾取（与 ⑯ 同一真路径）⇒ 确定性 `ref-action` 候选真的在场（替换非空转）。
+    const adn2Ref = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const origin = 'https://v4-4.test';
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin,
+            documentId: 'doc-adn2', navSeq: 1, declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: origin, authorized: true, documentId: 'doc-adn2', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          return JSON.stringify({ refId: rec.facts.refId });
+        })()`,
+      ),
+    );
+    check(
+      '★ ADN-2 前置：真拾取 ⇒ 注入前确定性 ref-action 候选在场（替换判据非空转）',
+      /^ref_\d+$/.test(String(adn2Ref.refId)),
+      JSON.stringify(adn2Ref),
+    );
+    const adn2TerminalRaw = await evaluate(
+      cdp,
+      `(() => {
+        const rule = window.__v3.testing.aiNext({ accepted: [
+          { opId: ${JSON.stringify(S0PPP_ACCEPTED.opId)}, label: ${JSON.stringify(S0PPP_ACCEPTED.label)} },
+          { opId: 'op.pick', label: '重新拾取引用' },
+          { opId: 'op.rebind', label: '重新绑定站点' },
+          { opId: 'op.describe', label: '描述当前页面' },
+        ] });
+        const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+        const card = cards[cards.length - 1];
+        const chips = [...(card?.querySelectorAll('button.next-chip') ?? [])].map((c) => c.textContent);
+        const terminal = card?.querySelector(${JSON.stringify(S0PPP_TERMINAL_SELECTOR)}) ?? null;
+        return JSON.stringify({
+          rule,
+          chips,
+          cards: cards.length,
+          chipCount: chips.length,
+          staleAbsent: !chips.includes(${JSON.stringify(S0PPP_STALE_LABEL)}),
+          terminalLast: terminal !== null && terminal.parentElement?.lastElementChild === terminal,
+        });
+      })()`,
+    );
+    const adn2Terminal = JSON.parse(adn2TerminalRaw);
+    // 与相位无关的**可观测不变量**（判据非恒真：`cards`/`chipCount`/`staleAbsent`/`terminalLast`
+    // 任一被破坏 ⇒ 必红）；若规则位未被 priority 0 的恢复卡压过（`ref-action` 赢槽），则**加强**为
+    // 「AI 候选在场（前 N=3）∧ 陈旧确定性 chip 不出现」——替换口径与非溢出口径同时机核。
+    const adn2Adopted = adn2Terminal.rule === 'ref-action';
+    check(
+      `★ ADN-2 S0'''：注入 AI 多候选 ⇒ 仍**恰 1 卡** ∧ chip ≤3 ∧ 终端恒最末 ∧ **无陈旧 ref-action chip**（${adn2Adopted ? 'AI 骑 ref-action 赢槽' : '高优先恢复卡压过'}）${adn2Terminal.chips.join(' / ')}`,
+      adn2Terminal.cards === 1 &&
+        adn2Terminal.chipCount >= 1 &&
+        adn2Terminal.chipCount <= 3 &&
+        adn2Terminal.staleAbsent &&
+        adn2Terminal.terminalLast &&
+        (adn2Adopted
+          ? adn2Terminal.chips.includes(S0PPP_ACCEPTED.label) && adn2Terminal.chipCount === 3
+          : adn2Terminal.rule === 'risk-recovery'),
+      adn2TerminalRaw,
     );
 
     cdp.close();

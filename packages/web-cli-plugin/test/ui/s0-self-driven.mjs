@@ -1493,6 +1493,89 @@ async function main() {
       '⏳ 未执行',
     );
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⑲ ★ F-36 / ADN-2 TASK-ADN-218（ADR-ADN-004 §④⑤⑥ · ADR-ADN-005 §② ·
+    //   ADR-ADN-007 §①④ · FR-ADN-050/051/052/055 · AC-ADN-001/007）—— **S0''' 终态口径**
+    //   真面板面（**只加断言不加文件**；`CHROMIUM_GATES === 9` 不动）：
+    //   多候选 ⇒ 前 N=3 截断 ∧ 单卡；AI 在场 ⇒ 陈旧确定性候选不出现（替换）；终端恒最末。
+    // ═════════════════════════════════════════════════════════════════════════
+    console.log("\n▶ ⑲ S0''' 终态口径（ADN-2）：多候选 ≤3 单卡 / 替换陈旧候选 / 终端恒最末");
+    // 已知态**自持**（不寄生 ⑱ 的 D 支线终态；与 ⑱ 同一条**真路径**）：`reset()` 清流 +
+    // 清**防抖时钟** + 清完成台账（否则 `aiNext` 的 `idle` 求值被上一夹具的
+    // `lastNextstepProducedAt` 压掉 ⇒ `rule=null` 空转）；再走真授权 + 真拾取 ⇒
+    // 确定性 `ref-action` 候选**真的在场**（「替换陈旧候选」才非空转）。
+    await evaluate(cdp, `window.__v3.testing.reset(); true`);
+    await evaluate(
+      cdp,
+      `(async () => {
+        await chrome.runtime.sendMessage({ kind: 'discover', origin: ${JSON.stringify(S0_ORIGIN)}, state: 'supported' });
+        await chrome.runtime.sendMessage({ kind: 'authorize', origin: ${JSON.stringify(S0_ORIGIN)}, hostPermissionGranted: true });
+        await window.__v3.testing.refresh();
+        return true;
+      })()`,
+    );
+    const pppTerminalPre = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const origin = ${JSON.stringify(S0_ORIGIN)};
+          const rec = window.__v3.testing.l1('ref', {
+            selector: '#host-btn', semanticPath: 'body › button', textDigest: '宿主按钮', origin,
+            documentId: 'doc-ppp', navSeq: 1,
+            declarationHash: 'h1', declaration: { status: 'valid', hash: 'h1' }, capturedAt: Date.now(),
+          });
+          window.__v3.testing.l1('env', { currentOrigin: origin, authorized: true, documentId: 'doc-ppp', navSeq: 1, declarationStatus: 'valid', declarationHash: 'h1' }, true);
+          window.__v3.testing.l1('res', { status: 'resolved', refMark: rec.facts.refId, nodeCount: 1 });
+          window.__v3.testing.refCard(1, 'valid');
+          return JSON.stringify({ refId: rec.facts.refId });
+        })()`,
+      ),
+    );
+    check(
+      "S0C-14 前置：已知态重铸（reset 清防抖时钟 + 真授权 + 真拾取）⇒ 注入前确定性 ref-action 候选在场（替换判据非空转）",
+      /^ref_\d+$/.test(String(pppTerminalPre.refId)),
+      JSON.stringify(pppTerminalPre),
+    );
+    // 干净单卡态（流内只有上一步铸的有效引用卡；防抖时钟在 `reset()` 后未被置位）⇒ 注入 AI 多候选。
+    const pppTerminal = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          const rule = window.__v3.testing.aiNext({ accepted: [
+            { opId: ${JSON.stringify(S0PPP_ACCEPTED.opId)}, label: ${JSON.stringify(S0PPP_ACCEPTED.label)} },
+            { opId: 'op.pick', label: '重新拾取引用' },
+            { opId: 'op.rebind', label: '重新绑定站点' },
+            { opId: 'op.describe', label: '描述当前页面' },
+          ] });
+          const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+          const card = cards[cards.length - 1];
+          const chips = [...(card?.querySelectorAll('button.next-chip') ?? [])].map((c) => c.textContent);
+          const terminal = card?.querySelector(${JSON.stringify(S0PPP_TERMINAL_SELECTOR)}) ?? null;
+          return JSON.stringify({
+            rule,
+            chips,
+            cards: cards.length,
+            terminalLast: terminal !== null && terminal.parentElement?.lastElementChild === terminal,
+          });
+        })()`,
+      ),
+    );
+    check(
+      `S0C-14 终态口径：多候选取前 N=3（≤3 ∧ 单卡）∧ AI 在场无陈旧候选 ∧ 终端恒最末 ${pppTerminal.chips.join(' / ')}`,
+      pppTerminal.rule === 'ref-action' &&
+        pppTerminal.chips.length === 3 &&
+        pppTerminal.cards === 1 &&
+        pppTerminal.chips.includes(S0PPP_ACCEPTED.label) &&
+        !pppTerminal.chips.includes(S0PPP_STALE_LABEL) &&
+        pppTerminal.terminalLast,
+      JSON.stringify(pppTerminal),
+    );
+    check(
+      "S0C-14 人工面 M1（AI 终态建议可读性）/ M3（≤3 密度观感）/ M4（读屏可用性）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
+      true,
+      '⏳ 未执行',
+    );
+
     cdp.close();
   } finally {
     chrome.kill('SIGKILL');

@@ -51,6 +51,24 @@ import {
   type SizeReRegistration,
 } from './size-baseline.js';
 
+/**
+ * 〖★ F-36 / ADN-2 W06〗最新树逐模块期望值：以 ADN-1 R1 的 `adn1R1Rows` 为基线，
+ * 用 ADN-2 的 `adn2Rows` 覆盖被本叶改动的模块（`sidepanel.ts` / `recommend.ts`），
+ * 使「最新一轮 metafile 逐值同源」判据随树前移（等价重锚，非放宽）。
+ */
+function sizeLatestAdnRows(): readonly { readonly module: string; readonly afterBytes: number }[] {
+  return SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows.map((row) => {
+    const over = SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows.find((r) => r.module === row.module);
+    return { module: row.module, afterBytes: over ? over.afterBytes : row.afterBytes };
+  });
+}
+/** 同上：对任意一轮 rows（如 `adn1Rows`）给出「最新树」的 afterBytes 期望值。 */
+function latestAfterBytes(rows: readonly { readonly module: string; readonly afterBytes: number }[], row: { readonly module: string; readonly afterBytes: number }): number {
+  const over = SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows.find((r) => r.module === row.module);
+  void rows;
+  return over ? over.afterBytes : row.afterBytes;
+}
+
 const LEDGER = new URL('../../docs/v3-supersession-ledger.json', import.meta.url);
 
 function ledgerEntryIds(): Set<string> {
@@ -218,7 +236,7 @@ test('V3-VOL-1 ③ growth: the recorded per-module breakdown sums to the measure
   // 〖V5.5-1 R1/R2（2026-09-23）〗R1 中间登记 549,609 → **554,576**（+4,967）⇒ 累计 259,351；
   // R2 收口登记 554,576 → **557,761**（+3,185：答案驱动化 + S0 双面 + 判据升级）⇒ 累计 **262,536**。
   // 〖IAN-1 R1（2026-09-24）〗累计口径随基线前移：598,282 − 295,225 = **303,057**。
-  assert.equal(b.deltaBytes, 307_980);
+  assert.equal(b.deltaBytes, 309_377);
   const bucketSum =
     b.newRequiredModuleBytes + b.wiringBytes + b.attributionShiftBytes + b.unattributedHelperDeltaBytes;
   assert.equal(bucketSum, b.deltaBytes, '四类分解之和必须等于总增量（否则有未披露的膨胀）');
@@ -332,7 +350,7 @@ test('V3-VOL-1 ③ growth: the real esbuild metafile agrees with the recorded br
   // 〖V5.5-3 R1（2026-09-23，TASK-V55-301~307）〗再重指向 v552R3 → **v553R1Rows**
   // （v5-2 各轮的历史 rows 逐字保留在 `v52*Rows` / `v552*Rows` 与 `SIDEPANEL_BASELINE_META` 的历史段）。
   // ★ R8 缺陷修复轮：最新一轮 = `r8Rows`（+349 B；其 afterBytes 必须等于真实 metafile）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows) {
+  for (const row of sizeLatestAdnRows()) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -393,7 +411,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round rows sum to `closeoutDeltaBytes`
   // 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 `SIDEPANEL_BASELINE_BYTES_TIMELINE`）。
   // 〖V5.5-2 R2〗`closeoutDeltaBytes` 语义恒为「**最新一轮**登记增量」⇒ 与本叶 R2 的登记条目同源复算
   // （563,145 → 563,780，+635）；R1 的中间登记值 557,883 → 562,273 逐字保留在 `SIDEPANEL_RE_REGISTRATIONS` 与 TIMELINE。
-  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 598_926);
+  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 603_205);
   // 新必需模块（beforeBytes=null）恰好 4 个（toolbar / theme / density-scope / statusbar）。
   const newModules = b.v41RoundRows.filter((r) => r.beforeBytes === null);
   assert.equal(newModules.length, 4, `v4-1 新增必需模块必须恰为 4 个（实测 ${newModules.length}）`);
@@ -442,7 +460,7 @@ test('V3-VOL-1 ③(V4-1) growth: the v4-1 round `afterBytes` must match the real
   // == 546,370 − 542,064）；`v52CloseoutRows`（1 行 −86）的历史值逐字保留在本文件的注释与
   // `SIDEPANEL_GROWTH_BREAKDOWN.v52CloseoutRows`（其 Σ/Δ 自洽由 N-05 的组判据承担）。
   // ★ R8 缺陷修复轮：最新一轮 = `r8Rows`（afterBytes == 真实 metafile）。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows) {
+  for (const row of sizeLatestAdnRows()) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少最新一轮模块 ${row.module}`);
     assert.equal(
@@ -694,6 +712,8 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
     { name: 'r8Rows', rows: b.r8Rows, glue: b.r8UnattributedGlueBytes },
     // 〖★ F-36 / ADN-1 R1（2026-09-26，leaf specs-tree-adn-1-ai-next-produce-and-verify；W01+W02）〗追加第 39 组（只增不减）。
     { name: 'adn1R1Rows', rows: b.adn1R1Rows, glue: b.adn1R1UnattributedGlueBytes },
+    // 〖★ F-36 / ADN-2 R1（2026-09-26，leaf specs-tree-adn-2-deterministic-fallback-and-merge；W04+W05 落地 / W06 收口重登记）〗追加第 40 组（只增不减）。
+    { name: 'adn2Rows', rows: b.adn2Rows, glue: b.adn2UnattributedGlueBytes },
   ];
   const problems: string[] = [];
   for (const g of groups) {
@@ -708,7 +728,7 @@ test('V3-VOL-1 ③(N-05) 全部 round rows：每行 Δ 自洽 ∧ Σ == 该轮�
   // 每组都必须真的被判（否则本断言可被空集合空转）。V4-4 追加第 8 组、R2 追加第 9 组、
   // 审查修复轮第 10 组、快修轮第 11 组、收口轮第 12 组、V4.5-1 R1 第 14 组、
   // V4.5-1 review R1 修复轮第 15 组、V5.5-2 R1 第 27 组、V5.5-2 R2 第 28 组（只增不减）。
-  assert.equal(groups.length, 39);
+  assert.equal(groups.length, 40);
   console.log(
     `  ℹ round rows：${groups.map((g) => `${g.name}=${g.rows.reduce((s, r) => s + r.deltaBytes, 0)}`).join(' / ')}`,
   );
@@ -777,7 +797,7 @@ test('V4.5-1 R3 growth: 终轮（Δ=0）历史登记 + 最新一轮 metafile 逐
   //    与最新登记同源（历史各轮的 Δ 由 N-05 组判据承担；此后任何一轮都必须重新登记）。
   let judged = 0;
   // ★ R8 缺陷修复轮：最新一轮 = `r8Rows`（+349 B）；其 afterBytes 必须与真实 metafile 逐值相等。
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows) {
+  for (const row of sizeLatestAdnRows()) {
     const key = paths.find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(
@@ -815,7 +835,7 @@ test('R6 缺陷快修轮体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三�
   assert.ok(fr, '登记册不得为空');
   // 〖★ R8 缺陷修复轮（2026-09-25）〗末条前移：最新一轮 = `r8-open-next-entry`
   // （IAN-2 R1 / IAN-1 R2 / R1 与 V5.5F-2 的历史五要素逐字保留在登记册与元数据段）。
-  assert.equal(fr.id, 'adn-1-r1', '末条登记必须是 ADN-1 R1（最新一轮）');
+  assert.equal(fr.id, 'adn-2-r1', '末条登记必须是 ADN-2 R1 收口（最新一轮）');
   // ① **提升轮**：方向 `raised` ∧ Δ == after − before > 0（不得伪装成净减/零字节）。
   assert.equal(fr.direction, 'raised', 'R8 必须登记为提升轮（`raised`）');
   assert.ok(fr.baselineAfterBytes - fr.baselineBeforeBytes > 0, 'R8 必须是正增量');
@@ -824,7 +844,7 @@ test('R6 缺陷快修轮体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三�
   assert.equal(fr.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '最新一轮 after 必须 == 当前基线');
   assert.equal(fr.ceilingAfterBytes, SIDEPANEL_CEILING, '最新一轮 ceiling 必须 == 当前生效上限（公式派生）');
   assert.equal(fr.ceilingUncappedFormulaBytes, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05));
-  assert.equal(fr.ceilingUncappedFormulaBytes, 633_365);
+  assert.equal(fr.ceilingUncappedFormulaBytes, 634_832);
   assert.equal(SIDEPANEL_CEILING_CAP_ROLE, 'record-only', 'cap 必须仍是纯记录字段');
   assert.equal(PENDING_ABSOLUTE_CAP.newBaselineBytes, SIDEPANEL_BASELINE_BYTES, '三值同源：newBaselineBytes');
   assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, SIDEPANEL_TIER_BYTES * 1.1, '三值同源：absoluteCeilingBytes');
@@ -844,8 +864,8 @@ test('R6 缺陷快修轮体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三�
   assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.v553R3Rows.length, 0, 'V5.5-3 R3 零字节轮的逐模块 rows 为空（历史事实）');
   assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.v553R3UnattributedGlueBytes, 0);
   // ④ 最新一轮逐模块归因：Σ + glue == 登记增量（净负轮）。
-  const rows = SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows;
-  assert.ok(rows.length > 0, 'R8 逐模块 rows 必须非空（提升轮）');
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows;
+  assert.ok(rows.length > 0, 'ADN-2 逐模块 rows 必须非空（提升轮）');
   assert.equal(
     rows.reduce((n, r) => n + r.deltaBytes, 0) + SIDEPANEL_GROWTH_BREAKDOWN.adn1R1UnattributedGlueBytes,
     fr.baselineAfterBytes - fr.baselineBeforeBytes,
@@ -871,7 +891,7 @@ test('R6 缺陷快修轮体积定稿：五要素齐备 ∧ 未跨档位 ∧ 三�
   const out = meta.outputs[outKey as string];
   assert.equal(out.bytes, SIDEPANEL_BASELINE_BYTES, '真实产物字节必须等于登记基线（Δ=0 仍与产物同源）');
   let judged = 0;
-  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows) {
+  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows) {
     const key = Object.keys(out.inputs).find((p) => p.endsWith(row.module));
     assert.ok(key, `metafile 缺少模块 ${row.module}`);
     assert.equal(out.inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 最新一轮 metafile 必须与登记逐值相等`);
@@ -959,7 +979,91 @@ test('★ ADN-1 R2 ⑥ growth: 叶1 整叶 `adn1Rows` Σ + 未归因 == 登记�
     for (const row of rows) {
       const key = paths.find((p) => p.endsWith(row.module));
       assert.ok(key, `metafile 缺少整叶行模块 ${row.module}`);
-      assert.equal(inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 真实 metafile ≠ adn1Rows.afterBytes`);
+      // 〖★ ADN-2〗树已前移：被 ADN-2 改动的模块取**链式最新值**（`adn2Rows` 覆盖），
+      // 其余模块仍与 `adn1Rows.afterBytes` 逐值相等（等价重锚，非放宽）。
+      assert.equal(
+        inputs[key as string].bytesInOutput,
+        latestAfterBytes(rows, row),
+        `${row.module}: 真实 metafile ≠ adn1Rows.afterBytes（/ 链式最新值）`,
+      );
     }
   }
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-2 **TASK-ADN-221**（ADR-ADN-008 §②③ · FR-ADN-120~125 ·
+ * AC-ADN-026 · EC-ADN-016）—— **叶2 收口终值**机核：五要素 + 三值 + `adn2Rows`
+ * Σ 与真实 metafile 同源 + **两叶 Σ 对照** + **EC-ADN-016 三态** + B 列不计账。
+ * ──────────────────────────────────────────────────────────────────────────── */
+test('★ ADN-2 体积收口：叶2 五要素/三值 + `adn2Rows` Σ 与 metafile 同源 + 两叶 Σ + EC-ADN-016 三态', () => {
+  const reg = SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1];
+  assert.equal(reg.id, 'adn-2-r1', '末条登记必须是 ADN-2 R1 收口（最新一轮）');
+  // ① 五要素：前值 → 后值 / 日期 / 来源 / 理由 / 历史保留。
+  assert.equal(reg.baselineBeforeBytes, 603_205, '叶2 前值 = ADN-1 终值 603,205');
+  assert.equal(reg.baselineAfterBytes, 604_602, '叶2 后值 = 实测 604,602');
+  assert.equal(reg.baselineAfterBytes - reg.baselineBeforeBytes, 1_397, '叶2 Δ = +1,397（+1.36 KiB）');
+  assert.equal(reg.date, '2026-09-26');
+  assert.match(reg.reason, /544|5,676|两叶|EC-ADN-016/, 'reason 必须写明两叶 Σ 与 EC-ADN-016');
+  assert.ok(reg.reason.length > 200, '理由必须完整（五要素披露）');
+  assert.deepEqual(reg.historyRetainedBytes, [603_205, 598_926, 598_577, 599_125, 598_282], '历史保留值逐字');
+  // ② 三值同源：newBaselineBytes / 档位 / 绝对上限 / 生效上限。
+  assert.equal(reg.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '最新一轮 after == 当前基线');
+  assert.equal(reg.ceilingAfterBytes, SIDEPANEL_CEILING, '最新一轮 ceiling == 当前生效上限');
+  assert.equal(SIDEPANEL_CEILING, Math.floor(604_602 * 1.05), '生效上限 = floor(604,602 × 1.05) = 634,832');
+  assert.equal(SIDEPANEL_TIER_BYTES, ceilTo50KB(SIDEPANEL_BASELINE_BYTES), '档位与 ceilTo50KB(基线) 同源');
+  assert.equal(SIDEPANEL_TIER_BYTES, 614_400, '档位 614,400 未变');
+  assert.equal(PENDING_ABSOLUTE_CAP.absoluteCeilingBytes, 675_840, '绝对上限 675,840 未变');
+  // ③ `adn2Rows` Σ + glue == 登记增量，且与真实 metafile 同源。
+  const rows = SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows;
+  const rowSum = rows.reduce((s, r) => s + r.deltaBytes, 0);
+  assert.equal(rowSum, 1_397, `adn2Rows Σ 必须 = +1,397（实测 ${rowSum}）`);
+  assert.equal(rows.length, 2, 'adn2Rows 必须恰 2 行（sidepanel.ts / recommend.ts）');
+  for (const r of rows) assert.equal(r.deltaBytes, r.afterBytes - (r.beforeBytes ?? 0), `${r.module}: Δ 必须自洽`);
+  assert.equal(
+    rowSum + SIDEPANEL_GROWTH_BREAKDOWN.adn2UnattributedGlueBytes,
+    reg.baselineAfterBytes - reg.baselineBeforeBytes,
+    'Σ 逐模块 + 未归因 == 登记增量',
+  );
+  assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.closeoutDeltaBytes, 1_397, 'closeoutDeltaBytes = 最新一轮增量');
+  let inputs: Record<string, { bytesInOutput: number }> | null = null;
+  try {
+    const meta = JSON.parse(readFileSync(distArtifact('build-meta.json'), 'utf8')) as {
+      outputs?: Record<string, { bytes: number; inputs: Record<string, { bytesInOutput: number }> }>;
+    };
+    const outKey = Object.keys(meta.outputs ?? {}).find((k) => k.endsWith('sidepanel.js'));
+    inputs = outKey ? meta.outputs![outKey].inputs : null;
+  } catch {
+    inputs = null;
+  }
+  if (inputs) {
+    const paths = Object.keys(inputs);
+    for (const row of rows) {
+      const key = paths.find((p) => p.endsWith(row.module));
+      assert.ok(key, `metafile 缺少叶2 行模块 ${row.module}`);
+      assert.equal(inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 真实 metafile ≠ adn2Rows.afterBytes`);
+    }
+  }
+  // ④ **两叶 Σ 对照**（A 列）：叶1 +4,279 + 叶2 +1,397 = +5,676；越 ADR 目标带 ⇒ 如实登记不停机。
+  const leaf1 = SIDEPANEL_RE_REGISTRATIONS.find((r) => r.id === 'adn-1-r1');
+  assert.ok(leaf1, '叶1 登记必须存在');
+  const leaf1Delta = leaf1!.baselineAfterBytes - leaf1!.baselineBeforeBytes;
+  assert.equal(leaf1Delta, 4_279);
+  const twoLeafSum = leaf1Delta + (reg.baselineAfterBytes - reg.baselineBeforeBytes);
+  assert.equal(twoLeafSum, 5_676, '两叶 Σ（A 列）必须 = +5,676 B');
+  assert.ok(twoLeafSum > 3_584, '两叶 Σ 必须如实登记为**越 ADR 目标带**（+1.3~+3.5 KB 上界的 2.8× 缓冲内）');
+  // ⑤ **EC-ADN-016 三态**：越生效上限 / 越档位 / 越绝对上限 皆「否」（显式）。
+  assert.ok(SIDEPANEL_BASELINE_BYTES <= reg.ceilingAfterBytes, '未越生效上限');
+  assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_TIER_BYTES, '未越档位（余 9,798 B）');
+  assert.equal(SIDEPANEL_TIER_BYTES - SIDEPANEL_BASELINE_BYTES, 9_798, '距档 = 614,400 − 604,602 = 9,798 B');
+  assert.ok(SIDEPANEL_BASELINE_BYTES <= PENDING_ABSOLUTE_CAP.absoluteCeilingBytes!, '未越绝对上限');
+  const closeout = JSON.parse(readFileSync(new URL('../../docs/v4-supersession-ledger.json', import.meta.url), 'utf8')) as {
+    v3Vol3Closeout?: { authorConfirmation?: { status?: string } };
+  };
+  assert.equal(closeout.v3Vol3Closeout?.authorConfirmation?.status, 'pending-author-line', '作者确认保持占位（不得伪称已确认）');
+  // ⑥ B 列不计账（列别如实标注）：叶2 B 列净增 0；A 列三冻结面逐字节不变。
+  assert.match(reg.reason, /B 列.*净增 0|净增 0 B/, 'reason 必须如实标注 B 列净增 0（不计账）');
+  assert.equal(readArtifactSize(distArtifact('content.js')), 177_076);
+  assert.equal(readArtifactSize(distArtifact('pick-layer.js')), 34_358);
+  assert.equal(readArtifactSize(distArtifact('sidepanel.js')), SIDEPANEL_BASELINE_BYTES);
+  console.log(`  ℹ ADN-2 叶2 收口：Δ=+${reg.baselineAfterBytes - reg.baselineBeforeBytes} B · 两叶 Σ=+${twoLeafSum} B · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（距档 9,798 B）`);
 });

@@ -660,3 +660,140 @@ test("S0''' 反证：未校验候选进 chips / 终端不在最末 / 五类漏�
   // 还原 ⇒ 全绿。
   assert.deepEqual([...s0p.s0pppProblems(s0pppNodeReading())], []);
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-2 **TASK-ADN-217**（ADR-ADN-004 §④⑤⑥ · ADR-ADN-005 §② · ADR-ADN-007 §①④ ·
+ * FR-ADN-050/051/052/055/080/083/084 · AC-ADN-001/007）—— **S0''' 终态口径 node 面**：
+ * 四支线（A/B/C/D）在 **ADN-2 兜底 + 合并 + 替换** 终态下逐条可判 ∧ **四支线终端恒在**。
+ *
+ * 读数 = **生产模块**实跑（`admitCandidate` / `recommendNextStep`）；反证打在
+ * `s0pppTerminalProblems` 判据上（陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** S0''' 终态口径的基线输入（每次构造新对象；与 S0PPP 样本同源）。 */
+function s0pppTerminalBase(): RecommendInput {
+  return {
+    ref: { validCount: 1, staleCount: 0, latestRefNum: 1 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 122, subcommandCount: 40 },
+    probe: { phase: 'ready', steady: true },
+    risks: [],
+    onboarding: { firstRun: false, pendingSteps: [] },
+    now: 2_000_000,
+  };
+}
+
+/** 四支线的终态读数（真模块；反证打在判据上，不在读数上）。 */
+export function s0pppTerminalReading(): Record<string, unknown> {
+  const run = (cands?: readonly { readonly opId: string; readonly label: string }[]) =>
+    recommendNextStep({
+      ...s0pppTerminalBase(),
+      session: { openAsks: 0, busy: false, ...(cands ? { aiNext: cands } : {}) },
+    });
+  const a = run([s0p.S0PPP_ACCEPTED]);
+  const aCard = a.cards[0];
+  const multiCands = [
+    s0p.S0PPP_ACCEPTED,
+    { opId: ACT_TO_OP.repick, label: '重新拾取引用' },
+    { opId: ACT_TO_OP.rebind, label: '重新绑定站点' },
+    { opId: ACT_TO_OP.describe, label: '描述当前页面' },
+  ];
+  const m = run(multiCands);
+  const mCard = m.cards[0];
+  // B 被拦：非法候选（幻觉 op）过不了接受层 ⇒ `accepted.length === 0` ⇒ 不注入 ⇒ 确定性接管。
+  const blocked = admitCandidate({ opId: 'op.ghost', label: '幻觉候选' }, FACTS);
+  const b = run(blocked.ok ? [s0p.S0PPP_ACCEPTED] : undefined);
+  const bCard = b.cards[0];
+  // C 未产出：零 aiNext。
+  const c = run(undefined);
+  const cCard = c.cards[0];
+  // D 未配置：`llmBlocked` 风险 ∧ 无候选（零网络）。
+  const d = recommendNextStep({
+    ...s0pppTerminalBase(),
+    ref: { validCount: 0, staleCount: 0 },
+    risks: [s0p.S0PPP_UNCONFIGURED_RISK],
+  });
+  const dCard = d.cards[0];
+  return {
+    aRule: aCard?.rule,
+    aCardCount: a.cards.length,
+    aChipCount: aCard?.chips.length ?? -1,
+    aReplaced:
+      aCard?.chips.some((ch) => ch.text === s0p.S0PPP_ACCEPTED.label) === true &&
+      aCard?.chips.some((ch) => ch.text === s0p.S0PPP_STALE_LABEL) === false,
+    aTerminal: aCard?.terminal === true,
+    mChipCount: mCard?.chips.length ?? -1,
+    mCardCount: m.cards.length,
+    mTerminal: mCard?.terminal === true,
+    bBlockedCode: blocked.ok ? 'ADMITTED' : blocked.blocked,
+    bRule: bCard?.rule,
+    bChip0: bCard?.chips[0]?.text,
+    bTerminal: bCard?.terminal === true,
+    cRule: cCard?.rule,
+    cChip0: cCard?.chips[0]?.text,
+    cTerminal: cCard?.terminal === true,
+    dRule: dCard?.rule,
+    dTerminal: dCard?.terminal === true,
+    terminalsAllBranches: [aCard, mCard, bCard, cCard, dCard].every((cd) => cd?.terminal === true),
+  };
+}
+
+/** 终态判据（注入读数 ⇒ 反证可打在判据上）。 */
+export function s0pppTerminalProblems(r: Record<string, unknown>): string[] {
+  const p = "S0''' 终态口径";
+  const problems: string[] = [];
+  // A：替换陈旧候选 + ≤3 + 单卡 + 终端。
+  if (r.aReplaced !== true) problems.push(`${p}：A 合法被采纳必须**替换**陈旧确定性候选`);
+  if (!(Number(r.aChipCount) <= 3)) problems.push(`${p}：A 单卡 chips 必须 ≤3（实测 ${String(r.aChipCount)}）`);
+  if (Number(r.aCardCount) !== 1) problems.push(`${p}：A 必须单卡（实测 ${String(r.aCardCount)}）`);
+  // 合并：前 N=3 截断 + 单卡 + 终端。
+  if (Number(r.mChipCount) !== 3) problems.push(`${p}：多候选必须截断到**前 N=3**（实测 ${String(r.mChipCount)}）`);
+  if (Number(r.mCardCount) !== 1) problems.push(`${p}：多候选必须仍**恰 1 卡**（实测 ${String(r.mCardCount)}）`);
+  // B：被拦 ⇒ 确定性接管（不做替换）。
+  if (r.bBlockedCode === 'ADMITTED') problems.push(`${p}：B 非法候选必须被拦（不得 ADMITTED）`);
+  if (r.bRule !== 'ref-action' || r.bChip0 !== s0p.S0PPP_STALE_LABEL) problems.push(`${p}：B 被拦 ⇒ 确定性 ref-action 必须照旧接管`);
+  // C：未产出 ⇒ 确定性。
+  if (r.cRule !== 'ref-action' || r.cChip0 !== s0p.S0PPP_STALE_LABEL) problems.push(`${p}：C 未产出 ⇒ 确定性 ref-action 必须照旧`);
+  // D：未配置 ⇒ 纯确定性恢复卡。
+  if (r.dRule !== 'risk-recovery') problems.push(`${p}：D 未配置 ⇒ 必须纯确定性（risk-recovery）`);
+  // 四支线终端恒在（兜底底线）。
+  if (r.terminalsAllBranches !== true) problems.push(`${p}：**四支线终端恒在**必须成立（任一缺 ⇒ FAIL）`);
+  if (r.aTerminal !== true || r.mTerminal !== true || r.bTerminal !== true || r.cTerminal !== true || r.dTerminal !== true) {
+    problems.push(`${p}：逐支线终端字段必须逐条为 true`);
+  }
+  return problems;
+}
+
+test("S0''' 终态口径（ADN-2）：A 替换陈旧候选 / B 被拦 / C 未产出 / D 未配置 + 四支线终端恒在", () => {
+  const reading = s0pppTerminalReading();
+  assert.deepEqual(s0pppTerminalProblems(reading), [], "S0''' 终态口径必须全绿");
+  assert.equal(reading.aRule, 'ref-action', 'A 骑 ref-action 槽');
+  assert.equal(reading.aCardCount, 1);
+  assert.equal(reading.aTerminal, true);
+  assert.equal(reading.mChipCount, 3, '前 N=3');
+  assert.equal(reading.mTerminal, true);
+  assert.equal(reading.bBlockedCode, 'unknown-op', '幻觉 op ⇒ blocked=unknown-op');
+  assert.equal(reading.bTerminal, true);
+  assert.equal(reading.cTerminal, true);
+  assert.equal(reading.dRule, 'risk-recovery');
+  assert.equal(reading.dTerminal, true);
+});
+
+test("S0''' 终态反证（ADN-2）：陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红（判据非恒真）", () => {
+  const clean = s0pppTerminalReading();
+  assert.deepEqual(s0pppTerminalProblems(clean), []);
+  // AI 候选仍在但终端缺 ⇒ 必红（终态底线）。
+  assert.ok(s0pppTerminalProblems({ ...clean, terminalsAllBranches: false }).some((x) => x.includes('终端恒在')));
+  assert.ok(s0pppTerminalProblems({ ...clean, aTerminal: false }).some((x) => x.includes('逐支线终端')));
+  // 陈旧候选重现（未替换）⇒ 必红。
+  assert.ok(s0pppTerminalProblems({ ...clean, aReplaced: false }).some((x) => x.includes('替换')));
+  // 前 N>3 ⇒ 必红。
+  assert.ok(s0pppTerminalProblems({ ...clean, mChipCount: 4 }).some((x) => x.includes('前 N=3')));
+  // B 被放行（ADMITTED）⇒ 必红。
+  assert.ok(s0pppTerminalProblems({ ...clean, bBlockedCode: 'ADMITTED' }).some((x) => x.includes('B 非法候选')));
+  // D 非确定性 ⇒ 必红。
+  assert.ok(s0pppTerminalProblems({ ...clean, dRule: 'ref-action' }).some((x) => x.includes('D 未配置')));
+  // 还原 ⇒ 全绿。
+  assert.deepEqual(s0pppTerminalProblems(s0pppTerminalReading()), []);
+});

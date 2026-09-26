@@ -619,6 +619,37 @@ async function main() {
     const resAi = JSON.parse(await evaluate(cdp, SCAN_2));
     check('⑪ (PASS 段) 还原后 digest 零命中（判据非恒真）', resAi.hits.length === 0, JSON.stringify(resAi.hits));
 
+    // ── ★ F-36 / ADN-2 **TASK-ADN-218**（ADR-ADN-007 §③/§④ · FR-ADN-084 · AC-ADN-013）——
+    //    终态口径（多候选 ≤3 + 被拦码同屏）下的**零明文面**（**只加断言**，零降级）：
+    //    留痕行仍只含字段名 + 机器码；候选 label 仍零落盘 / 零哨兵。
+    // ────────────────────────────────────────────────────────────────────────────
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    const aiTerminal = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.aiNext({ accepted: [
+            { opId: 'op.turn', label: '把这页图改成架构图' },
+            { opId: 'op.pick', label: '重新拾取引用' },
+            { opId: 'op.rebind', label: '重新绑定站点' },
+            { opId: 'op.describe', label: '描述当前页面' },
+          ], blocked: ['tier'] });
+          const rows = Array.from(document.querySelectorAll('#stream .msg-notice, #stream .msg-system')).map((n) => n.textContent || '');
+          const chips = Array.from(document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')).map((n) => n.textContent || '');
+          const digest = JSON.stringify(window.__v3.testing.payloads());
+          return JSON.stringify({ rows, chips, digestHasSentinel: digest.includes(${JSON.stringify(SENTINEL)}) });
+        })()`,
+      ),
+    );
+    check(
+      '★ ADN-2 ⑪ 终态口径零明文：多候选（≤3）∧ 被拦码同屏 ⇒ 留痕行仍机器码 only ∧ chips 零哨兵 ∧ digest 零哨兵',
+      aiTerminal.rows.some((t) => /driver=ai-next \| timing=idle \| evidence=session\.aiNext \| blocked=tier/.test(t)) &&
+        aiTerminal.rows.every((t) => !t.includes(SENTINEL)) &&
+        aiTerminal.chips.every((t) => !t.includes(SENTINEL)) &&
+        aiTerminal.digestHasSentinel === false,
+      JSON.stringify(aiTerminal.rows.map((t) => t.slice(0, 60))),
+    );
+
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

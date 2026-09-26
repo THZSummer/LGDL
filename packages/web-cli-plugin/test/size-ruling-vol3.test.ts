@@ -26,6 +26,8 @@ import {
   SIDEPANEL_IAN2_FINAL_ROUND,
   // ★ F-36 / ADN-1 TASK-ADN-126：叶1 终值定稿 + 整叶逐模块归因。
   SIDEPANEL_ADN1_FINAL_ROUND,
+  // ★ F-36 / ADN-2 TASK-ADN-221：叶2 收口终值（链式后值）。
+  SIDEPANEL_ADN2_FINAL_ROUND,
   SIDEPANEL_GROWTH_BREAKDOWN,
   reRegistrationDirectionCoverageProblems,
   reRegistrationDirectionProblems,
@@ -90,7 +92,7 @@ test('V3-VOL-3: the Feature-level 40% cumulative stop-work line is explicitly RE
 
 test('V3-VOL-3 REVERSE PROOF: restoring the 40% cumulative line FAILS on the real artifact 375,102 B (+40.75%)', () => {
   // 〖IAN-1 R1（2026-09-24）〗重 pin 到当前真实产物（中间登记；W3/R2 收口轮再登记）。
-  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 603205, '反证必须打在**当前真实产物**上（ADN-1 R1 中间登记）');
+  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 604602, '反证必须打在**当前真实产物**上（ADN-2 R1 收口重登记）');
   // ① 回退裁决（恢复 40% 累计线原样：enforced=true）⇒ 必须 FAIL
   const revived: FeatureCumulativeStopWorkRule = {
     ...SIDEPANEL_FEATURE_CUMULATIVE_STOP_WORK_LINE,
@@ -222,18 +224,18 @@ test('V3-VOL-3: PENDING_ABSOLUTE_CAP 带值闭合（TASK-811 八步 ⑤）——
 });
 
 test('V3-VOL-3 ⑥: 判定的 min() 优先级（绝对上限 = 硬墙，5% 公式 = 轮内软纪律）', () => {
-  // 现网：min(675,840, floor(603,205 × 1.05) = 633365) = 633365（软纪律更紧）。
+  // 现网：min(675,840, floor(604,602 × 1.05) = 634832) = 634832（软纪律更紧）。
   const live = evaluateSidepanelSize(SIDEPANEL_BASELINE_BYTES);
-  assert.equal(live.ceilingBytes, 633365, '生效上限 = min(绝对上限, 5% 公式)（ADN-1 R1 中间登记）');
+  assert.equal(live.ceilingBytes, 634832, '生效上限 = min(绝对上限, 5% 公式)（ADN-2 R1 收口重登记）');
   assert.equal(live.ceilingBytes, Math.min(675_840, Math.floor(SIDEPANEL_BASELINE_BYTES * 1.05)));
   // 硬墙比公式紧时必须取硬墙：给一个极小的绝对上限，判定必须跟着收紧。
   // （用合成的 marker 驱动纯函数，不改动现行标记。）
   const tight = evaluateSidepanelSize(640_000);
   assert.equal(tight.ok, false, '5% 公式之上必须 FAIL（轮内软纪律）');
-  assert.equal(evaluateSidepanelSize(633365).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
+  assert.equal(evaluateSidepanelSize(634832).ok, true, 'ceiling 本身仍 PASS（边界含等号）');
   assert.equal(evaluateSidepanelSize(582_305).ok, true, '旧硬编码 582,305 现落在新 ceiling 之内（历史锚点保留，边界判据见下条）');
-  assert.equal(evaluateSidepanelSize(628_873).ok, true, '628,873 现落在新 ceiling 之内（≤ floor(603,205 × 1.05) = 633,365；边界判据见下条）');
-  assert.equal(evaluateSidepanelSize(633_366).ok, false, '越 1 B 即 FAIL（633,366 > floor(603,205 × 1.05) = 633,365；边界不是宽松的）');
+  assert.equal(evaluateSidepanelSize(628_873).ok, true, '628,873 现落在新 ceiling 之内（≤ floor(604,602 × 1.05) = 634,832；边界判据见下条）');
+  assert.equal(evaluateSidepanelSize(634_833).ok, false, '越 1 B 即 FAIL（634,833 > floor(604,602 × 1.05) = 634,832；边界不是宽松的）');
 });
 
 test('V3-VOL-3 ⑦ 反证三条（实跑口径，纯函数驱动；还原 ⇒ PASS）', () => {
@@ -271,7 +273,7 @@ test('V3-VOL-3 历史保真：各轮 reason 里的「40% 停工线」逐字保�
   assert.match(SIDEPANEL_BASELINE_META.reason, /40% 停工线/);
   assert.match(SIDEPANEL_BASELINE_META.reason, /\+36\.13%/, 'v3-4 轮的 +36.13% 历史登记保留');
   // 撤销只许追加：HISTORY / TIMELINE 与登记链条数值不得因本次裁决变动。
-  assert.equal(SIDEPANEL_BASELINE_BYTES, 603205, 'ADN-1 R1 中间登记后的当前基线');
+  assert.equal(SIDEPANEL_BASELINE_BYTES, 604602, 'ADN-2 R1 收口重登记后的当前基线');
   assert.equal(
     SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1].baselineAfterBytes,
     SIDEPANEL_BASELINE_BYTES,
@@ -597,10 +599,12 @@ test('★ ADN-1 R2: 叶1 终值五要素（零字节轮）+ EC-ADN-016 二态 + 
   assert.equal(r.baselineAfterBytes - r.baselineBeforeBytes, 0, 'ADN-1 R2 必须登记为 Δ=0（src/** 零字节改动）');
   assert.equal(r.direction, 'unchanged', '零字节轮方向必须是 unchanged');
   // ② 终值必须与当前基线 / ceiling 同源（不得另立一套数字）。
-  assert.equal(r.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '叶1 终值必须等于现行登记基线（603,205）');
+  // 〖★ ADN-2 W06〗基线已随叶2 前移：叶1 终值不再等于**当前**基线，而是等于**叶2 起点**（链式同源，非放宽）。
+  assert.equal(SIDEPANEL_ADN2_FINAL_ROUND.baselineBeforeBytes, r.baselineAfterBytes, '叶1 终值必须与叶2 起点同源（叶2 前值 = 叶1 终值 = 603,205）');
   assert.equal(r.baselineBeforeBytes, 603_205, '零字节轮前值 = 后值 = 603,205（R2 零 src 字节）');
   assert.match(r.reason, /598,926/, '整叶前值 598,926 必须逐字留在 reason（历史保真）');
-  assert.equal(r.ceilingAfterBytes, SIDEPANEL_CEILING, '叶1 终轮 ceiling 必须等于现行生效上限');
+  // 〖★ ADN-2 W06〗同理：叶1 终轮 ceiling == 叶2 起点 ceiling（链式同源）。
+  assert.equal(SIDEPANEL_ADN2_FINAL_ROUND.ceilingBeforeBytes, r.ceilingAfterBytes, '叶1 终轮 ceiling 必须等于叶2 起点 ceiling（633,365）');
   assert.equal(r.ceilingAfterBytes, Math.floor(r.baselineAfterBytes * 1.05), '生效上限 = floor(基线 × 1.05) = 633,365');
   assert.equal(r.ceilingUncappedFormulaBytes, Math.floor(603_205 * 1.05), '未封顶公式值必须同源复算');
   // ③ 五要素齐备（date / source / buildCommand / measuredBy / reason）。

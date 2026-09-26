@@ -58,6 +58,9 @@ import { bindPanelOps } from '../src/ui/sidepanel/next-registry/ops.js';
 // S0''-A 的**新入口真实回合**：经生产 `op.turn` 槽（`dispatchOp` → `runOp` → `bindPanelOps.turn`）。
 import { dispatchOp } from '../src/ui/sidepanel/next-registry/pipeline.js';
 import { NEXTSTEP_PRIORITY } from '../src/ui/sidepanel/recommend.js';
+// ── ★ F-36 / ADN-2 TASK-ADN-217（W06，纯追加 import）─────────────────────────
+// S0''' 终态口径（四支线终端恒在 + 合并/替换终态）经生产 `recommendNextStep` 实跑。
+import { recommendNextStep } from '../src/ui/sidepanel/recommend.js';
 // ── V5.5F-1 TASK-V55F-123（W4，纯追加 import）────────────────────────────────
 // S0′ 范围内核（`ty.md` 原案重放）的**真源切片**：读数单源 + 系统段追加段 + `--ref` 包装层。
 import { refContextSegment, validateRefPayload } from '../src/background/ref-context.js';
@@ -1329,4 +1332,46 @@ test("S0''' 四支线：样本登记单源 + A/C/D 机制侧对照（判据本�
   const unconfig = candidateRules(pppInput({ ref: { validCount: 0, staleCount: 0 }, risks: [S0PPP_UNCONFIGURED_RISK] })).find((c) => c.rule === 'risk-recovery');
   assert.ok(unconfig?.chips.some((c) => c.act === 'op.llm-config'), 'D：未配置 ⇒ 确定性恢复卡（op.llm-config）');
   assert.equal(unconfig?.chips.some((c) => c.text === S0PPP_ACCEPTED.label), false, 'D：不得混入 AI 候选');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-2 **TASK-ADN-217**（ADR-ADN-004 §④⑤⑥ · ADR-ADN-007 §①④ · ADR-ADN-005 §② ·
+ * FR-ADN-050~052/055 · AC-ADN-001/007）—— **S0''' 终态口径机制侧对照**（与
+ * `test/ai-next-candidate.test.ts#s0pppTerminalReading` **同一份**样本 / 判据面）：
+ * A 替换 / 多候选前 N=3 / B 被拦确定性接管 / C 未产出 / D 未配置 ⇒ **四支线终端恒在**。
+ * 判据本体（含反证）在 `ai-next-candidate` 面实跑，本面负责**生产内核 `recommendNextStep` 的
+ * 终态字段对照**（不写第二份样本）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+test("S0''' 终态口径机制侧（ADN-2）：A 替换 / 多候选 ≤3 单卡 / B/C 确定性 / D 恢复 ⇒ 四支线终端恒在", () => {
+  const branch = (over: Record<string, unknown>): { rule?: string; chips: readonly { text: string }[]; terminal?: boolean } => {
+    const card = recommendNextStep(pppInput(over)).cards[0];
+    return { rule: card?.rule, chips: card?.chips ?? [], terminal: card?.terminal };
+  };
+  // A：注入合法候选 ⇒ 替换 + 单卡 + 终端。
+  const a = branch({ session: { openAsks: 0, busy: false, aiNext: [S0PPP_ACCEPTED] } });
+  assert.equal(a.rule, 'ref-action', 'A 骑 ref-action 槽');
+  assert.ok(a.chips.some((c) => c.text === S0PPP_ACCEPTED.label), 'A：注入候选必须在场');
+  assert.equal(a.chips.some((c) => c.text === S0PPP_STALE_LABEL), false, 'A：陈旧确定性候选不得再现（替换）');
+  assert.ok(a.chips.length <= 3, 'A：单卡 ≤3');
+  assert.equal(a.terminal, true, 'A：终端恒在');
+  // 多候选：前 N=3 截断 + 仍单卡 + 终端。
+  const many = recommendNextStep(pppInput({
+    session: {
+      openAsks: 0,
+      busy: false,
+      aiNext: [S0PPP_ACCEPTED, { opId: 'op.pick', label: '重新拾取' }, { opId: 'op.rebind', label: '重绑站点' }, { opId: 'op.describe', label: '描述页面' }],
+    },
+  }));
+  assert.equal(many.cards.length, 1, '多候选 ⇒ 仍恰 1 卡');
+  assert.equal(many.cards[0]?.chips.length, 3, '多候选 ⇒ 截断到前 N=3');
+  assert.equal(many.cards[0]?.terminal, true, '多候选 ⇒ 终端恒在');
+  // B：被拦候选不注入 ⇒ 确定性接管 + 终端。
+  const b = branch({});
+  assert.equal(b.chips[0]?.text, S0PPP_STALE_LABEL, 'B/C：确定性候选逐字');
+  assert.equal(b.terminal, true, 'B/C：终端恒在');
+  // D：未配置 ⇒ 恢复卡 + 终端。
+  const d = branch({ ref: { validCount: 0, staleCount: 0 }, risks: [S0PPP_UNCONFIGURED_RISK] });
+  assert.equal(d.rule, 'risk-recovery', 'D：纯确定性恢复卡');
+  assert.equal(d.terminal, true, 'D：终端恒在');
 });

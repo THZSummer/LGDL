@@ -3241,3 +3241,163 @@ test('ledger(V4 段 · ADN-1): 门禁对账骨架（新增 1 + 升级 6 + 间接
   assert.equal(x6?.status, 'no-supersession', 'X-ADN-6 必须登记为未发生取代（不得伪造「已取代」）');
   assert.match(String(x6?.counterCheck ?? ''), /op-wiring/, 'X-ADN-6 的 counterCheck 必须指向 op-wiring');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ F-36 / ADN-2 **TASK-ADN-220**（ADR-ADN-009 §④ · ADR-ADN-010 §①②③ ·
+ * FR-ADN-090~101/112/113 · AC-ADN-020/021）—— **X-ADN-1~11 台账终态一致性判据**
+ * + **保护段 keep 双绿**（journey / binding 字节中立）。
+ *
+ * 终态计数：**已发生 4**（X-ADN-1/7/8/11）· **未发生取代 6**（X-ADN-2/3/4/5/6/9）·
+ * **等价重锚·非取代 1**（X-ADN-10）。叶1 骨架段（`xAdnLedger`）逐字保留（文件只追加）；
+ * 叶2 只追加 `xAdnLedgerLeaf2`（8/10/11）+ `xAdnLedgerFull`（终态 11 条）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** X-ADN 终态逐条序号（父 `../spec.md §12`）。 */
+export const X_ADN_TERMINAL_ORDER = [
+  'X-ADN-1', 'X-ADN-2', 'X-ADN-3', 'X-ADN-4', 'X-ADN-5', 'X-ADN-6',
+  'X-ADN-7', 'X-ADN-8', 'X-ADN-9', 'X-ADN-10', 'X-ADN-11',
+] as const;
+/** 终态：已发生取代 4。 */
+export const X_ADN_TERMINAL_SUPERSEDED = ['X-ADN-1', 'X-ADN-7', 'X-ADN-8', 'X-ADN-11'] as const;
+/** 终态：未发生取代 6（须 `no-supersession` + 非空理由）。 */
+export const X_ADN_TERMINAL_NO_SUPERSESSION = ['X-ADN-2', 'X-ADN-3', 'X-ADN-4', 'X-ADN-5', 'X-ADN-6', 'X-ADN-9'] as const;
+/** 终态：等价重锚·非取代 1。 */
+export const X_ADN_TERMINAL_REANCHORED_KEEP = ['X-ADN-10'] as const;
+
+/**
+ * X-ADN-1~11 台账**终态**一致性判据（注入 `exists` ⇒ 反证可打在判据上）。
+ *
+ * · 终态段（`full`）逐条登记 X-ADN-1~11，`status` 显式 ∈ {`superseded`,
+ *   `no-supersession`, `reanchored-keep`}；每行 `old`（逐字）/ `new` / `reason` /
+ *   `date` / `landing` / `counterCheck`（指向真实门禁文件）。
+ * · 叶2 增量段（`leaf2`）恰登记 X-ADN-8/10/11，且 `status` 与终态一致；不得重复登记叶1 条目。
+ */
+export function xAdnTerminalProblems(
+  full: readonly XAdnRow[],
+  leaf2: readonly XAdnRow[],
+  exists: (rel: string) => boolean,
+): string[] {
+  const p = 'X-ADN-1~11 台账终态一致性';
+  const problems: string[] = [];
+  const LEGAL = ['superseded', 'no-supersession', 'reanchored-keep'];
+  const ids = full.map((r) => r.id);
+  for (const id of X_ADN_TERMINAL_ORDER) if (!ids.includes(id)) problems.push(`${p}：${id} 必须逐条终态登记（不得留空 / 不得省略）`);
+  if (ids.length !== X_ADN_TERMINAL_ORDER.length) problems.push(`${p}：终态段必须恰 ${X_ADN_TERMINAL_ORDER.length} 行（实测 ${ids.length}）`);
+  if (new Set(ids).size !== ids.length) problems.push(`${p}：ID 不得重复`);
+  for (const r of full) {
+    if (!LEGAL.includes(String(r.status))) problems.push(`${p}：${r.id} 的 status="${r.status}" 非法`);
+    if ((r.old ?? '').trim().length < 8) problems.push(`${p}：${r.id} 的 old 必须逐字（≥8 字符）`);
+    if ((r.new ?? '').trim().length < 8) problems.push(`${p}：${r.id} 的 new 必须逐字（≥8 字符）`);
+    if ((r.reason ?? '').trim().length < 20) problems.push(`${p}：${r.id} 的理由必须非套话（≥20 字符）`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(r.date ?? ''))) problems.push(`${p}：${r.id} 的 date 必须 YYYY-MM-DD`);
+    if ((r.landing ?? '').trim().length < 8) problems.push(`${p}：${r.id} 的 landing 必须可定位（≥8 字符）`);
+    const refs = [...String(r.counterCheck ?? '').matchAll(/`?(test\/[A-Za-z0-9_./-]+)`?/g)].map((m) => m[1]);
+    if (refs.length === 0) problems.push(`${p}：${r.id} 的 counterCheck 必须指向真实门禁文件`);
+    for (const ref of refs) if (!exists(ref) && !exists(`packages/web-cli-plugin/${ref}`)) problems.push(`${p}：${r.id} 的 counterCheck 悬空（${ref} 不存在）`);
+  }
+  for (const id of X_ADN_TERMINAL_SUPERSEDED) {
+    if (full.find((r) => r.id === id)?.status !== 'superseded') problems.push(`${p}：${id} 必须标 superseded（已发生取代）`);
+  }
+  for (const id of X_ADN_TERMINAL_NO_SUPERSESSION) {
+    const row = full.find((r) => r.id === id);
+    if (row?.status !== 'no-supersession') problems.push(`${p}：${id} 必须标 no-supersession（未发生取代须如实登记）`);
+    if ((row?.reason ?? '').trim().length < 20) problems.push(`${p}：${id} 的 no-supersession 必须写明理由（不得留空）`);
+  }
+  for (const id of X_ADN_TERMINAL_REANCHORED_KEEP) {
+    if (full.find((r) => r.id === id)?.status !== 'reanchored-keep') problems.push(`${p}：${id} 必须标 reanchored-keep（等价重锚·非取代）`);
+  }
+  const l2ids = leaf2.map((r) => r.id);
+  for (const id of ['X-ADN-8', 'X-ADN-10', 'X-ADN-11']) {
+    if (!l2ids.includes(id)) problems.push(`${p}：叶2 增量段必须登记 ${id}`);
+  }
+  for (const id of ['X-ADN-1', 'X-ADN-2', 'X-ADN-3', 'X-ADN-4', 'X-ADN-5', 'X-ADN-6', 'X-ADN-7', 'X-ADN-9']) {
+    if (l2ids.includes(id)) problems.push(`${p}：叶2 增量段不得重复登记叶1 条目 ${id}`);
+  }
+  for (const r of leaf2) {
+    const expect = (X_ADN_TERMINAL_SUPERSEDED as readonly string[]).includes(r.id)
+      ? 'superseded'
+      : (X_ADN_TERMINAL_REANCHORED_KEEP as readonly string[]).includes(r.id)
+        ? 'reanchored-keep'
+        : null;
+    if (expect && r.status !== expect) problems.push(`${p}：叶2 ${r.id} status 必须与终态一致（期望 ${expect}，实测 ${r.status}）`);
+  }
+  return problems;
+}
+
+test('ledger(V4 段 · ADN-2): X-ADN-1~11 台账终态（已发生 4 / 未发生 6 / 等价重锚 1）∧ counterCheck 可定位', () => {
+  const v4 = readV4Ledger() as unknown as {
+    xAdnLedgerFull?: { rows?: readonly XAdnRow[]; leaf?: string; note?: string; scopeLeaves?: readonly string[] };
+    xAdnLedgerLeaf2?: { rows?: readonly XAdnRow[]; leaf?: string; note?: string };
+    xAdnLedger?: { rows?: readonly XAdnRow[]; leaf?: string; note?: string };
+  };
+  const full = v4.xAdnLedgerFull?.rows ?? [];
+  const leaf2 = v4.xAdnLedgerLeaf2?.rows ?? [];
+  const existsRel = (rel: string) => existsSync(resolve(REPO, rel));
+  assert.deepEqual(xAdnTerminalProblems(full, leaf2, existsRel), [], 'X-ADN 台账终态一致性未通过');
+  assert.equal(full.length, 11, '终态段必须恰 11 条');
+  assert.equal(full.filter((r) => r.status === 'superseded').length, 4, '已发生取代必须恰 4');
+  assert.equal(full.filter((r) => r.status === 'no-supersession').length, 6, '未发生取代必须恰 6');
+  assert.equal(full.filter((r) => r.status === 'reanchored-keep').length, 1, '等价重锚·非取代必须恰 1');
+  assert.equal(v4.xAdnLedgerFull?.leaf, 'specs-tree-adn-2-deterministic-fallback-and-merge');
+  assert.equal(v4.xAdnLedgerLeaf2?.leaf, 'specs-tree-adn-2-deterministic-fallback-and-merge');
+  // 叶1 骨架段不因叶2 收口而被改写（文件只追加；老条目逐字保留）。
+  assert.equal(v4.xAdnLedger?.rows?.length, 8, '叶1 骨架段必须仍是 8 行（逐字保留，只增不减）');
+  assert.match(String(v4.xAdnLedger?.leaf ?? ''), /specs-tree-adn-1-ai-next-produce-and-verify/, '叶1 骨架段 leaf 逐字保留');
+  assert.equal(leaf2.length, 3, '叶2 增量段必须恰 3 条（X-ADN-8/10/11）');
+  assert.match(String(v4.xAdnLedgerFull?.note ?? ''), /等价重锚/, '终态段 note 必须写明等价重锚·非取代');
+  // 反证（判据非恒真）：伪造 superseded / 缺条 / 悬空 / 漂移 / 叶2 缺条 ⇒ 同一判据必红。
+  assert.ok(
+    xAdnTerminalProblems(full.map((r) => (r.id === 'X-ADN-8' ? { ...r, status: 'no-supersession' } : r)), leaf2, existsRel).some((x) => x.includes('X-ADN-8')),
+    'X-ADN-8 漂移为 no-supersession ⇒ 必红',
+  );
+  assert.ok(
+    xAdnTerminalProblems(full.filter((r) => r.id !== 'X-ADN-10'), leaf2, existsRel).some((x) => x.includes('X-ADN-10')),
+    '缺 X-ADN-10 ⇒ 必红',
+  );
+  assert.ok(
+    xAdnTerminalProblems(full.map((r) => (r.id === 'X-ADN-2' ? { ...r, counterCheck: '`test/ghost-gate.test.ts`' } : r)), leaf2, existsRel).some((x) => x.includes('悬空')),
+    'counterCheck 悬空 ⇒ 必红',
+  );
+  assert.ok(
+    xAdnTerminalProblems(full.map((r) => (r.id === 'X-ADN-10' ? { ...r, status: 'superseded' } : r)), leaf2, existsRel).some((x) => x.includes('reanchored-keep')),
+    'X-ADN-10 伪称 superseded ⇒ 必红',
+  );
+  assert.ok(
+    xAdnTerminalProblems(full, leaf2.filter((r) => r.id !== 'X-ADN-11'), existsRel).some((x) => x.includes('X-ADN-11')),
+    '叶2 增量段缺 X-ADN-11 ⇒ 必红',
+  );
+  assert.ok(
+    xAdnTerminalProblems(full, [...leaf2, full[0]], existsRel).some((x) => x.includes('不得重复登记')),
+    '叶2 段重复登记叶1 条目 ⇒ 必红',
+  );
+  assert.deepEqual(xAdnTerminalProblems(full, leaf2, existsRel), []);
+});
+
+test('ledger(V4 段 · ADN-2): 保护段 keep 双绿（journey / binding 字节中立 · 零新增取代）', () => {
+  const v4 = readV4Ledger();
+  const ranges = v4.protectedRanges ?? [];
+  const journey = ranges.find((r) => r.file === 'packages/web-cli-plugin/test/ui/journey.mjs');
+  const binding = ranges.find((r) => r.file === 'packages/web-cli-plugin/test/ui/binding.mjs');
+  assert.ok(journey && binding, 'journey / binding 保护段必须登记在 protectedRanges');
+  // journey：区间 / sha / 249 行逐字（ADR-ADN-010 §③ 段 1）。
+  assert.equal(journey?.startByte, 43484, 'journey 段起始字节必须逐字 43484');
+  assert.equal(journey?.endByte, 59347, 'journey 段结束字节必须逐字 59347');
+  assert.equal((journey as { lineCount?: number } | undefined)?.lineCount, 249, 'journey 段必须 249 行');
+  assert.match(String(journey?.sha256 ?? ''), /^7b309258aab783e7/, 'journey 段 sha 必须 7b309258…');
+  // binding：[107780,115930) / be9ad0e9…（ADR-ADN-010 §③ 段 2）。
+  assert.equal(binding?.startByte, 107780, 'binding 段起始字节必须逐字 107780');
+  assert.equal(binding?.endByte, 115930, 'binding 段结束字节必须逐字 115930');
+  assert.match(String(binding?.sha256 ?? ''), /^be9ad0e9/, 'binding 段 sha 必须 be9ad0e9…');
+  // 字节中立：两段 pin 逐字节命中当前字节（无需等长补偿 / 八步取代）。
+  for (const r of [journey, binding]) {
+    const text = readFileSync(resolve(REPO, r!.file), 'utf8');
+    assert.deepEqual(protectedPinFailures(r as never, text), [], `${r!.file} 保护段 pin 未命中当前字节`);
+  }
+  // ADN-2 零新增取代：`protectedRanges` 仍恰 2 段，且不出现以 ADN-2 名义的换锚条目。
+  assert.equal(ranges.length, 2, 'ADN-2 零新增保护段换锚（keep ⇒ protectedRanges 仍恰 2 段）');
+  assert.ok(
+    !ranges.some((r) => /ADN-2/.test(JSON.stringify(r))),
+    'ADN-2 不得新增保护段取代条目（journey / binding 字节中立）',
+  );
+  console.log('  ℹ ADN-2 保护段 keep 双绿：journey [43484,59347) 7b309258… 249 行 / binding [107780,115930) be9ad0e9…');
+});

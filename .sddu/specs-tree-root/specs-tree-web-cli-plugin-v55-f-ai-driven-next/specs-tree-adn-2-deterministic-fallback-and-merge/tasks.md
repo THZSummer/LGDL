@@ -934,9 +934,32 @@ npm --prefix packages/web-cli-plugin run test:e2e
 
 **反证摘要（重点 5 条）**：删兜底 / 删终端 ⇒ `r8` / `free-input-next` 必红；AI 赢槽后终端仍 `terminal===true`（且 floor 铸造点不读 `aiNext`）；多候选 >3 ⇒ 截断到 3 且仍恰 1 卡；同因重复 ⇒ 预过滤命中即压掉（无预过滤则 AI 赢槽 ⇒ 可红）；关断后仍注入 AI ⇒ `displayPhaseGateProblems` 必红。
 
+## 7. R2 执行状态（build R2 = W06，TASK-ADN-217~223）
+
+> **本轮范围**：**W06 验收与治理（收口轮·终局）** —— S0''' 终态 node/Chromium 双面 + X-ADN-1~11 台账终态 + `supersession` 一致性 + 保护段 keep + 体积叶2 终态重登记 + 两叶 Σ + 门禁守恒终态 + 人工面 ⏳ + `e2e`。**W06 只改 `test/**` + `docs/**` + `.sddu/**` ⇒ `src/**` 零字节**（R1 体积值与 R2 逐值相等）。
+
+| 任务 | 状态 | 证据 / 判据 |
+|------|:--:|------|
+| TASK-ADN-217 | ✅ completed | `ai-next-candidate`（+137 行）：`s0pppTerminalReading` / `s0pppTerminalProblems` **真源切片**（生产 `recommendNextStep` / `admitCandidate`）+ 四支线（A 替换 / B 被拦 / C 未产出 / D 未配置）+ **终端恒在** + 6 条反证（陈旧重现 / 前 N>3 / 终端缺失 / B 放行 / D 非确定性）；`s0-self-driven-chain`（+45 行）机制侧同判据 |
+| TASK-ADN-218 | ✅ completed | `test/ui/s0-self-driven.mjs` ⑲ **S0C-14**（自持已知态 + 真拾取前置 + 多候选前 N=3 ∧ 单卡 ∧ 替换 ∧ 终端恒最末）+ `recommendation.mjs` ADN-2 块（与相位无关不变量）+ `law8-plaintext.mjs` 终态零明文；**只加断言不加文件** ⇒ `CHROMIUM_GATES === 9`；人工面 M1~M5 逐项 `⏳`（四处登记，不冒充 PASS） |
+| TASK-ADN-219 | ✅ completed | `docs/v4-supersession-ledger.json`：`xAdnLedgerLeaf2`（8/10/11）+ `xAdnLedgerFull`（**11 条**：已发生 4 `X-ADN-1/7/8/11` / 未发生取代 6 `X-ADN-2/3/4/5/6/9` + `no-supersession` + 非空理由 / 等价重锚 1 `X-ADN-10` = `reanchored-keep`）；每行 `id`/`status`/`old`/`new`/`reason`/`date`/`landing`/`counterCheck`；老条目（v3/v4/v4.5/v5/v5.5/F-34/F-35）逐字保留；取代链 `newTitle` 链式同源重登记（`603_205 → 604_602`） |
+| TASK-ADN-220 | ✅ completed | `test/supersession-ledger.test.ts`（+160 行）：`xAdnTerminalProblems` 一致性判据（逐条 / status 合法 / `counterCheck` 可定位不悬空 / 理由非空 / 老条目 8 行逐字）+ 6 条反证 + **保护段 keep 双绿**（journey `[43484,59347)` / `7b309258…` / 249 行；binding `[107780,115930)` / `be9ad0e9…`；`protectedRanges` 恰 2 段 / 零 ADN-2 换锚）。`test:supersession` **53/0**（≥49） |
+| TASK-ADN-221 | ✅ completed | `size-baseline.ts`（`SIDEPANEL_ADN2_FINAL_ROUND` + `adn2Rows`）+ `size-growth-evidence`（**★ ADN-2 体积收口**测试：五要素 / 三值 / metafile 同源 / 两叶 Σ / EC-ADN-016 三态 / B 列不计账）+ `size-ruling-vol3` / `size-budget` 等价重锚 + `docs/v4-density-baseline.json` volume 同源。**A 列 604,602（+1,397，带内）；两叶 Σ +5,676（越带 ⇒ 如实登记不停机）；生效上限 634,832 / 距档 9,798 / 绝对上限 675,840；B 列 1,641,872（净增 0）；`authorConfirmation = pending-author-line`**。`test:size-ruling-vol3` **14/0**（≥13） |
+| TASK-ADN-222 | ✅ completed | `gate-integrity.test.ts`（+79 行）：新增 1 + 升级 6 + 间接面 6 = **三态齐** ∧ `assertionsRemoved === 0` ∧ `CHROMIUM_GATES === 9` ∧ `EXPECTED_AUDITED_FILES` 实测 **51**（≥48）∧ 末位仍是 `ai-next-candidate` ∧ 恰一次 ∧ 反证「未受审门禁可判红」。`test:gate-integrity` **26/0**（≥25） |
+| TASK-ADN-223 | ✅ completed | 人工面 M1~M5 四处 `⏳ 未执行`；交付物 8 项对账 + 两叶 Σ 门禁清单 + 保护段 keep 双绿 + `test:e2e` **PASS**；本叶 `state.json` / `TREE.md` / `build.md v2.0` 收口登记 |
+
+**R2 门禁对账**：`npm test` **1500 → 1507 / 0**（+7；node 断言零删除）；`test:supersession` **53/0**；`test:gate-integrity` **26/0**；`test:size-ruling-vol3` **14/0**；`test:s0-self-driven` **93/0**；`test:law8` **65/0**；`test:recommendation` **81/2**（2 = **HEAD 基线同款** flake）；`test:insight` **125/0**；`test:density` **242/0**；`test:dead-end` **53/0**；`test:ui`（journey）**171 checks / 166 passed**（5 = 环境 flake）；`test:binding` **191/192**（`KL-N-10` 同族 flake）；`test:e2e` **PASS**；`typecheck` PASS。
+
+**冻结面 / base / 保护段**：`content.js` 177,076 B / sha `52a82620…`、`pick-layer.js` 34,358 B / sha `77796bab…`（**重新构建后 `cmp` 逐字节相同**）；`packages/web-cli-base/**` / `manifest` / `test/ui/journey.mjs` / `test/ui/binding.mjs` **零 diff**；保护段双绿（零换锚 / 零等长补偿）。
+
+**R2 两处构建期纠错（诚实登记）**：① `s0-self-driven.mjs` ⑲ 初版未重建已知态 ⇒ 命中上一夹具防抖时钟（`rule=null`）⇒ **改为自持已知态**（`reset()` + 真授权 + 真拾取）后 **93/0**；② `recommendation.mjs` 夹具自动探测非就绪（priority 0 `probe.unsettled` 恒压过规则位）⇒ **该面改核与相位无关的不变量**，AI 采纳 / 替换裁决由 s0-⑲（settled 真面板）+ node 面同判据机核（详见 build.md §0.1 / §5.2）。
+
+**遗留交接**：X-ADN SG-ADN-03 语义订正（**仅台账登记 + 偏差上报；父 ADR 文字零改**，订正移交 review；**不改冻结表**）；体积两叶 Σ 越 ADR 目标带（未越任何上限，如实登记）；环境 flake（binding / journey / recommendation ⑭）隔离复跑 ≥2 取干净轮；PD-ADN-001 / 005 / 007 deferred。
+
 ## 修订记录
 
 | 版本 | 变更说明 | 日期 | 修订人 |
 |------|---------|------|--------|
 | v1.0 | 初始创建（ADN-2 叶任务：**23 任务 / 3 波**（`TASK-ADN-201~223`；S×3 / M×18 / L×2）+ 1 个 spikeGate（`SG-ADN-03`）+ 升级 6 门禁等价重锚终态 + S0''' 四支线终态 + X-ADN-1~11 台账终态 + 保护段 keep（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积叶2 重登记（+0.5~1.5 KB）+ 两叶 Σ + 门禁守恒终态对账 + 人工面 M1~M5 ⏳。**本轮只做 tasks**：零 `src`/`test`/`dist`/`docs`/`design`/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = `local_or_compute → none`） | 2026-09-26 | SDDU Tasks Agent |
 | v1.1（R1 build） | **R1（W04+W05 / TASK-ADN-201~216）**：SG-ADN-03 可行（6/6 + 1 偏差登记）；`recommend.ts` R6 同因去重扩展覆盖 AI + 列表内去重；`sidepanel.ts` 关断显示相；`npm test` 1478→1500/0（测试零删除行）+ density 242/0 + dead-end 53/0；三冻结面/base 零 diff；体积 A +1,378 B（临时构建，W06 重登记）；binding 3 跑命中 KL-N-10 同族 flake。**W06（217~223）留 R2** | 2026-09-26 | SDDU Build Agent |
+| v1.2（R2 build） | **R2（W06 / TASK-ADN-217~223，收口轮）**：S0''' 终态双面（node 真源切片 + Chromium 只加断言）· X-ADN-1~11 台账终态（4/6/1 + 老条目逐字保留）· supersession 一致性 + **保护段 keep 双绿** · **体积叶2 终态重登记 604,602（+1,397）/ 两叶 Σ +5,676 / EC-ADN-016 三态皆否 / B 列净增 0** · 门禁守恒三态齐（`assertionsRemoved=0` / `CHROMIUM_GATES=9` / 下界 51）· 人工面 M1~M5 ⏳ + `e2e` PASS。**两处构建期纠错（⑲ 自持已知态 / recommendation 相位边界）已如实登记**。全 23 任务完成 ⇒ build 收口（见 §7） | 2026-09-26 | SDDU Build Agent |

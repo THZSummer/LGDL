@@ -1282,6 +1282,85 @@ test('元门禁（★ ADN-1）：`ai-next-candidate` 由 JUDGEMENTS 标记纳入
   console.log(`  ℹ ★ ADN-1 新门禁受审：${V_ADN_NODE_GATE_FILES.length}/${V_ADN_NODE_GATE_FILES.length} 在册（目录扫描 ∧ 下界声明双命中；下界 ${EXPECTED_AUDITED_FILES.length}）`);
 });
 
+/**
+ * ★ F-36 / ADN-2 **TASK-ADN-222**（ADR-ADN-009 §②③④ · FR-ADN-114 / 115 / 116 ·
+ * AC-ADN-018/022/023/024）—— **门禁守恒终态对账**：新增 1 + 升级 6 + 间接面 **三态齐**
+ * ∧ `assertionsRemoved === 0`（断言零删除零降级）∧ `CHROMIUM_GATES === 9` 逐字不动
+ * ∧ `EXPECTED_AUDITED_FILES` 只增不减（≥48；末位仍是 `ai-next-candidate`）。
+ */
+export const V_ADN2_TERMINAL_NEW = ['ai-next-candidate'] as const;
+export const V_ADN2_TERMINAL_UPGRADED = [
+  'recommendation-sources',
+  'driver-timings',
+  'driver-quadruple',
+  'op-wiring',
+  'op-three-tier',
+  'proactivity-guard',
+] as const;
+export const V_ADN2_TERMINAL_INDIRECT = [
+  'gate-integrity',
+  'insight-no-escalation',
+  's0-self-driven-chain',
+  's0-self-driven.mjs',
+  'law8-plaintext.mjs',
+  'size-ruling-vol3',
+] as const;
+
+test('元门禁（★ ADN-2）：门禁守恒终态对账（新增 1 + 升级 6 + 间接面三态齐 ∧ assertionsRemoved=0）', () => {
+  const discovered = discoverGateFiles(PKG);
+  // ① 新增 1：`ai-next-candidate` 在受审集合 ∧ 下界声明 ∧ JUDGEMENTS 判据表齐备。
+  for (const g of V_ADN2_TERMINAL_NEW) {
+    const file = `test/${g}.test.ts`;
+    assert.ok(existsSync(resolve(PKG, file)), `${file}（新增 1）必须存在`);
+    assert.ok(discovered.includes(file), `${file}（新增 1）必须由目录扫描纳入受审集合`);
+    assert.ok((EXPECTED_AUDITED_FILES as readonly string[]).includes(file), `${file}（新增 1）必须在下界声明里`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    assert.ok(/export const JUDGEMENTS/.test(text), `${file} 必须导出 JUDGEMENTS 判据表`);
+    assert.ok((text.match(/expectFailPattern\s*:/g) ?? []).length >= 3, `${file} 每条判据必须声明 expectFailPattern（≥3）`);
+  }
+  // ② 升级 6：等价重锚 = 判据落在**既有**门禁文件内（文件在册 ∧ 承载 ADN-2 重锚判据）。
+  //    （`recommendation-sources` 等不全部在 `EXPECTED_AUDITED_FILES` 下界里 —— 下界只约束
+  //    新 node 门禁；等价重锚的存在性判据是「文件存在 ∧ 内含 ADN-2 判据块」。）
+  for (const g of V_ADN2_TERMINAL_UPGRADED) {
+    const file = `test/${g}.test.ts`;
+    assert.ok(existsSync(resolve(PKG, file)), `${file}（升级 6）必须存在`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    assert.ok(/ADN-2/.test(text), `${file} 必须承载 ADN-2 的等价重锚判据（零删除零降级）`);
+  }
+  // ③ 间接面：文件存在（受审集合 / 下界声明之外的承重面）。
+  for (const g of V_ADN2_TERMINAL_INDIRECT) {
+    const cands = [`test/${g}.test.ts`, `test/ui/${g}`];
+    assert.ok(cands.some((f) => existsSync(resolve(PKG, f))), `间接面 ${g} 必须存在（${cands.join(' | ')}）`);
+  }
+  // ④ 台账三态齐 + assertionsRemoved=0（叶1 骨架段 `xAdnGateReconciliation` 为终态对账对象）。
+  const ledger = JSON.parse(readFileSync(resolve(REPO, 'packages/web-cli-plugin/docs/v4-supersession-ledger.json'), 'utf8')) as {
+    xAdnGateReconciliation?: { rows?: readonly { gate: string; disposition: string; assertionsRemoved: number }[]; note?: string };
+  };
+  const rows = ledger.xAdnGateReconciliation?.rows ?? [];
+  assert.ok(rows.length >= 10, `门禁对账至少 10 行（1 新增 + 6 升级 + 间接面；实测 ${rows.length}）`);
+  const states = new Set(rows.map((r) => r.disposition));
+  for (const s of ['new', 'equivalent-reanchor', 'indirect']) assert.ok(states.has(s), `三态必须齐（缺 ${s}）`);
+  assert.ok(rows.every((r) => r.assertionsRemoved === 0), 'assertionsRemoved 必须全 0（断言零删除零降级）');
+  assert.ok(rows.some((r) => r.gate === 'ai-next-candidate' && r.disposition === 'new'), '新增 1（ai-next-candidate）必须登记');
+  assert.ok(rows.some((r) => r.disposition === 'indirect'), '间接面必须登记');
+  // ⑤ `CHROMIUM_GATES === 9` 逐字不动（本叶零新增 Chromium 门禁文件）。
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（本叶零新增 Chromium 门禁文件）');
+  // ⑥ `EXPECTED_AUDITED_FILES` 只增不减：≥48 ∧ 末位仍是 `ai-next-candidate` ∧ 恰一次。
+  assert.ok(EXPECTED_AUDITED_FILES.length >= 48, `受审下界不得低于 48（实测 ${EXPECTED_AUDITED_FILES.length}）`);
+  assert.equal(EXPECTED_AUDITED_FILES[EXPECTED_AUDITED_FILES.length - 1], 'test/ai-next-candidate.test.ts', '末位必须仍是 ai-next-candidate（前序逐字保留）');
+  assert.equal(
+    EXPECTED_AUDITED_FILES.filter((f) => f === 'test/ai-next-candidate.test.ts').length,
+    1,
+    'ai-next-candidate 必须恰出现一次（重复登记即红）',
+  );
+  // 反证：未受审门禁必须可被判红（判据非恒真）。
+  const forged = [...V_ADN2_TERMINAL_NEW.map((g) => `test/${g}.test.ts`), 'test/ghost-gate.test.ts'].filter((f) => !discovered.includes(f));
+  assert.ok(forged.length > 0, '未受审门禁必须可被判红（判据非恒真）');
+  console.log(
+    `  ℹ ★ ADN-2 门禁终态：新增 ${V_ADN2_TERMINAL_NEW.length} + 升级 ${V_ADN2_TERMINAL_UPGRADED.length} + 间接 ${V_ADN2_TERMINAL_INDIRECT.length}；三态齐 ∧ assertionsRemoved=0 ∧ CHROMIUM_GATES=9 ∧ 下界 ${EXPECTED_AUDITED_FILES.length}`,
+  );
+});
+
 test('元门禁反证（合成夹具）：N-01 中间语句绕过 / N-02 注释满足有界性 必须被判红', () => {
   // N-01 — the *exact* shape validate drove green: no `process.exitCode`, a plain
   // `console.error` sits between the await and the exit, and the callee lost its
