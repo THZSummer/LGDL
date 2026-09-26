@@ -3,10 +3,10 @@
   "featureKey": "specs-tree-adn-2-deterministic-fallback-and-merge",
   "version": "v0.11.3",
   "name": "ADN-2 确定性退居兜底 + 合并口径 + 首开边界 + 体积/门禁重锚",
-  "phase": "building",
-  "status": "in_progress",
-  "workflow": "5.build",
-  "agent": "sddu-build",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
   "depth": 2,
   "parent": "specs-tree-web-cli-plugin-v55-f-ai-driven-next",
   "childrens": [],
@@ -16,7 +16,7 @@
     "specs-tree-adn-1-ai-next-produce-and-verify"
   ],
   "createdAt": "2026-09-26",
-  "updatedAt": "2026-09-26",
+  "updatedAt": "2026-09-27",
   "description": "ADN-2 叶规范（末叶 / 回归与判据叶，**强依赖叶1**）：确定性退居兜底与安全闸（未配 / AI 未产出 / 非法被拦 ⇒ 确定性产卡）+ **free-input 终端恒常驻（R8 保底不回归）** + floor 语义保持（safety 不走 floor）+ 零死端+ **AI / 规则候选合并 / 优先级 / 去重 / 上限**（同台争单卡位 `MAX_NEXTSTEP_CARDS_PER_ROUND=1` 不动 / 前 N ≤3 / `NEXTSTEP_PRIORITY` 恰 4 不动（AI 骑 ref-action 位）/ R6 同因去重扩展 / **替换陈旧候选** / 渲染零 per-op 分支）+ **护栏**（六常量同过 / **提案不耗回合预算** / 关断偏好两相涵盖 / 零第二阈值 / 在飞仲裁保持）+ **首开保持确定性**（零 LLM 往返依赖 / 让位 firstRun 零双卡）+ **S0''' 四支线终态**（Chromium 面只加断言不加文件）+ X-ADN-1~11 台账终态（未发生者 `no-supersession`）+ 升级 6 门禁等价重锚 + 保护段逐段决策（journey `[43484,59347)` / binding `[107780,115930)`）+ 体积终态重登记。",
   "scope": {
     "in": [
@@ -45,7 +45,9 @@
     "plan.md",
     "tasks.md",
     "tasks.json",
-    "build.md"
+    "build.md",
+    "validate.md",
+    "validate-report.md"
   ],
   "files": [
     ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/spec.md",
@@ -53,7 +55,11 @@
     "specs-tree-adn-2-deterministic-fallback-and-merge/plan.md",
     "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.md",
     "specs-tree-adn-2-deterministic-fallback-and-merge/tasks.json",
-    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/build.md"
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/build.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-ai-driven-next/specs-tree-adn-2-deterministic-fallback-and-merge/validate-report.md"
   ],
   "coversFr": [
     "FR-ADN-040~046",
@@ -104,6 +110,30 @@
       "agent": "sddu-build",
       "artifact": "build.md v1.0（R1 = W04+W05 / TASK-ADN-201~216）",
       "note": "adn-2 build **R1（W04 兜底与合并 + W05 护栏与首开）**：SG-ADN-03 = **可行**（6/6 硬判据 + 1 偏差登记：`onboarding` 卡片优先级=3 < AI 骑 `ref-action`=2，属冻结 `NEXTSTEP_PRIORITY` 既有事实，非本机制引入，修正需改冻结表=红线 ⇒ 记为语义订正项）。落地：recommend.ts（R6 同因去重扩展覆盖 AI 的预过滤 + `opId#摘要` 列表内去重；`chipsFor`/`seen` 替换口径逐字复用）+ sidepanel.ts（关断**显示相**：注入前检查 `proactivity.enabled()`）。门禁：`npm test` 1478→**1500 / 0**（纯加法，测试零删除行）+ `test:density` **242/0** + `test:dead-end` **53/0** + `typecheck` 过；`test:binding` 隔离复跑 3 次命中 KL-N-10 同族环境 flake（第 1 次 `#54B7`；第 2/3 次 `#6l residual=undefined` / `#confirm-allow not found`；load 12 / free 1G；与历史登记变体逐条一致 ⇒ 非本叶回归，保护段 pin 由 `supersession-ledger` 独立机核）。三冻结面（content.js 177,076 / `52a82620…`；pick-layer.js 34,358 / `77796bab…`）+ base + manifest + journey/binding 零 diff。体积五要素（临时构建，不改 dist）：A 列 sidepanel 603,205→**604,583 B（+1,378 B，+1.35 KB）**，余量 28,782 B，未越生效上限 633,365（距档 614,400 余 9,817 B）；B 列 ~0；W06 重登记。**W06（TASK-ADN-217~223：S0' 终态双面 / 体积收口重登记 / 门禁重锚对账 / X-ADN 台账终态 / 保护段 keep 双绿）留 R2**。"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-26",
+      "agent": "sddu-build",
+      "artifact": "build.md v2.0（R2 = W06 / TASK-ADN-217~223；R1 = W04+W05 / TASK-ADN-201~216 已在 v1.0）",
+      "note": "adn-2 build **R2（W06 验收与治理，收口轮·终局）**：全 23 任务完成 ⇒ build 收口。落地 —— ① TASK-ADN-217 S0''' 终态 node 面：`ai-next-candidate.test.ts`（+137 行纯加法：`s0pppTerminalReading`/`s0pppTerminalProblems` 真源切片〔生产 `recommendNextStep`/`admitCandidate`〕+ 四支线 + 终端恒在 + 6 条反证）+ `s0-self-driven-chain.test.ts`（+45 行机制侧同判据）；② TASK-ADN-218 Chromium 面（只加断言不加文件 ⇒ `CHROMIUM_GATES === 9`）：`test/ui/s0-self-driven.mjs` ⑲ S0C-14 + `test/ui/recommendation.mjs` ADN-2 块 + `test/ui/law8-plaintext.mjs` 终态零明文；③ TASK-ADN-219 X-ADN-1~11 台账终态：`docs/v4-supersession-ledger.json` 追加 `xAdnLedgerLeaf2`(8/10/11) + `xAdnLedgerFull`(11 条：已发生 4 / 未发生取代 6〔`no-supersession` + 非空理由〕/ 等价重锚 1〔`reanchored-keep`〕) + 取代链 `newTitle` 链式同源重登记（603_205 → 604_602）+ 老条目逐字保留；④ TASK-ADN-220 `test/supersession-ledger.test.ts`（+160 行）：`xAdnTerminalProblems` 一致性判据 + 6 条反证 + **保护段 keep 双绿**（journey [43484,59347)/`7b309258…`/249 行；binding [107780,115930)/`be9ad0e9…`；零换锚）；⑤ TASK-ADN-221 体积叶2 终态重登记：A 列 `603,205 → 604,602 B`（+1,397；`sidepanel.ts` +486 / `recommend.ts` +911 / glue 0，带内）；生效上限 634,832 / 档位 614,400（距档 9,798）/ 绝对上限 675,840 ⇒ EC-ADN-016 三态皆「否」；两叶 Σ（A 列）+5,676 越 ADR 目标带 ⇒ 如实登记不停机；B 列 1,641,872（净增 0，不计账）；`authorConfirmation = pending-author-line`；⑥ TASK-ADN-222 门禁守恒终态（`gate-integrity` +79 行）：新增 1 + 升级 6 + 间接面 6 = 三态齐 ∧ `assertionsRemoved=0` ∧ `CHROMIUM_GATES=9` ∧ 下界 51（≥48）∧ 末位 `ai-next-candidate`；⑦ TASK-ADN-223 人工面 M1~M5 四处 `⏳ 未执行` + 交付物 8 项对账 + 两叶 Σ 门禁清单 + `test:e2e` PASS + 本叶收口（state.json/TREE.md/build.md v2.0）。门禁：`npm test` **1500 → 1507 / 0**（node 断言零删除）+ `test:supersession` **53/0** + `test:gate-integrity` **26/0** + `test:size-ruling-vol3` **14/0** + `test:s0-self-driven` **93/0** + `test:law8` **65/0** + `test:insight` **125/0** + `test:density` **242/0** + `test:dead-end` **53/0** + `test:recommendation` **81/2**（2 = HEAD 基线同款 flake）+ `test:ui`（journey）**171 checks/166 passed**（5 = 环境 flake）+ `test:binding` **191/192**（KL-N-10 同族 flake）+ `test:e2e` PASS + `typecheck` PASS。三冻结面（`content.js` 177,076/`52a82620…`；`pick-layer.js` 34,358/`77796bab…`）**重新构建后逐字节不变**；`web-cli-base`/`manifest`/`journey.mjs`/`binding.mjs` 零 diff；W06 只改 `test/**`+`docs/**`+`.sddu/**` ⇒ `src/**` 零字节。**两处构建期纠错（诚实登记）**：E1 `s0-self-driven.mjs` ⑲ 初版未重建已知态 ⇒ 命中上一夹具防抖时钟（deterministic `rule=null`）⇒ 改为**自持已知态**（`reset()` 清防抖时钟 + 真授权 + 真拾取，与 ⑱ 同一真路径）后 93/0；E2 `recommendation.mjs` 夹具自动探测非就绪（priority 0 `probe.unsettled` 恒压过规则位，退避 steady 240×250 ms 未达）⇒ 该面改核**与相位无关的可观测不变量**，AI 采纳/替换双向裁决由 s0-⑲（settled 真面板）+ node 面同判据机核。**遗留交接 review/validate**：SG-ADN-03 语义订正（**仅台账登记 + 偏差上报；父 `ADR-ADN-004` 文字零改**〔build 不改 spec/plan〕，文字订正移交 review；**不改冻结 `NEXTSTEP_PRIORITY`**）· 两叶 Σ 越带如实登记 · 环境 flake 隔离复跑 · PD-ADN-001/005/007 deferred。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-review",
+      "artifact": "review.md v1.0（C1~C32 审查清单）+ review-report.md v1.0（R1：27 ✅ + 5 ⚠️ / 0 ❌ / 0 BLOCK / 7 I）",
+      "note": "adn-2 叶 review 阶段（R1 静态审查）：C1~C32（四维度：代码质量 / 规范符合性 / 架构一致性 / 测试质量）→ **27 ✅ / 5 ⚠️ / 0 ❌ / 0 阻塞**；规范符合性偏差 0 项；改进建议 I-1~I-7（均非阻塞）：I-1 s0-⑲ 严格规则断言与 ⑦A 口径不一致（adn-1 I-1 同源 flake ⇒ 建议**加固**而非放宽）/ I-2 `build.md:53` §1.1 末句与台账 note 互相矛盾（父 ADR 当时零 diff）/ I-3 size-growth ④ `adn2Rows` Σ 加 `adn1R1UnattributedGlueBytes` 轴混用 / I-4 `latestAfterBytes` 死参 `void rows` / I-5 `gate-integrity`「升级 6」存在性判据仅 `/ADN-2/` 文本（过弱）/ I-6 `s0-self-driven-chain`「B」标签名实不符（实为 C）/ I-7 E2（`recommendation.mjs` 夹具相位边界）⇒ **裁决：门禁强度充分、非降级；本叶无需真页面夹具**（替换双向由 node 真源切片 + s0-⑲ 承接）。**SG-ADN-03 裁决已落实**：父 `ADR-ADN-004 §③`「上层规则仍优先」按实际选卡键 `priorityOf(rule)` 文字订正（仅 `risk-recovery`(1) 真优先；`onboarding`(3) 不抑制 AI；厘清 `NextProvider.priority` 字段轴 vs 选卡键轴；生产二者因 `firstRun`/`configured` 不并现），文末新增「修订记录」v1.0.1；**纯 `.sddu` 文字订正、机制零改**（`NEXTSTEP_PRIORITY` 恰 4 不动 / `src/**` 零字节 / 既有门禁判据零影响）。红线复核：三冻结面（`content.js` 177,076/`52a82620…`；`pick-layer.js` 34,358/`77796bab…`）逐字节不变；`packages/web-cli-base/**` / `manifest` / `journey.mjs` / `binding.mjs` 保护段零 diff；`dist/sidepanel.js` 604,602 B 与 `adn2Rows` 经 `build-meta.json` 逐值同源；测试断言零删除（`git show --numstat` 逐文件核）。结论 **⚠️ 有条件通过（0 阻塞）**，可进入 validate。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-27",
+      "agent": "sddu-validate",
+      "artifact": "validate.md v1.0（V1~V18 场景矩阵）+ validate-report.md v1.0（R1：18 项 → 18 ✅ / 0 ❌ / 0 ⏭️ / 0 阻塞 / 3 环境 flake 观察项 / 7 I 全非阻塞）",
+      "note": "adn-2 叶 validate 阶段（**R1 动手执行 · 工作流终点**）：结论 **⚠️ 有条件通过 / 0 阻塞**。**全 12 门禁独立复跑（不采信自报）**：`npm test` **1507 tests / 1506 pass / 1 fail**（1 = `NFR-007` perf-budget 计时，隔离 3/3 绿 ⇒ 环境 flake）· `test:supersession` **53/0** · `test:gate-integrity` **26/0** · `test:size-ruling-vol3` **14/0** · `test:s0-self-driven` **91/2×4 + 88/5×1**（环境探测相位 flake，隔离 5 轮无干净轮，成员轮换证非回归；与 adn-1 基线 89/1×2 同源）· `test:law8` **65/0** · `test:insight` **125/0** · `test:density` **242/0** · `test:dead-end` **53/0** · `test:recommendation` **81/2**（HEAD 同款 ⑭ 授权探针 flake）· `test:e2e` **PASS** · `typecheck` **rc=0** · `build` **rc=0**。**ADR-003 独立脚本 2 个（路径 `/tmp/sddu-validate-adn-2-20260927-053827/`）**：`verify-frozen-protected.mjs` **19/19 PASS**、`verify-ledger-assertions.mjs` **8/8 PASS**。**红线终核**：三冻结面 `content.js` 177,076/`52a82620…` ∧ `pick-layer.js` 34,358/`77796bab…` 逐字节不变（构建后复算一致）；保护段 journey `[43484,59347)`=`7b309258…`/249 行 ∧ binding `[107780,115930)`=`be9ad0e9…` keep 双绿（恰 2 段）；`dist/sidepanel.js` 604,602 B ≤ 生效上限 634,832（距档 9,798 / 距绝对 71,238）；`spec`/`plan`/`src`/base/manifest/journey/binding **零 diff**；断言零删除零降级（零纯删除文件，65 删行全为值等价重锚）；门禁守恒 `assertionsRemoved=0` ∧ `CHROMIUM_GATES=9` ∧ 下界 51（≥48）。**X-ADN 台账终态**独立复算：`xAdnLedgerFull` 11 行 = 已发生 4 + 未发生 6（理由全非空）+ 等价重锚 1，ID 并集 X-ADN-1~11 无重复。**FR 覆盖 100%（八族 50 条切片）/ NFR 覆盖 100%（14/14）**。**I-1~I-7 处置**：全非阻塞（I-1 经独立复现确认为环境相位 flake、加固建议保留；I-7 复核采信 review「门禁强度充分/非降级」；I-2~I-6 为文档/测试质量登记项）。漂移 0（孤立/缺失/规格/冻结面/保护段/断言）。**Feature 可关闭**（收口建议见 validate-report §5.4/§7）。"
     }
   ],
   "openPointsRuled": [
