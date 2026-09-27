@@ -56,8 +56,19 @@ export const MAX_CHIPS_PER_CARD = 3;
 /**
  * Recovery first, discovery last. The order is the rule table's tie-break: a lower
  * index is a higher priority.
+ *
+ * ★ NDA-1 **TASK-NDA-109**（ADR-NDA-003 §① · FR-NDA-042/114）—— 恰 4 → **恰 5**：`ai-led`
+ * （AI 结构化产出，`next` 工具驱动）插在第 **2** 位 ⇒ 与 F-36 的 `prepend` **行为等价**
+ * （有引用时 AI 仍优先于 `ref-action`），但登记面诚实（AI 是独立一档推荐规则，不再骑
+ * `ref-action` 独占）。`risk-recovery` 仍最高（确定性接管语义不变）。
  */
-export const NEXTSTEP_PRIORITY = Object.freeze(['risk-recovery', 'ref-action', 'onboarding', 'capability-discovery'] as const);
+export const NEXTSTEP_PRIORITY = Object.freeze([
+  'risk-recovery', // 1（不动）
+  'ai-led', // 2  ★ 新增：AI 结构化产出（无条件驱动）
+  'ref-action', // 3（原 2；语义与判据逐字不变，只改位次）
+  'onboarding', // 4（原 3）
+  'capability-discovery', // 5（原 4）
+] as const);
 export type NextstepRuleId = (typeof NEXTSTEP_PRIORITY)[number];
 
 /** The idle-state minimum interval (anti-flicker; also enforced while `pending`). */
@@ -427,6 +438,9 @@ export interface RecommendResult {
 /** The user-facing label of each rule (the id is machine-readable, never persisted). */
 const NEXTSTEP_LABELS: Readonly<Record<NextstepRuleId, string>> = Object.freeze({
   'risk-recovery': '下一步推荐：先处理风险',
+  // ★ NDA-1 TASK-NDA-109（ADR-NDA-003 §①）—— `ai-led` 标签（类型完备 + 兜底；`ai-next`
+  // provider 自带 `label` 覆盖，同字面）。
+  'ai-led': '下一步推荐：AI 建议',
   'ref-action': '下一步推荐：用这条引用',
   onboarding: '下一步推荐：完成首次设置',
   'capability-discovery': '下一步推荐：看看能做什么',

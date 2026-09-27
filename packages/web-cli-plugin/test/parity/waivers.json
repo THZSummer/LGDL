@@ -126,6 +126,7 @@
     "admin_llm-config": { "reason": "Plugin management tool — masked LLM configuration.", "basis": "spec.md FR-033 / FR-035" },
     "tabs": { "reason": "Plugin-level tab management tool (list/switch/open/mute/pin/move/close; close opened by author reversal 2026-09-13 — write→ask, single-tab, no batch).", "basis": "spec.md FR-049 / FR-053" },
     "bookmarks": { "reason": "Plugin-level bookmark tool: read list/search/tree + write add/remove/move. Declared as optional_permissions (static install surface unchanged); permission-gated with readable 未开启 copy; `remove` is destructive and never auto-authorized.", "basis": "spec.md FR-054" },
-    "downloads": { "reason": "Plugin-level read-only download-history tool: list/search only (cancel/pause/erase/open intentionally NOT implemented). Declared as optional_permissions; permission-gated with readable 未开启 copy.", "basis": "spec.md FR-054" }
+    "downloads": { "reason": "Plugin-level read-only download-history tool: list/search only (cancel/pause/erase/open intentionally NOT implemented). Declared as optional_permissions; permission-gated with readable 未开启 copy.", "basis": "spec.md FR-054" },
+    "next": { "reason": "Pure-protocol tool: it has NO command line — it is captured by the `hooks.intercept` seam (a synthetic ToolResult short-circuits real dispatch; zero effect on the page/network). It is in `deriveTools()` but `listed:false`, so it never appears in the `web-cli-help` listing.", "basis": "NDA-1 ADR-NDA-001 §①/§④; ask-user pure-protocol precedent" }
   }
 }

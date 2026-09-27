@@ -1,12 +1,19 @@
 /**
- * F-36 / ADN-1 **TASK-ADN-106**（ADR-ADN-001 §④/§⑤/§⑥ · ADR-ADN-002 · ADR-ADN-003 §① ·
- * FR-ADN-016~029）—— **AI next 候选的解析 + 5 道校验链 + 接受层判定**（NEW；B 列，纯函数）。
+ * NDA-1（原 F-36 / ADN-1 **TASK-ADN-106**）—— **AI next 候选的解析 + 5 道校验链 + 接受层判定**
+ * （B 列，纯函数）。
+ *
+ * ── NDA-1 TASK-NDA-105 换轨（ADR-NDA-004 §① · ADR-NDA-101）─────────────────
+ *
+ * 上游产出从「文本尾随 `next` 围栏块 + 正则解析」换成「`next` 工具调用 + `hooks.intercept`
+ * 捕获」：围栏块解析的四符号（info 串常量 / 围栏正则 / 取末块 / 解析入口）**函数级删除**
+ * （结构性消除影子产出 EC-NDA-020），改为 `parseNextToolArguments(raw)`（`tc.rawArguments`
+ * 严格 JSON，逐层口径与旧解析等价）。
  *
  * ── 三条纪律（每处 loud，零第二处）────────────────────────────────────────────
  *
- *   ① **解析在 SW**：取**本回合最后一条** `assistant` 文本里的**最后一个** info 为 `next`
- *      的围栏块（大小写不敏感）；严格 `JSON.parse`；顶层必须**数组**（否则 ⇒ 零候选，
- *      **不写 blocked** —— 那是「未产出」支线 C，不是「被拦」支线 B）；非对象项 ⇒ 丢弃。
+ *   ① **解析在 SW**：`parseNextToolArguments` 取 `tc.rawArguments` 严格 `JSON.parse`；顶层必须
+ *      **对象**（否则 ⇒ 零候选，**不写 blocked** —— 那是「未产出」支线 C，不是「被拦」支线 B）；
+ *      缺 `candidates` / 非数组 ⇒ 零候选；非对象项 ⇒ 丢弃。
  *   ② **5 道校验链顺序即优先级**：① opId 在册（9 枚）→ ② `tierOf` 三档（`gesture` 恒拒）→
  *      ③ ref 有效（本回合快照）→ ④ param 与该 op 的 `ask` 相容 → ⑤ label 形状 + 零明文预筛。
  *      **顺序不可交换**：未知 op + 越界 ref ⇒ **只**报 `unknown-op`（不对未知 op 做后续判）。
@@ -14,10 +21,10 @@
  *      本回合 refs 载荷）。`AI_NEXT_LABEL_MAX` / `AI_NEXT_PARAM_MAX` 是**显示 / 结构上限**，
  *      **不是**护栏六常量阈值（零第二阈值；ADR-ADN-006 §⑤）。
  *
- * ── 零新 LLM（FR-ADN-017）────────────────────────────────────────────────────
+ * ── 零新 LLM（FR-ADN-017 / FR-NDA-017）───────────────────────────────────────
  *
- * 校验只消费**刚结束回合**的输出文本（`service-worker.ts` 的 `done` 装配点）；本模块不发起
- * 任何 provider / 网络调用 ⇒ FR-CHAT-060 不破。
+ * 校验只消费**同回合内**工具调用捕获的 `candidates`（`service-worker.ts` 的 `done` 装配点）；
+ * 本模块不发起任何 provider / 网络调用 ⇒ FR-CHAT-060 不破。
  *
  * @module background/ai-next
  */
@@ -31,9 +38,6 @@ import type { AiNextBlockedCode, AiNextCandidate, AiNextPayload } from '../ui/si
 export const AI_NEXT_LABEL_MAX = 48;
 /** params 的**结构上限**（字符；仅候选元数据，本轮不参与派发）。非六常量阈值。 */
 export const AI_NEXT_PARAM_MAX = 128;
-
-/** The fence info string the contract asks for（大小写不敏感匹配）。 */
-export const AI_NEXT_FENCE_INFO = 'next';
 
 /**
  * 接受层拒绝码 = `PressBlocked` 的两个同字面码 + `ref` / `param` / `label`（**类型单源**：
@@ -52,38 +56,57 @@ export interface AiNextFacts {
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
- * 1. 解析（ADR-ADN-001 §④）
+ * 1. 解析（ADR-NDA-101 §① / ADR-NDA-002 §③）
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** 三反引号围栏块（info 只取 `[A-Za-z0-9_-]*`；`next` 大小写不敏感）。 */
-const FENCE = /```[ \t]*([A-Za-z0-9_-]*)[ \t]*\r?\n([\s\S]*?)```/g;
-
-/** 取**最后一个** info 为 `next` 的围栏块体（无 ⇒ `null`）。 */
-export function lastNextFenceBody(text: string | undefined): string | null {
-  if (typeof text !== 'string' || text.length === 0) return null;
-  let last: string | null = null;
-  FENCE.lastIndex = 0;
-  for (const m of text.matchAll(FENCE)) {
-    if (String(m[1]).toLowerCase() === AI_NEXT_FENCE_INFO) last = m[2];
-  }
-  return last;
-}
-
 /**
- * 解析候选项：无块 / 非法 JSON / 顶层非数组 ⇒ `[]`（支线 C，**不写 blocked**）；
- * 非对象项 ⇒ 丢弃（形状未成候选）；对象项进入 5 道校验链。
+ * 从 `next` 工具调用的**原始 arguments** 取候选数组（ADR-NDA-101 §①）。
+ *
+ * 五层筛法（与已删除的 F-36 围栏块解析入口 **逐层等价**）：
+ *   · `raw` 非串 / 空 ⇒ `[]`（未产出）；
+ *   · 非法 JSON ⇒ `[]`（**不抛错** ⇒ 不中断回合，EC-NDA-015）；
+ *   · 顶层非对象 / 数组 / `null` ⇒ `[]`；
+ *   · 缺 `candidates` / 非数组 ⇒ `[]`；
+ *   · 项非对象（含数组）⇒ **丢弃**，其余照常。
+ *
+ * **唯一输入面 = `tc.rawArguments`**：基座 `parseToolArguments` 对嵌套数组只保留标量（
+ * `tc.args` 取不到 `candidates`）⇒ 本仓**零使用 `tc.args`**（ADR-NDA-101 §① / R-NDA-912）。
  */
-export function parseAiNextItems(text: string | undefined): readonly unknown[] {
-  const body = lastNextFenceBody(text);
-  if (body === null) return Object.freeze([]);
+export function parseNextToolArguments(raw: string | undefined): readonly unknown[] {
+  if (typeof raw !== 'string' || raw.length === 0) return Object.freeze([]);
   let parsed: unknown;
   try {
-    parsed = JSON.parse(body);
+    parsed = JSON.parse(raw);
   } catch {
     return Object.freeze([]);
   }
-  if (!Array.isArray(parsed)) return Object.freeze([]);
-  return Object.freeze(parsed.filter((item) => typeof item === 'object' && item !== null && !Array.isArray(item)));
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return Object.freeze([]);
+  const list = (parsed as { candidates?: unknown }).candidates;
+  if (!Array.isArray(list)) return Object.freeze([]);
+  return Object.freeze(list.filter((item) => typeof item === 'object' && item !== null && !Array.isArray(item)));
+}
+
+/** 本回合 `next` 捕获态（ADR-NDA-101 §③）：`captured` 与候选**分离**可判。 */
+export interface NextTurnCapture {
+  /** 本回合模型是否**调用过** `next` 工具（解析失败亦为 `true`）。 */
+  readonly captured: boolean;
+  /** 最近一次调用的候选（覆盖式；`≤3` 截断不在本层）。 */
+  readonly lastCandidates: readonly unknown[];
+}
+
+/** 捕获态初值：未捕获 / 零候选。 */
+export function emptyNextTurnCapture(): NextTurnCapture {
+  return Object.freeze({ captured: false, lastCandidates: Object.freeze([]) });
+}
+
+/**
+ * **覆盖式**捕获（取最后一次 `next` 调用，非并集；ADR-NDA-101 §③）：返回值只取决于本次
+ * `raw`（`prev` 仅为调用侧 `let` 重赋值的可读签名）。解析失败 ⇒ `captured=true` ∧ 零候选
+ * （与「压根没调用」可判）。
+ */
+export function captureNextCall(prev: NextTurnCapture, raw: string | undefined): NextTurnCapture {
+  void prev;
+  return Object.freeze({ captured: true, lastCandidates: parseNextToolArguments(raw) });
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -143,13 +166,17 @@ export function admitCandidate(
 }
 
 /**
- * 解析 + 逐项校验（**面板只接收已校验候选** ⇒ 面板侧零第二校验器，N-ADN-022）。
+ * 逐项校验（**面板只接收已校验候选** ⇒ 面板侧零第二校验器，N-ADN-022）。
+ * 输入面 = **上游已解析的候选数组**（NDA-1 TASK-NDA-105 改签名：`text` → `candidates`；
+ * 解析与校验两层分离 ⇒ 各自可判、可注入反证，ADR-NDA-004 §①）。
  * `blocked` 按项顺序记录（面板写留痕时去重 join）。
+ *
+ * `≤3` 截断**不在本层**（由装配层 `slice(0, MAX_CHIPS_PER_CARD)` 承担，ADR-NDA-101 §③）。
  */
-export function validateAiNext(text: string | undefined, facts: AiNextFacts): AiNextPayload {
+export function validateAiNext(candidates: readonly unknown[], facts: AiNextFacts): AiNextPayload {
   const accepted: AiNextCandidate[] = [];
   const blocked: AiNextBlockedCode[] = [];
-  for (const item of parseAiNextItems(text)) {
+  for (const item of candidates) {
     const verdict = admitCandidate(item, facts);
     if (verdict.ok) accepted.push(verdict.candidate);
     else blocked.push(verdict.blocked);

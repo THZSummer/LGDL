@@ -104,12 +104,21 @@ export interface AiNextCandidate {
   readonly params?: string;
 }
 
+/** ★ NDA-2 TASK-NDA-208（ADR-NDA-201 §② · ADR-NDA-007 §①② · FR-NDA-070/071/075）——
+ * LLM 异常判定**闭集**（恰 3 情；恰一处声明）。type-only 词汇（∉ KIND_SET）；SW 值导入本常量
+ * 解构 ⇒ 字面量在 src 只此一处；与 `llmBlocked`（从未配置）分相不混同（N-NDA-026）。 */
+export const AI_ABNORMAL_CODES = Object.freeze(['no-tool-call', 'llm-failed', 'all-blocked'] as const);
+export type AiAbnormalCode = (typeof AI_ABNORMAL_CODES)[number];
+
 /** `chat-result` 的加法载荷字段（type-only；缺席 ⇒ 面板行为与现状逐字一致）。 */
 export interface AiNextPayload {
   /** 已过 5 道校验链的候选（面板只消费它 ⇒ 面板侧零第二校验器）。 */
   readonly accepted: readonly AiNextCandidate[];
   /** 被拦原因码（闭集，零值 / 零明文）。 */
   readonly blocked: readonly AiNextBlockedCode[];
+  /** ★ NDA-2 TASK-NDA-208（加法可选子字段；N-NDA-029）：本回合 LLM 异常判定（闭集 3 情，
+   * SW 单源）。缺席 ⇒ 面板行为逐字；只在非 null 时附加（此时 accepted 恰为空）。 */
+  readonly abnormal?: AiAbnormalCode;
 }
 
 /** The pure input a `when(ctx)` predicate may read (exactly the 7 sources). */

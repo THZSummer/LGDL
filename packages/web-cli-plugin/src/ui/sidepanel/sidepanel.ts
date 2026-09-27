@@ -108,7 +108,7 @@ import {
 } from './view-model.js';
 import { createSettingsOps, transportFromRuntime, type SettingsOps } from '../settings/ops.js';
 import { createOpBodies, type OpBodies } from '../settings/op-bodies.js';
-import { blockedRecovery, LLM_BLOCKED_RISK, PERM_BLOCKED_RISK } from './next-registry/providers.js';
+import { blockedRecovery, LLM_BLOCKED_RISK, LLM_ABNORMAL_RISK, PERM_BLOCKED_RISK } from './next-registry/providers.js';
 import { mountSettingsPanel, type SettingsPanelHandle } from '../settings/panel.js';
 import { createViewSwitch } from '../settings/view-switch.js';
 import { AUTO_AUTH_HARD_LINES, type AutoAuthSettings } from '../../security/auto-authorize.js';
@@ -1212,15 +1212,16 @@ function installV3TestHooks(): void {
        * V4-4: run the REAL producer against the live state and mint the card through
        * the reducer. `mode` selects the fixture (the gate drives each truth source).
        */
-      recommend(mode: 'ref' | 'stale' | 'firstRun' | 'idle' | 'empty' | 'llm' | 'perm' | 'hard' = 'ref', at?: number) {
+      recommend(mode: 'ref' | 'stale' | 'firstRun' | 'idle' | 'empty' | 'llm' | 'llmAbnormal' | 'perm' | 'hard' = 'ref', at?: number) {
         const views = project(state.stream);
         const counts = refCounts(views);
         // V5-3 TASK-V5-159: the two op-driven blocked terminals (and `hardFloor`) are
         // driven through the SAME derived risk ids the live panel folds into `risk`
         // (`observedBlocked`) — no second truth source, no new ctx field.
-        const siteOk = mode === 'llm' || mode === 'perm' || mode === 'hard';
+        const siteOk = mode === 'llm' || mode === 'llmAbnormal' || mode === 'perm' || mode === 'hard';
         const steady = mode === 'idle' || siteOk;
-        const risks = mode === 'stale' ? ['refInvalid'] : mode === 'llm' ? [LLM_BLOCKED_RISK] : mode === 'perm' ? [PERM_BLOCKED_RISK] : mode === 'hard' ? ['hardFloor'] : [];
+        // ★ NDA-2 TASK-NDA-216/217：异常相经同一 `risk` 源注入（单一常量）⇒ 闸门可断言兜底 chip。
+        const risks = mode === 'stale' ? ['refInvalid'] : mode === 'llm' ? [LLM_BLOCKED_RISK] : mode === 'llmAbnormal' ? [LLM_ABNORMAL_RISK] : mode === 'perm' ? [PERM_BLOCKED_RISK] : mode === 'hard' ? ['hardFloor'] : [];
         const input: Parameters<typeof recommendNextStep>[0] = {
           ref: {
             validCount: mode === 'ref' || mode === 'idle' ? Math.max(1, counts.validCount) : 0,
@@ -1484,6 +1485,16 @@ const declinedOnboardCauses: string[] = [];
 function noteLlmBlockedFact(ok: boolean, ruled = false): void {
   if (ok) observedBlocked.delete(LLM_BLOCKED_RISK);
   else if (llmBlockedFactApplies(ruled, llmLoaded && !llmSummary?.configured)) observedBlocked.add(LLM_BLOCKED_RISK);
+}
+
+/** ★ NDA-2 TASK-NDA-211（ADR-NDA-201 §③④ · FR-NDA-073/074）—— `llm.abnormal`（配置了但坏了）
+ * 的观察事实，与 `observedBlocked` 同构（同一 risk 源 / 零新 ctx 字段 / 零第二分类器）。
+ * 判定单源在 SW；面板只消费 `aiNext.abnormal`。事件作用域一次性：每次 done 重设（有 ⇒ 点亮，
+ * 无 ⇒ 熄灭）⇒ 第二次正常回合不再出现兜底 chip。 */
+const observedAbnormal = new Set<string>();
+function noteLlmAbnormalFact(abnormal: AiNextPayload['abnormal']): void {
+  if (abnormal) observedAbnormal.add(LLM_ABNORMAL_RISK);
+  else observedAbnormal.delete(LLM_ABNORMAL_RISK);
 }
 
 /**
@@ -2060,6 +2071,9 @@ function maybeRecommend(trigger: RecommendTrigger, opts: { force?: boolean } = {
     if (id === LLM_BLOCKED_RISK && suppressOnboardCause(onboardGuideCause, declinedOnboardCauses)) continue;
     risks.push(id);
   }
+  // ★ NDA-2 TASK-NDA-211（ADR-NDA-201 §③）—— 异常相折进同一 `risk` 源 ⇒ `llm.abnormal` 触发
+  // 兜底 chip（不做同因压制：异常相每次都必须可达，FR-NDA-074）。
+  for (const id of observedAbnormal) risks.push(id);
   const input: Parameters<typeof recommendNextStep>[0] = {
     ref: { validCount: counts.validCount, staleCount: counts.staleCount, ...(counts.latestRefNum !== undefined ? { latestRefNum: counts.latestRefNum } : {}) },
     session: {
@@ -4401,6 +4415,9 @@ function consumeAiNext(aiNext: AiNextPayload | undefined): string | null {
     pendingAiNext = aiNext;
     noteAiNextBlocked(aiNext.blocked);
   }
+  // ★ NDA-2 TASK-NDA-211（ADR-NDA-201 §③④ · FR-NDA-073/074）—— **只消费不判定**：本回合
+  // `abnormal`（SW 单源）⇒ 折进既有 risk 源；每次 done 重设（零第二分类器）。
+  noteLlmAbnormalFact(aiNext?.abnormal);
   if (state.stream.openAsks.length === 0) return maybeRecommend('idle');
   return null;
 }

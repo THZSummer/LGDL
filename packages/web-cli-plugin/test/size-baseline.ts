@@ -386,7 +386,7 @@ export { readArtifactSize, type StatLike } from './perf-baseline.js';
  * 如实登记、不停机。档位 614,400 / 绝对上限 675,840 均不动（603,205 < 614,400 ⇒ 未跨档位）；
  * 生效上限 = floor(603,205 × 1.05) = **633,365**（旧生效上限 628,872 未越 ⇒ EC-ADN-016 未触发）。
  */
-export const SIDEPANEL_BASELINE_BYTES = 604_602;
+export const SIDEPANEL_BASELINE_BYTES = 606_652;
 
 /** Previous registered baselines (v1 / V2-2 / V2-3 / V2-4 / V2 R2) — kept on record. */
 export const SIDEPANEL_BASELINE_BYTES_HISTORY = [
@@ -532,6 +532,21 @@ export const SIDEPANEL_BASELINE_BYTES_TIMELINE = [
    //   档位 `ceilTo50KB(604,602) = 614,400` 与绝对上限 675,840 **均不变**（未跨档位）；
    //   生效上限 = floor(604,602 × 1.05) = **634,832**（旧生效上限 633,365 **上调** ⇒ EC-ADN-016 三态皆「否」）。
    604_602,
+   // 〖★ NDA-1 R1（2026-09-27，leaf `specs-tree-nda-1-next-tool-channel`；TASK-NDA-101~120）〗
+   //   `next` 工具产出通道 + `hooks.intercept` 捕获 + 5 道校验链保留接入 + `ai-led` 独立规则位：
+   //   604,602 → **605,239 B**（**+637 B，+0.11%**）；逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.nda1Rows`
+   //   （`recommend.ts` +459 / `next-registry/providers.ts` +178；Σ +637 + glue 0 == +637）。
+   //   档位 `ceilTo50KB(605,239) = 614,400` 与绝对上限 675,840 **均不变**（未跨档位）；
+   //   生效上限 = floor(605,239 × 1.05) = **635,500**（旧生效上限 634,832 **上调** ⇒ EC-NDA-016 二态皆「否」）。
+   605_239,
+   // 〖★ NDA-2 R1（2026-09-27，leaf `specs-tree-nda-2-fallback-and-gates`；TASK-NDA-201~221；末叶）〗
+   //   未配置确定性引导 + 自由输入分相 + 提醒补一次 + LLM 异常兜底链 + 首开边界 + 门禁/体积重锚：
+   //   605,239 → **606,652 B**（**+1,413 B，+0.23%**）；逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.nda2Rows`
+   //   （`sidepanel.ts` +382 / `next-registry/providers.ts` +943 / `next-registry/definition.ts` +88；
+   //   Σ +1,413 + glue 0 == +1,413）。
+   //   档位 `ceilTo50KB(606,652) = 614,400` 与绝对上限 675,840 **均不变**（未跨档位）；
+   //   生效上限 = floor(606,652 × 1.05) = **636,984**（旧生效上限 635,500 **上调** ⇒ EC-NDA-016 三态皆「否」）。
+   606_652,
 ] as const;
 
 /**
@@ -593,7 +608,7 @@ export const SIDEPANEL_CEILING_UNCAPPED = Math.floor(
  * equal to the measured artifact by `test/size-budget.test.ts`, and compared at
  * runtime against the density registry by `test/ui/density.mjs` stage F.
  */
-export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 604_602;
+export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 606_652;
 
 /**
  * Machine-readable provenance. `targetBudgetBytes` / `targetMet` are **null on
@@ -602,10 +617,16 @@ export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 604_602;
  */
 export const SIDEPANEL_BASELINE_META = {
   kind: 'regression-baseline-only',
-  measuredOn: '2026-09-26',
+  measuredOn: '2026-09-27',
   source: 'packages/web-cli-plugin/dist/sidepanel.js',
   buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
   measuredBy:
+    '★ SDDU **NDA-2 R1（2026-09-27, leaf specs-tree-nda-2-fallback-and-gates；TASK-NDA-201~221）**: re-registered on the FINAL artifact — 605,239 → **606,652 B**（**+1,413 B，+0.23%**）— 未配置确定性引导 + 自由输入分相（`free-input.when` 恒真 → `!risk.includes(llmBlocked) && session.busy` 穷尽分支）+ 提醒补一次（`shouldNudge` 有界恰一次）+ LLM 异常闭集三情 + 系统兜底 `llm.abnormal` 第 13 行 provider（复用 `op.llm-config`，文案分相）；逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.nda2Rows`（`sidepanel.ts` 116,492 → **116,874（+382）** / `next-registry/providers.ts` 10,366 → **11,309（+943）** / `next-registry/definition.ts` 1,011 → **1,099（+88）**；Σ 模块 **+1,413** + glue **0** == +1,413）；**B 列**（`src/background/next-drive-policy.ts` NEW / `background/service-worker.ts`（nudge 接线 + `onFinish(outcome)` + `abnormal` 附加）/ `ui/sidepanel/sidepanel.ts` 只是 A 列）落 `dist/background.js`（1,644,437 → 1,666,594，**+22,157 B 不计入 sidepanel 账本**）；**档位 `ceilTo50KB(606,652) = 614,400` 与绝对上限 675,840 均不动**（未跨档位），生效上限 = floor(606,652 × 1.05) = **636,984**（旧生效上限 635,500 **上调**）；**两叶 Σ（A 列）= 叶1 +637 + 叶2 +1,413 = +2,050 B ≈ +2.00 KiB**（ADR-NDA-008 §② 叶2 预算 +0.6~1.4 KB ⇒ 实测 +1,413 B **越叶预算 13 B**；仍在 spec §5.14.1 保守包线（A Σ +0.8~+2.4 KB）内 ⇒ 按「越叶预算登记不停机」如实登记，不删判据 / 不放宽容差 / 不搬列规避 `FR-NDA-145`）；**EC-NDA-016 三分支显式**：越生效上限 = 否（606,652 ≤ 636,984）/ 越档位 614,400 = 否（距档 **7,748 B**）/ 越绝对上限 675,840 = 否（`authorConfirmation` 保持 `pending-author-line`，**不伪称已确认**）；`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减零降级**。Previous round: ★ SDDU **NDA-1 R1（2026-09-27, leaf specs-tree-nda-1-next-tool-channel；TASK-NDA-101~120）**: re-registered on the FINAL artifact — 604,602 → **605,239 B**（**+637 B，+0.11%**）— ' +
+    '`next` 工具产出通道 + `hooks.intercept` 捕获 + 5 道校验链保留接入 + `ai-led` 独立规则位：A 列唯一主体 = `recommend.ts`（`NEXTSTEP_PRIORITY` 恰 5 + `NEXTSTEP_LABELS.ai-led`）与 `next-registry/providers.ts`（`ai-next.rule: ai-led` + `priority 2→1`）；' +
+    '逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.nda1Rows`（`recommend.ts` 7,833 → **8,292（+459）** / `next-registry/providers.ts` 10,188 → **10,366（+178）**；Σ +637 + glue 0 == +637）；' +
+    '**B 列**（`src/tools/next-tool.ts` NEW / `background/ai-next.ts` / `ref-context.ts` / `host.ts` / `service-worker.ts`）落 `dist/background.js`，**不计入 sidepanel 账本**（列别如实标注）；' +
+    '档位 `ceilTo50KB(605,239) = 614,400` 与绝对上限 675,840 均不动（605,239 < 614,400 ⇒ 未跨档位），生效上限 = floor(605,239 × 1.05) = **635,500**；' +
+    '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；`authorConfirmation` 保持 `pending-author-line`。Previous round: ' +
     '★ SDDU **F-36 / ADN-2 R1+R2（2026-09-26, leaf specs-tree-adn-2-deterministic-fallback-and-merge；W04+W05 = TASK-ADN-201~216 落地，W06 = TASK-ADN-217~223 收口重登记）**: re-registered on the FINAL artifact — 603,205 → **604,602 B**（+1,397 B，+0.23%）— ' +
     '叶2 兜底 + 合并 + 护栏 + 首开边界：R6 同因去重扩展覆盖 AI（`aiNextAfterCompleted` / `aiGatedInput` pre-ctx 预过滤）+ 列表内 `opId#摘要` 去重 + 替换口径（AI 赢槽 ⇒ 无陈旧 ref-action chip）+ 关断显示相；' +
     '逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows`（`sidepanel.ts` +486 / `recommend.ts` +911；Σ +1,397 + glue 0 == +1,397）；' +
@@ -692,7 +713,7 @@ export const SIDEPANEL_BASELINE_META = {
   previousCeilingBytes: 393_857,
   direction: 'raised',
   ceilingDirection: 'raised-formula',
-  finalArtifactBytes: 604_602,
+  finalArtifactBytes: 606_652,
   /** 裁决 V3-VOL-1 ②：cap 已撤销，仅作记录（判定路径不含它）。 */
   ceilingFormula: 'floor(baseline × (1 + tolerance))',
   ceilingCapRole: 'record-only',
@@ -2799,6 +2820,60 @@ export const SIDEPANEL_RE_REGISTRATIONS: readonly SizeReRegistration[] = [
     historyRetainedBytes: [603_205, 598_926, 598_577, 599_125, 598_282],
     ceilingUncappedFormulaBytes: 634_832,
   },
+  {
+    id: 'nda-1-r1',
+    direction: 'raised',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-nda-1-next-tool-channel',
+    date: '2026-09-27',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU NDA-1 R1（2026-09-27，leaf specs-tree-nda-1-next-tool-channel；TASK-NDA-101~120 机制叶）',
+    reason:
+      '**NDA-1 叶1 机制换轨：604,602 → 605,239 B（+637 B，+0.11%）**。' +
+      '逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.nda1Rows`（Σ 模块 +637 + glue **0** == +637）：' +
+      '`recommend.ts` 7,833 → **8,292（+459）**（`NEXTSTEP_PRIORITY` 恰 4→5（`ai-led` 第 2 位）+ `NEXTSTEP_LABELS.ai-led`）；' +
+      '`next-registry/providers.ts` 10,188 → **10,366（+178）**（`ai-next.rule: ref-action → ai-led` + `priority 2→1` + `RULE_PROVIDER_IDS` 追加）。' +
+      '**B 列不计账**：`src/tools/next-tool.ts`（NEW）/ `background/ai-next.ts`（围栏块四符号删除 + `parseNextToolArguments` + `validateAiNext` 改签名）/ `ref-context.ts`（契约句删除）/ `host.ts`（注册一行）/ `service-worker.ts`（`intercept` + `turnState` + events 过滤 + 装配）全落 `dist/background.js`，**不进 sidepanel 账本**（列别如实标注）。' +
+      '**档位与绝对上限均不变**（`ceilTo50KB(605,239) = 614,400`、675,840）；生效上限 = `min(675,840, floor(605,239 × 1.05) = 635,500) = 635,500`（旧生效上限 634,832 **上调**）。' +
+      '**EC-NDA-016 二态显式**：越生效上限 = 否（605,239 ≤ 635,500）/ 越档位 614,400 = 否（距档 9,161 B）（`authorConfirmation` 保持 `pending-author-line`，**不伪称已确认**）。' +
+      '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减零降级**。',
+    baselineBeforeBytes: 604_602,
+    baselineAfterBytes: 605_239,
+    ceilingBeforeBytes: 634_832,
+    ceilingAfterBytes: 635_500,
+    assertionNonRemovalEntries: ['ADN2-E-VOL-1', 'ADN1-E-VOL-1', 'R8-E-VOL-1', 'IAN2-E-VOL-1', 'IAN1-E-VOL-1', 'V55F2-E-VOL-1'],
+    historyRetainedBytes: [604_602, 603_205, 598_926, 598_577, 599_125, 598_282],
+    ceilingUncappedFormulaBytes: 635_500,
+  },
+  {
+    id: 'nda-2-r1',
+    direction: 'raised',
+    roundKind: 'feature-round',
+    feature: 'specs-tree-nda-2-fallback-and-gates',
+    date: '2026-09-27',
+    source: 'packages/web-cli-plugin/dist/sidepanel.js',
+    buildCommand: 'npm run build --workspace @lgdl/web-cli-plugin',
+    measuredBy: 'SDDU NDA-2 R1（2026-09-27，leaf specs-tree-nda-2-fallback-and-gates；TASK-NDA-201~221 兜底与判据叶 / 末叶）',
+    reason:
+      '**NDA-2 叶2 收口终值：605,239 → 606,652 B（+1,413 B，+0.23%）**。' +
+      '逐模块归因见 `SIDEPANEL_GROWTH_BREAKDOWN.nda2Rows`（Σ 模块 +1,413 + glue **0** == +1,413）：' +
+      '`sidepanel.ts` 116,492 → **116,874（+382）**（`noteLlmAbnormalFact` + `risk` 折叠 + `consumeAiNext` 消费 + `testing.recommend(llmAbnormal)` 缝）；' +
+      '`next-registry/providers.ts` 10,366 → **11,309（+943）**（`free-input.when` 分相 + `llm.abnormal` 第 13 行 + `LLM_ABNORMAL_RISK` + `DRIVER_DECLS_SRC` 第 13 行）；' +
+      '`next-registry/definition.ts` 1,011 → **1,099（+88）**（`AI_ABNORMAL_CODES` + `AiNextPayload.abnormal?`）。' +
+      '**B 列不计账**：`src/background/next-drive-policy.ts`（NEW：`shouldNudge` / `abnormalVerdict` / `NUDGE_TEXT`）与 `background/service-worker.ts`（`configured` 单源 + `chat` 回调内 nudge + `onFinish(outcome)` + `abnormal` 附加）全落 `dist/background.js`（1,644,437 → **1,666,594，+22,157 B**），**不进 sidepanel 账本**（列别如实标注）。' +
+      '**档位与绝对上限均不变**（`ceilTo50KB(606,652) = 614,400`、675,840）；生效上限 = `min(675,840, floor(606,652 × 1.05) = 636,984) = 636,984`（旧生效上限 635,500 **上调**）。' +
+      '**两叶 Σ（A 列）= 叶1 +637 + 叶2 +1,413 = +2,050 B ≈ +2.00 KiB**；ADR-NDA-008 §② 叶2 预算 +0.6~1.4 KB ⇒ 实测 **+1,413 B 越叶预算 13 B**，仍在 spec §5.14.1 保守包线（A Σ +0.8~+2.4 KB / 2.8× 最坏 ≈7.7 KB，余量 ≈2.1 KB）内 ⇒ 按「越叶预算登记不停机」如实登记（不删判据 / 不放宽容差 / 不搬列规避 `FR-NDA-145`）。' +
+      '**EC-NDA-016 三分支显式**：越生效上限 = 否（606,652 ≤ 636,984）/ 越档位 614,400 = 否（距档 **7,748 B**）/ 越绝对上限 675,840 = 否（`authorConfirmation` 保持 `pending-author-line`，**不伪称已确认**）。' +
+      '`dist/content.js` 177,076 B / sha `52a82620…` 与 `dist/pick-layer.js` 34,358 B / sha `77796bab…` **逐字节不变**；容差 5% 未动；`SIDEPANEL_CEILING_CAP` 保持 record-only；**断言零删减零降级**。',
+    baselineBeforeBytes: 605_239,
+    baselineAfterBytes: 606_652,
+    ceilingBeforeBytes: 635_500,
+    ceilingAfterBytes: 636_984,
+    assertionNonRemovalEntries: ['ADN2-E-VOL-1', 'ADN1-E-VOL-1', 'R8-E-VOL-1', 'IAN2-E-VOL-1', 'IAN1-E-VOL-1', 'V55F2-E-VOL-1'],
+    historyRetainedBytes: [605_239, 604_602, 603_205, 598_926, 598_577, 599_125, 598_282],
+    ceilingUncappedFormulaBytes: 636_984,
+  },
 ] as const;
 
 /**
@@ -2845,7 +2920,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * 累计：当前基线 − `baselineReferenceBytes`（**557,883 − 295,225 = 262,658**；
    * V5.5-1 review R1 修复轮为 557,761 − 295,225 = 262,536 再加本轮 +122）。
    */
-  deltaBytes: 309_377,
+  deltaBytes: 311_427,
   /**
    * **最新一轮**的产物增量 = `SIDEPANEL_BASELINE_BYTES − 上一轮登记值`（`size-growth-evidence.test.ts` 直接机核该等式）。
    * 〖R4 缺陷修复轮（2026-09-22）〗最新一轮 = `r4-selector-fix` ⇒ 本字段 = `549,609 − 547,558 = **2,051**`
@@ -2861,7 +2936,7 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
    * `v42RoundRows` 的注释里）。v4-1 轮自身的增量（375,102 → 385,319，Σ+10,075 + 142）
    * 逐字保留在 {@link SIDEPANEL_GROWTH_BREAKDOWN.v41RoundRows} 的注释与 `v41RoundUnattributedGlueBytes`。
    */
-  closeoutDeltaBytes: 1_397,
+  closeoutDeltaBytes: 1_413,
   newRequiredModuleBytes: 195_562,
   // R2（+277：chat-state 的自动归并接线）+ 审查修复轮（+12,846）+ 快修轮（+734：sidepanel 首装推荐接线）
   // + 收口轮（+124：`projectRef` 唯一性键）+ V5-1 R1（−303：sidepanel 集 B 瘦身）计入接线桶；
@@ -2872,8 +2947,10 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   //   （drivers.ts +645 / sidepanel.ts +2,530 = +3,175；余 10 B 为本轮未归因胶水，进 `unattributedHelperDeltaBytes`）。
   // 〖V5.5-1 review R1 修复轮（2026-09-23）〗新增 +122 B 全部落在**既有模块的接线桶**
   //   （sidepanel.ts 99,566 → 99,688；glue 0，`unattributedHelperDeltaBytes` 不变）。
-  // 桶和 = newRequiredModuleBytes 181,921 + wiringBytes 78,814 + 0 + 1,923 == 262,658 == `deltaBytes`。
-  wiringBytes: 112_261,
+  // 〖★ NDA-2 R1（2026-09-27，末叶）〗新增 +1,413 B 全部落在**既有模块的接线桶**
+  //   （sidepanel.ts +382 / providers.ts +943 / definition.ts +88；glue 0）。
+  // 桶和 = newRequiredModuleBytes 195,562 + wiringBytes 114,311 + 0 + 1,554 == 311,427 == `deltaBytes`。
+  wiringBytes: 114_311,
   attributionShiftBytes: 0,
   /**
    * 未归因运行时胶水：`deltaBytes − Σ(rows.deltaBytes)`（review 修复轮后实测 **1,060 B** = 累计增量 129,869 的 **0.82%**；
@@ -3183,6 +3260,11 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     // **最新一轮** = 本组（Σ +4,279 + glue 0 == 598,926 → 603,205）。
     adn1R1Rows: 'adn-1-r1',
     adn2Rows: 'adn-2-r1',
+    // 〖★ NDA-1 R1（2026-09-27，leaf specs-tree-nda-1-next-tool-channel）〗历史轮（Σ +637 + glue 0）。
+    nda1Rows: 'nda-1-r1',
+    // 〖★ NDA-2 R1（2026-09-27，leaf specs-tree-nda-2-fallback-and-gates；**末叶**）〗**最新一轮** = 本组
+    // （Σ +1,413 + glue 0 == 605,239 → 606,652）。
+    nda2Rows: 'nda-2-r1',
   } as Readonly<Record<string, string>>,
   v44ReviewfixRows: [
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 72583, afterBytes: 78892, deltaBytes: 6309 },
@@ -3751,6 +3833,33 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
   ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
   /** 〖ADN-2 R1〗未归因运行时胶水 = 0 B（Σ 模块 +1,397 == 登记增量 +1,397）。 */
   adn2UnattributedGlueBytes: 0,
+  /** 〖★ NDA-1 R1（2026-09-27，leaf `specs-tree-nda-1-next-tool-channel`；TASK-NDA-101~120）〗A 列逐模块增量（真实 `dist/build-meta.json`）。 */
+  nda1Rows: [
+    { module: 'src/ui/sidepanel/recommend.ts', beforeBytes: 7_833, afterBytes: 8_292, deltaBytes: 459 },
+    { module: 'src/ui/sidepanel/next-registry/providers.ts', beforeBytes: 10_188, afterBytes: 10_366, deltaBytes: 178 },
+  ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
+  /** 〖NDA-1 R1〗未归因运行时胶水 = 0 B（Σ 模块 +637 == 登记增量 +637）。 */
+  nda1UnattributedGlueBytes: 0,
+  /**
+   * 〖★ NDA-2 R1（2026-09-27，leaf `specs-tree-nda-2-fallback-and-gates`；TASK-NDA-201~221；**末叶**）〗
+   * A 列逐模块增量（真实 `dist/build-meta.json`；`bytesInOutput` 逐值同源）。
+   *
+   * `sidepanel.ts` 116,492 → **116,874（+382）**（`noteLlmAbnormalFact` + `risk` 折叠 +
+   * `consumeAiNext` 消费 + `testing.recommend('llmAbnormal')` 缝）；
+   * `next-registry/providers.ts` 10,366 → **11,309（+943）**（`free-input.when` 分相 + `llm.abnormal`
+   * 第 13 行 + `LLM_ABNORMAL_RISK` + `DRIVER_DECLS_SRC` 第 13 行）；
+   * `next-registry/definition.ts` 1,011 → **1,099（+88）**（`AI_ABNORMAL_CODES` + `AiNextPayload.abnormal?`）。
+   * Σ 模块 **+1,413** + 未归因胶水 **0** == 叶2 登记增量 **+1,413**（605,239 → 606,652）。
+   * ⚠️ **越叶预算 13 B**（ADR-NDA-008 §② 叶2 预算 +0.6~1.4 KB）按「登记不停机」如实登记；
+   * 两叶 Σ（A 列）= +637 + 1,413 = **+2,050 B**（仍在 spec §5.14.1 保守包线内）。
+   */
+  nda2Rows: [
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 116_492, afterBytes: 116_874, deltaBytes: 382 },
+    { module: 'src/ui/sidepanel/next-registry/providers.ts', beforeBytes: 10_366, afterBytes: 11_309, deltaBytes: 943 },
+    { module: 'src/ui/sidepanel/next-registry/definition.ts', beforeBytes: 1_011, afterBytes: 1_099, deltaBytes: 88 },
+  ] as readonly { module: string; beforeBytes: number | null; afterBytes: number; deltaBytes: number }[],
+  /** 〖NDA-2 R1〗未归因运行时胶水 = 0 B（Σ 模块 +1,413 == 登记增量 +1,413）。 */
+  nda2UnattributedGlueBytes: 0,
   /**
    * 〖★ F-36 / ADN-1 R2（2026-09-26，leaf `specs-tree-adn-1-ai-next-produce-and-verify`；
    * W03 = TASK-ADN-118~127）〗**叶1 整叶终值**逐模块增量（真实 `dist/build-meta.json`；
@@ -3908,6 +4017,13 @@ export const SIDEPANEL_GROWTH_BREAKDOWN = {
     { module: 'src/shared/op-table.ts', beforeBytes: 1_304, afterBytes: 1_360, deltaBytes: 56, kind: 'wiring', requiredBy: 'ADN-1 R1：`OpDescriptor.ask?` 加法字段（param 相容单源；`ask===undefined ⟺ IMPL params===null`）；FR-ADN-016/025 · ADR-ADN-002 §③' },
     { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 116_006, afterBytes: 116_492, deltaBytes: 486, kind: 'wiring', requiredBy: 'ADN-2 R1：`maybeRecommend` 注入 `session.aiNext` 前检查 `proactivity.enabled()`（显示相关断；一处偏好两相）；FR-ADN-062 · ADR-ADN-006 §④' },
     { module: 'src/ui/sidepanel/recommend.ts', beforeBytes: 6_922, afterBytes: 7_833, deltaBytes: 911, kind: 'wiring', requiredBy: 'ADN-2 R1：R6 同因去重扩展覆盖 AI（`aiNextAfterCompleted` / `aiGatedInput` pre-ctx 预过滤，`refActionDigest` 家系逐字复用）+ 列表内 `opId#摘要` 去重 + 替换口径；FR-ADN-050~055 · ADR-ADN-004 §④⑤⑥' },
+    { module: 'src/ui/sidepanel/next-registry/providers.ts', beforeBytes: 10_188, afterBytes: 10_366, deltaBytes: 178, kind: 'wiring', requiredBy: 'NDA-1 R1：`ai-next.rule` 由 `ref-action` → `ai-led`（独立规则位）+ `priority 2→1` + `RULE_PROVIDER_IDS` 追加 `ai-led`；FR-NDA-042/114 · ADR-NDA-003 §②' },
+    { module: 'src/ui/sidepanel/recommend.ts', beforeBytes: 7_833, afterBytes: 8_292, deltaBytes: 459, kind: 'wiring', requiredBy: 'NDA-1 R1：`NEXTSTEP_PRIORITY` 恰 5（`ai-led` 第 2 位）+ `NEXTSTEP_LABELS.ai-led`；FR-NDA-042/044/114 · ADR-NDA-003 §①' },
+    // 〖★ NDA-2 R1（2026-09-27，末叶 specs-tree-nda-2-fallback-and-gates）〗累计归因追加（只增不减）：
+    // 分相 / 兜底 / 重锚的 A 列三模块（Σ +1,413）。
+    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 116_492, afterBytes: 116_874, deltaBytes: 382, kind: 'wiring', requiredBy: 'NDA-2 R1：`noteLlmAbnormalFact` + `risk` 折叠 + `consumeAiNext` 消费（只消费不判定）+ `testing.recommend(llmAbnormal)` 缝；FR-NDA-073/074 · ADR-NDA-201 §③④' },
+    { module: 'src/ui/sidepanel/next-registry/providers.ts', beforeBytes: 10_366, afterBytes: 11_309, deltaBytes: 943, kind: 'wiring', requiredBy: 'NDA-2 R1：`free-input.when` 分相 + `llm.abnormal` 第 13 行 provider + `LLM_ABNORMAL_RISK` + `DRIVER_DECLS_SRC` 第 13 行；FR-NDA-051/052/072~076 · ADR-NDA-005/007' },
+    { module: 'src/ui/sidepanel/next-registry/definition.ts', beforeBytes: 1_011, afterBytes: 1_099, deltaBytes: 88, kind: 'wiring', requiredBy: 'NDA-2 R1：`AI_ABNORMAL_CODES` 闭集（恰一处）+ `AiNextPayload.abnormal?` 加法可选子字段；FR-NDA-070/071/075 · ADR-NDA-201 §②' },
   ] as readonly GrowthAttributionRow[],
 } as const;
 

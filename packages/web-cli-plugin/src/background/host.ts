@@ -29,6 +29,7 @@ import { createPluginPolicyConfig, createRiskGuard, type RiskGuard } from '../se
 import { isCommandDestructive, withCommandOverride } from '../security/command-override.js';
 import type { OptionalCapability } from '../platform/capability-permissions.js';
 import { createAdminToolEntries } from '../tools/admin-tools.js';
+import { createNextToolEntry } from '../tools/next-tool.js';
 import { createBrowserToolEntries, type BrowserToolOptions } from '../tools/browser-tools.js';
 import { createTabsToolEntry, TABS_TOOL_NAME, type TabsToolDeps } from '../tools/tabs-tools.js';
 import {
@@ -331,6 +332,14 @@ export function createWebCliHost(opts: WebCliHostOptions): WebCliHost {
   // capability face is explicit; without a responder it returns a readable
   // disabled message (never a silent no-op).
   router.register(createAskUserToolEntry(opts.askUser ? { askUser: opts.askUser } : {}));
+
+  // ★ NDA-1 **TASK-NDA-103**（ADR-NDA-001 §① · FR-NDA-010/015）—— the `next`
+  // pure-protocol tool, registered unconditionally alongside `ask-user`. Because
+  // `runChat` early-returns before `providerChat` when the LLM is unconfigured
+  // (service-worker `:945-956`), the tool surface is only ever assembled for a
+  // configured install ⇒「unconfigured ⇒ tool never sent」holds structurally
+  // (FR-NDA-018). `listed:false` keeps it out of the `web-cli-help` listing.
+  router.register(createNextToolEntry());
 
   // FR-051: base-derived browser tools (dom/chrome/wait/extract/export/save/
   // events/web-search). Registered flat (no namespace) so the LLM function names

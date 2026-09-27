@@ -654,7 +654,7 @@ export const S0PP_ITEMS = Object.freeze([
   { id: 'S0PP-B3-single-slot', expectFailPattern: "S0''-B：`requestTurn(` 恰 1（唯一生产输入提交点 = op.turn 槽）" },
   { id: 'S0PP-B4-single-backfill', expectFailPattern: "S0''-B：唯一回填载体（流内卡内输入；流外写点零命中 ∧ 不覆盖非空）" },
   { id: 'S0PP-B5-driver', expectFailPattern: "S0''-B：留痕 driver 两值可判（手输 manual ∧ AI 不写 manual）" },
-  { id: 'S0PP-B6-carrier-redline', expectFailPattern: "S0''-B：零新增载体 + 红线（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 / NEXTSTEP_PRIORITY 4）" },
+  { id: 'S0PP-B6-carrier-redline', expectFailPattern: "S0''-B：零新增载体 + 红线（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 / NEXTSTEP_PRIORITY 5）" },
   { id: 'S0PP-B7-freeze', expectFailPattern: "S0''-B：三冻结面零容差（content.js 177,076 B / pick-layer.js 34,358 B）" },
 ]);
 
@@ -727,7 +727,8 @@ export function s0ppProblems(reading = {}) {
   if (reading.kindCount !== 12) problems.push(`${item('S0PP-B6-carrier-redline').id} 12 kind 契约不动（实测 ${String(reading.kindCount)}）`);
   if (reading.hostsEmpty !== true) problems.push(`${item('S0PP-B6-carrier-redline').id} REGISTERED_STRUCTURAL_HOSTS 必须仍为空`);
   if (reading.actToOpSize !== 6) problems.push(`${item('S0PP-B6-carrier-redline').id} ACT_TO_OP 必须仍恰 6（实测 ${String(reading.actToOpSize)}）`);
-  if (reading.nextstepPrioritySize !== 4) problems.push(`${item('S0PP-B6-carrier-redline').id} NEXTSTEP_PRIORITY 必须仍恰 4（实测 ${String(reading.nextstepPrioritySize)}）`);
+  // ★ NDA-1 TASK-NDA-113：恰 4 → 恰 5（`ai-led` 独立规则位；S0'' 红线随 NDA-1 等价重锚）。
+  if (reading.nextstepPrioritySize !== 5) problems.push(`${item('S0PP-B6-carrier-redline').id} NEXTSTEP_PRIORITY 必须恰 5（实测 ${String(reading.nextstepPrioritySize)}）`);
   // ⑥ 三冻结面零容差（只读双锚）。
   const freeze = reading.freeze ?? {};
   if (freeze.contentBytes !== 177076) problems.push(`${item('S0PP-B7-freeze').id} content.js 必须冻结在 177,076 B（实测 ${String(freeze.contentBytes)}）`);
@@ -767,8 +768,20 @@ export function s0ppProblems(reading = {}) {
 /** S0''' 的四支线（唯一分流依据；与 `S0_BRANCHES` 正交，不共用词表）。 */
 export const S0PPP_BRANCHES = Object.freeze(['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured']);
 
-/** 围栏块的 info 串（与 `background/ai-next.ts#AI_NEXT_FENCE_INFO` 同字面；样本不新增第二词汇）。 */
-export const S0PPP_FENCE_INFO = 'next';
+/**
+ * ★ NDA-1 **TASK-NDA-116**（ADR-NDA-004 §③）—— 样本**等价重锚**：产出载体从「尾随
+ * `next` 围栏块」换成「`next` 工具调用」（`hooks.intercept` 捕获的 `tc.rawArguments`）。
+ * 工具名与 `src/tools/next-tool.ts#NEXT_TOOL_NAME` 同字面（样本不新增第二词汇）。
+ */
+export const S0PPP_TOOL_NAME = 'next';
+
+/**
+ * 造一条 `next` 工具调用的原始 `arguments` 串（样本**单源**；node / Chromium 双面共用）。
+ * 形状与 `NEXT_TOOL_SCHEMA.parameters` 同构：`{candidates:[{opId,label,ref?,params?}]}`。
+ */
+export function s0pppToolArguments(candidates) {
+  return JSON.stringify({ candidates: Array.isArray(candidates) ? candidates : [] });
+}
 
 /** A 支线的合法候选（`op.turn` = `auto` 档；label 走零明文白名单）。 */
 export const S0PPP_ACCEPTED = Object.freeze({ opId: 'op.turn', label: '把这页图改成架构图' });
@@ -797,7 +810,7 @@ export const S0PPP_TERMINAL_LABEL = '自由输入…';
 
 /** S0''' 的十环节（id + 人读标签；顺序即判据序）。 */
 export const S0PPP_CHAIN = Object.freeze([
-  { id: 'structure', label: "S0'''-1 尾随 next 围栏块 + 严格 JSON 数组（结构可判）" },
+  { id: 'structure', label: "S0'''-1 next 工具 rawArguments + 严格 JSON 对象（结构可判）" },
   { id: 'registry-op', label: "S0'''-2 opId ∈ OP_IDS ∧ 档位 ≠ gesture" },
   { id: 'blocked', label: "S0'''-3 五类注入各 admit=false + 可读行 + 不渲染为 chip" },
   { id: 'accepted', label: "S0'''-4 A 合法被采纳（替换陈旧候选 + ≤3 + 单卡）" },
@@ -811,7 +824,7 @@ export const S0PPP_CHAIN = Object.freeze([
 
 /** S0''' 的十条必判项（`expectFailPattern` 逐字；node / Chromium 两面共用）。 */
 export const S0PPP_ITEMS = Object.freeze([
-  { id: 'S0PPP-1-structure', expectFailPattern: "S0'''：尾随 next 围栏块 + 严格 JSON 数组必须可判（结构可判）" },
+  { id: 'S0PPP-1-structure', expectFailPattern: "S0'''：next 工具 rawArguments + 严格 JSON 对象（结构可判）" },
   { id: 'S0PPP-2-registry-op', expectFailPattern: "S0'''：合法候选 opId 必须在册且档位 ≠ gesture（AI 不得触达特权面）" },
   { id: 'S0PPP-3-blocked', expectFailPattern: "S0'''：五类注入必须逐类被拦（blocked=<code>）+ 可读留痕 + 不渲染为 chip" },
   { id: 'S0PPP-4-accepted', expectFailPattern: "S0'''：A 合法被采纳（替换既有确定性候选 + 单卡 ≤3 chips）" },
@@ -904,5 +917,152 @@ export function s0pppProblems(reading = {}) {
   for (const v of reading.userValues ?? []) {
     if (String(v).length > 0 && trace.includes(String(v))) fail('S0PPP-10-proposal-budget', '留痕必须零明文（法八）');
   }
+  return problems;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-1 **TASK-NDA-115 / 116**（ADR-NDA-004 §③ · ADR-NDA-007 S0'''' 五支线 ·
+ * 父 spec §5.11 · FR-NDA-100~103 / 105 / 106 · AC-NDA-001）—— **S0'''' 五支线**
+ * （A 工具产出合法 / B 被拦 / C 未产出 / D 未配置 / E 首开）的样本 + 判据。
+ *
+ * 样本**单源**（node 面 `test/ai-next-candidate.test.ts` 与 Chromium 面
+ * `test/ui/s0-self-driven.mjs` **共用同一份**；禁第二份样本 / 第二份判据）。
+ * 产出载体 = **`next` 工具调用**（`hooks.intercept` 捕获 `tc.rawArguments`），
+ * 围栏块通道已**结构性替换**（见 `S0PPPP-9`）。
+ *
+ * ── 叶内分工（硬串行）───────────────────────────────────────────────────────
+ *
+ *   · **叶1（本叶）**：主线 A（`S0PPPP-1/2/6/8/9/10/12` 主线侧）+ 支线 B + 支线 D
+ *     的 **node 面**；`S0PPPP-3/4/5/7/11`（提醒 / 未配置引导 / 系统兜底 / 首开终态）
+ *     的**终态**属叶2 —— 本判据对它们记 `n/a`（**不冒充 ok**）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** S0'''' 五支线（唯一分流依据）。 */
+export const S0PPPP_BRANCHES = Object.freeze(['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured', 'E-first-open']);
+
+/** 叶1 的**主线侧步骤**（本判据在此集合内必须能 FAIL；其余记 n/a，终态属叶2）。 */
+export const S0PPPP_LEAF1_STEPS = Object.freeze(['S0PPPP-1', 'S0PPPP-2', 'S0PPPP-6', 'S0PPPP-8', 'S0PPPP-9', 'S0PPPP-10', 'S0PPPP-12']);
+
+/**
+ * ★ NDA-2 **TASK-NDA-216**（ADR-NDA-006 §⑦ · ADR-NDA-007 §③ · ADR-NDA-202 §③ ·
+ * FR-NDA-100/103/104 · AC-NDA-001/009/011）—— **叶2 终态侧的五拍**（提醒 / 未配置引导 /
+ * 已配置终端 / 系统兜底 / 首开）。叶1 记 `n/a` 的步骤由本叶**机器化**（禁冒充 ok）。
+ */
+export const S0PPPP_LEAF2_STEPS = Object.freeze(['S0PPPP-3', 'S0PPPP-4', 'S0PPPP-5', 'S0PPPP-7', 'S0PPPP-11']);
+
+
+/** S0'''' 的十二环节（id + 人读标签；顺序即判据序）。 */
+export const S0PPPP_CHAIN = Object.freeze([
+  { id: 'tool-produce', label: "S0''''-1 已配置 ⇒ next 工具产出结构化候选（intercept 捕获）" },
+  { id: 'unconditional', label: "S0''''-2 无条件触发（无引用回合仍驱动；未配置不驱动）" },
+  { id: 'nudge-bounded', label: "S0''''-3 提醒补一次（有界恰一次）" },
+  { id: 'unconfigured-guide', label: "S0''''-4 未配置 ⇒ 确定性引导 + 无自由输入终端" },
+  { id: 'free-input', label: "S0''''-5 已配置 ⇒ free-input 恒在（恒最末）" },
+  { id: 'blocked', label: "S0''''-6 非法候选被拦 + 留痕（四类各 admit=false + blocked= 行）" },
+  { id: 'fallback', label: "S0''''-7 系统兜底推荐可达（no-tool-call / llm-failed / all-blocked）" },
+  { id: 'layering', label: "S0''''-8 判定分层（confirm admit=true ∧ press=blocked:tier；gesture admit=false）" },
+  { id: 'fence-retired', label: "S0''''-9 围栏块通道已替换（next 工具为唯一产出通道）" },
+  { id: 'carrier', label: "S0''''-10 零新增载体（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）" },
+  { id: 'first-open', label: "S0''''-11 首开确定性（零 LLM 往返依赖；零双卡）" },
+  { id: 'trace', label: "S0''''-12 留痕三要素 + 零明文（不含候选 label / params 值）" },
+]);
+
+/** S0'''' 的十二条必判项（`expectFailPattern` 逐字；node / Chromium 两面共用）。 */
+export const S0PPPP_ITEMS = Object.freeze([
+  { id: 'S0PPPP-1', expectFailPattern: "S0''''：next 工具调用必须被 intercept 捕获且候选结构可判" },
+  { id: 'S0PPPP-2', expectFailPattern: "S0''''：无条件触发（无引用回合仍驱动；未配置不驱动）" },
+  { id: 'S0PPPP-3', expectFailPattern: "S0''''：提醒补一次必须有界恰一次（终态属叶2）" },
+  { id: 'S0PPPP-4', expectFailPattern: "S0''''：未配置 ⇒ 确定性引导 ∧ 无自由输入终端（终态属叶2）" },
+  { id: 'S0PPPP-5', expectFailPattern: "S0''''：已配置 ⇒ free-input 终端恒在且恒最末（终态属叶2）" },
+  { id: 'S0PPPP-6', expectFailPattern: "S0''''：非法候选四类各被拦 + 可读 blocked= 行 + 不渲染为 chip" },
+  { id: 'S0PPPP-7', expectFailPattern: "S0''''：系统兜底推荐可达（终态属叶2）" },
+  { id: 'S0PPPP-8', expectFailPattern: "S0''''：判定分层（confirm 可接受不可自动按下；gesture 连接受都拒）" },
+  { id: 'S0PPPP-9', expectFailPattern: "S0''''：围栏块通道必须已替换（next 工具唯一产出通道）" },
+  { id: 'S0PPPP-10', expectFailPattern: "S0''''：零新增载体（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）" },
+  { id: 'S0PPPP-11', expectFailPattern: "S0''''：首开确定性（终态属叶2）" },
+  { id: 'S0PPPP-12', expectFailPattern: "S0''''：留痕三要素可读 + 零明文（不含候选 label / params 值）" },
+]);
+
+/** S0'''' 逐拍读数（两面各自登记自己真的驱动的拍；收尾机核「登记 ⇔ 读数」）。 */
+export function s0ppppChain() {
+  return S0PPPP_CHAIN.map((b) => ({ id: b.id, label: b.label }));
+}
+
+/** B 支线的四类非法注入（叶1 主线侧；与 `AI_NEXT_BLOCKED_CODES` 同字面）。 */
+export const S0PPPP_BLOCKED_CASES = Object.freeze([
+  { name: 'hallucination', candidate: Object.freeze({ opId: 'op.ghost', label: '幻觉动作' }), code: 'unknown-op' },
+  { name: 'gesture', candidate: Object.freeze({ opId: 'op.authorize', label: '授权当前站点' }), code: 'tier' },
+  { name: 'out-of-range-ref', candidate: Object.freeze({ opId: 'op.turn', label: '继续', ref: 'ref_999' }), code: 'ref' },
+  { name: 'out-of-range-param', candidate: Object.freeze({ opId: 'op.turn', label: '继续', params: 'x' }), code: 'param' },
+]);
+
+/**
+ * **S0'''' 五支线必判项判据**（纯函数；node / Chromium 双面共用）。叶1 只对
+ * {@link S0PPPP_LEAF1_STEPS} 内的步骤判红；其余（终态属叶2）**不冒充 ok**（记 n/a）。
+ * `reading`（注入读数）见 `test/ai-next-candidate.test.ts#s0ppppReading`。
+ */
+export function s0ppppProblems(reading = {}) {
+  const problems = [];
+  const item = (id) => S0PPPP_ITEMS.find((x) => x.id === id);
+  const fail = (id, msg) => problems.push(`${item(id).id} ${item(id).expectFailPattern}：${msg}`);
+  // S0PPPP-1 工具捕获 + 候选结构。
+  if (reading.captured !== true) fail('S0PPPP-1', 'next 工具调用必须被 intercept 捕获');
+  if (reading.candidateShape !== true) fail('S0PPPP-1', '候选结构 {opId,label,ref?,params?} 必须可判');
+  // S0PPPP-2 无条件触发（工具面含 next；未配置不下发）。
+  if (reading.unconditional !== true) fail('S0PPPP-2', '无引用回合工具面仍必须含 next');
+  if (reading.unconfiguredToolSent !== false) fail('S0PPPP-2', '未配置 ⇒ 不得下发 next 工具');
+  // S0PPPP-6 非法被拦 + 可读 + 不渲染。
+  const codes = Array.isArray(reading.blockedCodes) ? reading.blockedCodes : [];
+  const expected = S0PPPP_BLOCKED_CASES.map((c) => c.code);
+  if (codes.join('|') !== expected.join('|')) fail('S0PPPP-6', `四类注入必须逐序被拦（实测 ${codes.join('|') || '<空>'}）`);
+  if (reading.blockedReadable !== true) fail('S0PPPP-6', '被拦必须留可读行（blocked=<code>）');
+  if (reading.blockedNotRendered !== true) fail('S0PPPP-6', '**未校验候选进 chips ⇒ FAIL**：被拦候选不得渲染为 chip');
+  // S0PPPP-8 判定分层。
+  if (reading.confirmAdmit !== true) fail('S0PPPP-8', 'confirm 必须可接受（可见提案）');
+  if (reading.confirmPress !== 'tier') fail('S0PPPP-8', `confirm 不得自动按下（press=${String(reading.confirmPress)}）`);
+  if (reading.gestureAdmit !== false) fail('S0PPPP-8', 'gesture 必须连接受都拒');
+  // S0PPPP-9 围栏块已替换。
+  if (reading.fenceRetired !== true) fail('S0PPPP-9', '围栏块符号必须在 src 零命中（next 工具唯一产出通道）');
+  // S0PPPP-10 零新增载体。
+  if (Number(reading.kindSetSize) !== 40) fail('S0PPPP-10', `KIND_SET 必须仍 40（实测 ${String(reading.kindSetSize)}）`);
+  if (Number(reading.kindCount) !== 12) fail('S0PPPP-10', `12 kind 契约不动（实测 ${String(reading.kindCount)}）`);
+  if (reading.hostsEmpty !== true) fail('S0PPPP-10', 'REGISTERED_STRUCTURAL_HOSTS 必须仍为空');
+  if (Number(reading.actToOpSize) !== 6) fail('S0PPPP-10', `ACT_TO_OP 必须仍恰 6（实测 ${String(reading.actToOpSize)}）`);
+  // S0PPPP-12 留痕三要素 + 零明文。
+  const trace = String(reading.trace ?? '');
+  if (!/^driver=ai-next \| timing=idle \| evidence=session\.aiNext$/.test(trace)) {
+    fail('S0PPPP-12', `留痕必须三要素（driver/timing/evidence）可读（实测 ${JSON.stringify(trace)}）`);
+  }
+  for (const v of reading.userValues ?? []) {
+    if (String(v).length > 0 && trace.includes(String(v))) fail('S0PPPP-12', '留痕必须零明文（法八）');
+  }
+  // 主线 A：合法候选 ⇒ 注入 chips ≤3 + 单卡 + 终端恒最末。
+  if (!(Number(reading.chipCount) <= 3)) fail('S0PPPP-1', `主线 A 单卡 chips 必须 ≤3（实测 ${String(reading.chipCount)}）`);
+  if (Number(reading.cardCount) !== 1) fail('S0PPPP-1', `主线 A 必须单卡（实测 ${String(reading.cardCount)}）`);
+  if (reading.terminalLast !== true) fail('S0PPPP-2', '终端必须恒在场且恒最末');
+  /* ── ★ NDA-2 TASK-NDA-216：叶2 终态侧五拍（提醒 / 未配置 / 已配置终端 / 兜底 / 首开）── */
+  // S0PPPP-3 提醒补一次（有界恰一次）。
+  if (reading.nudgeBounded !== true) fail('S0PPPP-3', '提醒必须有界恰一次（nudgeUsed 首闸；二阶 ⇒ FAIL）');
+  if (reading.nudgeRounds !== 1) fail('S0PPPP-3', `提醒往返必须恰 1（实测 ${String(reading.nudgeRounds)}）`);
+  // S0PPPP-4 未配置 ⇒ 确定性引导 ∧ 无自由输入终端。
+  if (reading.unconfiguredTerminalAbsent !== true) fail('S0PPPP-4', '未配置 ⇒ 卡不得含 .next-terminal（自由输入不可行）');
+  if (reading.unconfiguredGuideChip !== true) fail('S0PPPP-4', '未配置 ⇒ 必有可达 op.llm-config 引导 chip（零死端）');
+  if (reading.unconfiguredZeroToken !== true) fail('S0PPPP-4', '未配置 ⇒ 零 token / 零网络（不发起 provider 调用）');
+  // S0PPPP-5 已配置 ⇒ free-input 恒在且恒最末。
+  if (reading.configuredTerminal !== true) fail('S0PPPP-5', '已配置 ⇒ 终端恒常驻（R8 / F-35 不回归）');
+  // S0PPPP-7 系统兜底推荐可达（三情形闭集）。
+  if (reading.fallbackChip !== true) fail('S0PPPP-7', '异常相必有可达 op.llm-config 兜底 chip');
+  const abnormalCodes = Array.isArray(reading.abnormalCodes) ? reading.abnormalCodes : [];
+  if (abnormalCodes.join('|') !== 'no-tool-call|llm-failed|all-blocked') {
+    fail('S0PPPP-7', `闭集三情必须逐序可判（实测 ${abnormalCodes.join('|') || '<空>'}）`);
+  }
+  if (reading.abnormalCopyDistinct !== true) fail('S0PPPP-7', '兜底文案必须与未配置相文案相异（词表分相）');
+  // ★ R1 修复轮 **I-1**（FR-NDA-070 字面「无 next 工具调用」）：区分「调用但空候选」与「真未调用」。
+  if (reading.emptySuggestionHealthy !== true) fail('S0PPPP-7', 'I-1：调用 next 但空 candidates（合法无建议）不得判异常 / 不得推「配置新的 LLM」');
+  if (reading.trueMissIsAbnormal !== true) fail('S0PPPP-7', 'I-1：真未调用 next ⇒ no-tool-call（提醒 → 兜底链才触发）');
+  // S0PPPP-11 首开确定性（零 LLM 往返依赖；零双卡）。
+  if (reading.firstOpenDeterministic !== true) fail('S0PPPP-11', '首开必须走确定性路径（不 AI 产初始 next）');
+  if (reading.firstOpenLlmRounds !== 0) fail('S0PPPP-11', `首屏必须零 LLM 往返依赖（实测 ${String(reading.firstOpenLlmRounds)}）`);
+  if (reading.firstOpenDoubleCard !== false) fail('S0PPPP-11', '零双卡（让位 firstRun）');
   return problems;
 }

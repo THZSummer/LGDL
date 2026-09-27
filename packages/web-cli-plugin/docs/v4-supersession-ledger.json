@@ -21,7 +21,9 @@
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -63,7 +65,7 @@
         "filesWithUnregisteredLeafDeletions": 31,
         "registeredLines": 1493,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       },
       "registeredUncoveredLines": [
         {
@@ -1792,7 +1794,9 @@
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -2927,7 +2931,7 @@
         "filesWithUnregisteredLeafDeletions": 31,
         "registeredLines": 873,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       },
       "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段驱动（注入 → 该叶段判红；未注入 → 干净）；本叶段为 `v4-3 @ 0f8a1fb`。"
     },
@@ -2945,7 +2949,9 @@
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -3933,7 +3939,7 @@
         "filesWithUnregisteredLeafDeletions": 29,
         "registeredLines": 741,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       },
       "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段驱动（注入 → 该叶段判红；未注入 → 干净）；本叶段为 `v4-4 @ eb879bb`。"
     },
@@ -3951,7 +3957,9 @@
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -4973,7 +4981,7 @@
         "filesWithUnregisteredLeafDeletions": 33,
         "registeredLines": 743,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -4988,7 +4996,9 @@
           "packages/web-cli-plugin/test/density-thresholds.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -6034,7 +6044,7 @@
         "filesWithUnregisteredLeafDeletions": 33,
         "registeredLines": 765,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       },
       "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段实跑（含本 v4.5-1 段）。"
     },
@@ -6055,7 +6065,9 @@
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -6708,7 +6720,7 @@
         "filesWithUnregisteredLeafDeletions": 31,
         "registeredLines": 386,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       },
       "reverseProof": "test/supersession-ledger.test.ts 的「每个叶段注入一条未登记删除行必须判 FAIL」逐叶段实跑（含本 v5-2 段）；本段 `registeredUncoveredLines` 逐字命中 `git diff 8526ef8` 的删除行。"
     },
@@ -6726,7 +6738,9 @@
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-projection.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
@@ -6739,6 +6753,7 @@
           "packages/web-cli-plugin/test/next-registry.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
@@ -7241,7 +7256,7 @@
         "filesWithUnregisteredLeafDeletions": 29,
         "registeredLines": 262,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -7258,7 +7273,9 @@
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
@@ -7270,6 +7287,7 @@
           "packages/web-cli-plugin/test/next-registry.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
@@ -7305,7 +7323,7 @@
         "filesWithUnregisteredLeafDeletions": 20,
         "registeredLines": 198,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       },
       "registeredUncoveredLines": [
         {
@@ -7661,7 +7679,9 @@
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
@@ -7672,9 +7692,11 @@
           "packages/web-cli-plugin/test/next-obligation-table.test.ts",
           "packages/web-cli-plugin/test/next-pipeline.test.ts",
           "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-context-in-turn.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
@@ -7910,7 +7932,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-baseline.ts",
-          "count": 11,
+          "count": 12,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "    '输入模块数 **88**（真实 `dist/build-meta.json` 实测；v3-1 为 41 / v3-2 为 47 / v3-3 为 52 / v3-4 为 53 / R1·R2·R3 均为 53 不新增；**v4-1 新增 4 个必需模块** toolbar + theme + density-scope + statusbar ⇒ 53 + 4 = **57**；**v4-2 再新增 12 个必需模块**（stream-* × 3 + cards/* × 9）⇒ 57 + 12 = **69**；**v4-3 净增 2 个**（新增 stream-plaintext + cards/askuser + cards/auth，退役 l0/decision-card）⇒ 69 + 2 = **71**；**v4-4 净增 4 个必需模块**（system-events + recommend + cards/ref + cards/nextstep）⇒ 71 + 4 = **75**；**v4-4 审查修复轮再新增 1 个必需模块**（`host-registry.ts`：结构宿主注册表）⇒ 75 + 1 = **76**；**V5-1 R1 新增 5 个必需模块**（`next-registry/{definition,registry,pipeline,providers,dispatch}.ts`：Definition / Provider / 管线 / 内置 provider / 瘦分发）⇒ 78 + 5 = **83**；**V5-2 R1/R2 再新增 3 个必需模块**（`shared/op-table.ts` 双侧同源描述符表 + `next-registry/ops.ts` 9 op 执行体 + `next-registry/snapshot.ts` 三表快照）⇒ 83 + 3 = **86**；**V5-2 review R1 修复轮再新增 1 个必需模块**（`settings/op-bodies.ts`：与面无关的四类执行体，面板与 options 共用）⇒ 86 + 1 = **87**；**V5.5-1 R1 再新增 1 个必需模块**（`next-registry/drivers.ts`：驱动者声明单源 + 四元组 + `CTX_FIELD_SERVICE`）⇒ 87 + 1 = **88**；**V5.5-2 R1 再新增 2 个必需模块**（`next-registry/onboarding-flow.ts`：引导流恰 4 步单源 + `next-registry/suspension.ts`：配置悬置任务单源 + `MAX_SUSPENSIONS = 1`）⇒ 88 + 2 = **90**；**V5.5-3 R1 再新增 1 个必需模块**（`next-registry/ai-drive.ts`：`pressCandidate` 单源 + 档位矩阵 + 留痕三要素）⇒ 90 + 1 = **91**，见本文件 SIDEPANEL_GROWTH_BREAKDOWN.rows；**V5.5-3 R2 再新增 1 个必需模块**（`next-registry/guard.ts`：护栏六常量单源 / 越限抑制判据 / 关断偏好读写）⇒ 91 + 1 = **92**），路径互不相同；共享模块 src/ui/tree/tree-receipt.ts Δ=0 B 与 ' +",
@@ -7923,7 +7945,8 @@
             "  unattributedHelperDeltaBytes: 2_063,",
             "  wiringBytes: 88_345,",
             "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
-            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 578_623;"
+            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 578_623;",
+            "  // 桶和 = newRequiredModuleBytes 181,921 + wiringBytes 78,814 + 0 + 1,923 == 262,658 == `deltaBytes`。"
           ]
         },
         {
@@ -8100,13 +8123,21 @@
             "        document.getElementById('composer').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));",
             "import { CHROME, DIST, PACKAGE_ROOT, check, evaluate, finish, launch, openSidePanel, findOurServiceWorker, sleep } from './_v3-helpers.mjs';"
           ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
+          "count": 1,
+          "reason": "★ NDA-2（specs-tree-nda-2-fallback-and-gates，TASK-NDA-201~221）：叶2（未配置确定性引导 / 自由输入分相 / 提醒补一次 / 异常兜底链 / 首开边界 / 门禁·体积重锚）对既有门禁与规格文件的**等价重锚式改写**在该叶段产生的逐字删除行登记（断言零删除，语义逐条对账；仅增不减）。",
+          "registeredUncoveredLines": [
+            "  const noGuard = SW_SRC.replace(/  if \\(!isLlmConfigured\\(\\{[\\s\\S]*?\\n  \\}\\n/, '');"
+          ]
         }
       ],
       "summary": {
-        "filesWithUnregisteredLeafDeletions": 25,
-        "registeredLines": 215,
+        "filesWithUnregisteredLeafDeletions": 26,
+        "registeredLines": 217,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -8123,7 +8154,9 @@
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
@@ -8134,9 +8167,11 @@
           "packages/web-cli-plugin/test/next-obligation-table.test.ts",
           "packages/web-cli-plugin/test/next-pipeline.test.ts",
           "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-context-in-turn.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
@@ -8529,7 +8564,7 @@
         "filesWithUnregisteredLeafDeletions": 23,
         "registeredLines": 191,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -8545,7 +8580,9 @@
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
@@ -8555,9 +8592,11 @@
           "packages/web-cli-plugin/test/next-obligation-table.test.ts",
           "packages/web-cli-plugin/test/next-pipeline.test.ts",
           "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-context-in-turn.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
@@ -8954,7 +8993,7 @@
         "filesWithUnregisteredLeafDeletions": 22,
         "registeredLines": 202,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -8974,16 +9013,20 @@
           "packages/web-cli-plugin/test/free-input-next.test.ts",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
           "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-context-in-turn.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
@@ -9056,7 +9099,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/free-input-next.test.ts",
-          "count": 7,
+          "count": 8,
           "reason": "★ IAN-2 R1 复核：该文件在本叶段被删除/改写的行逐字登记（entries oldTitle 覆盖的不计）。",
           "registeredUncoveredLines": [
             "  // 行号不是判据（注释换行会漂移）：判「恰 2 处」+ 「两处都**不在**手输提交体里」。",
@@ -9065,7 +9108,8 @@
             "  assert.equal(turnSites.length, 2, `${JUDGEMENTS[2].expectFailPattern}：requestTurn( 必须仍恰 2（实测 ${turnSites.join(', ')}）`);",
             "  { id: 'FIN-3-single-submit-slot', expectFailPattern: '提交必须经唯一 op.turn 槽（requestTurn( 叶1 仍恰 2 / 分发入口恰 1）' },",
             " *   FIN-3 **唯一提交点**：提交经 `op.turn` 槽；`requestTurn(` 叶1 仍**恰 2**；集 B 分发入口仍**恰 1**。",
-            "test('FIN-3 requestTurn( 叶1 仍恰 2 ∧ 集 B 分发入口恰 1 ∧ 手输经 op.turn 槽', () => {"
+            "test('FIN-3 requestTurn( 叶1 仍恰 2 ∧ 集 B 分发入口恰 1 ∧ 手输经 op.turn 槽', () => {",
+            "import { resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';"
           ]
         },
         {
@@ -9351,9 +9395,9 @@
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 19,
-        "registeredLines": 196,
+        "registeredLines": 197,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ F-36 / ADN-1 R2（2026-09-26，W03 = TASK-ADN-118~127）：NR-10 标题 11→12 的 1 行改写逐字追加登记（沿用本叶段同一口径）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ F-36 / ADN-1 R2（2026-09-26，W03 = TASK-ADN-118~127）：NR-10 标题 11→12 的 1 行改写逐字追加登记（沿用本叶段同一口径）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -9373,16 +9417,20 @@
           "packages/web-cli-plugin/test/free-input-next.test.ts",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
           "packages/web-cli-plugin/test/host-registry.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
           "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-context-in-turn.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
@@ -9972,7 +10020,7 @@
         "filesWithUnregisteredLeafDeletions": 20,
         "registeredLines": 407,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ R8（2026-09-25）缺陷修复轮：门禁重锚 7→8 的 6 行改写逐字追加登记（沿用本叶段同一口径）。"
+        "note": "★ IAN-2 R1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。★ R8（2026-09-25）缺陷修复轮：门禁重锚 7→8 的 6 行改写逐字追加登记（沿用本叶段同一口径）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     },
     {
@@ -9984,17 +10032,22 @@
           "packages/web-cli-plugin/test/auto-probe.test.ts",
           "packages/web-cli-plugin/test/driver-timings.test.ts",
           "packages/web-cli-plugin/test/e2e/fullchain.mjs",
+          "packages/web-cli-plugin/test/free-input-next.test.ts",
           "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
           "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
           "packages/web-cli-plugin/test/insight-protocol.test.ts",
           "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
           "packages/web-cli-plugin/test/l0-disclosure.test.ts",
           "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
           "packages/web-cli-plugin/test/l2-counts.test.ts",
           "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
           "packages/web-cli-plugin/test/op-wiring.test.ts",
           "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
           "packages/web-cli-plugin/test/r6-ty-experience-fix.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
           "packages/web-cli-plugin/test/ref-capture.test.ts",
           "packages/web-cli-plugin/test/ref-rescue.test.ts",
           "packages/web-cli-plugin/test/ref-wiring.test.ts",
@@ -10010,6 +10063,7 @@
           "packages/web-cli-plugin/test/ui/binding.mjs",
           "packages/web-cli-plugin/test/ui/density-metrics.mjs",
           "packages/web-cli-plugin/test/ui/density.mjs",
+          "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs",
           "packages/web-cli-plugin/test/ui/hardening.mjs",
           "packages/web-cli-plugin/test/ui/insight.mjs",
           "packages/web-cli-plugin/test/ui/journey.mjs",
@@ -10019,6 +10073,7 @@
           "packages/web-cli-plugin/test/ui/l2-reverse.mjs",
           "packages/web-cli-plugin/test/ui/l2.mjs",
           "packages/web-cli-plugin/test/ui/page-input.mjs",
+          "packages/web-cli-plugin/test/ui/s0-self-driven.mjs",
           "packages/web-cli-plugin/test/ui/zero-injection.mjs",
           "packages/web-cli-plugin/test/zero-injection.test.ts"
         ],
@@ -10204,7 +10259,7 @@
         },
         {
           "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
-          "count": 19,
+          "count": 20,
           "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口的体积重登记（基线 598,577 → 598,926 / 生效上限 628,872 / `maybeRecommend(` 调用点 7→8 / 最新一轮指针 repoint）在本叶段起点之后被改写的行逐字登记（沿用本叶段同一口径）。",
           "registeredUncoveredLines": [
             "    'IAN-2 R1 Σ 逐模块 + glue 必须 == 登记增量（净负）',",
@@ -10225,7 +10280,8 @@
             "  console.log(`  ℹ IAN-2 R1 净负轮：Δ=${rows.reduce((n: number, r: { deltaBytes: number }) => n + r.deltaBytes, 0)} · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（未跨档位）`);",
             "  const rows = SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows;",
             "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.ian2Rows) {",
-            "      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d|NFR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*；V5.5F-1 起接受 FR-SGO-*；IAN-1 起接受 FR-IAN-*）`);"
+            "      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d|NFR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN)-\\d\\d\\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*；V5.5F-1 起接受 FR-SGO-*；IAN-1 起接受 FR-IAN-*）`);",
+            "  // ④ 最新一轮逐模块归因：Σ + glue == 登记增量（净负轮）。"
           ]
         },
         {
@@ -10246,9 +10302,448 @@
       ],
       "summary": {
         "filesWithUnregisteredLeafDeletions": 10,
-        "registeredLines": 148,
+        "registeredLines": 149,
         "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
-        "note": "★ IAN-2 R2 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。"
+        "note": "★ IAN-2 R2 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记；leaf=叶段，leafBase=该段起点 commit）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
+      }
+    },
+    {
+      "leaf": "specs-tree-nda-1-next-tool-channel",
+      "leafBase": "a75466a",
+      "why": "★ NDA-1（叶1 = 机制核心）的叶段登记：本叶把「文本 next 围栏块 + 正则解析」换成「next 工具 + hooks.intercept 捕获」，改写既有门禁（ai-next-candidate / recommendation-sources / insight-* / s0-* / size-*）并做体积叶1 重登记（604,602 → 605,239 B）；该段起点 = 本叶工作树之前的 HEAD。",
+      "scope": {
+        "why": "scope = leafScopeFiles()（v3 台账登记文件集）∪ testFilesWithDeletions(leafBase)（本段真实删除面，规则复算，不得手工收窄）。",
+        "files": [
+          "packages/web-cli-plugin/test/ai-next-candidate.test.ts",
+          "packages/web-cli-plugin/test/auto-probe.test.ts",
+          "packages/web-cli-plugin/test/driver-quadruple.test.ts",
+          "packages/web-cli-plugin/test/e2e/fullchain.mjs",
+          "packages/web-cli-plugin/test/free-input-next.test.ts",
+          "packages/web-cli-plugin/test/gate-integrity.test.ts",
+          "packages/web-cli-plugin/test/insight-action-parity.test.ts",
+          "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
+          "packages/web-cli-plugin/test/insight-protocol.test.ts",
+          "packages/web-cli-plugin/test/insight-tree-hierarchy.test.ts",
+          "packages/web-cli-plugin/test/l0-disclosure.test.ts",
+          "packages/web-cli-plugin/test/l1-ref-validity.test.ts",
+          "packages/web-cli-plugin/test/l2-counts.test.ts",
+          "packages/web-cli-plugin/test/next-registry.test.ts",
+          "packages/web-cli-plugin/test/onboarding-deterministic.test.ts",
+          "packages/web-cli-plugin/test/pick-layer-budget.test.ts",
+          "packages/web-cli-plugin/test/r8-open-next-entry.test.ts",
+          "packages/web-cli-plugin/test/recommendation-sources.test.ts",
+          "packages/web-cli-plugin/test/ref-capture.test.ts",
+          "packages/web-cli-plugin/test/ref-rescue.test.ts",
+          "packages/web-cli-plugin/test/ref-wiring.test.ts",
+          "packages/web-cli-plugin/test/reverse-proof-judge.mjs",
+          "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts",
+          "packages/web-cli-plugin/test/sidepanel.test.ts",
+          "packages/web-cli-plugin/test/size-attribution.mjs",
+          "packages/web-cli-plugin/test/size-baseline.ts",
+          "packages/web-cli-plugin/test/size-budget.test.ts",
+          "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "packages/web-cli-plugin/test/ui/binding.mjs",
+          "packages/web-cli-plugin/test/ui/density-metrics.mjs",
+          "packages/web-cli-plugin/test/ui/density.mjs",
+          "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs",
+          "packages/web-cli-plugin/test/ui/hardening.mjs",
+          "packages/web-cli-plugin/test/ui/insight.mjs",
+          "packages/web-cli-plugin/test/ui/journey.mjs",
+          "packages/web-cli-plugin/test/ui/l0.mjs",
+          "packages/web-cli-plugin/test/ui/l1-reverse.mjs",
+          "packages/web-cli-plugin/test/ui/l1.mjs",
+          "packages/web-cli-plugin/test/ui/l2-reverse.mjs",
+          "packages/web-cli-plugin/test/ui/l2.mjs",
+          "packages/web-cli-plugin/test/ui/page-input.mjs",
+          "packages/web-cli-plugin/test/ui/s0-self-driven.mjs",
+          "packages/web-cli-plugin/test/ui/zero-injection.mjs",
+          "packages/web-cli-plugin/test/zero-injection.test.ts"
+        ]
+      },
+      "registeredUncoveredLines": [
+        {
+          "file": "packages/web-cli-plugin/test/insight-action-parity.test.ts",
+          "count": 3,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "const CONSERVATIVE_DIVERGENCE_TOOLS = new Set(['web-fetch', 'sleep', 'web-cli-help']);",
+            "    ['sleep', 'web-cli-help', 'web-fetch'],",
+            "    '保守方向分歧的工具集合必须被显式钉死；出现新分歧即 FAIL',"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+          "count": 8,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            " *   A1 动态不变量 + fixture 122 + cardId 唯一且 === `CommandNode.cardId`",
+            " *   A2 三层口径（L1 34/142 · L2 20/88 · L3 28/94=122）+ `accounted` 行级并集 100% + **防夸大反证**",
+            "const FIXTURE_CARDS = 122;",
+            "const FIXTURE_TOOL_ENTRIES = 28;",
+            "const FIXTURE_DISTINCT_TOOL_NAMES = 23;",
+            "test('A1 archive: cards.length === counts.commands + counts.subcommands (invariant) and fixture = 122', () => {",
+            "  assert.equal(model.cards.length, FIXTURE_CARDS, 'P0 同款 fixture = 122 档案卡');",
+            "test('A2 archive: three layers are separated (L1 34/142 · L2 20/88 · L3 28/94)', () => {"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
+          "count": 7,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(gitDiffStatus(['test/parity.test.ts', 'test/parity']), 0, 'v1 parity gate/baseline must be zero-diff');",
+            "  // ⑤ NEXTSTEP_PRIORITY 恰 4（终端不在推荐规则表内 ⇒ candidateRules 恒跳过）。",
+            "  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'IAN-1：NEXTSTEP_PRIORITY 必须仍恰 4');",
+            "  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('free-input'), false, 'IAN-1：终端不是第 5 条推荐规则');",
+            "  // ⑤ NEXTSTEP_PRIORITY 恰 4 ∧ DRIVER_TIMINGS 恰 5（AI 候选骑既有规则位 / 复用既有 `'idle'` 时机）。",
+            "  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'ADN-1：NEXTSTEP_PRIORITY 必须仍恰 4');",
+            "  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('ai-next'), false, 'ADN-1：ai-next 不是第 5 条推荐规则');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-baseline.ts",
+          "count": 35,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "    id: 'v4-3',",
+            "    feature: 'specs-tree-v4-3-ask-auth-inflow',",
+            "    measuredBy: 'SDDU v4-3 build round (leaf specs-tree-v4-3-ask-auth-inflow)',",
+            "      '**显式提升重登记（功能轮）：426,487 → 440,698 B（+14,211 B，+3.33%）**。全部为 ask/auth 流内化的**必需增重**，逐模块可归因（真实 dist/build-meta.json bytesInOutput）：' +",
+            "      '三个新必需模块 stream-plaintext 1,961 / cards/askuser 5,595 / cards/auth 5,944（+13,500）；既有模块接线 sidepanel +2,410 / chat-state +2,840 / stream-model +2,746 / l0/shell +1,872 / view-model +309；cards/index −5,819（提取）。' +",
+            "      '**断言零删减**：新增 test/ask-auth-inflow.test.ts（12 用例）与 test/ui/ask-auth-inflow.mjs（49 断言）；content.js 177,076 / pick-layer.js 33,900 逐字节不变；ask-bridge.ts / KIND_SET / SW / manifest 零 diff。' +",
+            "      '容差 5% 未动；ceiling = floor(440,698 × 1.05) = **462,732 B**（cap 仍 record-only）。⚠️ 相邻两轮 v4-2 + v4-3 = +3.26%（<15% 线，仍如实登记）。PENDING_ABSOLUTE_CAP 保持 resolved:false。',",
+            "    baselineBeforeBytes: 426_487,",
+            "    baselineAfterBytes: 440_698,",
+            "    ceilingBeforeBytes: 447_811,",
+            "    ceilingAfterBytes: 462_732,",
+            "    assertionNonRemovalEntries: ['V43-SVOL-1'],",
+            "    historyRetainedBytes: [426_487, 425_094],",
+            "    ceilingUncappedFormulaBytes: 462_732,",
+            "    id: 'v4-3-reviewfix',",
+            "    measuredBy: 'SDDU v4-3 review fix round (leaf specs-tree-v4-3-ask-auth-inflow, review R1: BLOCK-01~04 + I-01~I-08)',",
+            "      '**显式提升重登记（同一叶的审查修复轮）：440,698 → 445,300 B（+4,602 B，+1.04%）**。全部为评审阻塞/改进项的落地字节，逐模块可归因（真实 dist/build-meta.json bytesInOutput，见 SIDEPANEL_GROWTH_BREAKDOWN.v43ReviewfixRows）：' +",
+            "      'BLOCK-01（auth 卡 `cancelled` 终态渲染「已取消」+ `data-decision=\"cancelled\"`，`cards/auth.ts`）/ BLOCK-02（回合结束与 60 s 超时分离：`stream-model` 的 `closeOpenAsks` 过滤 + `chat-state` 的 `settleTurnEnd`）/ BLOCK-03（L1「已决策历史」改由 `project()` 终态 ask 卡派生）/ BLOCK-04（`patchAuthCard` 透传真实 deps ⇒ 审计入口可达）/ I-01（`label()` 工厂接为生产路径 + 删除第二份白名单）/ I-02（`askFlowView` 接为 composer 真实消费点、删除失真 `turnStuck`）/ I-03（choice 卡互斥披露：展开兜底即收起选项行）/ I-04（`#ask*` legacy id 去重）/ I-06（error 收尾按 `aborted` 结算）/ I-07（`terminalDecision` fail-closed + `clearAsk` 按 kind 结算）/ I-05（叶段 scope 去自指）。' +",
+            "      '**断言只增不减**：new test/ask-auth-inflow.test.ts 断言（假批准三路径 / 真超时 / error 结算 / I-07 fail-closed）+ test/ui/ask-auth-inflow.mjs 新增段（假批准回归 / 审计入口真实跳转 / 展开态预算 + in-gate 反证）+ test/ui/l1.mjs 答案文案断言。' +",
+            "      'content.js 177,076 / pick-layer.js 33,900 逐字节不变；ask-bridge.ts / KIND_SET / SW / manifest 零 diff。' +",
+            "      '容差 5% 未动；ceiling = floor(445,300 × 1.05) = **467,565 B**（cap 仍 record-only）。⚠️ 相邻两轮 v4-3 + v4-3-reviewfix = +0.97%（<15% 线，仍如实登记）。PENDING_ABSOLUTE_CAP 保持 resolved:false。',",
+            "    baselineBeforeBytes: 440_698,",
+            "    baselineAfterBytes: 445_300,",
+            "    ceilingBeforeBytes: 462_732,",
+            "    ceilingAfterBytes: 467_565,",
+            "    assertionNonRemovalEntries: ['V43RV-SVOL-1'],",
+            "    historyRetainedBytes: [440_698, 426_487, 425_094],",
+            "    ceilingUncappedFormulaBytes: 467_565,",
+            "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+            "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 604_602;",
+            "  measuredOn: '2026-09-26',",
+            "  finalArtifactBytes: 604_602,",
+            "  deltaBytes: 309_377,",
+            "  closeoutDeltaBytes: 1_397,",
+            "  wiringBytes: 112_261,"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/recommendation-sources.test.ts",
+          "count": 16,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  assert.deepEqual([...NEXTSTEP_PRIORITY], ['risk-recovery', 'ref-action', 'onboarding', 'capability-discovery']);",
+            "test('★ ADN-1 118：模块白名单恒 5（零新增条目）∧ 真值白名单仍 7 ∧ NEXTSTEP_PRIORITY 恰 4', () => {",
+            "  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'NEXTSTEP_PRIORITY 必须仍恰 4（AI 候选骑既有规则位）');",
+            " * **R6 同因去重扩展覆盖 AI** + 规则表恰 4 / 单卡 / ④ 零新 LLM 保持。",
+            "  const cand = candidateRules(withAi(four)).find((c) => c.rule === 'ref-action');",
+            "  assert.ok(cand, 'AI 在场必须占 ref-action 槽（判据不得空转）');",
+            "  const cand = candidateRules(withAi(dup)).find((c) => c.rule === 'ref-action');",
+            "  const present = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ref-action');",
+            "  const forged = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ref-action');",
+            "  assert.equal(r.cards[0]?.rule, 'risk-recovery', '风险恢复（priority 0）必须赢过 AI（骑 priority 2 槽）');",
+            "  const cand = candidateRules(input).find((c) => c.rule === 'ref-action');",
+            "  assert.equal(cand?.chips[0]?.text, '用引用 3 做原地翻译', 'AI 命中同因 ⇒ 被压掉 ⇒ 确定性候选接管（去重扩展真的生效）');",
+            "  const withoutPreFilter = candidateRules(withAi([ai(aiLabel)])).find((c) => c.rule === 'ref-action');",
+            "    '候选自带 ref ⇒ 必须按该 ref 的键判重',",
+            "test('★ ADN-2 207/213：规则表恰 4 / 单卡 / 真值 7 / 模块白名单恒 5 / ④ 零新 LLM 保持', () => {",
+            "  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'NEXTSTEP_PRIORITY 恰 4 不动');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs",
+          "count": 8,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "      nextstepPrioritySize: 4,",
+            "    // ── A 合法采纳：注入合法候选 ⇒ `ai-next` provider 接管 `ref-action` 规则位 ⇒ 替换陈旧候选 ──",
+            "    //   · 规则位被 `ai-next` 接管 ⇒ `rule === 'ref-action'`；",
+            "      pppRule.rule === 'ref-action' &&",
+            "      pppTerminal.rule === 'ref-action' &&",
+            "    // ── D 未配置：确定性恢复卡（`op.llm-config`）+ 终端恒在（现状逐字）─────────────────",
+            "      `S0C-13 D 未配置：确定性恢复卡（op.llm-config）+ 终端恒最末`,",
+            "      pppD.rule === 'risk-recovery' && pppDDom.ops.includes('op.llm-config') && pppDDom.terminalLast,"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs",
+          "count": 6,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  { id: 'S0PP-B6-carrier-redline', expectFailPattern: \"S0''-B：零新增载体 + 红线（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 / NEXTSTEP_PRIORITY 4）\" },",
+            "  if (reading.nextstepPrioritySize !== 4) problems.push(`${item('S0PP-B6-carrier-redline').id} NEXTSTEP_PRIORITY 必须仍恰 4（实测 ${String(reading.nextstepPrioritySize)}）`);",
+            "/** 围栏块的 info 串（与 `background/ai-next.ts#AI_NEXT_FENCE_INFO` 同字面；样本不新增第二词汇）。 */",
+            "export const S0PPP_FENCE_INFO = 'next';",
+            "  { id: 'structure', label: \"S0'''-1 尾随 next 围栏块 + 严格 JSON 数组（结构可判）\" },",
+            "  { id: 'S0PPP-1-structure', expectFailPattern: \"S0'''：尾随 next 围栏块 + 严格 JSON 数组必须可判（结构可判）\" },"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/ai-next-candidate.test.ts",
+          "count": 120,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            " * ★ F-36 / ADN-1 **TASK-ADN-115 / 116 / 117**（leaf `specs-tree-adn-1-ai-next-produce-and-verify` ·",
+            " * ADR-ADN-007 §①②③ · ADR-ADN-009 §① · FR-ADN-020~029 / 082 / 085 / 111 · AC-ADN-003/004/005/019/028/029）",
+            " * —— **新 node 门禁 `ai-next-candidate`**（AI-N-1~11 + 五类注入反证 + 真源切片 + 三段控制）。",
+            " *   AI-N-1  解析：尾随 `next` 围栏块 + 严格 JSON 数组；取**最后一条** assistant 文本的**最后**一块；",
+            " *           无块 / 非数组 ⇒ `[]`（支线 C，不写 blocked）；项非对象 ⇒ 丢弃。",
+            " *           非空（缺 / 多 / 漂移 ⇒ 必红）。",
+            " * ── 计数只增 ─────────────────────────────────────────────────────────────────",
+            " * 本门禁与既有 11 门禁一条不删；`gate-integrity` 受审下界由 W3（TASK-ADN-123）追加（只增）。",
+            "  lastNextFenceBody,",
+            "  parseAiNextItems,",
+            "import { candidateRules, recommendNextStep, type RecommendInput } from '../src/ui/sidepanel/recommend.js';",
+            "  { id: 'AI-N-1-parse', expectFailPattern: '解析：取最后一条 assistant 文本的最后一个 next 围栏块 + 严格 JSON 数组（否则零候选）' },",
+            "  { id: 'AI-N-9-driver-decls-12', expectFailPattern: 'DRIVER_DECLS_SRC 12↔12 + evidence=session.aiNext + chipsFor 权威 + 静态 chips 非空' },",
+            "/** 一条 `next` 围栏块（协议形）。 */",
+            "function fence(items: string, info = 'next'): string {",
+            "  return '```' + info + '\\n' + items + '\\n```';",
+            "}",
+            "const tailText = (body: string): string => `结题正文。\\n${body}\\n`;",
+            "test('AI-N-1 解析：尾随 next 块 + 严格 JSON 数组；取最后一条 assistant 文本的最后一块', () => {",
+            "  const multi = `${tailText(fence('[]'))}\\n中间轮次：\\n${fence('[{\"opId\":\"op.help\"}]')}`;",
+            "    parseAiNextItems(multi).map((x) => (x as { opId: string }).opId),",
+            "    `${JUDGEMENTS[0].expectFailPattern}：必须取**最后**一块`,",
+            "  assert.equal(lastNextFenceBody(tailText(fence('[{\"opId\":\"op.turn\"}]')))?.trim(), '[{\"opId\":\"op.turn\"}]');",
+            "  // info 大小写不敏感。",
+            "  assert.equal(parseAiNextItems(tailText(fence('[{\"opId\":\"op.turn\"}]', 'NEXT'))).length, 1, JUDGEMENTS[0].expectFailPattern);",
+            "  // 无块 / 非数组顶层 / 非法 JSON / 项非对象 ⇒ 零候选（支线 C 不写 blocked）。",
+            "  for (const bad of ['没有围栏', fence('{\"opId\":\"op.turn\"}'), fence('[{oops}]'), fence('[\"x\",1,{\"opId\":\"op.turn\"}]')]) {",
+            "    const items = parseAiNextItems(tailText(bad));",
+            "    const ok = items.length === (bad === fence('[\"x\",1,{\"opId\":\"op.turn\"}]') ? 1 : 0);",
+            "    assert.ok(ok, `${JUDGEMENTS[0].expectFailPattern}：坏形态必须零候选或丢弃非对象项（${bad}）`);",
+            "  assert.deepEqual(parseAiNextItems(undefined), [], '缺席文本 ⇒ 零候选');",
+            "  const v = validateAiNext(tailText(fence('[{\"opId\":\"op.ghost\",\"ref\":\"ref_999\"}]')), FACTS);",
+            "  assert.deepEqual([...validateAiNext(tailText(fence('[{\"opId\":\"op.authorize\",\"ref\":\"ref_999\"}]')), FACTS).blocked], ['tier'], JUDGEMENTS[1].expectFailPattern);",
+            "  assert.deepEqual([...validateAiNext(tailText(fence('[{\"opId\":\"op.turn\",\"ref\":\"ref_999\"}]')), FACTS).blocked], ['ref'], JUDGEMENTS[1].expectFailPattern);",
+            "  const good = validateAiNext(tailText(fence('[{\"opId\":\"op.turn\",\"label\":\"继续\",\"ref\":\"ref_3\"}]')), FACTS);",
+            "  // 规范形 ref_<n> 命中同一快照（ref_3 的 refNum = 3）。",
+            "  assert.equal(blockedOf({ opId: 'op.turn', label: 'x', ref: 'ref_3' }), undefined);",
+            "  // 注：`op.perm.request`（form）是 gesture 档 ⇒ 在链②即拒（`blocked='tier'`），不到 param 判 ——",
+            "  // 其 `ask='form'` 仍由 AI-N-11 的 descriptor↔IMPL 一致性机核。",
+            "/* ── AI-N-9 DRIVER_DECLS_SRC 12↔12 + chipsFor 权威 ────────────────────────── */",
+            "test('AI-N-9 DRIVER_DECLS_SRC 12↔12 + evidence=session.aiNext + chipsFor 权威 + 静态 chips 非空', () => {",
+            "  // provider 形态：第 12 行（rule 骑 ref-action / prepend / 静态下界非空 / chipsFor 权威）。",
+            "  assert.equal(ai?.rule, 'ref-action');",
+            "  assert.equal(ai?.priority, 2);",
+            "test('AI-N-9 替换语义可达：AI 在场 ⇒ ref-action 槽归 AI；缺席 ⇒ 确定性接管', () => {",
+            "  // AI 候选在场：`ref-action` 槽的 chips 文案 = AI label（替换确定性候选）。",
+            "  assert.equal(withAi.cards[0]?.rule, 'ref-action');",
+            "  // 前置：三条有 ask 的行确实带 params（否则判据空转）。",
+            "  // `ask` 是 `shared/op-table.ts` 单源声明（不新增第二张表）。",
+            "test('AI-N 元判据：判据表覆盖 AI-N-1~11 且每条 expectFailPattern 非占位', () => {",
+            "  assert.equal(JUDGEMENTS.length, 11, '判据表必须覆盖 AI-N-1~11');",
+            " * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs#S0PPP_*`（与 Chromium 面**同一份**）；",
+            " * 读数 = **生产模块**实跑（`admitCandidate` / `validateAiNext` / `recommendNextStep` /",
+            " * `candidateRules` / `pressDecision` / `driverBlockedLine`）—— 禁假 provider / 桩。",
+            " *",
+            " * **反证「未校验候选进 chips ⇒ 必红」**：把 `blockedNotRendered` 置否 ⇒ 同一判据必红。",
+            "  const fenced = '```' + 'next' + '\\n' + JSON.stringify([s0p.S0PPP_ACCEPTED]) + '\\n```';",
+            "  const body = lastNextFenceBody(`结题正文。\\n${fenced}\\n`);",
+            "  const structure = body !== null && parseAiNextItems(`结题正文。\\n${fenced}\\n`).length === 1;",
+            "  // ④ A 合法被采纳：注入后 `ref-action` 规则位的 chips = AI label（替换确定性文案）+ 单卡 ≤3。",
+            "  // ⑤ 终端恒在场（`recommendNextStep` 注入 `terminal: true`；渲染层恒排在 `.next-chips` 之后）。",
+            "  const unconfiguredNetwork = 0; // 纯生产者：`recommend.ts` 导入集合 ⊆ 白名单（零 fetch / chrome / 时钟）。",
+            "  const floor = recommendNextStep({",
+            "    ...base,",
+            "    ref: { validCount: 0, staleCount: 0 },",
+            "    probe: { phase: 'probing', steady: false },",
+            "  });",
+            "  // ⑩ 提案不耗预算（`recommend.ts` 不导入护栏面）+ 留痕三要素 + 零明文。",
+            "  assert.deepEqual(",
+            "    s0p.s0pppChain().map((b) => b.id),",
+            "    s0p.S0PPP_CHAIN.map((b) => b.id),",
+            "    \"S0''' 逐拍 id 必须与共享样本逐序一致\",",
+            "  );",
+            "  // 真读数明细（非恒真）。",
+            "  assert.equal(reading.structure, true, \"① 尾随 next 围栏块可判\");",
+            "  // ①「未校验候选进 chips」⇒ 必红（核心安全面）。",
+            "  assert.ok(",
+            "    s0p.s0pppProblems({ ...clean, blockedNotRendered: false }).some((p) => p.includes('S0PPP-3') && p.includes('未校验')),",
+            "    '未校验候选进 chips ⇒ 必红',",
+            "  // ② 五类漏判 / 顺序漂移 ⇒ 必红。",
+            "  // ③ 终端不在最末 ⇒ 必红。",
+            "  // ④ A 未替换 ⇒ 必红；单卡 / ≤3 越界 ⇒ 必红。",
+            "  // ⑤ D 未配置却产出 ⇒ 必红；C 未产出却非确定性 ⇒ 必红。",
+            "  // ⑥ 载体红线 / confirm 代答 / 提案耗预算 / 留痕含明文 ⇒ 各必红。",
+            "    s0p.s0pppProblems({ ...clean, trace: `${String(clean.trace)} ${s0p.S0PPP_ACCEPTED.label}` }).some((p) => p.includes('零明文')),",
+            "    '留痕含明文 ⇒ 必红',",
+            "  // 还原 ⇒ 全绿。",
+            " * ★ F-36 / ADN-2 **TASK-ADN-217**（ADR-ADN-004 §④⑤⑥ · ADR-ADN-005 §② · ADR-ADN-007 §①④ ·",
+            " * FR-ADN-050/051/052/055/080/083/084 · AC-ADN-001/007）—— **S0''' 终态口径 node 面**：",
+            " * 四支线（A/B/C/D）在 **ADN-2 兜底 + 合并 + 替换** 终态下逐条可判 ∧ **四支线终端恒在**。",
+            " * 读数 = **生产模块**实跑（`admitCandidate` / `recommendNextStep`）；反证打在",
+            " * `s0pppTerminalProblems` 判据上（陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红）。",
+            "/** S0''' 终态口径的基线输入（每次构造新对象；与 S0PPP 样本同源）。 */",
+            "/** 四支线的终态读数（真模块；反证打在判据上，不在读数上）。 */",
+            "  // B 被拦：非法候选（幻觉 op）过不了接受层 ⇒ `accepted.length === 0` ⇒ 不注入 ⇒ 确定性接管。",
+            "  // C 未产出：零 aiNext。",
+            "  // D 未配置：`llmBlocked` 风险 ∧ 无候选（零网络）。",
+            "  // A：替换陈旧候选 + ≤3 + 单卡 + 终端。",
+            "  // 合并：前 N=3 截断 + 单卡 + 终端。",
+            "  // B：被拦 ⇒ 确定性接管（不做替换）。",
+            "  // C：未产出 ⇒ 确定性。",
+            "  // D：未配置 ⇒ 纯确定性恢复卡。",
+            "  // 四支线终端恒在（兜底底线）。",
+            "test(\"S0''' 终态口径（ADN-2）：A 替换陈旧候选 / B 被拦 / C 未产出 / D 未配置 + 四支线终端恒在\", () => {",
+            "  assert.equal(reading.aRule, 'ref-action', 'A 骑 ref-action 槽');",
+            "test(\"S0''' 终态反证（ADN-2）：陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红（判据非恒真）\", () => {",
+            "  // AI 候选仍在但终端缺 ⇒ 必红（终态底线）。",
+            "  // 陈旧候选重现（未替换）⇒ 必红。",
+            "  // 前 N>3 ⇒ 必红。",
+            "  // B 被放行（ADMITTED）⇒ 必红。",
+            "  // D 非确定性 ⇒ 必红。",
+            "import { AI_NEXT_BLOCKED_CODES } from '../src/ui/sidepanel/next-registry/definition.js';",
+            "  if (declIds.length !== 12 || providerIds.length !== 12) {",
+            "    problems.push(`${JUDGEMENTS[8].expectFailPattern}：双向包含必须 12↔12（实测 ${declIds.length} vs ${providerIds.length}）`);",
+            "    terminalsAllBranches: [aCard, mCard, bCard, cCard, dCard].every((cd) => cd?.terminal === true),",
+            "  if (r.terminalsAllBranches !== true) problems.push(`${p}：**四支线终端恒在**必须成立（任一缺 ⇒ FAIL）`);",
+            "  if (r.aTerminal !== true || r.mTerminal !== true || r.bTerminal !== true || r.cTerminal !== true || r.dTerminal !== true) {",
+            "    problems.push(`${p}：逐支线终端字段必须逐条为 true`);",
+            "  assert.equal(reading.dTerminal, true);",
+            "  assert.ok(s0pppTerminalProblems({ ...clean, aTerminal: false }).some((x) => x.includes('逐支线终端')));"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts",
+          "count": 7,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  const aiCand = withAi.find((c) => c.rule === 'ref-action');",
+            "  assert.equal(a.rule, 'ref-action', 'A 骑 ref-action 槽');",
+            " * A 替换 / 多候选前 N=3 / B 被拦确定性接管 / C 未产出 / D 未配置 ⇒ **四支线终端恒在**。",
+            "test(\"S0''' 终态口径机制侧（ADN-2）：A 替换 / 多候选 ≤3 单卡 / B/C 确定性 / D 恢复 ⇒ 四支线终端恒在\", () => {",
+            "  const branch = (over: Record<string, unknown>): { rule?: string; chips: readonly { text: string }[]; terminal?: boolean } => {",
+            "  // D：未配置 ⇒ 恢复卡 + 终端。",
+            "  assert.equal(d.terminal, true, 'D：终端恒在');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-budget.test.ts",
+          "count": 8,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(SIDEPANEL_CEILING, 634832, 'ceiling = floor(604,602 × 1.05)（ADN-2 R1 收口重登记）');",
+            "  assert.equal(SIDEPANEL_BASELINE_BYTES, 604602, '当前基线（ADN-2 R1 收口重登记）');",
+            "  assert.equal(SIDEPANEL_CEILING, 634832, 'ceiling = floor(604,602 × 1.05)（未加 cap 的公式值，ADN-2 R1 收口重登记）');",
+            "  assert.equal(SIDEPANEL_CEILING_UNCAPPED, Math.floor(604602 * 1.05), '未加 cap 的公式值必须被记录');",
+            "  assert.equal(over.ceilingBytes, 634832);",
+            "  assert.equal(evaluateSidepanelSize(SIDEPANEL_CEILING).ceilingBytes, 634832);",
+            "  assert.equal(SIDEPANEL_BASELINE_META.measuredOn, '2026-09-26');",
+            "  assert.equal(SIDEPANEL_CEILING, 634832, 'ADN-2 R1 收口重登记后 ceiling = floor(604,602 × 1.05)（公式判定，cap 已撤销）');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-growth-evidence.test.ts",
+          "count": 25,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  return SIDEPANEL_GROWTH_BREAKDOWN.adn1R1Rows.map((row) => {",
+            "    const over = SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows.find((r) => r.module === row.module);",
+            "    return { module: row.module, afterBytes: over ? over.afterBytes : row.afterBytes };",
+            "  });",
+            "  assert.equal(b.deltaBytes, 309_377);",
+            "      assert.match(row.requiredBy, /FR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN|ADN)-\\d\\d\\d|NFR-(V3|CHAT|V45|ALLN|SELF|SGO|IAN|ADN)-\\d\\d\\d/, `${row.module}: 必须引到 FR/NFR（v4.5-1 起接受 FR-V45-*；V5.5F-1 起接受 FR-SGO-*；IAN-1 起接受 FR-IAN-*）`);",
+            "  assert.equal(b.closeoutDeltaBytes, SIDEPANEL_BASELINE_BYTES - 603_205);",
+            "  assert.equal(groups.length, 40);",
+            "  assert.equal(fr.id, 'adn-2-r1', '末条登记必须是 ADN-2 R1 收口（最新一轮）');",
+            "  assert.equal(fr.ceilingUncappedFormulaBytes, 634_832);",
+            "  const rows = SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows;",
+            "  assert.ok(rows.length > 0, 'ADN-2 逐模块 rows 必须非空（提升轮）');",
+            "    rows.reduce((n, r) => n + r.deltaBytes, 0) + SIDEPANEL_GROWTH_BREAKDOWN.adn1R1UnattributedGlueBytes,",
+            "    'R8 Σ 逐模块 + glue 必须 == 登记增量（提升）',",
+            "  for (const row of SIDEPANEL_GROWTH_BREAKDOWN.adn2Rows) {",
+            "  const reg = SIDEPANEL_RE_REGISTRATIONS[SIDEPANEL_RE_REGISTRATIONS.length - 1];",
+            "  assert.equal(reg.id, 'adn-2-r1', '末条登记必须是 ADN-2 R1 收口（最新一轮）');",
+            "  assert.equal(reg.baselineAfterBytes, SIDEPANEL_BASELINE_BYTES, '最新一轮 after == 当前基线');",
+            "  assert.equal(reg.ceilingAfterBytes, SIDEPANEL_CEILING, '最新一轮 ceiling == 当前生效上限');",
+            "  assert.equal(SIDEPANEL_CEILING, Math.floor(604_602 * 1.05), '生效上限 = floor(604,602 × 1.05) = 634,832');",
+            "  assert.equal(SIDEPANEL_GROWTH_BREAKDOWN.closeoutDeltaBytes, 1_397, 'closeoutDeltaBytes = 最新一轮增量');",
+            "      assert.equal(inputs[key as string].bytesInOutput, row.afterBytes, `${row.module}: 真实 metafile ≠ adn2Rows.afterBytes`);",
+            "  assert.ok(SIDEPANEL_BASELINE_BYTES <= SIDEPANEL_TIER_BYTES, '未越档位（余 9,798 B）');",
+            "  assert.equal(SIDEPANEL_TIER_BYTES - SIDEPANEL_BASELINE_BYTES, 9_798, '距档 = 614,400 − 604,602 = 9,798 B');",
+            "  console.log(`  ℹ ADN-2 叶2 收口：Δ=+${reg.baselineAfterBytes - reg.baselineBeforeBytes} B · 两叶 Σ=+${twoLeafSum} B · 五要素 = ${SIDEPANEL_BASELINE_BYTES} / ${SIDEPANEL_CEILING} / ${SIDEPANEL_TIER_BYTES} / ${PENDING_ABSOLUTE_CAP.absoluteCeilingBytes} / pending-author-line（距档 9,798 B）`);"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/size-ruling-vol3.test.ts",
+          "count": 7,
+          "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）：本叶门禁改写（围栏块口径 → next 工具捕获口径；等价重锚）+ 体积叶1 重登记（605,239 B）在既有门禁文件里的逐字删除行登记（断言零删除，语义逐条对账）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(SIDEPANEL_FINAL_ARTIFACT_BYTES, 604602, '反证必须打在**当前真实产物**上（ADN-2 R1 收口重登记）');",
+            "  // 现网：min(675,840, floor(604,602 × 1.05) = 634832) = 634832（软纪律更紧）。",
+            "  assert.equal(live.ceilingBytes, 634832, '生效上限 = min(绝对上限, 5% 公式)（ADN-2 R1 收口重登记）');",
+            "  assert.equal(evaluateSidepanelSize(634832).ok, true, 'ceiling 本身仍 PASS（边界含等号）');",
+            "  assert.equal(evaluateSidepanelSize(628_873).ok, true, '628,873 现落在新 ceiling 之内（≤ floor(604,602 × 1.05) = 634,832；边界判据见下条）');",
+            "  assert.equal(evaluateSidepanelSize(634_833).ok, false, '越 1 B 即 FAIL（634,833 > floor(604,602 × 1.05) = 634,832；边界不是宽松的）');",
+            "  assert.equal(SIDEPANEL_BASELINE_BYTES, 604602, 'ADN-2 R1 收口重登记后的当前基线');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/next-registry.test.ts",
+          "count": 3,
+          "reason": "★ NDA-2（specs-tree-nda-2-fallback-and-gates，TASK-NDA-201~221）：叶2（未配置确定性引导 / 自由输入分相 / 提醒补一次 / 异常兜底链 / 首开边界 / 门禁·体积重锚）对既有门禁与规格文件的**等价重锚式改写**在该叶段产生的逐字删除行登记（断言零删除，语义逐条对账；仅增不减）。",
+          "registeredUncoveredLines": [
+            "test('NR-10（V5.5-1）：驱动者声明 12 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {",
+            "  assert.equal(decls.length, 12, '声明行必须恰 12（IAN-1 free-input + F-36/ADN-1 ai-next）');",
+            "  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 12, '还原 PASS（声明行恰 12：IAN-1 free-input + F-36/ADN-1 ai-next）');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/driver-quadruple.test.ts",
+          "count": 7,
+          "reason": "★ NDA-2（specs-tree-nda-2-fallback-and-gates，TASK-NDA-201~221）：叶2（未配置确定性引导 / 自由输入分相 / 提醒补一次 / 异常兜底链 / 首开边界 / 门禁·体积重锚）对既有门禁与规格文件的**等价重锚式改写**在该叶段产生的逐字删除行登记（断言零删除，语义逐条对账；仅增不减）。",
+          "registeredUncoveredLines": [
+            "  assert.equal(DECL_IDS.length, 12, `${JUDGEMENTS[0].expectFailPattern}：声明表必须恰 12 行（11 + ai-next）`);",
+            "  assert.equal(PROVIDER_IDS.length, 12, `${JUDGEMENTS[0].expectFailPattern}：注册表必须恰 12 行（11 + ai-next）`);",
+            "  assert.deepEqual([...DECL_IDS].sort(), [...PROVIDER_IDS].sort(), '12↔12 必须逐项同集（不是只对数）');",
+            " * 升级 6 终态：双向包含 **12↔12** 随 count 自动前移（旧 11 行逐字保留 + `ai-next` 第 12 行）。",
+            "test('★ ADN-2 213（DQ 终态）：声明表 ↔ 注册表 12↔12 双向包含逐条成立', () => {",
+            "  assert.equal(DECL_IDS.length, 12, '声明表恰 12（11 + ai-next）');",
+            "  assert.equal(PROVIDER_IDS.length, 12, '注册表恰 12（11 + ai-next）');"
+          ]
+        },
+        {
+          "file": "packages/web-cli-plugin/test/r8-open-next-entry.test.ts",
+          "count": 10,
+          "reason": "★ NDA-2（specs-tree-nda-2-fallback-and-gates，TASK-NDA-201~221）：叶2（未配置确定性引导 / 自由输入分相 / 提醒补一次 / 异常兜底链 / 首开边界 / 门禁·体积重锚）对既有门禁与规格文件的**等价重锚式改写**在该叶段产生的逐字删除行登记（断言零删除，语义逐条对账；仅增不减）。",
+          "registeredUncoveredLines": [
+            "  // ① 终端存在性单源：`free-input` provider 的恒真 `when`（读 `session.busy` 的两条穷尽分支）。",
+            "  if (!/when:\\s*\\(ctx\\)\\s*=>\\s*ctx\\.session\\.busy === true \\|\\| ctx\\.session\\.busy === false/.test(cleanP)) {",
+            "    problems.push(`${fail}：free-input 的恒真 when 必须仍在（删掉 ⇒ 终端消失 ⇒ 零死端回归）`);",
+            "  const noTerminal = PROVIDERS_SRC.replace(",
+            "    'when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,',",
+            "    'when: () => false,',",
+            "  );",
+            "  assert.notEqual(noTerminal, PROVIDERS_SRC, '前置：恒真 when 锚点必须存在');",
+            "  assert.ok(fallbackProblems(noTerminal, RECOMMEND_SRC).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)), '删恒真 when ⇒ 必红');",
+            "  const forged = PROVIDERS_SRC.replace('when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,', 'when: () => false,');"
+          ]
+        }
+      ],
+      "summary": {
+        "filesWithUnregisteredLeafDeletions": 15,
+        "registeredLines": 270,
+        "caliber": "registeredLines = Σ 各组 registeredUncoveredLines.length；files = 非空登记文件数（逐字复算）。",
+        "note": "★ NDA-1 按规则逐叶复算 scope + 逐字登记删除面（口径：entries[].oldTitle 覆盖的行不计，其余逐字登记）。 ★ NDA-2（2026-09-27，叶2 收口）：按规则逐叶复算 scope + 逐字登记删除面（口径：v4 entries oldTitle 覆盖的行不计，其余逐字登记）。"
       }
     }
   ],
@@ -12821,11 +13316,12 @@
       "oldId": null,
       "oldTitle": "{ module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544,",
       "newId": "V552-R1-ROW-CHATSTATE-reanchored",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "superseding",
       "leaf": "specs-tree-v55-2-deterministic-onboarding",
-      "reason": "V5.5-2 R1（2026-09-23）累计归因表中该行的**位置**因新增两行（`onboarding-flow.ts` / `suspension.ts`）前移，属纯位移登记（内容逐字未变）。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5-2 R1（2026-09-23）累计归因表中该行的**位置**因新增两行（`onboarding-flow.ts` / `suspension.ts`）前移，属纯位移登记（内容逐字未变）。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V552-R1-REANCHOR-NR11",
@@ -12941,11 +13437,12 @@
       "oldId": null,
       "oldTitle": null,
       "newId": "X-SELF-3-SW-landed",
-      "newTitle": "  if (!isLlmConfigured({ hasKey: settings.apiKey.length > 0, providerId: settings.providerId, model: settings.model })) {",
+      "newTitle": "  if (!configured) {",
       "replacementExists": true,
       "modificationType": "pure-addition",
       "leaf": "specs-tree-v55-2-deterministic-onboarding",
-      "reason": "V5.5-2 R2（2026-09-23，W5 = TASK-V55-213~216）（TASK-V55-203 · FR-SELF-040/041 · ADR-V55-006 §3）**X-SELF-3 的 SW 半**：`runChat` 在 `chatBusy = true` **之前**（且早于 `providerChat(`）做确定性配置判据并 early return ⇒ 未配置时**不调 provider / 零 token / 不产 LLM 错误事件**，只回 `chat-result{variant:'llm-unconfigured'}`（payload 只带 variant）。纯新增（0 删除行：既有忙检查与 provider 分支逐字保留）；SW 产物不在 `sidepanel.js` 体积口径内。"
+      "reason": "V5.5-2 R2（2026-09-23，W5 = TASK-V55-213~216）（TASK-V55-203 · FR-SELF-040/041 · ADR-V55-006 §3）**X-SELF-3 的 SW 半**：`runChat` 在 `chatBusy = true` **之前**（且早于 `providerChat(`）做确定性配置判据并 early return ⇒ 未配置时**不调 provider / 零 token / 不产 LLM 错误事件**，只回 `chat-result{variant:'llm-unconfigured'}`（payload 只带 variant）。纯新增（0 删除行：既有忙检查与 provider 分支逐字保留）；SW 产物不在 `sidepanel.js` 体积口径内。 ★ NDA-2（TASK-NDA-204 · ADR-NDA-005 §① · FR-NDA-053）**换链**：配置判据提为 `const configured = isLlmConfigured({...})`（**单源**：未配置零 token 路径与提醒判定 `shouldNudge` 读同一布尔）⇒ 落点文本由 `if (!isLlmConfigured({…})) {` 改为 `if (!configured) {`（判据本身与 early-return 语义逐字保留，OD-5 源码序判据绿）。",
+      "supersededFrom": "  if (!configured) {"
     },
     {
       "id": "V552-R3-CHAIN-size-baseline",
@@ -13262,11 +13759,12 @@
       "oldId": null,
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
       "newId": "V55F1-SYNC-size-baseline.ts",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-1-ref-context-and-anchor",
-      "reason": "V5.5F-1 R2 同步：逐叶体积重登记（578,623 → 585,732 B）：常量 / TIMELINE / META / 新增登记条目 / 逐模块归因组的数值重 pin —— 历史值逐字保留，只前移当前值。（逐字登记见同叶 `leafBases[].registeredUncoveredLines`） 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-1 R2 同步：逐叶体积重登记（578,623 → 585,732 B）：常量 / TIMELINE / META / 新增登记条目 / 逐模块归因组的数值重 pin —— 历史值逐字保留，只前移当前值。（逐字登记见同叶 `leafBases[].registeredUncoveredLines`） 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F1-E-241",
@@ -13327,11 +13825,12 @@
       "oldId": "V42-E-VOL-2",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 578_623;",
       "newId": "V55F1-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-1-ref-context-and-anchor",
-      "reason": "V5.5F-1 **断言零删减登记**（ADR-SGO-007 §4 / V3-VOL-1 ②）：本叶只做**数值重 pin + 追加**（基线 / 生效上限 / TIMELINE / 新增登记条目 / `v55f1R1R2Rows` / FR 编号面接受 `FR-SGO-*`），无任何断言删除；`requestTurn(` 仍恰 2、`KIND_SET` 40、容差 5% 未动；逐字登记见同叶 `leafBases[].registeredUncoveredLines`。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-1 **断言零删减登记**（ADR-SGO-007 §4 / V3-VOL-1 ②）：本叶只做**数值重 pin + 追加**（基线 / 生效上限 / TIMELINE / 新增登记条目 / `v55f1R1R2Rows` / FR 编号面接受 `FR-SGO-*`），无任何断言删除；`requestTurn(` 仍恰 2、`KIND_SET` 40、容差 5% 未动；逐字登记见同叶 `leafBases[].registeredUncoveredLines`。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-1",
@@ -13340,11 +13839,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 585_732;",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：基线常量数值重 pin（逐叶收口，FR-SGO-120~125），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：基线常量数值重 pin（逐叶收口，FR-SGO-120~125），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-2",
@@ -13353,11 +13853,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 585_732;",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：实测产物常量随基线同源前移（登记值 == 实测产物），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：实测产物常量随基线同源前移（登记值 == 实测产物），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_FINAL_ARTIFACT_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-3",
@@ -13366,11 +13867,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "finalArtifactBytes: 585_732,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  finalArtifactBytes: 604_602,",
+      "newTitle": "  finalArtifactBytes: 606_652,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：META.finalArtifactBytes 与基线同源前移，无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"finalArtifactBytes: 591_946,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  finalArtifactBytes: 598_282,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：META.finalArtifactBytes 与基线同源前移，无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"finalArtifactBytes: 591_946,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  finalArtifactBytes: 598_282,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "  finalArtifactBytes: 605_239,"
     },
     {
       "id": "V55F2-E-VOL-4",
@@ -13379,11 +13881,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "deltaBytes: 290_507,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  deltaBytes: 309_377,",
+      "newTitle": "  deltaBytes: 311_427,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：累计增量按新基线重算（296,721 = 591,946 − 295,225），无断删。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"deltaBytes: 296_721,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  deltaBytes: 303_057,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：累计增量按新基线重算（296,721 = 591,946 − 295,225），无断删。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"deltaBytes: 296_721,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  deltaBytes: 303_057,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "  deltaBytes: 310_014,"
     },
     {
       "id": "V55F2-E-VOL-5",
@@ -13392,11 +13895,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "closeoutDeltaBytes: 7_109,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  closeoutDeltaBytes: 1_397,",
+      "newTitle": "  closeoutDeltaBytes: 1_413,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：最新一轮增量语义前移（v55f-2-r2 = 6,214），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"closeoutDeltaBytes: 6_214,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 6_336,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：最新一轮增量语义前移（v55f-2-r2 = 6,214），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"closeoutDeltaBytes: 6_214,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  closeoutDeltaBytes: 6_336,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "  closeoutDeltaBytes: 637,"
     },
     {
       "id": "V55F2-E-VOL-6",
@@ -13405,11 +13909,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "wiringBytes: 92_843,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "  wiringBytes: 112_261,",
+      "newTitle": "  wiringBytes: 114_311,",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：桶和随 +6,214 全部落接线桶前移（桶和 == deltaBytes），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"wiringBytes: 99_057,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  wiringBytes: 105_393,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：桶和随 +6,214 全部落接线桶前移（桶和 == deltaBytes），无断言删除。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"wiringBytes: 99_057,\"；新锚 = 当前可定位行。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"  wiringBytes: 105_393,\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "  wiringBytes: 112_898,"
     },
     {
       "id": "V55F2-E-VOL-7",
@@ -13483,11 +13988,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  finalArtifactBytes: 585_732,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-13",
@@ -13496,11 +14002,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  deltaBytes: 290_507,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-14",
@@ -13509,11 +14016,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  closeoutDeltaBytes: 7_109,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-15",
@@ -13522,11 +14030,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "  wiringBytes: 92_843,",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-16",
@@ -13535,11 +14044,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/sidepanel.ts', beforeBytes: 44_845, afterBytes: 106714, deltaBytes: 61869, kind: 'wiring', requiredBy: 'FR-V3-031~040 + FR-V3-045/047/048/054 + FR-V3-060~066 + AC-CONV-2 + R1 + R2 + R3 + v4-1 + v4-3（卡动作按 cardId→requestId 解析 + askFlow/timeoutOpenAsks seam + 授权卡审计入口 + revealAskFallback + clearAsk 全结算）—— FR-CHAT-040~048 · ADR-V4-017/022/030~033；〖V5-2 收口轮〗删去 `permRequest` 的重复 notice 写者 −86 B；〖V5.5-3 R1〗+722 B（`driveAnsweredTurn` 接线：`nextAfterSettle` 的 `answered` 分支 + 回合结束续流点 + `dedupeKey`/`pressCandidate` import）· FR-SELF-060/063/070；〖V5.5-3 R2〗+1,775 B（W3 `queued`/`busy-rejected` 两变体 + 草稿回填 + `#input` 回填；W4 护栏抑制前置判定 + `proactivity` seam + composer `noteUserTurn` + `op-*` 结算 `noteVeto` + 启动读偏好）· FR-SELF-061/090~094/096' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-17",
@@ -13548,11 +14058,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "{ module: 'src/ui/sidepanel/chat-state.ts', beforeBytes: 4_303, afterBytes: 17847, deltaBytes: 13544, kind: 'wiring', requiredBy: 'FR-V3-037/FR-V3-038 + AC-CONV-2 + R1（REF_ROUND_PREFIX + supersededAsk）+ FR-CHAT-042/043/044/048（终态事件接线 + 仲裁 + supersede/超时双留痕）+ **FR-CHAT-053/054（V4-4 R2：导航失效 / `#notice` 自动归并接线，`reduce()` 透传归约前状态 + `streamBranch` 的 `case \\'state\\'`/`case \\'notice\\'`）**· ADR-V4-030~032 / ADR-V4-036 §5' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-18",
@@ -13561,11 +14072,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/stream-model.ts', beforeBytes: null, afterBytes: 9221, deltaBytes: 9221, kind: 'new-required-module', requiredBy: 'FR-CHAT-020/021/025 + FR-CHAT-040/042/044/048（MAX_OPEN_ASKS=2 仲裁 + appendAskEvent/closeOpenAsks + openAskEntries）+ NFR-CHAT-001 · ADR-V4-024/028/030~032' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-19",
@@ -13574,11 +14086,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/cards/auth.ts', beforeBytes: null, afterBytes: 6387, deltaBytes: 6387, kind: 'new-required-module', requiredBy: 'FR-CHAT-045/046/047 + AC-CHAT-016（批准/拒绝 + 预演 + 审计入口 + 两态固化 + legacy #confirm 单一解析）· ADR-V4-030/033' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-20",
@@ -13587,11 +14100,12 @@
       "oldId": "V55F1-E-VOL-1-new",
       "oldTitle": "    { module: 'src/ui/sidepanel/l1/ref-scope.ts', beforeBytes: null, afterBytes: 2_572, deltaBytes: 2_572, kind: 'new-required-module', requiredBy: 'FR-SGO-011/012/018/020~024/080/083（引用快照投影 + 法九读数单源 + 写闸裁决 + 留痕单源）· ADR-SGO-001/002' },",
       "newId": "V55F2-E-VOL-1-new",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
       "replacementExists": true,
       "modificationType": "supersede",
       "leaf": "specs-tree-v55f-2-batch-consent",
-      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。"
+      "reason": "V5.5F-2 断言零删减登记：`test/size-*.ts` 数值重 pin / 最新一轮 rows 重指向（体积逐叶收口，FR-SGO-120~125），判据结构零删减。 〖IAN-1 R1（2026-09-24）换锚〗原 newTitle 逐字保留：\"export const SIDEPANEL_BASELINE_BYTES = 591_946;\"；新锚 = 当前可定位行（体积逐叶中间登记，判据结构零删减）。 〖IAN-1 R2（2026-09-25）体积叶1 收口换锚〗旧 newTitle 逐字保留于此：\"export const SIDEPANEL_BASELINE_BYTES = 598_282;\"；新锚随 598,282 → 599,125 / 生效上限 628,196 → 629,081 / deltaBytes 303,057 → 303,900 / closeoutDeltaBytes 6,336 → 843 / wiringBytes 105,393 → 106,236 同编号前移（判据结构与方向零改动、断言零删减）。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "V55F2-E-VOL-21",
@@ -14016,10 +14530,11 @@
       "oldId": "IAN2-E-VOL-1",
       "oldTitle": "export const SIDEPANEL_BASELINE_BYTES = 598_577;",
       "newId": "R8-E-VOL-1",
-      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 604_602;",
-      "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口（`maybeRecommendOpenEntry` 复用既有 `idle` 时机）使 `sidepanel.js` 598,577 → 598,926 B（+349 B）⇒ 基线显式重登记；生效上限 floor(598,926 × 1.05) = 628,872；档位 614,400 / 绝对上限 675,840 不动；「断言零删减」由本条目承接。",
+      "newTitle": "export const SIDEPANEL_BASELINE_BYTES = 606_652;",
+      "reason": "★ R8 缺陷修复轮（2026-09-25）：首开 / ready 入口（`maybeRecommendOpenEntry` 复用既有 `idle` 时机）使 `sidepanel.js` 598,577 → 598,926 B（+349 B）⇒ 基线显式重登记；生效上限 floor(598,926 × 1.05) = 628,872；档位 614,400 / 绝对上限 675,840 不动；「断言零删减」由本条目承接。 ★ NDA-2（2026-09-27，叶2 收口 · TASK-NDA-219）**换链**：`test/size-baseline.ts` 的叶2 体积重登记（605,239 → **606,652 B**；ceiling 635,500 → 636,984；两叶 Σ A 列 +2,050 B）使本条落点文本前移 —— oldTitle 仍在已登记叶段真实删除（140+ 次叶段删除面），新落点逐字可定位。",
       "replacementExists": true,
-      "modificationType": "in-place-edit"
+      "modificationType": "in-place-edit",
+      "supersededFrom": "export const SIDEPANEL_BASELINE_BYTES = 605_239;"
     },
     {
       "id": "ADN1-E-VOL-1",
@@ -17741,6 +18256,166 @@
       "decision": "equivalent-rewrite",
       "leaf": "specs-tree-ian-2-abolish-composer",
       "reason": "★ IAN-2 R2 删除行逐行登记：该文件在 base(c2c0e0d) 相对的该区间内被删除/改写的行（T220 insight 法四等价重锚 + 台账终态机核 + 叶2 体积终值机核），断言语义零删减（等价重锚 + 只增）。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-archive.test.ts",
+      "oldRange": [
+        8,
+        403
+      ],
+      "newRange": [
+        8,
+        403
+      ],
+      "range": "8..403",
+      "oldId": "NDA1-MR-insight-archive.test.ts-8",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 8,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/ui/journey.mjs",
+      "oldRange": [
+        632,
+        835
+      ],
+      "newRange": [
+        632,
+        835
+      ],
+      "range": "632..835",
+      "oldId": "NDA1-MR-journey.mjs-632",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 12,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/index.html",
+      "oldRange": [
+        114,
+        904
+      ],
+      "newRange": [
+        114,
+        904
+      ],
+      "range": "114..904",
+      "oldId": "NDA1-MR-index.html-114",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 172,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts",
+      "oldRange": [
+        8,
+        1257
+      ],
+      "newRange": [
+        8,
+        1257
+      ],
+      "range": "8..1257",
+      "oldId": "NDA1-MR-sidepanel.ts-8",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 368,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/view-model.ts",
+      "oldRange": [
+        90,
+        316
+      ],
+      "newRange": [
+        90,
+        316
+      ],
+      "range": "90..316",
+      "oldId": "NDA1-MR-view-model.ts-90",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 9,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/chat-state.ts",
+      "oldRange": [
+        2,
+        126
+      ],
+      "newRange": [
+        2,
+        126
+      ],
+      "range": "2..126",
+      "oldId": "NDA1-MR-chat-state.ts-2",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 14,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/src/background/service-worker.ts",
+      "oldRange": [
+        50,
+        2324
+      ],
+      "newRange": [
+        50,
+        2324
+      ],
+      "range": "50..2324",
+      "oldId": "NDA1-MR-service-worker.ts-50",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 54,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-action-parity.test.ts",
+      "oldRange": [
+        203,
+        245
+      ],
+      "newRange": [
+        203,
+        245
+      ],
+      "range": "203..245",
+      "oldId": "NDA1-MR-insight-action-parity.test.ts-203",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 3,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/insight-no-escalation.test.ts",
+      "oldRange": [
+        131,
+        131
+      ],
+      "newRange": [
+        131,
+        131
+      ],
+      "range": "131..131",
+      "oldId": "NDA1-MR-insight-no-escalation.test.ts-131",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 1,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
+    },
+    {
+      "file": "packages/web-cli-plugin/test/parity/waivers.json",
+      "oldRange": [
+        129,
+        129
+      ],
+      "newRange": [
+        129,
+        129
+      ],
+      "range": "129..129",
+      "oldId": "NDA1-MR-waivers.json-129",
+      "decision": "equivalent-rewrite",
+      "deletedLines": 1,
+      "reason": "★ NDA-1（specs-tree-nda-1-next-tool-channel，TASK-NDA-101~120）机制换轨的门禁改写删除行：围栏块口径 → next 工具捕获口径（等价重锚；断言零删除，语义逐条对账）+ 体积叶1 重登记（605,239 B）的同轮数值重 pin。"
     }
   ],
   "protectedSupersession": {
@@ -19224,7 +19899,7 @@
       "④作者确认": "见 authorConfirmation",
       "⑤三值闭合": {
         "resolved": true,
-        "newBaselineBytes": 604602,
+        "newBaselineBytes": 606652,
         "absoluteCeilingBytes": 675840,
         "resolvedOn": "2026-09-19",
         "verdict": "evaluatePendingAbsoluteCap() → ok=true",
@@ -19250,7 +19925,8 @@
         "v55f2RePin": "〖V5.5F-2 R1+R2（2026-09-24，leaf specs-tree-v55f-2-batch-consent）〗体积逐叶收口：585,732 → **591,946 B**（+6,214 B / +1.06%），档位 614,400 与绝对上限 675,840 **均不动**（591,946 < 614,400 ⇒ 未跨档位），生效上限 = floor(591,946×1.05) = 621,543；三值同源（newBaselineBytes 591,946 / absoluteCeilingBytes 675,840 / resolvedOn 2026-09-19）。",
         "ian1R1RePin": "〖IAN-1 R1（2026-09-24，leaf specs-tree-ian-1-free-input-next；W1+W2）〗体积**中间登记**：591,946 → **598,282 B**（+6,336 B / +1.07%；逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.ian1R1Rows`），档位 614,400 与绝对上限 675,840 **均不动**（598,282 < 614,400 ⇒ 未跨档位，无需升档）；生效上限 = floor(598,282 × 1.05) = 628,196；三值同源（newBaselineBytes 598,282 / absoluteCeilingBytes 675,840 / resolvedOn 2026-09-19）；`authorConfirmation` 保持 `pending-author-line`。**越叶预算登记不停机**（ADR-IAN-010 §② 预算 +2.5~4.5 KB 被 +6.34 KB 超越 ⇒ 如实登记；W3/R2 的 TASK-IAN-126 按全叶终态再登记）。",
         "ian1R2RePin": "〖IAN-1 R2（2026-09-25，leaf specs-tree-ian-1-free-input-next；W3 = TASK-IAN-117~127）〗体积**叶1 收口终值**：598,282 → **599,125 B**（+843 B / +0.14%；W3 唯一源码改动 = `sidepanel.ts#restoreFreeInputDraft` 流内回填载体）。整叶（W1+W2+W3）= 591,946 → 599,125 = **+7,179 B**（逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.ian1Rows`；Σ +7,179 + glue 0 == 整叶增量）。档位 614,400 与绝对上限 675,840 **均不动**（599,125 < 614,400 ⇒ 未跨档位，无需升档）；生效上限 = floor(599,125 × 1.05) = **629,081**；三值同源（newBaselineBytes 599,125 / absoluteCeilingBytes 675,840 / resolvedOn 2026-09-19）；`authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。**EC-IAN-016 二态显式**：越生效上限 = 否（599,125 < 628,196）/ 越档位 = 否 / 越绝对上限 = 否。**越叶预算如实登记不停机**（ADR-IAN-010 §② 预算 +2.5~4.5 KB 与 +15% 上界均被整叶 +7,179 B ≈ 7.01 KiB 超越 ⇒ 如实登记）。",
-        "ian2R1RePin": "〖★ IAN-2 R1（2026-09-25，叶 specs-tree-ian-2-abolish-composer）〗叶2 净负增量登记：599,125 → **598,577 B**（−548 B，−0.09%），档位 614,400 与绝对上限 675,840 **均不动**（598,577 < 614,400 ⇒ 未跨档位）；生效上限 = floor(598,577 × 1.05) = **628,505**。⑤ 的 `newBaselineBytes` 与源码常量 `SIDEPANEL_BASELINE_BYTES` 同源前移（唯一数值来源 = 实测产物）。"
+        "ian2R1RePin": "〖★ IAN-2 R1（2026-09-25，叶 specs-tree-ian-2-abolish-composer）〗叶2 净负增量登记：599,125 → **598,577 B**（−548 B，−0.09%），档位 614,400 与绝对上限 675,840 **均不动**（598,577 < 614,400 ⇒ 未跨档位）；生效上限 = floor(598,577 × 1.05) = **628,505**。⑤ 的 `newBaselineBytes` 与源码常量 `SIDEPANEL_BASELINE_BYTES` 同源前移（唯一数值来源 = 实测产物）。",
+        "nda2R1RePin": "〖★ NDA-2 R1（2026-09-27，leaf specs-tree-nda-2-fallback-and-gates；末叶）〗体积逐叶收口：605,239 → **606,652 B**（+1,413 B / +0.23%），档位 614,400 与绝对上限 675,840 **均不动**（606,652 < 614,400 ⇒ 未跨档位，距档 **7,748 B**）；生效上限 635,500 → **636,984**（= floor(606,652 × 1.05)）；两叶 Σ（A 列）= 叶1 +637 + 叶2 +1,413 = **+2,050 B**；逐模块归因见 `test/size-baseline.ts#SIDEPANEL_GROWTH_BREAKDOWN.nda2Rows`；EC-NDA-016 三分支皆「否」；`authorConfirmation` 保持 `pending-author-line`（不伪称已确认）。"
       },
       "⑥min() 判定": {
         "formulaCeilingBytes": 590176,
@@ -20714,5 +21390,394 @@
         "terminal": true
       }
     ]
+  },
+  "xNdaLedger": [
+    {
+      "id": "X-NDA-1",
+      "status": "superseded",
+      "old": "产出机制 = 文本尾随 next 围栏块 + 严格 JSON 数组 + 正则解析（ref-context.ts 契约句 + ai-next.ts 围栏块解析）",
+      "new": "产出机制 = next 工具（function calling）+ hooks.intercept 捕获（合成 ToolResult 短路 dispatch）",
+      "reason": "作者口径「LLM 没有调用 next 工具」⇒ 产出载体升级为模型原生结构化通道（单一产出通道）。",
+      "date": "2026-09-27",
+      "landing": "叶1（TASK-NDA-102/103/105/106/107）",
+      "counterCheck": "AI-N-1 改写（工具捕获解析）+ 围栏块符号 src 零命中 + AI-N-14 tc.args 零使用",
+      "file": "packages/web-cli-plugin/src/background/ai-next.ts"
+    },
+    {
+      "id": "X-NDA-2",
+      "status": "superseded",
+      "old": "触发范围 = 仅并入有引用分支（NEXT_CONTRACT_GUIDANCE 只并入 valid.length>0）+ ai-next 骑 ref-action 位",
+      "new": "触发范围 = 无条件（已配置 ⇒ 工具面恒含 next；提示侧删除）+ ai-led 独立规则位",
+      "reason": "配置 LLM ⇒ 对话结束即驱动；无引用回合不再丢失产出提示。",
+      "date": "2026-09-27",
+      "landing": "叶1（TASK-NDA-106/109/110）",
+      "counterCheck": "AI-N-9 ai-led 断言 + 无引用回合仍驱动 + recommendation-sources ③ 恰 5",
+      "file": "packages/web-cli-plugin/src/background/ref-context.ts"
+    },
+    {
+      "id": "X-NDA-5",
+      "status": "superseded",
+      "old": "ai-next provider rule:'ref-action' + NEXTSTEP_PRIORITY 恰 4",
+      "new": "ai-next.rule:'ai-led' + NEXTSTEP_PRIORITY 恰 5（ai-led 第 2 位）",
+      "reason": "规则位语义诚实化（AI 建议是独立一档）；行为与 F-36 的 prepend 等价。",
+      "date": "2026-09-27",
+      "landing": "叶1（TASK-NDA-109/110/113）",
+      "counterCheck": "recommendation-sources ③ 逐项复算 + 注入「恰 4 / 位次漂移」反证 + NDA 叶段登记",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts"
+    },
+    {
+      "id": "X-NDA-7",
+      "status": "superseded",
+      "old": "ai-next-candidate 门禁 AI-N-1 钉死围栏块 + 严格 JSON 数组（AI-N-1~11）",
+      "new": "AI-N-1 钉死 next 工具 rawArguments 解析（五层筛法 + 覆盖式 + ≤3）+ 新增 AI-N-12/13/14 + R1-I3 新增 AI-N-15（intercept 短路永久回归）（AI-N-1~15）",
+      "reason": "门禁等价重锚（断言零删除；语义逐条对账），并强于旧判据（schema 单源 / 不上流 / tc.args 零使用 / intercept 短路真跑基座回归）。",
+      "date": "2026-09-27",
+      "landing": "叶1（TASK-NDA-111/112/115/117）",
+      "counterCheck": "assertionsRemoved=0 对账（机核字段）+ gate-integrity 受审下界只增 + S0 node 面（四撇号）+ AI-N-15 真跑基座 dispatchCalls===0",
+      "file": "packages/web-cli-plugin/test/ai-next-candidate.test.ts"
+    },
+    {
+      "id": "X-NDA-8",
+      "status": "superseded",
+      "old": "parity pluginExtras 无 next 条目（工具面 34 基线 3 项保守分歧）",
+      "new": "pluginExtras['next'] = {reason, basis} 非空 + 纯协议工具入保守分歧集 + insight-archive fixture 122→123",
+      "reason": "新增纯协议工具须在 parity 显式登记（无命令行面，经 hooks.intercept 捕获）。",
+      "date": "2026-09-27",
+      "landing": "叶1（TASK-NDA-104）",
+      "counterCheck": "parity.test.ts pluginExtras 两字段非空 + baseline-catalog.json 零 diff",
+      "file": "packages/web-cli-plugin/test/parity/waivers.json"
+    },
+    {
+      "id": "X-NDA-6",
+      "status": "keep",
+      "old": "F-36 正确资产 9 项（admitCandidate 5 道链 / AI_NEXT_LABEL_MAX=48 / AI_NEXT_PARAM_MAX=128 / pressDecision 分层 / ai-drive 留痕三要素 / ACT_TO_OP 6 / KIND_SET 40 / chat-result.aiNext 加法字段 / 零新 LLM 往返）",
+      "new": "逐字保留（未取代）",
+      "reason": "换机制只换上游输入面；安全闸与载体面零误伤。",
+      "date": "2026-09-27",
+      "landing": "叶1（保留面，未取代）",
+      "counterCheck": "AI-N-2~11 语义对账 + admitCandidate 切片哈希 + op-three-tier / sw-op-mirror 零改"
+    },
+    {
+      "id": "X-NDA-9",
+      "status": "no-supersession",
+      "old": "ai-next.timings 仍 ['idle']（零新增触发词）",
+      "new": "未发生取代（DRIVER_TIMINGS 恰 5 逐字不动）",
+      "reason": "复用既有 idle 时机即可实现「对话结束即驱动」；新增触发词无必要且会破 DT-2/DT-3。",
+      "date": "2026-09-27",
+      "landing": "叶1（未发生取代）",
+      "counterCheck": "driver-timings 恰 5 / DT-3 逐字"
+    },
+    {
+      "id": "X-NDA-12",
+      "status": "no-supersession",
+      "old": "零新 LLM 往返契约（工具调用在同一回合内完成）",
+      "new": "未发生取代（工具调用在同一次 runner 循环内，无第二次 providerChat）",
+      "reason": "next 工具捕获不引入新回合 / 新网络调用。",
+      "date": "2026-09-27",
+      "landing": "叶1（未发生取代）",
+      "counterCheck": "AI-N-10 纯度 + 主链零新增 provider 调用"
+    },
+    {
+      "id": "X-NDA-3",
+      "status": "superseded",
+      "old": "未配置相仍铸末端「自由输入…」终端（`free-input.when` 恒真）⇒ 未配置用户被引导点死路",
+      "new": "**分相**：`free-input.when = !risk.includes(llmBlocked) && (session.busy 穷尽分支)` —— 未配置 ⇒ 不显示终端；已配置 ⇒ 恒常驻（恒最末）；未配置相可达 next 由 `llm.unconfigured` → `op.llm-config` 引导 chip 承接",
+      "reason": "作者口径②逐字「自由输入在没有 LLM 的场景下是不可行的，只能给确定性操作」（未配置提交走零 token `variant:'llm-unconfigured'`）；分相判据与修复 provider **共享同一事实源与常量** ⇒ 不可能漂移。已配置相（R8 / F-35 地板）逐字不回归。",
+      "date": "2026-09-27",
+      "landing": "叶2（TASK-NDA-203/206/207 + 216/217）",
+      "counterCheck": "free-input-next 分相（双向反证：恒真 / 恒假各自必红）+ r8-open-next-entry fallbackProblems 分相判据 + no-dead-end ND-11 未配置相（无 `.next-terminal` ∧ `op.llm-config` chip 可达）+ S0''' D 支线重锚 + ai-next-candidate FIN 分相",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts"
+    },
+    {
+      "id": "X-NDA-4",
+      "status": "superseded",
+      "old": "无 LLM 异常兜底（`onFinish` 忽略 `outcome`；连续失败 `finish('llm-failed')` ⇒ 面板只 `maybeRecommend('idle')`；**无**「配置新 LLM」推荐）",
+      "new": "`abnormalVerdict({outcome, accepted, blocked})` 闭集三情（`no-tool-call` / `llm-failed` / `all-blocked`；`stopped` ⇒ null）+ 提醒补一次（`shouldNudge` 五条件、`nudgeUsed` 首闸）+ 系统兜底 `llm.abnormal` 第 13 行 provider（复用 `op.llm-config`，文案「配置新的 LLM（切换 / 重配）」）+ `AiNextPayload.abnormal?`（加法可选子字段）",
+      "reason": "作者口径①后半逐字「如果 LLM 始终无法给你 next（LLM 坏了等情况），那就应该由系统给出兜底的推荐，推荐用户配置新的 LLM 等操作」；**新增（非删除既有）**；判定**单源在 SW**（面板只消费 ⇒ 零第二分类器）；与未配置相**词表分相**不混同（N-NDA-026 红线）。",
+      "date": "2026-09-27",
+      "landing": "叶2（TASK-NDA-201/202/204 + 208~211 + 214/216）",
+      "counterCheck": "AI-N-16（提醒有界：[`nudgeUsed` 首闸 + 二阶注入必红]）+ AI-N-17（三情真值表 + `accepted>0⇒null` + `stopped⇒null` + 只在非 null 附加）+ AI-N-18（兜底 chip 可达 + 两文案相异 + 不入三集合 + AI 不代答）+ no-dead-end ND-11 异常相 + SG-NDA-03 探针 18/18",
+      "file": "packages/web-cli-plugin/src/background/next-drive-policy.ts"
+    },
+    {
+      "id": "X-NDA-10",
+      "status": "no-supersession",
+      "old": "首开（open / ready）确定性入口（`maybeRecommendOpenEntry` 复用 `'idle'` + 零死端 floor + 让位 `firstRun`）",
+      "new": "**逐字不变**（本叶零行为改动；未配置首开由 X-NDA-3 的分相自动承接；`PD-ADN-001` 不转正 ⇒ 登记 `PD-NDA-001`）",
+      "reason": "未发生取代：首开入口 / `firstRunCard` / 零 LLM 往返依赖 / 零双卡逐字保留（R8-1~6 绿且文件零改）；本叶只登记 `PD-NDA-001`（首开 AI 化待后续轮）与 `PD-NDA-016`（提醒时点偏差）。",
+      "date": "2026-09-27",
+      "landing": "叶2（TASK-NDA-207/215）",
+      "counterCheck": "r8-open-next-entry R8-1~6 绿且 `git diff` = 0 + `maybeRecommendOpenEntry` / `firstRunCard` 零改 + 零双卡判据绿",
+      "file": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts"
+    },
+    {
+      "id": "X-NDA-11",
+      "status": "no-supersession",
+      "old": "（spec 预登记：提醒续轮的通道形态可能新增计数调用点 ⇒ 需等价重锚 `requestTurn(` / `maybeRecommend` / `nextAfterSettle` / `driver-timings`）",
+      "new": "**未发生取代** —— 提醒走 SW `chat` 回调内**同回合续呼**（`nudgeUsed` 局部单布尔）⇒ `runChatTurn(` 仍 2（1 定义 + 1 调用）/ `requestTurn(` 仍恰 1 / `maybeRecommend` 1 定义 8 调用点 / `nextAfterSettle` 1 定义 / `DRIVER_TIMINGS` 恰 5 **全未变**；`providerChat(` 交付点仍 1（提醒复用同一交付点）",
+      "reason": "未发生取代：**判定依据 = ADR-NDA-006 §⑥**（通道 = `chat` 回调内续呼，非新增回合容器）⇒ 由 spec 的「预登记（触发 = 提醒续轮通道形态）」**降级为 `no-supersession`**（净收益：少一处门禁重锚）。",
+      "date": "2026-09-27",
+      "landing": "叶2（TASK-NDA-204 + 201/214）",
+      "counterCheck": "SG-NDA-03 探针（计数面 ⑤：`runChatTurn(` 2 / `requestTurn(` 1 / `nextAfterSettle` 1 定义 / `maybeRecommend` 1 定义 8 调用点 / `providerChat(` 1）+ op-wiring OP-W-6/8 零改 + driver-timings 零改",
+      "file": "packages/web-cli-plugin/src/background/service-worker.ts"
+    }
+  ],
+  "xNdaGateReconciliation": [
+    {
+      "gate": "ai-next-candidate",
+      "disposition": "rewritten",
+      "old": "AI-N-1~11（围栏块口径）",
+      "new": "AI-N-1~15（工具捕获口径 + schema 单源 + 不上流 + tc.args 零使用 + intercept 短路永久回归）",
+      "check": "assertionsRemoved=0（机核字段）∧ gate-integrity 受审下界只增",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "recommendation-sources",
+      "disposition": "equivalent-rewrite",
+      "old": "③ NEXTSTEP_PRIORITY 恰 4",
+      "new": "③ 恰 5（ai-led 第 2 位）+ 注入反证",
+      "check": "①②③④ 零删除 ∧ :143-145 priority 自适应判据不变",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "parity",
+      "disposition": "upgraded",
+      "old": "pluginExtras 缺 next",
+      "new": "pluginExtras['next']（reason/basis 非空）",
+      "check": "baseline-catalog.json 零 diff",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "insight-archive",
+      "disposition": "equivalent-rewrite",
+      "old": "fixture 122 / L3 28",
+      "new": "fixture 123 / L3 29（新增纯协议 next）",
+      "check": "动态不变量（cards == counts）不变",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "insight-action-parity",
+      "disposition": "equivalent-rewrite",
+      "old": "保守分歧集 3 项",
+      "new": "保守分歧集 4 项（+next）",
+      "check": "真实判定链对账不变",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "insight-no-escalation",
+      "disposition": "equivalent-rewrite",
+      "old": "parity 冻结 glob 含 waivers.json / NEXTSTEP_PRIORITY 恰 4",
+      "new": "waivers.json 显式排除（next 加法行已授权）/ 恰 5",
+      "check": "base 零 diff 断言不变",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "s0-self-driven-chain",
+      "disposition": "equivalent-rewrite",
+      "old": "A 支线 ref-action 槽 / NEXTSTEP_PRIORITY 恰 4",
+      "new": "A 支线 ai-led 槽 / 恰 5",
+      "check": "四支线终端恒在不变",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "size-budget",
+      "disposition": "equivalent-rewrite",
+      "old": "基线 604,602 / ceiling 634,832",
+      "new": "基线 605,239 / ceiling 635,500（叶1 重登记）；★ NDA-2 叶2 重登记：基线 605,239 → **606,652** / 生效上限 635,500 → **636,984**（`nda2Rows` Σ +1,413 + glue 0 == +1,413；两叶 Σ A 列 +2,050 B）",
+      "check": "五要素 + 三值同源 + 断言零删除 ∧ 受审下界只增 ∧ 断言零删除（`assertionsRemoved=0`）",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "size-growth-evidence",
+      "disposition": "equivalent-rewrite",
+      "old": "最新一轮 = adn-2-r1（604,602）",
+      "new": "最新一轮 = nda-1-r1（605,239）+ nda1Rows；★ NDA-2 叶2 重登记：基线 605,239 → **606,652** / 生效上限 635,500 → **636,984**（`nda2Rows` Σ +1,413 + glue 0 == +1,413；两叶 Σ A 列 +2,050 B）",
+      "check": "Σ 逐模块 + glue == 登记增量 ∧ 受审下界只增 ∧ 断言零删除（`assertionsRemoved=0`）",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "size-ruling-vol3",
+      "disposition": "equivalent-rewrite",
+      "old": "三值 604,602 / 634,832",
+      "new": "三值 605,239 / 635,500；★ NDA-2 叶2 重登记：基线 605,239 → **606,652** / 生效上限 635,500 → **636,984**（`nda2Rows` Σ +1,413 + glue 0 == +1,413；两叶 Σ A 列 +2,050 B）",
+      "check": "档位不下移闸门不变 ∧ 受审下界只增 ∧ 断言零删除（`assertionsRemoved=0`）",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "density-thresholds",
+      "disposition": "equivalent-rewrite",
+      "old": "v4-density-baseline 604,602 / 634,832",
+      "new": "605,239 / 635,500；★ NDA-2 叶2 重登记：基线 605,239 → **606,652** / 生效上限 635,500 → **636,984**（`nda2Rows` Σ +1,413 + glue 0 == +1,413；两叶 Σ A 列 +2,050 B）",
+      "check": "阈值 7/15 · 9/20 · 17/35 逐字不动 ∧ 受审下界只增 ∧ 断言零删除（`assertionsRemoved=0`）",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "supersession-ledger",
+      "disposition": "upgraded",
+      "old": "无 xNdaLedger",
+      "new": "xNdaLedger / xNdaGateReconciliation / xNdaLedgerFull",
+      "check": "逐行五要素齐备 + 老条目只增 + assertionsRemoved 机核（12 行全 0）",
+      "landing": "叶1",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "free-input-next",
+      "disposition": "equivalent-rewrite",
+      "old": "FIN-1~2 断言「终端恒真且恒在场」（provider `when` 恒真）",
+      "new": "**分相**：未配置 ⇒ `when=false` ∧ 卡无 `.next-terminal` ∧ `op.llm-config` 引导可达；已配置 ⇒ `when=true` ∧ 终端恒最末（FIN-0~9 只增 + FIN-11 分相块）",
+      "check": "FIN-0~9 零删除 ∧ 双向反证（注入恒真 / 恒假各自必红 + 逐字节还原）",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "driver-quadruple",
+      "disposition": "equivalent-rewrite",
+      "old": "DQ-1 / DQ 终态「声明表恰 12 ∧ 注册表恰 12 ∧ 逐项同集」",
+      "new": "**13↔13**（旧 12 行逐字保留 + `llm.abnormal` 第 13 行）",
+      "check": "逐项同集（非只对数）+ 幽灵行必红 + DQ-3 evidence 与 when-scope 同源",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "next-registry",
+      "disposition": "equivalent-rewrite",
+      "old": "NR-10 两处「声明行恰 12」",
+      "new": "NR-10 两处「恰 13」（只增）",
+      "check": "NR-0 真值源仍恰 7（不动）+ 双向包含逐项成立",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "onboarding-deterministic",
+      "disposition": "equivalent-rewrite",
+      "old": "OD-5 注入锚点 = `if (!isLlmConfigured({…})) {`（内联判据）",
+      "new": "配置判据提为 `const configured = isLlmConfigured({…})`（**单源**：未配置零 token 路径与 `shouldNudge` 读同一布尔）；注入锚点 = `if (!configured) {`",
+      "check": "OD-5 源码序判据（判据 < `chatBusy = true;` < `providerChat(`）逐字不变 ∧ OD-16 X-SELF-3-SW 换链",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "no-dead-end",
+      "disposition": "new",
+      "old": "无未配置相 / 异常相覆盖（5 类阻塞 + 4 类意图终态）",
+      "new": "**ND-11 分相死端守护**：未配置 ⇒ 卡在场 ∧ 无 `.next-terminal` ∧ `op.llm-config` 引导 chip 可达；异常相 ⇒ 兜底 chip 可达 ∧ 终端恒常驻（+ 恒真退化溯源反证）",
+      "check": "ND-1~ND-10 逐条保留 ∧ 56 passed / 0 failed（+3）",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "r8-open-next-entry",
+      "disposition": "equivalent-rewrite",
+      "old": "`fallbackProblems` 断言 free-input 的**恒真** `when`（终端存在性单源）",
+      "new": "断言**分相** `when`（`!risk.includes(llmBlocked) && session.busy` 穷尽分支）+ **退回恒真即红**的新反证",
+      "check": "R8-1~6 全绿且文件零改 ∧ 首开确定性 / 零双卡 / 零 LLM 往返不变",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "s0-self-driven",
+      "disposition": "equivalent-rewrite",
+      "old": "S0'''' 十二拍 Chromium 面（叶1：主线 A / 支线 B·D 侧）",
+      "new": "S0'''' 支线 C / D / E **终态断言**（提醒用尽 ⇒ 系统兜底 / 未配置 ⇒ 无终端 + 引导 / 首开确定性）+ `NEXTSTEP_PRIORITY` 恰 5 面复核；**只加断言不加文件**",
+      "check": "`CHROMIUM_GATES === 9` 不动 ∧ 12 拍单源（`S0PPPP_CHAIN`）∧ 断言只增",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "recommendation",
+      "disposition": "equivalent-rewrite",
+      "old": "推荐卡终端的等价重锚（无分相口径）",
+      "new": "已配置 ⇒ 终端恒最末；未配置 ⇒ 无终端 + 引导 chip；异常 ⇒ 兜底 chip（只加断言）",
+      "check": "`test:recommendation ≥79` ∧ 断言只增不删",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "law8-plaintext",
+      "disposition": "upgraded",
+      "old": "工具面 / AI label 零明文（★ NDA-1 ⑫）",
+      "new": "追加**兜底文案零明文**（`llm.abnormal` 文案 / 未配置文案各自无 URL / 凭据形 / 用户正文面）与两文案相异（只加断言）",
+      "check": "`test:law8 ≥69` 零降级 ∧ 四面零明文不破",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "journey",
+      "disposition": "kept",
+      "old": "保护段 journey `[43484,59347)`（sha `7b309258…`）",
+      "new": "**逐字保留**（保护段 keep；本叶零改动 ⇒ 字节中立双绿）",
+      "check": "保护段 sha + `startByte` 双绿 ∧ `modifiedRanges` 为空（本叶无新增段内断言）",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "binding",
+      "disposition": "kept",
+      "old": "保护段 binding `[107780,115930)`（sha `be9ad0e9…`）",
+      "new": "**逐字保留**（保护段 keep；本叶零改动 ⇒ 字节中立双绿）",
+      "check": "保护段 sha + `startByte` 双绿 ∧ 两文件 `git diff` = 0",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "blocked-terminals",
+      "disposition": "kept",
+      "old": "`BLOCKED_TERMINALS` 恰 5 / `OPS_RECOVERY_PROVIDER_IDS`（+`OPS_RECOVERY_ROWS`）恰 2 / `RECOVERY_PROVIDER_IDS` 恰 5",
+      "new": "**逐字不变**（`llm.abnormal` 是**风险态** recovery provider ⇒ 不入三集合）",
+      "check": "三个集合计数逐字 + 文件零改 ∧ `llm.abnormal` 不在任一集合（AI-N-18 判据）",
+      "landing": "叶2",
+      "assertionsRemoved": 0
+    },
+    {
+      "gate": "op-wiring",
+      "disposition": "kept",
+      "old": "`requestTurn(` 恰 1 / `maybeRecommend` 1 定义 8 调用点 / `nextAfterSettle` 1 定义；间接面 `driver-terminals` / `driver-timings` / `proactivity-guard` / `turn-arbitration` 逐条不动",
+      "new": "**逐字不变**（提醒复用 `chat` 回调内同回合续呼 ⇒ 零新增调用点；`DRIVER_TIMINGS` 仍恰 5 / `PROACTIVE_MOMENTS` 仍恰 7 / 四值仲裁逐字）",
+      "check": "X-NDA-11 = `no-supersession` ∧ 文件零改",
+      "landing": "叶1+叶2",
+      "assertionsRemoved": 0
+    }
+  ],
+  "xNdaLedgerFull": {
+    "leaf": "specs-tree-nda-1-next-tool-channel + specs-tree-nda-2-fallback-and-gates（两叶合并终态）",
+    "status": "final",
+    "counts": {
+      "superseded": 7,
+      "keep": 1,
+      "no-supersession": 4,
+      "keepSubitems": 9
+    },
+    "supersededIds": [
+      "X-NDA-1",
+      "X-NDA-2",
+      "X-NDA-3",
+      "X-NDA-4",
+      "X-NDA-5",
+      "X-NDA-7",
+      "X-NDA-8"
+    ],
+    "keepIds": [
+      "X-NDA-6"
+    ],
+    "noSupersessionIds": [
+      "X-NDA-9",
+      "X-NDA-10",
+      "X-NDA-11",
+      "X-NDA-12"
+    ],
+    "gateReconciliationRows": 25,
+    "counterCheck": "逐条 `counterCheck` 可定位（叶1 八行 + 叶2 四行 = 12 行；已发生取代 7 / 保留 1（9 子项，X-NDA-6）/ 未发生取代 4）+ xNdaGateReconciliation 25 行三态齐（无「未处置」）∧ `assertionsRemoved === 0` ∧ 老条目（v3 / v4 / v4.5 / v5 / v5.5 / F-34 / F-35 / F-36 段）逐字保留",
+    "date": "2026-09-27"
   }
 }

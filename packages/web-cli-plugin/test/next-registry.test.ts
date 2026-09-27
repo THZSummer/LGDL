@@ -256,12 +256,17 @@ test('NR-9 chips 悬空：setKnownOpIds 后未知 chip ⇒ loud', () => {
  * 既有 16 条判据一条不减；以下只**增**。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('NR-10（V5.5-1）：驱动者声明 12 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
+test('NR-10（V5.5-1）：驱动者声明 13 行 ↔ provider 集合双向包含 ∧ answered 时机有接手者', () => {
   const decls = Object.values(DRIVER_DECLS_SRC);
   const providerIds = new Set(builtinProviders().map((p) => p.id));
   assert.equal(decls.length, providerIds.size, `驱动者集合 ≡ provider 集合（实测 ${decls.length} vs ${providerIds.size}）`);
   // ★ ADN-1 TASK-ADN-122（间接面）：`DRIVER_DECLS_SRC.length === 11` → **12**（只增：新增 ai-next 第 12 行）。
-  assert.equal(decls.length, 12, '声明行必须恰 12（IAN-1 free-input + F-36/ADN-1 ai-next）');
+  // ★ NDA-2 **TASK-NDA-212**（ADR-NDA-202 §① · FR-NDA-071/075/130/134）：`12` → **13**（只增：
+  // 新增 `llm.abnormal` 第 13 行；旧 12 行逐字保留）。
+  assert.equal(decls.length, 13, '声明行必须恰 13（IAN-1 free-input + F-36/ADN-1 ai-next + NDA-2 llm.abnormal）');
+  // ★ NDA-2：第 13 行同样必须**真的**被双向包含覆盖（不得只改计数）。
+  assert.ok(providerIds.has('llm.abnormal'), 'llm.abnormal provider 必须在注册表内');
+  assert.ok(decls.some((d) => d.driverId === 'llm.abnormal'), 'llm.abnormal 必须有声明行（双向包含）');
   // ★ IAN-1：新面必须**真的**被双向包含判据覆盖（不得只把计数从 10 改成 11 就了事）。
   assert.ok(providerIds.has('free-input'), 'free-input 终端必须在注册表内');
   assert.ok(decls.some((d) => d.driverId === 'free-input'), 'free-input 必须有声明行（双向包含）');
@@ -312,5 +317,5 @@ test('NR-10 反证：声明表多一行 / 少一行 ⇒ 双向包含必红 → �
   const missing = decls.filter((d) => d.driverId !== 'ref-action');
   assert.equal(missing.length, decls.length - 1);
   assert.ok([...providerIds].some((id) => !missing.some((d) => d.driverId === id)), '少一行（注册表有表无）⇒ 必红');
-  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 12, '还原 PASS（声明行恰 12：IAN-1 free-input + F-36/ADN-1 ai-next）');
+  assert.equal(Object.values(DRIVER_DECLS_SRC).length, 13, '还原 PASS（声明行恰 13：IAN-1 free-input + F-36/ADN-1 ai-next + NDA-2 llm.abnormal）');
 });

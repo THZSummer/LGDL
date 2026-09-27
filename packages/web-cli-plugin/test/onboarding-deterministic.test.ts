@@ -643,8 +643,14 @@ test('OD-5 runChat 前置判据源码序（判据 < chatBusy = true < providerCh
 });
 
 test('OD-5 反证：删判据 / early return 放到 chatBusy 之后 ⇒ 各必红 → 还原 PASS', () => {
-  const noGuard = SW_SRC.replace(/  if \(!isLlmConfigured\(\{[\s\S]*?\n  \}\n/, '');
+  // ★ NDA-2 TASK-NDA-204（ADR-NDA-005 §① · FR-NDA-053）：配置判据已提为 `const configured`
+  // （**单源**）⇒ 注入锚点**等价重锚**为实际守卫块（判据仍在 `chatBusy = true;` 之前）。
+  const noGuard = SW_SRC
+    .replace(/  const configured = isLlmConfigured\(\{[^\n]*\n/, '')
+    .replace(/  if \(!configured\) \{[\s\S]*?\n  \}\n/, '');
   assert.notEqual(noGuard, SW_SRC, '前置：注入锚点必须存在');
+  const noGuardCode = stripComments(noGuard);
+  assert.equal(/isLlmConfigured\(/.test(noGuardCode.slice(noGuardCode.indexOf('async function runChat('))), false, '前置：删净后 runChat 内不得再有判据');
   assert.ok(runChatOrderProblems(noGuard).length > 0, '删判据必须红（复现 R5 被动式）');
   const lateGuard =
     'async function runChat(s: Singletons, user: string) {\n  chatBusy = true;\n  if (!isLlmConfigured({})) {\n    return;\n  }\n  providerChat();\n}';

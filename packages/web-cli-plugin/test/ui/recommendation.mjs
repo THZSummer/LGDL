@@ -836,6 +836,42 @@ async function main() {
       adn2TerminalRaw,
     );
 
+    // ── ★ NDA-2 **TASK-NDA-217**（ADR-NDA-005 §①③ · ADR-NDA-007 §③ · FR-NDA-051/052/072~076 ·
+    //    AC-NDA-007/009 · **X-NDA-3 取代登记**）—— 推荐卡**分相等价重锚**（只加断言）──────────
+    console.log('\n▶ ★ NDA-2 分相 / 兜底 chip：已配置 ⇒ 终端恒最末；未配置 ⇒ 无终端 + 引导；异常 ⇒ 兜底 chip');
+    const PHASE_READ = `(() => {
+      const card = document.querySelector('#stream [data-msg-type="nextstep"]');
+      return JSON.stringify({
+        card: Boolean(card),
+        terminal: Boolean(card && card.querySelector('.next-terminal')),
+        ops: card ? [...card.querySelectorAll('[data-op]')].map((b) => b.getAttribute('data-op')) : [],
+      });
+    })()`;
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('idle'); true`);
+    const nda2Configured = JSON.parse(await evaluate(cdp, PHASE_READ));
+    check(
+      '★ NDA-2 已配置相：推荐卡在 ∧ `.next-terminal` 恒常驻（R8 / F-35 不回归）',
+      nda2Configured.card === true && nda2Configured.terminal === true,
+      JSON.stringify(nda2Configured),
+    );
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('llm'); true`);
+    const nda2Unconfig = JSON.parse(await evaluate(cdp, PHASE_READ));
+    check(
+      '★ NDA-2 未配置相：`op.llm-config` 引导 chip 可达 ∧ **无** `.next-terminal`（自由输入不可行；零死端由引导承接）',
+      nda2Unconfig.card === true && nda2Unconfig.ops.includes('op.llm-config') && nda2Unconfig.terminal === false,
+      JSON.stringify(nda2Unconfig),
+    );
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('llmAbnormal'); true`);
+    const nda2Abnormal = JSON.parse(await evaluate(cdp, PHASE_READ));
+    check(
+      '★ NDA-2 异常相：系统兜底 `op.llm-config` chip 可达 ∧ 已配置 ⇒ 终端恒常驻（零死端）',
+      nda2Abnormal.card === true && nda2Abnormal.ops.includes('op.llm-config') && nda2Abnormal.terminal === true,
+      JSON.stringify(nda2Abnormal),
+    );
+
     cdp.close();
 
     const runtime = counts().passes;

@@ -252,10 +252,19 @@ export function fallbackProblems(providersSrc: string, recommendSrc: string): st
   const fail = JUDGEMENTS[7].expectFailPattern;
   const cleanP = stripComments(providersSrc);
   const cleanR = stripComments(recommendSrc);
-  // ① 终端存在性单源：`free-input` provider 的恒真 `when`（读 `session.busy` 的两条穷尽分支）。
+  // ① 终端存在性单源：`free-input` provider 的 **分相** `when`。
+  //    ★ NDA-2 **TASK-NDA-206/207**（ADR-NDA-005 §①③ · FR-NDA-051/052 · AC-NDA-007/018 ·
+  //    **X-NDA-3 取代登记**）—— 判据**等价重锚**：恒真（`session.busy` 两条穷尽分支）→
+  //    **分相**（未配置 ⇒ false 不铸终端；已配置 ⇒ true 恒常驻）。仍读 `session.busy`
+  //    ⇒ when-scope ↔ `DRIVER_DECLS_SRC.evidence` 同源（DQ-3）不破；未配置相的可达 next
+  //    由 `llm.unconfigured` → `op.llm-config` 引导 chip 承接（FR-NDA-055，非死端）。
   if (!/id:\s*FREE_INPUT_PROVIDER_ID/.test(cleanP)) problems.push(`${fail}：free-input provider 声明处必须仍在`);
-  if (!/when:\s*\(ctx\)\s*=>\s*ctx\.session\.busy === true \|\| ctx\.session\.busy === false/.test(cleanP)) {
-    problems.push(`${fail}：free-input 的恒真 when 必须仍在（删掉 ⇒ 终端消失 ⇒ 零死端回归）`);
+  if (!/when:\s*\(ctx\)\s*=>\s*!ctx\.risk\.includes\(LLM_BLOCKED_RISK\) && \(ctx\.session\.busy === true \|\| ctx\.session\.busy === false\)/.test(cleanP)) {
+    problems.push(`${fail}：free-input 的分相 when 必须仍在（删掉 ⇒ 已配置相终端消失 ⇒ 零死端/恒常驻回归）`);
+  }
+  // 分相不得退化为恒真（未配置相复现终端 ⇒ 作者口径②「自由输入不可行」回归）。
+  if (/when:\s*\(ctx\)\s*=>\s*ctx\.session\.busy === true \|\| ctx\.session\.busy === false/.test(cleanP)) {
+    problems.push(`${fail}：free-input 的 when 不得退回恒真（未配置相会显示自由输入终端）`);
   }
   // ② 零死端 floor：无候选 ∧ 终端在场 ⇒ 铸「仅含终端」最小卡。
   if (!/suppression:\s*'empty'/.test(cleanR)) problems.push(`${fail}：floor 的 empty 分支必须仍在`);
@@ -303,12 +312,14 @@ test('★ ADN-2 212：兜底反证（删恒真 when / 删 floor ⇒ 必红）+ �
   const before = { p: sha256(PROVIDERS_SRC), r: sha256(RECOMMEND_SRC) };
 
   // 反证①：删掉 free-input 的恒真 when（改成恒假）⇒ 终端消失 ⇒ 必红。
-  const noTerminal = PROVIDERS_SRC.replace(
-    'when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,',
-    'when: () => false,',
-  );
-  assert.notEqual(noTerminal, PROVIDERS_SRC, '前置：恒真 when 锚点必须存在');
-  assert.ok(fallbackProblems(noTerminal, RECOMMEND_SRC).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)), '删恒真 when ⇒ 必红');
+  const PHASED_WHEN = 'when: (ctx) => !ctx.risk.includes(LLM_BLOCKED_RISK) && (ctx.session.busy === true || ctx.session.busy === false),';
+  const noTerminal = PROVIDERS_SRC.replace(PHASED_WHEN, 'when: () => false,');
+  assert.notEqual(noTerminal, PROVIDERS_SRC, '前置：分相 when 锚点必须存在');
+  assert.ok(fallbackProblems(noTerminal, RECOMMEND_SRC).some((p) => p.includes(JUDGEMENTS[7].expectFailPattern)), '删分相 when（恒假）⇒ 必红');
+  // 反证①b（★ NDA-2 X-NDA-3）：把分相退回**恒真** ⇒ 未配置相复现终端 ⇒ 必红。
+  const alwaysOn = PROVIDERS_SRC.replace(PHASED_WHEN, 'when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,');
+  assert.notEqual(alwaysOn, PROVIDERS_SRC, '前置：分相 when 锚点必须存在');
+  assert.ok(fallbackProblems(alwaysOn, RECOMMEND_SRC).some((p) => p.includes('不得退回恒真')), '分相退回恒真 ⇒ 必红');
 
   // 反证②：删掉零死端 floor 的「仅含终端」最小卡 ⇒ 必红。
   const noFloor = RECOMMEND_SRC.replace('cards: Object.freeze(terminal ? [freeInputOnlyCard()] : []),', 'cards: Object.freeze([]),');
@@ -327,7 +338,7 @@ test('★ ADN-2 212：兜底反证（删恒真 when / 删 floor ⇒ 必红）+ �
 
 test('★ ADN-2 212：三段控制 ok / violated / n/a 逐态可达（n/a 不冒充 ok）', () => {
   assert.equal(triState(fallbackProblems(PROVIDERS_SRC, RECOMMEND_SRC).length === 0), 'ok', '生产事实 ⇒ ok');
-  const forged = PROVIDERS_SRC.replace('when: (ctx) => ctx.session.busy === true || ctx.session.busy === false,', 'when: () => false,');
+  const forged = PROVIDERS_SRC.replace('when: (ctx) => !ctx.risk.includes(LLM_BLOCKED_RISK) && (ctx.session.busy === true || ctx.session.busy === false),', 'when: () => false,');
   assert.equal(triState(fallbackProblems(forged, RECOMMEND_SRC).length === 0), 'violated', '注入 ⇒ violated');
   assert.equal(triState(undefined), 'n/a', '读不到 ⇒ n/a（证据面不可达）');
   assert.notEqual(triState(undefined), 'ok', 'n/a 不得冒充 ok');

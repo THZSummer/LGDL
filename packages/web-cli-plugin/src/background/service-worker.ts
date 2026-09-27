@@ -81,7 +81,14 @@ import { classifyChatRequest, createTurnQueue, type QueuedTurn } from './turn-qu
 // V5.5F-1 TASK-V55F-106/107 (ADR-SGO-001 §3/§4): 系统段追加段 + 载荷运行时校验 + 回合引用单源。
 import { refContextSegment, validateRefPayload } from './ref-context.js';
 // ★ F-36 / ADN-1 TASK-ADN-107：`done` 装配点的解析 + 5 道校验链（B 列纯函数模块）。
-import { validateAiNext } from './ai-next.js';
+// ★ NDA-1 TASK-NDA-105/107：解析入口换成 `parseNextToolArguments`（围栏块解析已删）。
+import { captureNextCall, emptyNextTurnCapture, validateAiNext, type NextTurnCapture } from './ai-next.js';
+// ★ NDA-1 TASK-NDA-107：`next` 工具名 / 合成 `ToolResult` 常量 / 候选上限（B 列，单源）。
+import { NEXT_TOOL_ACK, NEXT_TOOL_MAX_CANDIDATES, NEXT_TOOL_NAME } from '../tools/next-tool.js';
+// ★ NDA-2 **TASK-NDA-204 / 209**（ADR-NDA-006/007 · ADR-NDA-201 · FR-NDA-060~076）——
+// 提醒判定 / 异常判定闭集的**纯函数单源**（B 列）与 `aiNext` 载荷类型（type-only 词汇单源）。
+import { NUDGE_TEXT, abnormalVerdict, shouldNudge } from './next-drive-policy.js';
+import type { AiNextPayload } from '../ui/sidepanel/next-registry/definition.js';
 // V5.5F-1 TASK-V55F-117：`observeIdentity` 抽为**单一实现**（本文件与 `tools/dom-anchor.ts`
 // 同源 import ⇒ 禁第二份副本；`nodeCount === 1` 为唯一通过条件，AC-SGO-022）。
 import { observeIdentity } from './ref-observe.js';
@@ -919,6 +926,11 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
   // the busy check (the single-flight guarantee must not be relaxed). While a turn is
   // in flight the existing busy reply still wins (checked first, unchanged).
   const settings = await s.keys.load();
+  // ★ NDA-2 **TASK-NDA-204**（ADR-NDA-005 §① · ADR-NDA-006 §② · FR-NDA-050/053）——
+  // **`configured` 单源**：本判据原为 `if (!isLlmConfigured({...}))` 的**内联实参**，本叶提为
+  // `const configured`（同一同步块内、`chatBusy = true` 之前）⇒ 未配置路径（零 token）与
+  // 提醒判定（`shouldNudge`）读**同一个**布尔，零第二「是否配置」声明面 / 零第二偏好键。
+  const configured = isLlmConfigured({ hasKey: settings.apiKey.length > 0, providerId: settings.providerId, model: settings.model });
   if (chatBusy) {
     // ★ V5.5-3 **TASK-V55-309** (ADR-V55-010 §2 · FR-SELF-061 · AC-SELF-014) —
     // X-SELF-7 的「第二条被丢弃 + 回错误」被重锚为**可判仲裁**：同一时刻仍只有一个在飞
@@ -942,7 +954,7 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
     await chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'busy-rejected', text: user })).catch(() => {});
     return;
   }
-  if (!isLlmConfigured({ hasKey: settings.apiKey.length > 0, providerId: settings.providerId, model: settings.model })) {
+  if (!configured) {
     // Zero provider call, zero token, no `llmErrorEvent` — the false「撞一次错误才知道
     // 要配置」path (R5) is structurally removed. The payload carries the **variant only**:
     // the blocked-terminal vocabulary stays single-sourced in the panel registry
@@ -973,8 +985,17 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
     // panel can render a tool card with name + status + duration.
     let toolStartedAt = 0;
     let lastTool: { name: string; ok: boolean; ms: number; selector?: string } | null = null;
-    // ★ F-36 / ADN-1 TASK-ADN-107：本回合**最后一条** assistant 文本（中间轮次被覆盖）。
-    let lastAssistantText: string | undefined;
+    // ★ NDA-1 **TASK-NDA-107**（ADR-NDA-002 §①/§③ · ADR-NDA-101 §③ · FR-NDA-021/025/026）
+    // —— 本回合的 `next` 捕获态（与 `toolStartedAt` / `lastTool` 同居的事件作用域）。
+    //   · `captured` 与 `lastCandidates` **分离**：`captured=true ∧ 候选 0`（解析失败）与
+    //     「压根没调用」可判（resolve 支线 C 的准确读数）；
+    //   · **覆盖式取最后一次**（`captureNextCall`，与 F-36「取最后一个围栏块」等价）；
+    //   · 初值冻结空数组 ⇒ 未捕获回合零候选。
+    let capture: NextTurnCapture = emptyNextTurnCapture();
+    // ★ NDA-2 **TASK-NDA-204**（ADR-NDA-006 §①/⑤⑦ · FR-NDA-061/062/063 · AC-NDA-008）——
+    // **提醒补一次**的**有界单布尔**（`runChat` 局部 ⇒ 每回合重新开始，含 drain 出的回合
+    // （`:1107` 递归 `runChat`）⇒ 每回合 nudge ≤1）。置位在**调用之前** ⇒ 提醒轮失败亦无第二次。
+    let nudgeUsed = false;
     await runChatTurn(user, {
       session: s.chatSession,
       // ★ V5.5F-1 TASK-V55F-106/107（ADR-SGO-001 §4 · FR-SGO-016/017）：系统段 = **基座**
@@ -984,16 +1005,34 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
       system: () => SYSTEM_PROMPT + refContextSegment(refs),
       maxRounds: settings.maxRounds,
       chat: async (turns, system) => {
-        const res = await providerChat(
-          { providerId: settings.providerId, apiKey: settings.apiKey, model: settings.model, baseURL: settings.baseURL },
-          [{ role: 'system', content: system }, ...turns],
-          s.host.deriveTools(),
-        );
+        // ★ NDA-2 **TASK-NDA-204**（ADR-NDA-006 §①③⑤⑥ · FR-NDA-060~066 · AC-NDA-008/015）——
+        // **提醒 = SW `chat` 回调内的同回合续呼**（不新增回合容器 / 不新增计数调用点）：
+        //   · `call` 是**唯一**交付点（每轮被基座调用一次），同一 cfg + **同一** `deriveTools()`
+        //     ⇒ nudge 是**同一产出通道**（无第二解析器 / 第二校验器，FR-NDA-066）；
+        //   · `shouldNudge` 为真 ⇒ **先置位** `nudgeUsed`（提醒轮失败 ⇒ 无第二次）⇒ 追加
+        //     `NUDGE_TEXT` user turn 后**再调一次**，用**第二次** `res` 作为该轮结果；
+        //   · 加长数组是**局部变量**（`chat-runner.ts:63` 提交的是**基座自己的** `turns`）
+        //     ⇒ 会话历史**零污染**（`session.snapshot()` 不含 nudge 文本）；
+        //   · 时点比 spec 字面早一步（`PD-NDA-016`）、`stop()` 窗口内至多多发 1 次（有界）。
+        const cfg = { providerId: settings.providerId, apiKey: settings.apiKey, model: settings.model, baseURL: settings.baseURL };
+        const call = (t: readonly ChatTurn[]) => providerChat(cfg, [{ role: 'system', content: system }, ...t], s.host.deriveTools());
+        let res = await call(turns);
+        if (shouldNudge({
+          configured,
+          toolCalls: res.toolCalls.length,
+          hasReply: res.content.trim().length > 0,
+          captured: capture.captured,
+          nudgeUsed,
+        })) {
+          nudgeUsed = true; // ★ 先置位：提醒轮失败也不会有第二次（有界恰一次）
+          res = await call([...turns, { role: 'user', content: NUDGE_TEXT }]);
+        }
         // ★ V5.5F-2 **TASK-V55F-206/209**（ADR-SGO-004 §1 · FR-SGO-040/041）——
         // **计划捕获唯一处**：本回调是「单条 assistant 消息的全部 toolCalls」的**唯一**交付点
         // （base `runner.ts` 把 `res.toolCalls` 一次给出）。计划在任何写**执行之前**成立 ⇒
         // 计划与实际写入**同源**（R-SGO-906 结构性消除）。每条消息各自成计划 ⇒ 跨轮不累积
         // （R-SGO-915）；`N<2` / 空计划在 holder 入口归一为「无批次」（不空弹）。
+        // ★ NDA-2：用**最终** `res`（含提醒轮结果）⇒ 计划与实际写入同源不破。
         batchConsent.setPlan(await buildPlan(res.toolCalls, refs));
         return res;
       },
@@ -1001,19 +1040,22 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
       deriveCommand: (tc) => s.host.router.deriveCommand(tc),
       events: {
         onAssistantText: (text) => {
-          // ★ F-36 / ADN-1 **TASK-ADN-107**（ADR-ADN-001 §④ · FR-ADN-010/016）—— 只累积
-          // **最后一条** assistant 文本（中间轮次不参与；结题装配时取该文本的**最后**一个
-          // `next` 围栏块）。
-          lastAssistantText = text;
           void chrome.runtime.sendMessage(makeMessage('chat-result', { variant: 'assistant', text })).catch(() => {});
         },
         onCommandLine: (text) => {
+          // ★ NDA-1 **TASK-NDA-107**（ADR-NDA-102 §① · FR-NDA-022/024）—— `next` 是纯协议
+          // 工具，其命令行**不上流**（用户在流里看不到机械痕迹）。`deriveCommand` 对未注册
+          // 命令返回 `null` ⇒ 基座回落 `tc.name`（`'next'`）⇒ 该判据稳定且单源（工具名常量）。
+          if (text === NEXT_TOOL_NAME) return;
           toolStartedAt = Date.now();
           void chrome.runtime.sendMessage(makeMessage('chat-result', { ...commandEvent(text) })).catch(() => {});
         },
         onToolOutput: (text) => {
           const meta = lastTool;
           lastTool = null;
+          // ★ NDA-1 **TASK-NDA-107**（ADR-NDA-102 §①）—— `next` 的工具卡也不上流
+          // （`lastTool` 由紧邻之前的 `onToolDone` 写入 ⇒ 是此处唯一的工具身份信号）。
+          if (meta?.name === NEXT_TOOL_NAME) return;
           void chrome.runtime
             .sendMessage(
               makeMessage('chat-result', {
@@ -1024,25 +1066,53 @@ async function runChat(s: Singletons, user: string, refs?: readonly ChatRefFact[
         },
         onLLMError: (message, willRetry) =>
           void chrome.runtime.sendMessage(makeMessage('chat-result', { ...llmErrorEvent(message, willRetry) })).catch(() => {}),
-        onFinish: () => {
-          // ★ F-36 / ADN-1 **TASK-ADN-107**（ADR-ADN-001 §①/④/⑤ · ADR-ADN-002 §② ·
-          // FR-ADN-010/016/017/018）—— **唯一产出点** = 成功结题（`done`）。
-          //   · 只在本回合成功结算时装配（`error` 结算点走既有 `maybeRecommend('idle')`，
-          //     零候选 ⇒ 确定性兜底；半成品输出不得被推荐）；
-          //   · 解析 + 5 道校验链在 SW（`background/ai-next.ts`）⇒ 面板**只接收已校验候选**；
-          //   · **零新 LLM 调用**：复用刚结束回合的输出文本（无第二次 provider 调用）。
+        onFinish: (outcome) => {
+          // ★ NDA-1 **TASK-NDA-107**（ADR-NDA-002 §① · ADR-NDA-004 §① · FR-NDA-026/027）——
+          // **唯一产出点** = 成功结题（`done`）。
+          //   · 输入面从「围栏块解析」改为 **`capture.lastCandidates`**（工具捕获）；
+          //   · `capture.captured`（是否调用过）由叶2 的提醒 / 兜底链消费（本叶只保证可判）；
+          //   · 5 道校验链在 SW（`background/ai-next.ts`）⇒ 面板**只接收已校验候选**（FR-NDA-027）；
+          //   · `≤3` 截断在**装配层**（`NEXT_TOOL_MAX_CANDIDATES`，由门禁断言 === `MAX_CHIPS_PER_CARD`）；
+          //   · **零新 LLM 调用**：工具调用在同一回合内（无第二次 `providerChat`）。
           //   · 「缺席 ⇒ 现状逐字」（N-ADN-029）：零候选且零拦截 ⇒ 不附加 `aiNext` 字段。
-          //   · `openAsks===0` 由面板侧 `ai-next.when(ctx)` 强制（SW 无 openAsks 事实）。
-          const payload = validateAiNext(lastAssistantText, {
+          // ★ NDA-2 **TASK-NDA-209**（ADR-NDA-201 §①/② · ADR-NDA-007 §① · FR-NDA-070/073/074）——
+          // 异常判定**单源在 SW**：`onFinish` 由忽略实参改为消费基座**原生**的 `outcome`
+          // （`runner.ts:102` 传入 ⇒ **零改基座**）；`abnormalVerdict` 只在**非 null** 时把
+          // `abnormal` 作为 `aiNext` 的**可选子字段**附加（此时 `accepted` 恰为空数组）
+          // ⇒ 零新 kind / 零新 variant / 零新宿主；「缺席 ⇒ 现状逐字」由 `hasAiNext` 的
+          // 三条件扩展保证（正常回合字段集合与今天**逐字一致**）。
+          const verdict = validateAiNext(capture.lastCandidates, {
             refs: (refs ?? []).map((f) => ({ refId: f.refId, refNum: f.refNum, refState: f.refState })),
           });
-          const hasAiNext = payload.accepted.length > 0 || payload.blocked.length > 0;
+          const accepted = Object.freeze(verdict.accepted.slice(0, NEXT_TOOL_MAX_CANDIDATES));
+          // ★ R1 修复轮 **I-1**（FR-NDA-070 字面）—— `captured`（本回合 `hooks.intercept`
+          // 是否**真的**调用过 `next`）必须入参：否则「调用但空 `candidates`」（合法「无建议」，
+          // `next` 工具 description / `NUDGE_TEXT` 明确指示的健康路径）会被误判 `no-tool-call`
+          // ⇒ 健康 LLM 正常说「没有下一步」时被误呈现「配置新的 LLM」兜底。区分后：
+          // `captured ∧ accepted=0 ∧ blocked=0 ⇒ null`（不附加 `abnormal` ⇒ 走确定性兜底/终端）。
+          const abnormal = abnormalVerdict({ outcome, accepted: accepted.length, blocked: verdict.blocked.length, captured: capture.captured });
+          const payload: AiNextPayload = Object.freeze({
+            accepted,
+            blocked: verdict.blocked,
+            ...(abnormal !== null ? { abnormal } : {}),
+          });
+          const hasAiNext = payload.accepted.length > 0 || payload.blocked.length > 0 || payload.abnormal !== undefined;
           void chrome.runtime
             .sendMessage(makeMessage('chat-result', { variant: 'done', ...(hasAiNext ? { aiNext: payload } : {}) }))
             .catch(() => {});
         },
       },
       hooks: {
+        // ★ NDA-1 **TASK-NDA-107**（ADR-NDA-002 §① · FR-NDA-021/022/023）—— `hooks.intercept`
+        // 是基座 `runner.ts` 在 `dispatch` **之前**的缝：命中 `next` ⇒ 写捕获态 + 返回**合成**
+        // `ToolResult`（常量 `output`，零回显）⇒ **短路真实 `dispatch`**（`next` 无执行体）。
+        // 未命中 ⇒ `return null`（既有 dispatch 语义零变）。解析失败 ⇒ 零候选、**不抛错**
+        // （ADR-NDA-101 §②），因此不会触发基座的 per-tool 异常兜底。
+        intercept: (tc) => {
+          if (tc.name !== NEXT_TOOL_NAME) return null;
+          capture = captureNextCall(capture, tc.rawArguments);
+          return { ok: true, output: NEXT_TOOL_ACK };
+        },
         onToolDone: (tc, result) => {
           // R6（2026-09-23）—— 一次**成功的** `dom set-text` 携带其目标选择器，供面板在
           // 工具结果到达时对「被该写入命中的活引用」做一次只读重观测（仅此一种工具；

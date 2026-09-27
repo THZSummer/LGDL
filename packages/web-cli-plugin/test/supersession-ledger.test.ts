@@ -3401,3 +3401,258 @@ test('ledger(V4 段 · ADN-2): 保护段 keep 双绿（journey / binding 字节�
   );
   console.log('  ℹ ADN-2 保护段 keep 双绿：journey [43484,59347) 7b309258… 249 行 / binding [107780,115930) be9ad0e9…');
 });
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-1 **TASK-NDA-119**（ADR-NDA-009 §①④ · FR-NDA-110/111/114~118/121/132 ·
+ * AC-NDA-020/022）—— `xNdaLedger` / `xNdaGateReconciliation` 叶1 骨架机核（**只增**）。
+ *
+ * 纪律：老条目（v3 / v4 / v4.5 / v5 / v5.5 / F-34 / F-35 / F-36 段）**一律保留不动**（只追加）；
+ * 每行五要素齐备；`no-supersession` 行必须写明**非空理由**（未发生的取代同样要留痕）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XNdaRow {
+  readonly id: string;
+  readonly status: 'superseded' | 'keep' | 'no-supersession';
+  readonly old: string;
+  readonly new: string;
+  readonly reason: string;
+  readonly date: string;
+  readonly landing: string;
+  readonly counterCheck: string;
+}
+interface XNdaReconRow {
+  readonly gate: string;
+  readonly disposition: 'rewritten' | 'equivalent-rewrite' | 'upgraded' | 'kept' | 'new';
+  readonly old: string;
+  readonly new: string;
+  readonly check: string;
+  readonly landing: string;
+  /**
+   * ★ NDA-1 **TASK-NDA-119 R1-I2 修复轮**（FR-NDA-082/116 · AC-NDA-020/022）——
+   * 「断言零删除零降级」的**机核字段**（对齐 X-ADN / X-IIAN 同构段：字段必携 ∧ 非 0 必红）。
+   * 12 行台账逐行 = `0`；缺字段（`undefined`）同样必红。
+   */
+  readonly assertionsRemoved: number;
+}
+
+export function xNdaLedgerProblems(rows: readonly XNdaRow[]): string[] {
+  const problems: string[] = [];
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (!r.id || !/^X-NDA-\d+$/.test(r.id)) problems.push(`xNdaLedger 行 id 非法：${String(r.id)}`);
+    if (seen.has(r.id)) problems.push(`xNdaLedger 行 id 重复：${r.id}`);
+    seen.add(r.id);
+    if (!['superseded', 'keep', 'no-supersession'].includes(r.status)) problems.push(`${r.id}: status 非法 ${String(r.status)}`);
+    for (const field of ['old', 'new', 'reason', 'date', 'landing', 'counterCheck'] as const) {
+      if (typeof r[field] !== 'string' || r[field].trim().length === 0) problems.push(`${r.id}: ${field} 不得为空（五要素齐备）`);
+    }
+    if (r.status === 'no-supersession' && r.reason.trim().length < 10) problems.push(`${r.id}: no-supersession 必须写明非空理由`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(r.date)) problems.push(`${r.id}: date 必须是 YYYY-MM-DD`);
+    if (r.landing.trim().length === 0) problems.push(`${r.id}: landing 不得为空`);
+  }
+  return problems;
+}
+
+export function xNdaReconProblems(rows: readonly XNdaReconRow[], discoveredGates: (g: string) => boolean): string[] {
+  const problems: string[] = [];
+  for (const r of rows) {
+    if (!r.gate) problems.push('xNdaGateReconciliation 行 gate 必填');
+    if (!['rewritten', 'equivalent-rewrite', 'upgraded', 'kept', 'new'].includes(r.disposition)) problems.push(`${r.gate}: disposition 非法 ${String(r.disposition)}`);
+    for (const field of ['old', 'new', 'check', 'landing'] as const) {
+      if (typeof r[field] !== 'string' || r[field].trim().length === 0) problems.push(`${r.gate}: ${field} 不得为空（三态齐）`);
+    }
+    if (!/叶[12]/.test(r.landing)) problems.push(`${r.gate}: landing 必须标明叶（叶1 / 叶2）`);
+    if (r.assertionsRemoved !== 0) problems.push(`${r.gate}: 断言零删除零降级（实测 assertionsRemoved=${String(r.assertionsRemoved)}）`);
+    if (!discoveredGates(r.gate)) problems.push(`${r.gate}: 对账行指向的门禁不存在（悬空登记）`);
+  }
+  return problems;
+}
+
+test('★ NDA-1 xNdaLedger：叶1 八行五要素齐备 ∧ X-NDA-1/2/5/7/8 superseded ∧ X-NDA-6/9/12 非取代留痕', () => {
+  const x = (readV4Ledger() as unknown as { xNdaLedger?: XNdaRow[] }).xNdaLedger ?? [];
+  assert.ok(x.length >= 8, `xNdaLedger 叶1 至少 8 行（实测 ${x.length}）`);
+  assert.deepEqual(xNdaLedgerProblems(x), [], `xNdaLedger 五要素/口径未通过：\n${xNdaLedgerProblems(x).join('\n')}`);
+  const by = Object.fromEntries(x.map((r) => [r.id, r.status]));
+  for (const id of ['X-NDA-1', 'X-NDA-2', 'X-NDA-5', 'X-NDA-7', 'X-NDA-8']) {
+    assert.equal(by[id], 'superseded', `${id} 必须登记为已发生取代（superseded）`);
+  }
+  assert.equal(by['X-NDA-6'], 'keep', 'X-NDA-6（保留 9 项）必须登记为 keep');
+  for (const id of ['X-NDA-9', 'X-NDA-12']) {
+    assert.equal(by[id], 'no-supersession', `${id} 必须如实登记为未发生取代（no-supersession）`);
+  }
+  // 老条目一律保留不动（只追加）：v3 / v4 既有段仍在。
+  assert.ok((ledger.entries ?? []).length > 0, 'v3 老条目必须保留');
+  assert.ok(((readV4Ledger() as unknown as { entries?: unknown[] }).entries ?? []).length > 0, 'v4 老条目必须保留');
+  // 反证：空 reason / 非法 date ⇒ 必红（判据非恒真）。
+  assert.ok(xNdaLedgerProblems([{ ...x[0], reason: '' }]).length > 0, '空 reason ⇒ 必红');
+  assert.ok(xNdaLedgerProblems([{ ...x[0], date: '2026/09/27' }]).length > 0, '非法 date ⇒ 必红');
+  assert.ok(xNdaLedgerProblems([{ ...x[0], status: 'no-supersession' as const, reason: '' }]).length > 0, 'no-supersession 空理由 ⇒ 必红');
+});
+
+const DISCOVERED_GATE_SET = new Set<string>([
+  'ai-next-candidate',
+  'recommendation-sources',
+  'parity',
+  'supersession-ledger',
+  'insight-archive',
+  'insight-action-parity',
+  'insight-no-escalation',
+  's0-self-driven-chain',
+  'size-budget',
+  'size-growth-evidence',
+  'size-ruling-vol3',
+  'density-thresholds',
+  'gate-integrity',
+]);
+
+test('★ NDA-1 xNdaGateReconciliation：叶1 行三态齐 ∧ 无「未处置」项 ∧ 间接面登记「保留（未触碰）」', () => {
+  const rows = ((readV4Ledger() as unknown as { xNdaGateReconciliation?: XNdaReconRow[] }).xNdaGateReconciliation ?? []);
+  assert.ok(rows.length >= 10, `xNdaGateReconciliation 叶1 行数不足（实测 ${rows.length}）`);
+  const exists = (g: string): boolean => {
+    const candidates = [
+      resolve(PKG, 'test', `${g}.test.ts`),
+      resolve(PKG, 'test', 'ui', `${g}.mjs`),
+      resolve(PKG, 'test', `${g}.mjs`),
+    ];
+    return candidates.some((p) => existsSync(p)) || DISCOVERED_GATE_SET.has(g);
+  };
+  const problems = xNdaReconProblems(rows, exists);
+  assert.deepEqual(problems, [], `xNdaGateReconciliation 未通过：\n${problems.join('\n')}`);
+  assert.equal(rows.some((r) => /未处置/.test(r.new ?? '')), false, '不得出现「未处置」项');
+  // ★ R1-I2：12 行**必须携带** `assertionsRemoved` 机核字段（对齐 X-ADN / X-IIAN 同构段）。
+  assert.ok(
+    rows.every((r) => typeof r.assertionsRemoved === 'number'),
+    '★ NDA-1 每行必须携带 assertionsRemoved 机核字段（缺字段 = 无机器强制）',
+  );
+  for (const gate of ['ai-next-candidate', 'recommendation-sources', 'parity', 'supersession-ledger']) {
+    assert.ok(rows.some((r) => r.gate === gate), `${gate} 必须登记对账行`);
+  }
+  // 反证：非法 disposition / 悬空 gate / assertionsRemoved≠0 / 缺字段 ⇒ 必红。
+  assert.ok(xNdaReconProblems([{ ...rows[0], disposition: 'whatever' as never }], exists).length > 0, '非法 disposition ⇒ 必红');
+  assert.ok(xNdaReconProblems([{ ...rows[0], gate: 'ghost-gate-nda' }], () => false).length > 0, '悬空 gate ⇒ 必红');
+  assert.ok(
+    xNdaReconProblems(rows.map((r) => ({ ...r, assertionsRemoved: 1 })), exists).some((x) => x.includes('零删除')),
+    '★ assertionsRemoved≠0 ⇒ 必红（FR-NDA-082/116 的「断言零删除零降级」可机核）',
+  );
+  assert.ok(
+    xNdaReconProblems([{ ...rows[0], assertionsRemoved: undefined as never }], exists).some((x) => x.includes('零删除')),
+    '★ assertionsRemoved 缺字段 ⇒ 必红（12 行都必须携带）',
+  );
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-2 **TASK-NDA-218**（ADR-NDA-009 §①③④ · ADR-NDA-202 §④⑤ ·
+ * FR-NDA-112/113/119/120/122/132/133 · AC-NDA-022/023）—— `xNdaLedger` **终态**（叶2 四行：
+ * X-NDA-3 分相取代 / X-NDA-4 异常兜底新增 / X-NDA-10 首开保持（`no-supersession`）/
+ * X-NDA-11 计数（`no-supersession`，**由 spec 预登记降级**））+ `xNdaGateReconciliation`
+ * **25 行三态齐** + `xNdaLedgerFull` 两叶合并终态 + **保护段 `keep` 决策**。
+ *
+ * 纪律：叶1 的八行 / 既有 12 行对账**逐字保留**（只增）；本块只**新增**判据。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface XNdaFull {
+  readonly leaf: string;
+  readonly status: string;
+  readonly counts: { readonly superseded: number; readonly keep: number; readonly 'no-supersession': number };
+  readonly supersededIds: readonly string[];
+  readonly keepIds: readonly string[];
+  readonly noSupersessionIds: readonly string[];
+  readonly gateReconciliationRows: number;
+  readonly counterCheck: string;
+}
+
+export function xNdaLeaf2Problems(rows: readonly XNdaRow[], recon: readonly XNdaReconRow[], full: XNdaFull | undefined): string[] {
+  const problems: string[] = [];
+  const by = Object.fromEntries(rows.map((r) => [r.id, r]));
+  // ① 叶2 四行五要素齐备 + 状态口径。
+  for (const id of ['X-NDA-3', 'X-NDA-4', 'X-NDA-10', 'X-NDA-11']) {
+    if (!by[id]) problems.push(`叶2 行缺失：${id}`);
+  }
+  if (by['X-NDA-3'] && by['X-NDA-3'].status !== 'superseded') problems.push('X-NDA-3（未配置分相）必须登记为 superseded');
+  if (by['X-NDA-4'] && by['X-NDA-4'].status !== 'superseded') problems.push('X-NDA-4（异常兜底，新增项）必须登记为 superseded');
+  if (by['X-NDA-10'] && by['X-NDA-10'].status !== 'no-supersession') problems.push('X-NDA-10（首开保持）必须登记为 no-supersession');
+  if (by['X-NDA-11'] && by['X-NDA-11'].status !== 'no-supersession') problems.push('X-NDA-11（计数）必须登记为 no-supersession');
+  if (by['X-NDA-11'] && !/降级/.test(by['X-NDA-11'].reason)) {
+    problems.push('X-NDA-11 的理由必须写明「由 spec 预登记**降级**为 no-supersession」的判定依据（ADR-NDA-006 §⑥）');
+  }
+  if (rows.length !== 12) problems.push(`xNdaLedger 终态必须恰 12 行（叶1 8 + 叶2 4；实测 ${rows.length}）`);
+  // ② 25 行三态齐 + 无「未处置」。
+  if (recon.length !== 25) problems.push(`xNdaGateReconciliation 必须恰 25 行（实测 ${recon.length}）`);
+  if (recon.some((r) => /未处置/.test(`${r.old}${r.new}${r.check}`))) problems.push('不得出现「未处置」项');
+  const dispositions = new Set(recon.map((r) => r.disposition));
+  for (const d of ['rewritten', 'equivalent-rewrite', 'upgraded', 'kept', 'new']) {
+    if (!dispositions.has(d as never)) problems.push(`三态齐：disposition=${d} 未见（不得漏项）`);
+  }
+  // ③ `xNdaLedgerFull` 两叶合并终态（7 / 1（9 子项）/ 4）。
+  if (!full) problems.push('xNdaLedgerFull 缺失（叶2 收口必须补全）');
+  else {
+    if (full.status !== 'final') problems.push('xNdaLedgerFull.status 必须为 final');
+    if (full.counts.superseded !== 7 || full.counts.keep !== 1 || full.counts['no-supersession'] !== 4) {
+      problems.push(`xNdaLedgerFull 计数必须 7 / 1 / 4（实测 ${JSON.stringify(full.counts)}）`);
+    }
+    if (full.supersededIds.length !== 7 || full.keepIds.length !== 1 || full.noSupersessionIds.length !== 4) {
+      problems.push('xNdaLedgerFull 三组 id 清单长度必须 7 / 1 / 4');
+    }
+    if (full.gateReconciliationRows !== 25) problems.push('xNdaLedgerFull.gateReconciliationRows 必须 25');
+    if ((full.counterCheck ?? '').trim().length < 40) problems.push('xNdaLedgerFull.counterCheck 必须写明（≥40 字符）');
+    if (!/keep|保留/.test(full.counterCheck)) problems.push('xNdaLedgerFull.counterCheck 必须写明保留段（保护段 keep）');
+  }
+  return problems;
+}
+
+test('★ NDA-2 xNdaLedger 终态：叶2 四行（X-NDA-3/4/10/11）+ 25 行对账三态齐 + xNdaLedgerFull 7/1/4 + 保护段 keep', () => {
+  const v4 = readV4Ledger() as unknown as {
+    xNdaLedger?: XNdaRow[];
+    xNdaGateReconciliation?: XNdaReconRow[];
+    xNdaLedgerFull?: XNdaFull;
+    protectedSupersession?: { status?: string };
+  };
+  const rows = v4.xNdaLedger ?? [];
+  const recon = v4.xNdaGateReconciliation ?? [];
+  assert.deepEqual(xNdaLeaf2Problems(rows, recon, v4.xNdaLedgerFull), [], 'xNda 叶2 终态未通过');
+  // 叶1 八行逐字保留（只增）。
+  for (const id of ['X-NDA-1', 'X-NDA-2', 'X-NDA-5', 'X-NDA-6', 'X-NDA-7', 'X-NDA-8', 'X-NDA-9', 'X-NDA-12']) {
+    assert.ok(rows.some((r) => r.id === id), `叶1 行 ${id} 必须逐字保留（断言零删除）`);
+  }
+  // 25 行三态齐（含叶2 新增 13 行）。
+  for (const gate of ['free-input-next', 'driver-quadruple', 'next-registry', 'no-dead-end', 'r8-open-next-entry', 's0-self-driven', 'recommendation', 'law8-plaintext']) {
+    assert.ok(recon.some((r) => r.gate === gate), `${gate} 必须登记对账行（叶2）`);
+  }
+  // 保护段 keep：journey / binding 段**零改动**（字节中立双绿），`protectedSupersession.status` 未被本叶改写。
+  for (const gate of ['journey', 'binding']) {
+    const row = recon.find((r) => r.gate === gate);
+    assert.equal(row?.disposition, 'kept', `${gate} 保护段决策必须是 kept`);
+    assert.equal(row?.assertionsRemoved, 0, `${gate} 断言零删除`);
+  }
+  // 保护段 **keep** 的机器事实：两个保护段的 active pin 必须与**工作树字节**逐字节一致
+  // （sha + startByte 双锚；本叶零改动 ⇒ 无需八步取代，`modifiedRanges` 无 NDA2-* 段内行）。
+  const protectedRanges = ((v4 as unknown as { protectedRanges?: { file: string; startByte: number; endByte: number; sha256: string; status: string }[] }).protectedRanges ?? []);
+  for (const [file, startByte, sha] of [
+    ['packages/web-cli-plugin/test/ui/journey.mjs', 43484, '7b309258aab783e7943a7aa3b1b16c4a0e30969f070665497b5fa3d82f786e85'],
+    ['packages/web-cli-plugin/test/ui/binding.mjs', 107780, 'be9ad0e9'],
+  ] as const) {
+    const pin = protectedRanges.find((r) => r.file === file);
+    assert.ok(pin, `${file}: 保护段 pin 必须存在`);
+    assert.equal(pin?.status, 'active', `${file}: 保护段 pin 状态必须 active（未新增取代）`);
+    assert.equal(pin?.startByte, startByte, `${file}: startByte 必须逐字不变`);
+    assert.ok(String(pin?.sha256).startsWith(sha), `${file}: sha256 必须逐字不变（实测 ${String(pin?.sha256)}）`);
+    const text = readFileSync(resolve(REPO, file), 'utf8');
+    const bytes = Buffer.from(text, 'utf8');
+    const seg = bytes.subarray(startByte, Number(pin?.endByte));
+    const segSha = createHash('sha256').update(seg).digest('hex');
+    assert.equal(segSha, String(pin?.sha256), `${file}: 保护段字节 sha 必须与工作树**逐字节**一致（字节中立双绿）`);
+  }
+  assert.ok(
+    !(v4 as unknown as { modifiedRanges?: { oldId?: string; file?: string }[] }).modifiedRanges?.some(
+      (r) => String(r.oldId ?? '').startsWith('NDA2-') && /journey\.mjs|binding\.mjs/.test(String(r.file)),
+    ),
+    '本叶不得新增保护段内的取代段（keep ⇒ modifiedRanges 无 NDA2-* 段内行）',
+  );
+  // 反证：缺 X-NDA-3 / 行数漂移 / 非法计数 ⇒ 同一判据必红。
+  assert.ok(xNdaLeaf2Problems(rows.filter((r) => r.id !== 'X-NDA-3'), recon, v4.xNdaLedgerFull).some((p) => p.includes('X-NDA-3')));
+  assert.ok(xNdaLeaf2Problems(rows, recon.slice(0, 24), v4.xNdaLedgerFull).some((p) => p.includes('25 行')));
+  assert.ok(
+    xNdaLeaf2Problems(rows, recon, { ...(v4.xNdaLedgerFull as XNdaFull), counts: { superseded: 6, keep: 1, 'no-supersession': 4 } }).some((p) => p.includes('7 / 1 / 4')),
+  );
+  assert.deepEqual(xNdaLeaf2Problems(rows, recon, v4.xNdaLedgerFull), [], '还原 ⇒ 全绿（判据非恒真）');
+});

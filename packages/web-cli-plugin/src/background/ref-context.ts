@@ -39,24 +39,14 @@ export const REF_SCOPE_GUIDANCE = [
 ].join(' ');
 
 /**
- * F-36 / ADN-1 **TASK-ADN-104**（ADR-ADN-001 §③ · ADR-ADN-004 PD-ADN-005 · FR-ADN-010）——
- * **AI next 产出契约句**（B 轨 / 引导，**不是**判据）。
+ * F-36 / ADN-1 **TASK-ADN-104** 的 AI next 产出契约句（围栏块契约句）已被
+ * **NDA-1 TASK-NDA-106 删除**（ADR-NDA-004 §① · FR-NDA-041/081）：产出载体从「提示词
+ * 软约定（围栏块）」换成**模型原生工具调用**（`src/tools/next-tool.ts` 的 `next` 工具），
+ * 提示侧不再承载「是否产 next」。因此 `refContextSegment` 只拼 `REF_SCOPE_GUIDANCE`。
  *
- * 关键纪律：它只并入**有引用分支**（`refContextSegment` 的 `valid.length > 0` 分支）⇒
- * 无引用 ⇒ 追加段仍为 `''` ⇒ `system` 逐字等于 `SYSTEM_PROMPT` 基座（RCT-3/RCT-4 保持绿）。
- * 基座 5 条与 `system` 工厂形态**零改**（契约句不是第 6 条基座条款）。
- *
- * 说明（本轮诚实登记）：`params` 是候选**元数据**、本轮不参与派发（ADR-ADN-002 §③），
- * 故契约句只描述 `opId` + `label` 两个必需字段。
+ * 该删除的结构性收益：无引用回合不再因 `valid.length === 0` 丢失产出提示 —— 提示改由
+ * 工具 `description` 承担（无条件下发，触发无条件成立）。
  */
-export const NEXT_CONTRACT_GUIDANCE = [
-  'If, and only if, you can name the next best step for the user, end your final answer',
-  'with ONE trailing fenced block tagged next, whose body is a strict JSON array of',
-  '{"opId":"op.turn","label":"<short imperative in the user\'s language>"} objects.',
-  'Only these ops may be proposed: op.turn, op.pick, op.describe, op.rebind, op.help.',
-  'At most 3 items, in priority order. A label is short display text and must never contain',
-  'a credential, a URL query string or a command argument body.',
-].join(' ');
 
 /** 一条事实的运行时校验（形状 + 语义；不通过 ⇒ 丢弃该条）。 */
 export function isChatRefFact(value: unknown): value is ChatRefFact {
@@ -97,5 +87,5 @@ export function refFactLine(f: ChatRefFact): string {
 export function refContextSegment(refs: readonly ChatRefFact[] | undefined): string {
   const valid = validateRefPayload(refs);
   if (valid.length === 0) return '';
-  return `\n\n[references in this turn]\n${valid.map(refFactLine).join('\n')}\n${REF_SCOPE_GUIDANCE} ${NEXT_CONTRACT_GUIDANCE}`;
+  return `\n\n[references in this turn]\n${valid.map(refFactLine).join('\n')}\n${REF_SCOPE_GUIDANCE}`;
 }

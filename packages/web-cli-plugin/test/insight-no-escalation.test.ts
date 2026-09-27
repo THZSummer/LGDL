@@ -136,7 +136,23 @@ test('V2-1 no-escalation: frozen surfaces have zero git diff (policy / auto-auth
   assert.equal(gitDiffStatus(['src/security/policy.ts']), 0, 'security/policy.ts must be zero-diff');
   assert.equal(gitDiffStatus(['src/security/auto-authorize.ts']), 0, 'security/auto-authorize.ts must be zero-diff');
   assert.equal(gitDiffStatus(['manifest.json']), 0, 'manifest.json must be zero-diff');
-  assert.equal(gitDiffStatus(['test/parity.test.ts', 'test/parity']), 0, 'v1 parity gate/baseline must be zero-diff');
+  // ★ NDA-1 **TASK-NDA-104**（ADR-NDA-001 代价段）：`test/parity/waivers.json` 新增
+  // `pluginExtras['next']`（纯协议工具，无命令行面，经 `hooks.intercept` 捕获）是**作者已授权**
+  // 的加法行 ⇒ 该文件从冻结 glob 中**显式排除**（其余 parity 面仍逐字冻结）；`baseline-catalog.json`
+  // 与 `test/parity.test.ts` 仍零 diff。新增行的 reason/basis 非空由 `parity.test.ts` 机核。
+  assert.equal(
+    gitDiffStatus(['test/parity.test.ts', 'test/parity', ':(exclude)test/parity/waivers.json']),
+    0,
+    'v1 parity gate/baseline must be zero-diff（waivers.json 的 next 加法行已授权并显式排除）',
+  );
+  {
+    const w = JSON.parse(readFileSync(new URL('../../test/parity/waivers.json', import.meta.url), 'utf8')) as {
+      pluginExtras: Record<string, { reason?: string; basis?: string }>;
+    };
+    const next = w.pluginExtras.next;
+    assert.ok(next, "waivers.json 必须含 pluginExtras['next']（纯协议工具，无命令行面）");
+    assert.ok((next.reason ?? '').length > 0 && (next.basis ?? '').length > 0, "pluginExtras['next'] 的 reason / basis 必须非空");
+  }
   // -------------------------------------------------------------------------
   // ⚠️ 语义变更登记（2026-09-14，**断言保留，不删**）
   //
@@ -534,9 +550,11 @@ test('V55F-1 红线巡检（IAN-1 扩面）：零新增载体 + 计数红线 + �
   assert.equal(Object.keys(ACT_TO_OP).length, 6, 'IAN-1：ACT_TO_OP 必须仍恰 6');
   assert.equal(Object.prototype.hasOwnProperty.call(ACT_TO_OP, 'free-input'), false, 'IAN-1：终端不得进 ACT_TO_OP');
   assert.ok((SET_A_PROTOCOL_ACTIONS as readonly string[]).includes('free-input'), 'IAN-1：终端必须在集 A 声明（非第二表）');
-  // ⑤ NEXTSTEP_PRIORITY 恰 4（终端不在推荐规则表内 ⇒ candidateRules 恒跳过）。
-  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'IAN-1：NEXTSTEP_PRIORITY 必须仍恰 4');
-  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('free-input'), false, 'IAN-1：终端不是第 5 条推荐规则');
+  // ⑤ NEXTSTEP_PRIORITY 恰 5（终端不在推荐规则表内 ⇒ candidateRules 恒跳过）。
+  // ★ NDA-1 TASK-NDA-113：恰 4 → 恰 5（`ai-led` 独立规则位）；`free-input` 仍**不是**推荐规则。
+  assert.equal(NEXTSTEP_PRIORITY.length, 5, 'IAN-1/NDA-1：NEXTSTEP_PRIORITY 恰 5（ai-led 独立槽）');
+  assert.equal(NEXTSTEP_PRIORITY[1], 'ai-led', 'NDA-1：第 2 项为 ai-led');
+  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('free-input'), false, 'IAN-1：终端不是推荐规则');
   // ⑥ 特权 op 恒 gesture ∧ 提交槽 `op.turn` 仍是 auto（输入面不触达特权 op）。
   assert.deepEqual([...OP_TIERS], ['auto', 'confirm', 'gesture'], 'IAN-1：三档词表逐字');
   for (const id of ['op.authorize', 'op.perm.request']) {
@@ -575,9 +593,10 @@ test('V55F-1 红线巡检（ADN-1 扩面）：零新增载体 + 计数红线 + �
   assert.deepEqual([...REGISTERED_STRUCTURAL_HOSTS], [], 'ADN-1：REGISTERED_STRUCTURAL_HOSTS 必须仍为空');
   // ④ ACT_TO_OP 恰 6（AI 候选经既有 act→op 表分发；零新增动作）。
   assert.equal(Object.keys(ACT_TO_OP).length, 6, 'ADN-1：ACT_TO_OP 必须仍恰 6');
-  // ⑤ NEXTSTEP_PRIORITY 恰 4 ∧ DRIVER_TIMINGS 恰 5（AI 候选骑既有规则位 / 复用既有 `'idle'` 时机）。
-  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'ADN-1：NEXTSTEP_PRIORITY 必须仍恰 4');
-  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('ai-next'), false, 'ADN-1：ai-next 不是第 5 条推荐规则');
+  // ⑤ NEXTSTEP_PRIORITY 恰 5 ∧ DRIVER_TIMINGS 恰 5（AI 独立 `ai-led` 槽 / 复用既有 `'idle'` 时机）。
+  // ★ NDA-1 TASK-NDA-113：恰 4 → 恰 5；`ai-next` 仍是 **provider id**（不是规则 id）。
+  assert.equal(NEXTSTEP_PRIORITY.length, 5, 'ADN-1/NDA-1：NEXTSTEP_PRIORITY 恰 5');
+  assert.equal((NEXTSTEP_PRIORITY as readonly string[]).includes('ai-next'), false, 'ADN-1：ai-next 不是规则 id（规则 id 为 ai-led）');
   assert.equal(DRIVER_TIMINGS.length, 5, 'ADN-1：DRIVER_TIMINGS 必须仍恰 5（ai-next 复用 idle）');
   assert.deepEqual([...OP_TIERS], ['auto', 'confirm', 'gesture'], 'ADN-1：三档词表逐字');
   // ⑥ 特权 op 恒 gesture（接受层即拒 ⇒ AI 不可触达）；提交槽 op.turn 仍是 auto。

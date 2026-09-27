@@ -139,7 +139,26 @@ test('③ 规则表常量可复算：上限 / 优先级 / 间隔 / 单卡 chips'
   assert.equal(MAX_NEXTSTEP_CARDS_PER_ROUND, 1);
   assert.equal(MAX_CHIPS_PER_CARD, 3);
   assert.equal(NEXTSTEP_MIN_INTERVAL_MS, 10_000);
-  assert.deepEqual([...NEXTSTEP_PRIORITY], ['risk-recovery', 'ref-action', 'onboarding', 'capability-discovery']);
+  // ★ NDA-1 **TASK-NDA-113**（ADR-NDA-003 §④ · FR-NDA-114 · AC-NDA-026）—— ③ 「恰 4」→「**恰 5**」
+  // 等价重锚：`ai-led` 插在第 2 位（AI 独立规则槽），其余 4 项逐字保留、只改位次。
+  assert.deepEqual(
+    [...NEXTSTEP_PRIORITY],
+    ['risk-recovery', 'ai-led', 'ref-action', 'onboarding', 'capability-discovery'],
+    'NEXTSTEP_PRIORITY 必须恰 5 ∧ 第 2 项为 ai-led',
+  );
+  assert.equal(NEXTSTEP_PRIORITY.length, 5, 'NEXTSTEP_PRIORITY 必须恰 5');
+  assert.equal(NEXTSTEP_PRIORITY[1], 'ai-led', 'ai-led 必须插在第 2 位');
+  assert.equal(NEXTSTEP_PRIORITY[0], 'risk-recovery', 'risk-recovery 仍最高（确定性接管语义不变）');
+  // 逐项值可复算（非恒真）：注入「恰 4 / 位次漂移」伪造源 ⇒ 判据必红。
+  const ruleTableProblems = (table: readonly string[]): string[] => {
+    const problems: string[] = [];
+    if (table.length !== 5) problems.push(`NEXTSTEP_PRIORITY 必须恰 5（实测 ${table.length}）`);
+    if (table[1] !== 'ai-led') problems.push(`第 2 项必须为 ai-led（实测 ${String(table[1])}）`);
+    return problems;
+  };
+  assert.deepEqual(ruleTableProblems([...NEXTSTEP_PRIORITY]), []);
+  assert.ok(ruleTableProblems(['risk-recovery', 'ref-action', 'onboarding', 'capability-discovery']).length > 0, '注入「恰 4」⇒ 必红');
+  assert.ok(ruleTableProblems(['risk-recovery', 'ref-action', 'ai-led', 'onboarding', 'capability-discovery']).length > 0, '位次漂移 ⇒ 必红');
   // Every produced candidate's priority must equal its index+1 in the table.
   for (const c of candidateRules(baseInput())) {
     assert.equal(c.priority, NEXTSTEP_PRIORITY.indexOf(c.rule) + 1, `${c.rule} 的优先级必须来自规则表位置`);
@@ -480,7 +499,7 @@ test('V5.5-1 时机源：恰 5 含 answered ∧ 旧 4 逐字 ∧ 语义不复用
  * `NEXTSTEP_PRIORITY` 仍恰 4 条规则；④ 零新 LLM 面由既有 :238 用例逐字承担。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test('★ ADN-1 118：模块白名单恒 5（零新增条目）∧ 真值白名单仍 7 ∧ NEXTSTEP_PRIORITY 恰 4', () => {
+test('★ ADN-1 118 / ★ NDA-1 113：模块白名单恒 5（零新增条目）∧ 真值白名单仍 7 ∧ NEXTSTEP_PRIORITY 恰 5', () => {
   // ① 模块白名单**恒 5**（PD-ADN-008：注入槽类型经既有定义模块 ⇒ 零新条目）。
   assert.equal(RECOMMEND_MODULE_WHITELIST.length, 5, '模块白名单必须恒 5（不新增条目）');
   assert.deepEqual(
@@ -504,7 +523,9 @@ test('★ ADN-1 118：模块白名单恒 5（零新增条目）∧ 真值白名�
   // ③ 真值白名单仍 7 ∧ 规则表恰 4（注入槽不得成为第 8 源 / 第 5 规则）。
   assert.deepEqual(sourceWhitelistProblems([...NEXTSTEP_SOURCE_WHITELIST]), []);
   assert.equal(NEXTSTEP_SOURCE_WHITELIST.length, 7, '真值白名单必须仍恰 7 源');
-  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'NEXTSTEP_PRIORITY 必须仍恰 4（AI 候选骑既有规则位）');
+  // ★ NDA-1 TASK-NDA-113：恰 4 → 恰 5（ai-led 独立槽；位次重锚，语义等价）。
+  assert.equal(NEXTSTEP_PRIORITY.length, 5, 'NEXTSTEP_PRIORITY 必须恰 5（ai-led 独立规则位）');
+  assert.equal(NEXTSTEP_PRIORITY[1], 'ai-led', '第 2 项必须为 ai-led');
 });
 
 test('★ ADN-1 118：`session.aiNext` 注入槽 ∈ 既有 `session` 源（顶层仍 7 源，零扩项）', () => {
@@ -545,7 +566,7 @@ test('V5.5-1 时机源反证：删 answered / 改写旧项 / 加第 6 项 ⇒ �
 /* ── ★ F-36 / ADN-2 **TASK-ADN-204 / 205 / 206 / 207 / 213**（ADR-ADN-004 §③~⑦ ·
  * ADR-ADN-009 §② · FR-ADN-050~056/098 · AC-ADN-007/024 · EC-ADN-006/012）——
  * **合并口径**（同单卡位 / 前 N=3 / 截断 / 列表内去重）+ **替换口径双向可判** +
- * **R6 同因去重扩展覆盖 AI** + 规则表恰 4 / 单卡 / ④ 零新 LLM 保持。
+ * **R6 同因去重扩展覆盖 AI** + 规则表恰 5（★ NDA-1 重锚）/ 单卡 / ④ 零新 LLM 保持。
  *
  * 真源切片：全部经 `candidateRules` / `recommendNextStep`（生产内核）实跑，不读测试自建常量；
  * 每条判据含独立反证（禁恒真）。
@@ -568,8 +589,8 @@ function withAi(cands: readonly AiNextCandidate[], over: Partial<RecommendInput>
 
 test('★ ADN-2 204：AI 多候选取前 N=3 截断（不溢出 / 不新增卡 / 顺序 = AI 数组序）', () => {
   const four = [ai('甲动作'), ai('乙动作'), ai('丙动作'), ai('丁动作')];
-  const cand = candidateRules(withAi(four)).find((c) => c.rule === 'ref-action');
-  assert.ok(cand, 'AI 在场必须占 ref-action 槽（判据不得空转）');
+  const cand = candidateRules(withAi(four)).find((c) => c.rule === 'ai-led');
+  assert.ok(cand, 'AI 在场必须占 ai-led 独立槽（判据不得空转）');
   assert.equal(cand?.chips.length, MAX_CHIPS_PER_CARD, `${'截断必须恰 3（MAX_CHIPS_PER_CARD）'}`);
   assert.deepEqual(
     cand?.chips.map((c) => c.text),
@@ -584,7 +605,7 @@ test('★ ADN-2 204：AI 多候选取前 N=3 截断（不溢出 / 不新增卡 /
 
 test('★ ADN-2 204：列表内按 opId#摘要去重（重复项不占第二个槽；同 opId 异 label 保留）', () => {
   const dup = [ai('同一动作'), ai('同一动作'), ai('另一动作')];
-  const cand = candidateRules(withAi(dup)).find((c) => c.rule === 'ref-action');
+  const cand = candidateRules(withAi(dup)).find((c) => c.rule === 'ai-led');
   assert.deepEqual(
     cand?.chips.map((c) => c.text),
     ['同一动作', '另一动作'],
@@ -600,7 +621,7 @@ test('★ ADN-2 204：列表内按 opId#摘要去重（重复项不占第二个�
 test('★ ADN-2 205：替换口径双向可判（AI 在场 ⇒ 无陈旧 ref-action chip；缺席 ⇒ 照旧）', () => {
   const staleText = '用引用 3 做原地翻译';
   // 在场（赢得槽）⇒ 陈旧确定性 chip **不出现**，整个人工槽归 AI。
-  const present = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ref-action');
+  const present = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ai-led');
   assert.equal(present?.chips[0]?.text, '原地翻译为中文', 'AI 赢槽 ⇒ 槽内首 chip 必须是 AI 候选');
   assert.ok(
     present?.chips.every((c) => c.text !== staleText),
@@ -611,7 +632,7 @@ test('★ ADN-2 205：替换口径双向可判（AI 在场 ⇒ 无陈旧 ref-act
   const absent = candidateRules(baseInput()).find((c) => c.rule === 'ref-action');
   assert.equal(absent?.chips[0]?.text, staleText, 'AI 缺席 ⇒ 确定性候选逐字照旧');
   // 反证双向：把 AI 槽做成「叠加」（保留确定性候选）⇒ 判据必红。
-  const forged = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ref-action');
+  const forged = candidateRules(withAi([ai('原地翻译为中文')])).find((c) => c.rule === 'ai-led');
   assert.equal(
     forged?.chips.some((c) => c.text === staleText),
     false,
@@ -622,7 +643,7 @@ test('★ ADN-2 205：替换口径双向可判（AI 在场 ⇒ 无陈旧 ref-act
 test('★ ADN-2 204/205：上层规则仍优先（risk-recovery 命中 ⇒ AI 不显示；单卡不破）', () => {
   const r = recommendNextStep(withAi([ai('AI 想抢槽')], { ref: { validCount: 1, staleCount: 1, latestRefNum: 3 } }));
   assert.equal(r.cards.length, 1, '仍恰 1 卡');
-  assert.equal(r.cards[0]?.rule, 'risk-recovery', '风险恢复（priority 0）必须赢过 AI（骑 priority 2 槽）');
+  assert.equal(r.cards[0]?.rule, 'risk-recovery', '风险恢复必须赢过 AI（AI 独立 ai-led 槽，priority 2）');
   assert.ok(
     r.cards[0]?.chips.every((c) => c.text !== 'AI 想抢槽'),
     '上层规则命中时 AI 候选不得显示（同台竞争高风险优先）',
@@ -635,17 +656,28 @@ test('★ ADN-2 206：R6 同因去重扩展覆盖 AI（命中已完成 digest �
   const completed = [refActionDigest('ref_3', aiLabel)];
   const input = withAi([ai(aiLabel)], { completedActions: completed });
   assert.notEqual(refActionDigest('ref_3', '用引用 3 做原地翻译'), completed[0], '前置：确定性 chip0 digest 不命中（隔离 AI 预过滤面）');
-  const cand = candidateRules(input).find((c) => c.rule === 'ref-action');
-  assert.equal(cand?.chips[0]?.text, '用引用 3 做原地翻译', 'AI 命中同因 ⇒ 被压掉 ⇒ 确定性候选接管（去重扩展真的生效）');
+  // ★ NDA-1 TASK-NDA-113：AI 独立 `ai-led` 槽 ⇒ 被压掉时该槽整条消失，确定性 `ref-action` 照旧接管。
+  const cand = candidateRules(input).find((c) => c.rule === 'ai-led');
+  assert.equal(cand, undefined, 'AI 命中同因 ⇒ ai-led 候选被压掉（去重扩展真的生效）');
+  assert.equal(
+    candidateRules(input).find((c) => c.rule === 'ref-action')?.chips[0]?.text,
+    '用引用 3 做原地翻译',
+    'AI 被压 ⇒ 确定性 ref-action 候选照旧接管',
+  );
   // 反证：不做 AI 预过滤 ⇒ AI 仍赢槽（chips[0] = AI label）⇒ 判据必红。
-  const withoutPreFilter = candidateRules(withAi([ai(aiLabel)])).find((c) => c.rule === 'ref-action');
+  const withoutPreFilter = candidateRules(withAi([ai(aiLabel)])).find((c) => c.rule === 'ai-led');
   assert.equal(withoutPreFilter?.chips[0]?.text, aiLabel, '反证：无预过滤 ⇒ AI 赢槽（说明预过滤真的拦下了它）');
   // 显式 `ref` 字段经同家系（不依赖 latestRefNum）。
   const withRef = withAi([ai(aiLabel, ACT_TO_OP.next, 'ref_9')], { completedActions: [refActionDigest('ref_9', aiLabel)] });
   assert.equal(
+    candidateRules(withRef).find((c) => c.rule === 'ai-led'),
+    undefined,
+    '候选自带 ref ⇒ 必须按该 ref 的键判重（压掉 ai-led 槽）',
+  );
+  assert.equal(
     candidateRules(withRef).find((c) => c.rule === 'ref-action')?.chips[0]?.text,
     '用引用 3 做原地翻译',
-    '候选自带 ref ⇒ 必须按该 ref 的键判重',
+    '候选自带 ref 命中已完成 ⇒ 确定性 ref-action 接管',
   );
   // 全部被压掉 ⇒ 零 AI 候选 ⇒ 确定性产卡（含 floor 可达，非死端）。
   const allGone = recommendNextStep(
@@ -655,8 +687,8 @@ test('★ ADN-2 206：R6 同因去重扩展覆盖 AI（命中已完成 digest �
   assert.equal(allGone.cards[0]?.terminal, true, 'floor 卡必须带 free-input 终端');
 });
 
-test('★ ADN-2 207/213：规则表恰 4 / 单卡 / 真值 7 / 模块白名单恒 5 / ④ 零新 LLM 保持', () => {
-  assert.equal(NEXTSTEP_PRIORITY.length, 4, 'NEXTSTEP_PRIORITY 恰 4 不动');
+test('★ ADN-2 207/213：规则表恰 5 / 单卡 / 真值 7 / 模块白名单恒 5 / ④ 零新 LLM 保持', () => {
+  assert.equal(NEXTSTEP_PRIORITY.length, 5, 'NEXTSTEP_PRIORITY 恰 5（★ NDA-1 TASK-NDA-113 等价重锚）');
   assert.equal(MAX_NEXTSTEP_CARDS_PER_ROUND, 1, '单卡位不动');
   assert.equal(NEXTSTEP_SOURCE_WHITELIST.length, 7, '真值白名单仍恰 7 源');
   assert.equal(RECOMMEND_MODULE_WHITELIST.length, 5, '模块白名单恒 5（零新增条目）');

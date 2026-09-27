@@ -1321,7 +1321,8 @@ test("S0''' 四支线：样本登记单源 + A/C/D 机制侧对照（判据本�
   assert.ok(s0pppProblems({ blockedNotRendered: false }).some((p) => p.includes('S0PPP-3')), "未校验候选进 chips ⇒ 必红");
   // 支线 A 机制侧：注入合法候选 ⇒ 替换确定性 `ref-action` 候选（真源 `candidateRules`）。
   const withAi = candidateRules(pppInput({ session: { openAsks: 0, busy: false, aiNext: [S0PPP_ACCEPTED] } }));
-  const aiCand = withAi.find((c) => c.rule === 'ref-action');
+  // ★ NDA-1 TASK-NDA-115：AI 候选独立 `ai-led` 规则槽（等价重锚；不再骑 ref-action）。
+  const aiCand = withAi.find((c) => c.rule === 'ai-led');
   assert.ok(aiCand?.chips.some((c) => c.text === S0PPP_ACCEPTED.label), `A：注入候选必须替换确定性候选（实测 ${JSON.stringify(aiCand?.chips)}）`);
   assert.equal(aiCand?.chips.some((c) => c.text === S0PPP_STALE_LABEL), false, 'A：替换后不得再出现陈旧确定性文案');
   assert.ok((aiCand?.chips.length ?? 9) <= 3, 'A：单卡 chips ≤3');
@@ -1338,19 +1339,21 @@ test("S0''' 四支线：样本登记单源 + A/C/D 机制侧对照（判据本�
  * ★ F-36 / ADN-2 **TASK-ADN-217**（ADR-ADN-004 §④⑤⑥ · ADR-ADN-007 §①④ · ADR-ADN-005 §② ·
  * FR-ADN-050~052/055 · AC-ADN-001/007）—— **S0''' 终态口径机制侧对照**（与
  * `test/ai-next-candidate.test.ts#s0pppTerminalReading` **同一份**样本 / 判据面）：
- * A 替换 / 多候选前 N=3 / B 被拦确定性接管 / C 未产出 / D 未配置 ⇒ **四支线终端恒在**。
+ * A 替换 / 多候选前 N=3 / B 被拦确定性接管 / C 未产出 ⇒ **已配置支线终端恒在**；
+ * ★ NDA-2 **TASK-NDA-206/216**（ADR-NDA-005 §①③ · FR-NDA-051/055 · AC-NDA-007 ·
+ * **X-NDA-3 取代登记**）—— D（未配置）**等价重锚**为「**无**终端 ∧ `op.llm-config` 引导可达」。
  * 判据本体（含反证）在 `ai-next-candidate` 面实跑，本面负责**生产内核 `recommendNextStep` 的
  * 终态字段对照**（不写第二份样本）。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-test("S0''' 终态口径机制侧（ADN-2）：A 替换 / 多候选 ≤3 单卡 / B/C 确定性 / D 恢复 ⇒ 四支线终端恒在", () => {
-  const branch = (over: Record<string, unknown>): { rule?: string; chips: readonly { text: string }[]; terminal?: boolean } => {
+test("S0''' 终态口径机制侧（ADN-2）：A 替换 / 多候选 ≤3 单卡 / B/C 确定性 / D 恢复 ⇒ 已配置终端恒在 ∧ 未配置无终端（★ NDA-2 分相）", () => {
+  const branch = (over: Record<string, unknown>): { rule?: string; chips: readonly { text: string; act: string }[]; terminal?: boolean } => {
     const card = recommendNextStep(pppInput(over)).cards[0];
     return { rule: card?.rule, chips: card?.chips ?? [], terminal: card?.terminal };
   };
   // A：注入合法候选 ⇒ 替换 + 单卡 + 终端。
   const a = branch({ session: { openAsks: 0, busy: false, aiNext: [S0PPP_ACCEPTED] } });
-  assert.equal(a.rule, 'ref-action', 'A 骑 ref-action 槽');
+  assert.equal(a.rule, 'ai-led', 'A 骑 ai-led 独立槽（★ NDA-1 等价重锚）');
   assert.ok(a.chips.some((c) => c.text === S0PPP_ACCEPTED.label), 'A：注入候选必须在场');
   assert.equal(a.chips.some((c) => c.text === S0PPP_STALE_LABEL), false, 'A：陈旧确定性候选不得再现（替换）');
   assert.ok(a.chips.length <= 3, 'A：单卡 ≤3');
@@ -1370,8 +1373,9 @@ test("S0''' 终态口径机制侧（ADN-2）：A 替换 / 多候选 ≤3 单卡 
   const b = branch({});
   assert.equal(b.chips[0]?.text, S0PPP_STALE_LABEL, 'B/C：确定性候选逐字');
   assert.equal(b.terminal, true, 'B/C：终端恒在');
-  // D：未配置 ⇒ 恢复卡 + 终端。
+  // D：未配置 ⇒ 恢复卡 + **无**终端 + 可达 `op.llm-config` 引导（★ NDA-2 分相取代，X-NDA-3）。
   const d = branch({ ref: { validCount: 0, staleCount: 0 }, risks: [S0PPP_UNCONFIGURED_RISK] });
   assert.equal(d.rule, 'risk-recovery', 'D：纯确定性恢复卡');
-  assert.equal(d.terminal, true, 'D：终端恒在');
+  assert.equal(d.terminal, undefined, 'D：未配置相**不得**显示自由输入终端（FR-NDA-051）');
+  assert.ok(d.chips.some((c) => c.act === 'op.llm-config'), 'D：未配置相必有可达 op.llm-config 引导（FR-NDA-055 零死端）');
 });

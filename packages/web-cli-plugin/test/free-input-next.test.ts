@@ -30,7 +30,9 @@ import { MANUAL_DRIVER_ID } from '../src/ui/sidepanel/next-registry/ai-drive.js'
 import { FREE_INPUT_LABEL, SET_A_PROTOCOL_ACTIONS } from '../src/ui/sidepanel/next-registry/dispatch.js';
 import { listDriverDecls, serviceOfCtxField } from '../src/ui/sidepanel/next-registry/drivers.js';
 import { registerBuiltinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
-import { resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';
+import { registerNextProvider, resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';
+// ★ NDA-2 TASK-NDA-206（分相判据）：真值源白名单（`NEXT_SOURCE_NAMES` 仍恰 7 = 零新源）。
+import { NEXT_SOURCE_NAMES } from '../src/ui/sidepanel/next-registry/definition.js';
 import { recommendNextStep, type RecommendInput } from '../src/ui/sidepanel/recommend.js';
 // ★ ADN-2 TASK-ADN-203/216 —— 纯加法导入（不改既有导入行 ⇒ v4 段删除行为零）：
 // R6 同因摘要（family 单源）用于「AI 候选被压掉 ⇒ floor 仍只含终端」的行为面判据。
@@ -578,6 +580,139 @@ test('★ ADN-2 203/216：AI 候选不进 floor —— 在场 ⇒ AI 卡（终�
   const forged = read('src/ui/sidepanel/recommend.ts').replace('function freeInputOnlyCard(): NextstepCandidate {', 'function freeInputOnlyCard(): NextstepCandidate {\n  void input.session.aiNext;');
   const forgedFloor = /function freeInputOnlyCard\(\)[\s\S]*?\n\}/.exec(forged)?.[0] ?? '';
   assert.equal(/aiNext/.test(forgedFloor), true, '反证：注入 AI 读取 ⇒ 判据必须能看到');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-2 **TASK-NDA-203 / 206**（ADR-NDA-005 §①③④ · FR-NDA-051/052/053/055 ·
+ * AC-NDA-007 / 018 / 017 · EC-NDA-010/011）—— **自由输入分相**：
+ *
+ *   未配置 ctx（`risk` 含 `llmBlocked`）⇒ `when === false` ∧ 卡**无** `.next-terminal`
+ *     ∧ 可达 next 由 `llm.unconfigured` → `op.llm-config` **op-direct chip** 提供（非死端）；
+ *   已配置 ctx ⇒ `when === true` ∧ 卡**有** `.next-terminal`（恒最末，R8 / F-35 不回归）。
+ *
+ * 判据**只增**（FIN-0~9 与 ADN-2 追加块逐字保留）；两相各自**可 FAIL**（双向反证 ⇒ 注入
+ * 真 provider 后逐字节还原）。零新增源 / 零第二偏好键（`NEXT_SOURCE_NAMES` 仍恰 7）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 本追加块的失败文本（不改 `JUDGEMENTS` 计数行 ⇒ FIN-0~9 行为零）。 */
+const FIN11_FAIL = '自由输入分相：未配置 ⇒ 不显示终端（且引导可达）；已配置 ⇒ 终端恒常驻';
+
+/** `NextCtx`（7 源）最小构造（`provider.when` 的入参面；`RecommendInput` 是 producer 的入参面）。 */
+function ctxOf(risk: readonly string[], busy = false): never {
+  return {
+    ref: { validCount: 0, staleCount: 0 },
+    session: { openAsks: 0, busy },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 0, subcommandCount: 0 },
+    probe: { phase: 'ready', steady: true },
+    risk,
+    onboarding: { firstRun: false, pendingSteps: [] },
+  } as never;
+}
+
+/** 分相判据本体（`when` 两相 + 生产卡两相；注入读数 ⇒ 反证可打在判据上）。 */
+export function phasingProblems(r: {
+  readonly unconfiguredWhen: boolean | undefined;
+  readonly configuredWhen: boolean | undefined;
+  readonly unconfiguredTerminal: boolean;
+  readonly unconfiguredGuideReachable: boolean | undefined;
+  readonly configuredTerminal: boolean;
+}): string[] {
+  const problems: string[] = [];
+  if (r.unconfiguredWhen !== false) problems.push(`${FIN11_FAIL}：未配置相 when 必须为 false（实测 ${String(r.unconfiguredWhen)}）`);
+  if (r.configuredWhen !== true) problems.push(`${FIN11_FAIL}：已配置相 when 必须为 true（实测 ${String(r.configuredWhen)}）`);
+  if (r.unconfiguredTerminal === true) problems.push(`${FIN11_FAIL}：未配置相卡不得含 .next-terminal（自由输入不可行）`);
+  if (r.unconfiguredGuideReachable !== true) problems.push(`${FIN11_FAIL}：未配置相必须有可达 op.llm-config 引导 chip（零死端）`);
+  if (r.configuredTerminal !== true) problems.push(`${FIN11_FAIL}：已配置相终端必须恒常驻（R8 / F-35 不回归）`);
+  return problems;
+}
+
+/** 两相读数（真 provider + 真 producer）。 */
+export interface PhasingReading {
+  readonly unconfiguredWhen: boolean | undefined;
+  readonly configuredWhen: boolean | undefined;
+  readonly unconfiguredTerminal: boolean;
+  readonly unconfiguredGuideReachable: boolean | undefined;
+  readonly configuredTerminal: boolean;
+}
+export function phasingReading(): PhasingReading {
+  registerBuiltinProviders();
+  const provider = resolveOrder().find((p) => p.id === 'free-input');
+  const dCard = recommendNextStep(baseInput({ risks: ['llmBlocked'] })).cards[0];
+  return {
+    unconfiguredWhen: provider?.when(ctxOf(['llmBlocked'])),
+    configuredWhen: provider?.when(ctxOf([])),
+    unconfiguredTerminal: dCard?.terminal === true,
+    unconfiguredGuideReachable: (dCard?.chips ?? []).some((c) => c.act === 'op.llm-config') || (dCard?.chips ?? []).some((c) => c.text.includes('配置 LLM 凭据')),
+    configuredTerminal: recommendNextStep(baseInput()).cards[0]?.terminal === true,
+  };
+}
+
+test('★ NDA-2 206：自由输入分相 —— 未配置 ⇒ 无终端 ∧ 引导可达；已配置 ⇒ 终端恒常驻', () => {
+  registerBuiltinProviders();
+  const provider = resolveOrder().find((p) => p.id === 'free-input');
+  assert.ok(provider, `${FIN11_FAIL}：free-input provider 必须在注册表内（存在性单源）`);
+  // ① 分相判据（两读同源：`LLM_BLOCKED_RISK` + `session.busy`）。
+  const providerCode = read(PROVIDERS_REL).split('\n').filter((l) => !isComment(l)).join('\n');
+  const whenExpr = /when:\s*\(ctx\)\s*=>\s*(!ctx\.risk\.includes\(LLM_BLOCKED_RISK\)[^,]*),/.exec(providerCode)?.[1] ?? '';
+  assert.ok(/LLM_BLOCKED_RISK/.test(whenExpr), `${FIN11_FAIL}：when 源码必须读 LLM_BLOCKED_RISK（单源常量，实测 ${whenExpr}）`);
+  assert.ok(/session\.busy/.test(whenExpr), `${FIN11_FAIL}：when 源码必须保留 session.busy 读向（DQ-3 同源）`);
+  assert.equal(provider?.when(ctxOf(['llmBlocked'])), false, `${FIN11_FAIL}：未配置 ⇒ false`);
+  assert.equal(provider?.when(ctxOf(['permBlocked'])), true, `${FIN11_FAIL}：仅 permBlocked ⇒ 仍 true（分相只看 llmBlocked）`);
+  assert.equal(provider?.when(ctxOf([])), true, `${FIN11_FAIL}：已配置 ⇒ true（恒常驻）`);
+  // ② 生产卡两相（真 producer）。
+  const unconfig = recommendNextStep(baseInput({ risks: ['llmBlocked'] }));
+  assert.equal(unconfig.cards[0]?.terminal, undefined, `${FIN11_FAIL}：未配置 ⇒ 卡不得含终端字段`);
+  assert.ok(
+    unconfig.cards[0]?.chips.some((c) => c.act === 'op.llm-config'),
+    `${FIN11_FAIL}：未配置 ⇒ 必有可达 op.llm-config 引导 chip（FR-NDA-055 零死端）`,
+  );
+  const configured = recommendNextStep(baseInput());
+  assert.equal(configured.cards[0]?.terminal, true, `${FIN11_FAIL}：已配置 ⇒ 终端恒常驻`);
+  assert.deepEqual(phasingProblems(phasingReading()), [], FIN11_FAIL);
+});
+
+test('★ NDA-2 206 反证①：把 when 注入「恒真」⇒ 未配置相判据必红（逐字节还原）', () => {
+  registerBuiltinProviders();
+  const real = resolveOrder().find((p) => p.id === 'free-input');
+  assert.ok(real, '前置：free-input 必须在注册表内');
+  const forged = { ...real, when: () => true };
+  registerNextProvider(forged, { overwrite: true });
+  const injectedCard = recommendNextStep(baseInput({ risks: ['llmBlocked'] })).cards[0];
+  assert.equal(injectedCard?.terminal, true, '注入恒真 ⇒ 未配置相**复现**终端（判据不是恒真）');
+  assert.ok(
+    phasingProblems({ ...phasingReading(), unconfiguredWhen: true, unconfiguredTerminal: true }).some((p) => p.includes('未配置相')),
+    `${FIN11_FAIL}：恒真注入 ⇒ 未配置相判据必须必红`,
+  );
+  registerNextProvider(real, { overwrite: true }); // 还原
+  assert.deepEqual(phasingProblems(phasingReading()), [], '还原 ⇒ 全绿');
+  assert.equal(recommendNextStep(baseInput({ risks: ['llmBlocked'] })).cards[0]?.terminal, undefined, '还原 ⇒ 未配置相终端不再出现');
+});
+
+test('★ NDA-2 206 反证②：把 when 注入「恒假」⇒ 已配置相判据必红（R8 / F-35 不回归可判）', () => {
+  registerBuiltinProviders();
+  const real = resolveOrder().find((p) => p.id === 'free-input');
+  assert.ok(real, '前置：free-input 必须在注册表内');
+  const forged = { ...real, when: () => false };
+  registerNextProvider(forged, { overwrite: true });
+  assert.equal(recommendNextStep(baseInput()).cards[0]?.terminal, undefined, '注入恒假 ⇒ 已配置相终端**消失**（判据不是恒真）');
+  assert.ok(
+    phasingProblems({ ...phasingReading(), configuredWhen: false, configuredTerminal: false }).some((p) => p.includes('恒常驻')),
+    `${FIN11_FAIL}：恒假注入 ⇒ 已配置相判据必须必红`,
+  );
+  registerNextProvider(real, { overwrite: true }); // 还原
+  assert.equal(recommendNextStep(baseInput()).cards[0]?.terminal, true, '还原 ⇒ 已配置相终端回来（逐字节还原）');
+  assert.deepEqual(phasingProblems(phasingReading()), [], '还原 ⇒ 全绿');
+});
+
+test('★ NDA-2 206 零新源：分相不改真值源 / 零第二偏好键 / 零新 ctx 字段', () => {
+  assert.equal(NEXT_SOURCE_NAMES.length, 7, `${FIN11_FAIL}：真值源仍恰 7（risk 为既有源）`);
+  assert.ok(NEXT_SOURCE_NAMES.includes('risk'), 'risk 是既有源（分相只读它）');
+  // 分相常量与修复 provider 同源：`LLM_BLOCKED_RISK` 在 `OPS_RECOVERY_ROWS[0].risk` 里出现。
+  assert.ok(/blocked: 'llm.unconfigured', risk: LLM_BLOCKED_RISK/.test(read(PROVIDERS_REL)), '分相与 llm.unconfigured 必须共享同一常量（不可能漂移）');
+  // 零第二偏好键：providers.ts（**代码面**，注释剥离）不出现 storage / chrome 读。
+  const providerCodeOnly = read(PROVIDERS_REL).split('\n').filter((l) => !isComment(l)).join('\n');
+  assert.equal(/chrome\.|storage\./.test(providerCodeOnly), false, `${FIN11_FAIL}：分相不得引入第二偏好键 / 第二配置真相`);
 });
 
 

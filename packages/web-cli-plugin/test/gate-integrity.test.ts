@@ -1932,3 +1932,43 @@ test('元门禁 R4d：无法声明可复现失败文本的反证必须如实登�
   }
   console.log(`  ℹ R4d 例外登记（如实、逐条带理由）：\n      ${REVERSE_PROOF_EXCEPTIONS.map((e) => e.id).join('\n      ')}`);
 });
+
+/**
+ * ★ NDA-1 **TASK-NDA-117**（ADR-NDA-009 §④ 第 11 行 · FR-NDA-135/117 · AC-NDA-024）——
+ * **改写门禁入受审下界（只增）**：`ai-next-candidate` 在 NDA-1 改写后仍受审 ∧ 判据表
+ * **只增**（AI-N-1~14 → R1-I3 修复轮 **AI-N-1~15**）∧ `recommendation-sources` 下界仍在 ∧ **`CHROMIUM_GATES === 9` 不动**。
+ * 纯追加判据（不改既有断言；下界只增不减）。
+ */
+export const V_NDA1_NODE_GATE_FILES = ['test/ai-next-candidate.test.ts'] as const;
+export const V_NDA1_UPGRADED_GATES = ['recommendation-sources'] as const;
+
+test('元门禁（★ NDA-1）：改写门禁 `ai-next-candidate` 受审 ∧ 判据表只增（AI-N-1~15）∧ `CHROMIUM_GATES === 9`', () => {
+  const discovered = discoverGateFiles(PKG);
+  const problems: string[] = [];
+  for (const file of V_NDA1_NODE_GATE_FILES) {
+    if (!existsSync(resolve(PKG, file))) problems.push(`${file}: 文件不存在（改写后的新门禁缺失）`);
+    if (!discovered.includes(file)) problems.push(`${file}: 未被目录扫描纳入（JUDGEMENTS 判据标记失效）`);
+    if (!(EXPECTED_AUDITED_FILES as readonly string[]).includes(file)) problems.push(`${file}: 不在 EXPECTED_AUDITED_FILES 下界声明里（改名/删除不可见）`);
+    const text = readFileSync(resolve(PKG, file), 'utf8');
+    if (!/export const JUDGEMENTS/.test(text)) problems.push(`${file}: 必须导出 JUDGEMENTS 判据表`);
+    // 判据表只增：NDA-1 改写后为 AI-N-1~14；R1-I3 修复轮追加 AI-N-15（intercept 短路永久回归）
+    // ⇒ 现为 AI-N-1~15（旧条逐字保留）。下界仍是 ≥14（只增不减）。
+    const judgeRows = (text.match(/expectFailPattern\s*:/g) ?? []).length;
+    if (judgeRows < 14) problems.push(`${file}: 判据表只增（NDA-1 后 ≥14；实测 ${judgeRows}）`);
+  }
+  assert.deepEqual(problems, [], `★ NDA-1 改写门禁未全部纳入受审集合：\n${problems.join('\n')}`);
+  // 下界只增不减（既有声明逐字保留；NDA-1 零新增 node / Chromium 门禁文件）。
+  assert.ok(V_NDA1_NODE_GATE_FILES.length >= 1, 'NDA-1 改写门禁下界不得低于 1（ai-next-candidate）');
+  assert.equal(EXPECTED_AUDITED_FILES.length, 48, 'EXPECTED_AUDITED_FILES 只增不减（NDA-1 零新增文件 ⇒ 仍 48）');
+  assert.equal(CHROMIUM_GATES.length, 9, 'CHROMIUM_GATES === 9 逐字（叶1 零新增 Chromium 门禁文件）');
+  for (const gate of V_NDA1_UPGRADED_GATES) {
+    assert.ok(
+      existsSync(resolve(PKG, 'test', `${gate}.test.ts`)),
+      `${gate} 门禁文件必须仍在（升级 ≠ 摘除；该门禁无 JUDGEMENTS 表 ⇒ 不进目录扫描集合，但不等于可删除）`,
+    );
+  }
+  // 反证：伪造一个未在受审集合的文件必须判红（判据非恒真）。
+  const forged = [...V_NDA1_NODE_GATE_FILES, 'test/ghost-nda-gate.test.ts'].filter((f) => !discovered.includes(f));
+  assert.ok(forged.length > 0, '未在受审集合的门禁必须被判红（判据非恒真）');
+  console.log(`  ℹ ★ NDA-1 改写门禁受审：${V_NDA1_NODE_GATE_FILES.length} 在册（下界 ${EXPECTED_AUDITED_FILES.length}；CHROMIUM_GATES ${CHROMIUM_GATES.length}）`);
+});

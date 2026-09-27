@@ -5,8 +5,8 @@
  * `insight-no-escalation` / `tree-view` / `tree-ops` / `size-budget` 原样保留，V2-4 只**新增**）。
  *
  * 断言分组（每条关键断言配**反证自测**，`catch` 只吞 `ENOENT`，冻结类用 `sha256` 内容哈希）：
- *   A1 动态不变量 + fixture 122 + cardId 唯一且 === `CommandNode.cardId`
- *   A2 三层口径（L1 34/142 · L2 20/88 · L3 28/94=122）+ `accounted` 行级并集 100% + **防夸大反证**
+ *   A1 动态不变量 + fixture 123（★ NDA-1 追加纯协议 `next`）+ cardId 唯一且 === `CommandNode.cardId`
+ *   A2 三层口径（L1 34/142 · L2 20/88 · L3 29/95=124）+ `accounted` 行级并集 100% + **防夸大反证**
  *   A4 `ArchiveCard` 无写控件字段 + **R2 分层**（硬底线无 `policyControl` + 原因；可覆盖有描述）+ 档案模块无写面/无标记注入
  *   A5 `delay` 消歧单源（导入 + 内容哈希 pin + 无第二处字面量）
  *   A6 过滤只读（快照不变 + 真的收窄）
@@ -129,10 +129,10 @@ const TREE_MODULE_SHA256: Readonly<Record<string, string>> = {
 const ARCHIVE_MODULE_PATH = 'src/insight/archive-catalog.ts';
 
 // 三层口径钉死值（P0 同款 fixture）。
-const FIXTURE_CARDS = 122;
-const FIXTURE_TOOL_ENTRIES = 28;
+const FIXTURE_CARDS = 123;
+const FIXTURE_TOOL_ENTRIES = 29;
 const FIXTURE_SUBCOMMANDS = 94;
-const FIXTURE_DISTINCT_TOOL_NAMES = 23;
+const FIXTURE_DISTINCT_TOOL_NAMES = 24;
 const BASELINE_TOOLS = 34;
 const BASELINE_SUBCOMMANDS = 142;
 const WAIVED_TOOLS = 20;
@@ -358,14 +358,14 @@ function commandNodes(snapshot: ReturnType<typeof projectInsightTree>): CommandN
 // A1 动态不变量 + fixture 122
 // ---------------------------------------------------------------------------
 
-test('A1 archive: cards.length === counts.commands + counts.subcommands (invariant) and fixture = 122', () => {
+test('A1 archive: cards.length === counts.commands + counts.subcommands (invariant) and fixture = 123', () => {
   const { snapshot, model } = snapshotFixture();
   assert.equal(
     model.cards.length,
     snapshot.meta.counts.commands + snapshot.meta.counts.subcommands,
     '动态不变量：档案卡数必须等于命令节点（工具 + 子命令）数',
   );
-  assert.equal(model.cards.length, FIXTURE_CARDS, 'P0 同款 fixture = 122 档案卡');
+  assert.equal(model.cards.length, FIXTURE_CARDS, 'P0 同款 fixture = 123 档案卡（★ NDA-1 追加纯协议 next）');
   assert.equal(model.coverage.carded.tools, FIXTURE_TOOL_ENTRIES);
   assert.equal(model.coverage.carded.subcommands, FIXTURE_SUBCOMMANDS);
   assert.equal(model.coverage.carded.distinctToolNames, FIXTURE_DISTINCT_TOOL_NAMES);
@@ -407,7 +407,7 @@ test('A1 archive REVERSE PROOF: dropping a card breaks the invariant (falsifiabl
 // A2 三层口径 + accounted 行级并集 100% + 防夸大
 // ---------------------------------------------------------------------------
 
-test('A2 archive: three layers are separated (L1 34/142 · L2 20/88 · L3 28/94)', () => {
+test('A2 archive: three layers are separated (L1 34/142 · L2 20/88 · L3 29/95)', () => {
   const { snapshot, model } = snapshotFixture();
   const rows = baselineRowSets();
   const surface = buildSurface();

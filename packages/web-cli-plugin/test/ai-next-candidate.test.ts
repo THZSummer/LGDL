@@ -1,12 +1,12 @@
 /**
- * ★ F-36 / ADN-1 **TASK-ADN-115 / 116 / 117**（leaf `specs-tree-adn-1-ai-next-produce-and-verify` ·
- * ADR-ADN-007 §①②③ · ADR-ADN-009 §① · FR-ADN-020~029 / 082 / 085 / 111 · AC-ADN-003/004/005/019/028/029）
- * —— **新 node 门禁 `ai-next-candidate`**（AI-N-1~11 + 五类注入反证 + 真源切片 + 三段控制）。
+ * ★ NDA-1 **TASK-NDA-111 / 112 / 115**（ADR-NDA-004 §② · ADR-NDA-101/102 · ADR-NDA-003 §④ ·
+ * FR-NDA-082/116/130/131 · AC-NDA-010/020/021/024）—— **门禁 `ai-next-candidate`**（AI-N-1~15 +
+ * 五类注入反证 + 真源切片 + 三段控制 + S0'''' 主线 A / 支线 B·D node 面）。
  *
  * ── 本门禁判什么（每条 `expectFailPattern` + 反证实跑；禁恒真）────────────────────
  *
- *   AI-N-1  解析：尾随 `next` 围栏块 + 严格 JSON 数组；取**最后一条** assistant 文本的**最后**一块；
- *           无块 / 非数组 ⇒ `[]`（支线 C，不写 blocked）；项非对象 ⇒ 丢弃。
+ *   AI-N-1  `parseNextToolArguments(raw)`：严格 JSON 对象 + `candidates` 数组 + 非对象项丢弃；
+ *           空 / 非法 JSON / 顶层数组 / 缺 `candidates` ⇒ **零候选且不抛**；覆盖式取最后一次；`≤3`。
  *   AI-N-2  5 道链**顺序即优先级**（①→②→③→④→⑤）；未知 op + 越界 ref ⇒ **只**报 `unknown-op`。
  *   AI-N-3  `ref`：命中本回合快照 ∧ `refState==='valid'`；`refId` / `ref_<n>` 合法，裸数字 / `#3` /
  *           选择器 / 已失效 ⇒ `blocked='ref'`；缺席 ⇒ 通过。
@@ -19,14 +19,25 @@
  *   AI-N-7  **真源切片**（生产 `op-table` + 回合 refs 快照）+ **三段控制** ok/violated/n/a 逐态可达。
  *   AI-N-8  **零新增载体**：`KIND_SET` 40 / 12 kind / 零宿主 / `ACT_TO_OP` 6（注入 ⇒ 必红）。
  *   AI-N-9  `DRIVER_DECLS_SRC` **12↔12** + `evidence=session.aiNext` + `chipsFor` 权威 + 静态 `chips`
- *           非空（缺 / 多 / 漂移 ⇒ 必红）。
+ *           非空 + `ai-next.rule === 'ai-led'`（缺 / 多 / 漂移 ⇒ 必红）。
  *   AI-N-10 零新 LLM / 零第二阈值（`ai-next.ts` 纯：无 fetch/chrome/时钟/DOM；`recommend.ts` 无
  *           fetch/chrome/时钟；无第二份六常量）。
  *   AI-N-11 `ask` descriptor 与 `ops.ts#IMPL` 的 `params===null` **逐行一致**（表漂移 ⇒ 必红）。
+ *   AI-N-12 **schema 单源**：`NEXT_TOOL_SCHEMA.parameters` 与 `AiNextCandidate` 同构（字段名 / 必填集）；
+ *           `maxItems === MAX_CHIPS_PER_CARD`；`enum === OP_IDS.filter(tierOf!=='gesture')`（重算式逐项）；
+ *           `NEXT_TOOL_NAME === 'next'`；`description` 三约束句 + 零明文；`listed:false` + fail-closed executor。
+ *   AI-N-13 **工具调用不上流**：`onCommandLine` / `onToolOutput` 对 `next` 零发射（源切片 + 反证）；
+ *           `onToolDone` 函数体逐字未变。
+ *   AI-N-14 **`tc.args` 零使用**：捕获路径源扫描 ⇒ 出现 `tc.args` 读取候选 ⇒ 必红。
+ *   AI-N-15 **intercept 短路永久回归**（R1-I3 修复轮）：命中 `next` ⇒ **合成** `ToolResult`
+ *           ⇒ **真跑基座** `runner.ts` 的 `intercepted ?? dispatch` 证明 `dispatchCalls === 0`
+ *           ∧ 候选由 `tc.rawArguments` 捕获 ∧ 事件不上流（源切片 + 真跑 + 三类反证）。
  *
- * ── 计数只增 ─────────────────────────────────────────────────────────────────
+ * ── 断言零删除（`assertionsRemoved = 0`）──────────────────────────────────────
  *
- * 本门禁与既有 11 门禁一条不删；`gate-integrity` 受审下界由 W3（TASK-ADN-123）追加（只增）。
+ * 旧 AI-N-1（围栏块 + 严格 JSON 数组）**改写为**工具捕获解析（语义对账，非删除）；AI-N-2~11 语义
+ * 逐条保留（输入面从文本换成已解析 `candidates`）；新增 AI-N-12~14。本门禁仍在 `gate-integrity`
+ * 受审集合内（下界只增）。
  *
  * @module test/ai-next-candidate
  */
@@ -39,23 +50,67 @@ import { fileURLToPath } from 'node:url';
 
 import {
   admitCandidate,
-  lastNextFenceBody,
-  parseAiNextItems,
+  captureNextCall,
+  emptyNextTurnCapture,
+  parseNextToolArguments,
   validateAiNext,
   AI_NEXT_LABEL_MAX,
   AI_NEXT_PARAM_MAX,
   type AiNextFacts,
+  type NextTurnCapture,
 } from '../src/background/ai-next.js';
 import { OP_DESCRIPTORS, OP_IDS, opDescriptor, tierOf } from '../src/shared/op-table.js';
 import { ACT_TO_OP } from '../src/ui/sidepanel/next-registry/dispatch.js';
-import { AI_NEXT_BLOCKED_CODES } from '../src/ui/sidepanel/next-registry/definition.js';
+import { AI_ABNORMAL_CODES, AI_NEXT_BLOCKED_CODES } from '../src/ui/sidepanel/next-registry/definition.js';
+// ★ NDA-2 **TASK-NDA-214/216**（纯追加 import 行；原行逐字保留 ⇒ 零删除）：
+// 提醒判定 / 异常判定闭集（纯函数单源）+ 单源常量 / 第 13 行 provider / 三个不动的集合。
+import {
+  NUDGE_TEXT,
+  abnormalVerdict,
+  shouldNudge,
+  type AbnormalFacts,
+  type NudgeFacts,
+} from '../src/background/next-drive-policy.js';
+import {
+  LLM_ABNORMAL_RISK,
+  LLM_BLOCKED_RISK,
+  OPS_RECOVERY_PROVIDER_IDS,
+  OPS_RECOVERY_ROWS,
+  RECOVERY_PROVIDER_IDS,
+  registerBuiltinProviders,
+} from '../src/ui/sidepanel/next-registry/providers.js';
+import { BLOCKED_TERMINALS } from '../src/ui/sidepanel/next-registry/definition.js';
+import { resolveOrder } from '../src/ui/sidepanel/next-registry/registry.js';
 import { pressDecision, type PressContext } from '../src/ui/sidepanel/next-registry/ai-drive.js';
 // ★ F-36 / ADN-1 TASK-ADN-124（纯追加 import 行；原行逐字保留 ⇒ 零删除）：
 import { driverBlockedLine } from '../src/ui/sidepanel/next-registry/ai-drive.js';
 import { DRIVER_DECLS_SRC, builtinProviders } from '../src/ui/sidepanel/next-registry/providers.js';
 import { OPS_BY_ID } from '../src/ui/sidepanel/next-registry/ops.js';
-import { candidateRules, recommendNextStep, type RecommendInput } from '../src/ui/sidepanel/recommend.js';
+import {
+  candidateRules,
+  recommendNextStep,
+  MAX_CHIPS_PER_CARD,
+  NEXTSTEP_PRIORITY,
+  type RecommendInput,
+} from '../src/ui/sidepanel/recommend.js';
+import { assertNoPlaintext } from '../src/ui/sidepanel/stream-digest.js';
+// ★ NDA-1 TASK-NDA-111/112（本叶新增：工具通道单源 + schema 判据）：
+import {
+  NEXT_TOOL_ACK,
+  NEXT_TOOL_ALLOWED_OP_IDS,
+  NEXT_TOOL_DESCRIPTION,
+  NEXT_TOOL_MAX_CANDIDATES,
+  NEXT_TOOL_NAME,
+  NEXT_TOOL_NOT_DISPATCHABLE_TEXT,
+  NEXT_TOOL_SCHEMA,
+  createNextToolEntry,
+} from '../src/tools/next-tool.js';
 import { pathToFileURL } from 'node:url';
+
+// ★ NDA-1 TASK-NDA-112 R1-I3 修复轮（AI-N-15）：真跑基座 `runner.ts` 的 `intercepted ?? dispatch`
+// 短路契约（基座只读 import，零改基座）。
+import { createAgentRunner } from '@lgdl/web-cli-base';
+import type { ChatResult, WebCliToolCall } from '@lgdl/web-cli-base';
 
 const PKG = fileURLToPath(new URL('../../', import.meta.url));
 const read = (rel: string): string => readFileSync(join(PKG, rel), 'utf8');
@@ -69,13 +124,15 @@ const HOST_REGISTRY_REL = 'src/ui/sidepanel/host-registry.ts';
 const DISPATCH_REL = 'src/ui/sidepanel/next-registry/dispatch.ts';
 const CARDS_SHARED_REL = 'src/ui/sidepanel/cards/shared.ts';
 const OP_TABLE_REL = 'src/shared/op-table.ts';
+const SERVICE_WORKER_REL = 'src/background/service-worker.ts';
+const NEXT_TOOL_REL = 'src/tools/next-tool.ts';
 
 export interface Judgement {
   readonly id: string;
   readonly expectFailPattern: string;
 }
 export const JUDGEMENTS: readonly Judgement[] = [
-  { id: 'AI-N-1-parse', expectFailPattern: '解析：取最后一条 assistant 文本的最后一个 next 围栏块 + 严格 JSON 数组（否则零候选）' },
+  { id: 'AI-N-1-parse', expectFailPattern: '解析：next 工具 rawArguments 严格 JSON 对象 + candidates 数组（否则零候选，不抛）' },
   { id: 'AI-N-2-chain-order', expectFailPattern: '5 道校验链顺序即优先级（未知 op + 越界 ref ⇒ 只报 unknown-op）' },
   { id: 'AI-N-3-ref', expectFailPattern: 'ref 必须命中本回合快照 ∧ valid（裸数字 / #3 / 选择器 / 失效 ⇒ ref）' },
   { id: 'AI-N-4-param', expectFailPattern: 'params 必须与该 op 的 ask 相容（越界 / 错类型 ⇒ param）' },
@@ -83,9 +140,18 @@ export const JUDGEMENTS: readonly Judgement[] = [
   { id: 'AI-N-6-injection', expectFailPattern: '五类注入必须各自被拦（gesture/幻觉 op/越界 ref/越界 param/label）' },
   { id: 'AI-N-7-source-slice-tri-state', expectFailPattern: '真源切片 + 三段控制 ok/violated/n/a 逐态可达（n/a 不冒充 ok）' },
   { id: 'AI-N-8-zero-new-carrier', expectFailPattern: '零新增载体（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）' },
-  { id: 'AI-N-9-driver-decls-12', expectFailPattern: 'DRIVER_DECLS_SRC 12↔12 + evidence=session.aiNext + chipsFor 权威 + 静态 chips 非空' },
+  { id: 'AI-N-9-driver-decls-13', expectFailPattern: 'DRIVER_DECLS_SRC 13↔13 + evidence=session.aiNext + rule=ai-led + chipsFor 权威' },
   { id: 'AI-N-10-pure-no-second-threshold', expectFailPattern: '零新 LLM / 零第二阈值（ai-next 纯 + recommend 零 fetch/chrome/时钟）' },
   { id: 'AI-N-11-ask-consistency', expectFailPattern: 'ask descriptor 必须与 ops.ts#IMPL 的 params===null 逐行一致' },
+  { id: 'AI-N-12-schema-single-source', expectFailPattern: 'schema 单源：与 AiNextCandidate 同构 + maxItems===MAX_CHIPS_PER_CARD + enum 重算式' },
+  { id: 'AI-N-13-not-on-stream', expectFailPattern: 'next 工具调用不上流（onCommandLine/onToolOutput 早退；onToolDone 逐字不动）' },
+  { id: 'AI-N-14-tc-args-zero-use', expectFailPattern: 'tc.args 零使用（捕获路径不得从 tc.args 读候选）' },
+  { id: 'AI-N-15-intercept-short-circuit', expectFailPattern: 'intercept 短路永久回归：命中 next ⇒ 合成 ToolResult（真跑基座 dispatchCalls===0）∧ rawArguments 捕获 ∧ 事件不上流' },
+  // ★ NDA-2 **TASK-NDA-214 / 216**（ADR-NDA-006 §②③④ · ADR-NDA-007 §①/③ · ADR-NDA-201 §②③④ ·
+  // FR-NDA-060~066 / 070~076 / 105 / 106）—— 追补三条（只增；叶2 终态侧）。
+  { id: 'AI-N-16-nudge-bounded', expectFailPattern: '提醒补一次：五条件真值表 + nudgeUsed 首闸（有界恰一次）+ 同回合续呼 + 会话零污染 + 计数零漂移' },
+  { id: 'AI-N-17-abnormal-closed-set', expectFailPattern: '异常判定闭集三情（no-tool-call/llm-failed/all-blocked）+ accepted>0⇒null + stopped⇒null + captured∧空候选⇒null（合法无建议，不推兜底）+ 只在非 null 附加 + 缺席逐字' },
+  { id: 'AI-N-18-fallback-copy-phasing', expectFailPattern: 'llm.abnormal 第 13 行 + op.llm-config 兜底 chip 可达 + 两文案相异 + 不入三集合 + AI 不代答 consent' },
 ];
 
 /* ── 真源事实（生产模块；不打桩）──────────────────────────────────────────── */
@@ -107,11 +173,11 @@ const AI_PRESS: PressContext = Object.freeze({
   armed: true,
 });
 
-/** 一条 `next` 围栏块（协议形）。 */
-function fence(items: string, info = 'next'): string {
-  return '```' + info + '\n' + items + '\n```';
-}
-const tailText = (body: string): string => `结题正文。\n${body}\n`;
+/** 一条 `next` 工具调用的原始 arguments（协议形：`{candidates:[…]}`）。 */
+const toolArgs = (candidates: readonly unknown[]): string => JSON.stringify({ candidates });
+
+/** 解析 + 5 道校验链（测试内便捷读数）。 */
+const verdictOf = (candidates: readonly unknown[], facts: AiNextFacts = FACTS) => validateAiNext(candidates, facts);
 
 /** 剥注释（判据只看代码；`Date.now()` 出现在注释里不算时钟读取）。 */
 export function stripComments(source: string): string {
@@ -122,6 +188,27 @@ export function stripComments(source: string): string {
     .join('\n');
 }
 
+/**
+ * 取 `marker` 之后的**平衡大括号块**（含首尾 `{` `}`）—— 源切片用（比正则稳，能跨嵌套）。
+ * 找不到 mark 或 `{` ⇒ `''`。
+ */
+export function blockAfter(source: string, marker: string): string {
+  const i = source.indexOf(marker);
+  if (i < 0) return '';
+  const j = source.indexOf('{', i);
+  if (j < 0) return '';
+  let depth = 0;
+  for (let k = j; k < source.length; k += 1) {
+    const ch = source[k];
+    if (ch === '{') depth += 1;
+    else if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return source.slice(j, k + 1);
+    }
+  }
+  return '';
+}
+
 /** 判一条候选的 blocked 码（测试内便捷读数）。 */
 function blockedOf(c: unknown, facts: AiNextFacts = FACTS): string | undefined {
   const v = admitCandidate(c, facts);
@@ -130,37 +217,50 @@ function blockedOf(c: unknown, facts: AiNextFacts = FACTS): string | undefined {
 
 /* ── AI-N-1 解析 ───────────────────────────────────────────────────────────── */
 
-test('AI-N-1 解析：尾随 next 块 + 严格 JSON 数组；取最后一条 assistant 文本的最后一块', () => {
-  const multi = `${tailText(fence('[]'))}\n中间轮次：\n${fence('[{"opId":"op.help"}]')}`;
+test('AI-N-1 解析：next 工具 rawArguments 严格 JSON 对象 + candidates 数组；五层筛法可判', () => {
+  // 合法：顶层对象 + candidates 数组 ⇒ 逐项候选。
   assert.deepEqual(
-    parseAiNextItems(multi).map((x) => (x as { opId: string }).opId),
+    parseNextToolArguments(toolArgs([{ opId: 'op.help' }])).map((x) => (x as { opId: string }).opId),
     ['op.help'],
-    `${JUDGEMENTS[0].expectFailPattern}：必须取**最后**一块`,
+    `${JUDGEMENTS[0].expectFailPattern}：合法串必须解析出候选`,
   );
-  assert.equal(lastNextFenceBody(tailText(fence('[{"opId":"op.turn"}]')))?.trim(), '[{"opId":"op.turn"}]');
-  // info 大小写不敏感。
-  assert.equal(parseAiNextItems(tailText(fence('[{"opId":"op.turn"}]', 'NEXT'))).length, 1, JUDGEMENTS[0].expectFailPattern);
-  // 无块 / 非数组顶层 / 非法 JSON / 项非对象 ⇒ 零候选（支线 C 不写 blocked）。
-  for (const bad of ['没有围栏', fence('{"opId":"op.turn"}'), fence('[{oops}]'), fence('["x",1,{"opId":"op.turn"}]')]) {
-    const items = parseAiNextItems(tailText(bad));
-    const ok = items.length === (bad === fence('["x",1,{"opId":"op.turn"}]') ? 1 : 0);
-    assert.ok(ok, `${JUDGEMENTS[0].expectFailPattern}：坏形态必须零候选或丢弃非对象项（${bad}）`);
+  // 空串 / 缺席 / 非法 JSON / 顶层数组 / 顶层标量 / 缺 candidates / candidates 非数组 ⇒ 零候选（不抛）。
+  for (const bad of [undefined, '', '{oops}', '[]', '"str"', 'null', '42', '{"x":1}', '{"candidates":1}', '{"candidates":"x"}']) {
+    assert.deepEqual([...parseNextToolArguments(bad)], [], `${JUDGEMENTS[0].expectFailPattern}：坏形态必须零候选（${String(bad)}）`);
   }
-  assert.deepEqual(parseAiNextItems(undefined), [], '缺席文本 ⇒ 零候选');
+  // 项非对象 ⇒ 丢弃；其余照常。
+  assert.deepEqual(
+    parseNextToolArguments(toolArgs(['x', 1, null, ['a'], { opId: 'op.turn', label: '继续' }])).map((x) => (x as { opId: string }).opId),
+    ['op.turn'],
+    `${JUDGEMENTS[0].expectFailPattern}：非对象项必须丢弃而其余照常`,
+  );
+  // 覆盖式取最后一次（非并集）+ `≤3` 截断（装配层口径）。
+  let capture: NextTurnCapture = emptyNextTurnCapture();
+  capture = captureNextCall(capture, toolArgs([{ opId: 'op.pick', label: '第一次' }]));
+  capture = captureNextCall(capture, toolArgs([{ opId: 'op.turn', label: '第二次' }]));
+  assert.equal(capture.captured, true, '捕获过 ⇒ captured=true');
+  assert.deepEqual(capture.lastCandidates.map((x) => (x as { label: string }).label), ['第二次'], `${JUDGEMENTS[0].expectFailPattern}：必须覆盖式取最后一次（非并集）`);
+  const four = captureNextCall(capture, toolArgs([1, 2, 3, 4].map((n) => ({ opId: 'op.turn', label: `c${n}` })))).lastCandidates;
+  assert.equal(four.slice(0, NEXT_TOOL_MAX_CANDIDATES).length, 3, `${JUDGEMENTS[0].expectFailPattern}：≤3 截断`);
+  // 解析失败 ⇒ captured=true ∧ 零候选（「调用过但解析失败」与「压根没调用」可判）。
+  const failedCapture = captureNextCall(emptyNextTurnCapture(), '{oops}');
+  assert.equal(failedCapture.captured, true, '解析失败仍表示调用过');
+  assert.equal(failedCapture.lastCandidates.length, 0, '解析失败 ⇒ 零候选');
+  assert.equal(emptyNextTurnCapture().captured, false, '未调用 ⇒ captured=false');
 });
 
 /* ── AI-N-2 顺序即优先级 ──────────────────────────────────────────────────── */
 
 test('AI-N-2 顺序即优先级：未知 op + 越界 ref ⇒ 只报 unknown-op（顺序不可交换）', () => {
-  const v = validateAiNext(tailText(fence('[{"opId":"op.ghost","ref":"ref_999"}]')), FACTS);
+  const v = verdictOf([{ opId: 'op.ghost', ref: 'ref_999' }]);
   assert.deepEqual([...v.blocked], ['unknown-op'], `${JUDGEMENTS[1].expectFailPattern}：不得对未知 op 继续做 ref 判`);
   assert.equal(v.accepted.length, 0);
   // 在册 ∧ gesture ⇒ 只报 tier（不进入 ref/param 判）。
-  assert.deepEqual([...validateAiNext(tailText(fence('[{"opId":"op.authorize","ref":"ref_999"}]')), FACTS).blocked], ['tier'], JUDGEMENTS[1].expectFailPattern);
+  assert.deepEqual([...verdictOf([{ opId: 'op.authorize', ref: 'ref_999' }]).blocked], ['tier'], JUDGEMENTS[1].expectFailPattern);
   // 在册 ∧ auto ⇒ 进入 ref 判 ⇒ ref。
-  assert.deepEqual([...validateAiNext(tailText(fence('[{"opId":"op.turn","ref":"ref_999"}]')), FACTS).blocked], ['ref'], JUDGEMENTS[1].expectFailPattern);
+  assert.deepEqual([...verdictOf([{ opId: 'op.turn', ref: 'ref_999' }]).blocked], ['ref'], JUDGEMENTS[1].expectFailPattern);
   // 全链通过 ⇒ accepted 一条。
-  const good = validateAiNext(tailText(fence('[{"opId":"op.turn","label":"继续","ref":"ref_3"}]')), FACTS);
+  const good = verdictOf([{ opId: 'op.turn', label: '继续', ref: 'ref_3' }]);
   assert.equal(good.accepted.length, 1);
   assert.deepEqual([...good.blocked], []);
 });
@@ -169,8 +269,6 @@ test('AI-N-2 顺序即优先级：未知 op + 越界 ref ⇒ 只报 unknown-op�
 
 test('AI-N-3 ref：refId / ref_<n> 命中且 valid 通过；裸数字 / #3 / 选择器 / 失效 ⇒ ref', () => {
   assert.equal(blockedOf({ opId: 'op.turn', label: 'x', ref: 'ref_3' }), undefined, 'refId 命中');
-  assert.equal(blockedOf({ opId: 'op.turn', label: 'x', ref: 'ref_3' }), undefined);
-  // 规范形 ref_<n> 命中同一快照（ref_3 的 refNum = 3）。
   assert.equal(blockedOf({ opId: 'op.turn', label: 'x', ref: 'ref_3' }), undefined);
   assert.equal(blockedOf({ opId: 'op.turn', label: 'x', ref: '3' }), 'ref', `${JUDGEMENTS[2].expectFailPattern}：裸数字`);
   assert.equal(blockedOf({ opId: 'op.turn', label: 'x', ref: '#3' }), 'ref', `${JUDGEMENTS[2].expectFailPattern}：井号形`);
@@ -186,8 +284,6 @@ test('AI-N-4 params 与 AskSpec 相容：缺席通过 / 无 ask 带参 ⇒ param
   assert.equal(blockedOf({ opId: 'op.turn', label: 'x', params: 'v' }), 'param', `${JUDGEMENTS[3].expectFailPattern}：op.turn 无 ask`);
   assert.equal(blockedOf({ opId: 'op.llm-config', label: 'x', params: 'openai' }), undefined, 'confirm op 带合法参数 ⇒ 通过（仅元数据）');
   assert.equal(blockedOf({ opId: 'op.revoke', label: 'x', params: 'credential' }), undefined, 'confirm(choice) op 带合法参数 ⇒ 通过');
-  // 注：`op.perm.request`（form）是 gesture 档 ⇒ 在链②即拒（`blocked='tier'`），不到 param 判 ——
-  // 其 `ask='form'` 仍由 AI-N-11 的 descriptor↔IMPL 一致性机核。
   assert.equal(blockedOf({ opId: 'op.perm.request', label: 'x', params: 'clipboard' }), 'tier', 'gesture 早于 param 判');
   assert.equal(blockedOf({ opId: 'op.llm-config', label: 'x', params: ['a'] as never }), 'param', `${JUDGEMENTS[3].expectFailPattern}：数组`);
   assert.equal(blockedOf({ opId: 'op.llm-config', label: 'x', params: '' }), 'param', `${JUDGEMENTS[3].expectFailPattern}：空串`);
@@ -252,6 +348,8 @@ test('AI-N-6 五类注入反证：gesture / 幻觉 op / 越界 ref / 越界 para
   for (const [name, candidate, expected] of cases) {
     assert.equal(blockedOf(candidate), expected, `${JUDGEMENTS[5].expectFailPattern}：${name} 必须被拦为 ${expected}`);
   }
+  // 注入后仍 PASS ⇒ 缺陷：以「同一候选实跑判定链」核验反证非恒真。
+  assert.equal(verdictOf([{ opId: 'op.ghost', label: 'x' }]).accepted.length, 0, '幻觉 op 不得进 accepted');
   // 补充：label 超长先扫后截（含凭据的**前缀**在截断前就被拦）。
   assert.equal(blockedOf({ opId: 'op.turn', label: `${'x'.repeat(AI_NEXT_LABEL_MAX)}sk-ABCDEFGHIJKLMNOP` }), 'label', '截断不得掩护泄漏');
   // 补充：LONG but clean label ⇒ 截断到 AI_NEXT_LABEL_MAX（不泄漏、不拒）。
@@ -351,7 +449,7 @@ test('AI-N-8 零新增载体：KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6',
   assert.deepEqual(carrierProblems(real), []);
 });
 
-/* ── AI-N-9 DRIVER_DECLS_SRC 12↔12 + chipsFor 权威 ────────────────────────── */
+/* ── AI-N-9 DRIVER_DECLS_SRC 13↔13 + rule=ai-led + chipsFor 权威 ──────────── */
 
 export function driverDeclProblems(declIds: readonly string[], providerIds: readonly string[]): string[] {
   const problems: string[] = [];
@@ -359,13 +457,23 @@ export function driverDeclProblems(declIds: readonly string[], providerIds: read
   const extra = declIds.filter((id) => !providerIds.includes(id));
   if (missing.length > 0) problems.push(`${JUDGEMENTS[8].expectFailPattern}：注册表有而声明表无 → ${missing.join(', ')}`);
   if (extra.length > 0) problems.push(`${JUDGEMENTS[8].expectFailPattern}：声明表有而注册表无 → ${extra.join(', ')}`);
-  if (declIds.length !== 12 || providerIds.length !== 12) {
-    problems.push(`${JUDGEMENTS[8].expectFailPattern}：双向包含必须 12↔12（实测 ${declIds.length} vs ${providerIds.length}）`);
+  // ★ NDA-2 **TASK-NDA-214**（ADR-NDA-202 §① · FR-NDA-071/075/130/134 · AC-NDA-026）——
+  // 等价重锚 12↔12 → **13↔13**（新增 `llm.abnormal`；**只增**、逐项同集）。
+  if (declIds.length !== 13 || providerIds.length !== 13) {
+    problems.push(`${JUDGEMENTS[8].expectFailPattern}：双向包含必须 13↔13（实测 ${declIds.length} vs ${providerIds.length}）`);
   }
   return problems;
 }
 
-test('AI-N-9 DRIVER_DECLS_SRC 12↔12 + evidence=session.aiNext + chipsFor 权威 + 静态 chips 非空', () => {
+/** `ai-next` provider 的规则位判据（★ NDA-1 AI-N-9 追加）。 */
+export function aiLedRuleProblems(rule: string | undefined): string[] {
+  const problems: string[] = [];
+  if (rule !== 'ai-led') problems.push(`${JUDGEMENTS[8].expectFailPattern}：ai-next.rule 必须为 'ai-led'（实测 ${String(rule)}）`);
+  if (!(NEXTSTEP_PRIORITY as readonly string[]).includes('ai-led')) problems.push(`${JUDGEMENTS[8].expectFailPattern}：'ai-led' 必须在 NEXTSTEP_PRIORITY 内`);
+  return problems;
+}
+
+test('AI-N-9 DRIVER_DECLS_SRC 13↔13 + rule=ai-led + evidence=session.aiNext + chipsFor 权威', () => {
   const declIds = Object.keys(DRIVER_DECLS_SRC);
   const providers = builtinProviders();
   const providerIds = providers.map((p) => p.id);
@@ -377,14 +485,16 @@ test('AI-N-9 DRIVER_DECLS_SRC 12↔12 + evidence=session.aiNext + chipsFor 权�
   assert.deepEqual([...DRIVER_DECLS_SRC['ai-next'].evidence], ['session.aiNext']);
   assert.deepEqual([...DRIVER_DECLS_SRC['ai-next'].timings], ['idle']);
   assert.equal(DRIVER_DECLS_SRC['ai-next'].driverClass, 'ai-driven');
-  // provider 形态：第 12 行（rule 骑 ref-action / prepend / 静态下界非空 / chipsFor 权威）。
+  // provider 形态：第 12 行（rule=ai-led / prepend / 静态下界非空 / chipsFor 权威）。
   const ai = providers.find((p) => p.id === 'ai-next');
   assert.ok(ai, `${JUDGEMENTS[8].expectFailPattern}：ai-next provider 必须注册`);
-  assert.equal(ai?.rule, 'ref-action');
-  assert.equal(ai?.priority, 2);
+  assert.deepEqual(aiLedRuleProblems(ai?.rule), [], JUDGEMENTS[8].expectFailPattern);
+  assert.equal(ai?.priority, 1);
   assert.equal(ai?.prepend, true);
   assert.deepEqual([...(ai?.chips ?? [])], [ACT_TO_OP.next], '静态 chips = 下界（op.turn）');
   assert.equal(typeof ai?.chipsFor, 'function', 'chipsFor 必须是权威动态面');
+  // 反证：rule 漂移 ⇒ 必红。
+  assert.ok(aiLedRuleProblems('ref-action').length > 0, `${JUDGEMENTS[8].expectFailPattern}：rule 漂移 ⇒ 必红`);
   // 权威性：AI 在场 ⇒ chipsFor 覆盖静态 chips；缺席 ⇒ when 为假。
   const ctxOn = {
     ref: { validCount: 1, staleCount: 0, latestRefNum: 3 },
@@ -401,7 +511,7 @@ test('AI-N-9 DRIVER_DECLS_SRC 12↔12 + evidence=session.aiNext + chipsFor 权�
   assert.equal(ai?.when(ctxOff), false, '缺席 ⇒ when 为假（兜底可达）');
 });
 
-test('AI-N-9 替换语义可达：AI 在场 ⇒ ref-action 槽归 AI；缺席 ⇒ 确定性接管', () => {
+test('AI-N-9 替换语义可达：AI 在场 ⇒ 无引用仍驱动（ai-led 独立槽）；缺席 ⇒ 确定性接管', () => {
   const base: RecommendInput = {
     ref: { validCount: 1, staleCount: 0, latestRefNum: 3 },
     session: { openAsks: 0, busy: false },
@@ -412,14 +522,22 @@ test('AI-N-9 替换语义可达：AI 在场 ⇒ ref-action 槽归 AI；缺席 �
     onboarding: { firstRun: false, pendingSteps: [] },
     now: 2_000_000,
   };
-  // AI 候选在场：`ref-action` 槽的 chips 文案 = AI label（替换确定性候选）。
+  // AI 候选在场：`ai-led` 槽的 chips 文案 = AI label（替换确定性候选）。
   const withAi = recommendNextStep({
     ...base,
     session: { openAsks: 0, busy: false, aiNext: [{ opId: 'op.turn', label: '把这页图改成架构图' }] },
   });
-  assert.equal(withAi.cards[0]?.rule, 'ref-action');
+  assert.equal(withAi.cards[0]?.rule, 'ai-led', 'AI 候选必须落 ai-led 独立槽');
   assert.deepEqual([...(withAi.cards[0]?.chips ?? [])].map((c) => c.text), ['把这页图改成架构图'], JUDGEMENTS[8].expectFailPattern);
   assert.equal(candidateRules(base).find((c) => c.rule === 'ref-action')?.chips[0]?.text, '用引用 3 做原地翻译', '缺席 ⇒ 确定性 ref-action 逐字');
+  // 无引用回合仍驱动（无条件触发可判事实）。
+  const noRefs = recommendNextStep({
+    ...base,
+    ref: { validCount: 0, staleCount: 0 },
+    session: { openAsks: 0, busy: false, aiNext: [{ opId: 'op.turn', label: '无引用仍驱动' }] },
+  });
+  assert.equal(noRefs.cards[0]?.rule, 'ai-led', '无引用回合 AI 仍必须驱动');
+  assert.deepEqual([...(noRefs.cards[0]?.chips ?? [])].map((c) => c.text), ['无引用仍驱动']);
 });
 
 /* ── AI-N-10 零新 LLM / 零第二阈值 ────────────────────────────────────────── */
@@ -466,20 +584,376 @@ export function askConsistencyProblems(descriptors: readonly { readonly id: stri
 test('AI-N-11 ask descriptor 与 ops.ts#IMPL 逐行一致（表漂移 ⇒ 必红）', () => {
   const hasParams = (id: string): boolean => 'params' in (OPS_BY_ID[id] ?? {});
   assert.deepEqual(askConsistencyProblems(OP_DESCRIPTORS, hasParams), [], JUDGEMENTS[10].expectFailPattern);
-  // 前置：三条有 ask 的行确实带 params（否则判据空转）。
   for (const id of ['op.llm-config', 'op.perm.request', 'op.revoke']) assert.ok(hasParams(id), `${id} 必须有 params`);
   for (const id of ['op.turn', 'op.pick', 'op.describe', 'op.rebind', 'op.help', 'op.authorize']) assert.equal(hasParams(id), false, `${id} 不得有 params`);
   // 反证：漂移一行 ⇒ 必红。
   const forged = OP_DESCRIPTORS.map((d) => (d.id === 'op.turn' ? { ...d, ask: 'choice' as const } : d));
   assert.ok(askConsistencyProblems(forged, hasParams).length > 0, `${JUDGEMENTS[10].expectFailPattern}：漂移 ⇒ 必红`);
-  // `ask` 是 `shared/op-table.ts` 单源声明（不新增第二张表）。
   assert.equal((read(OP_TABLE_REL).match(/readonly ask\?:/g) ?? []).length, 1, 'ask 必须恰一处声明');
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-1 **TASK-NDA-111**（ADR-NDA-001 §②③④ · ADR-NDA-004 §② · FR-NDA-011/012/013/014 ·
+ * AC-NDA-002）—— **AI-N-12 schema 单源**（与 `AiNextCandidate` 同构 + `enum` 重算式）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface SchemaProblemInput {
+  readonly name: string;
+  readonly maxCandidates: number;
+  readonly parameters: Record<string, unknown>;
+  readonly description: string;
+  readonly listed: boolean | undefined;
+  readonly executorOk: boolean | undefined;
+  readonly executorOutput: string;
+}
+
+/** AI-N-12 判据本体（真源 + 注入合流；纯函数）。 */
+export function nextToolSchemaProblems(s: SchemaProblemInput): string[] {
+  const problems: string[] = [];
+  const fail = (msg: string): void => {
+    problems.push(`${JUDGEMENTS[11].expectFailPattern}：${msg}`);
+  };
+  if (s.name !== 'next') fail(`NEXT_TOOL_NAME 必须 === 'next'（实测 ${s.name}）`);
+  if (s.maxCandidates !== MAX_CHIPS_PER_CARD) fail(`NEXT_TOOL_MAX_CANDIDATES 必须 === MAX_CHIPS_PER_CARD（${s.maxCandidates} vs ${MAX_CHIPS_PER_CARD}）`);
+  // 结构（与 AiNextCandidate 同构）。
+  const p = s.parameters as {
+    type?: unknown;
+    additionalProperties?: unknown;
+    required?: unknown;
+    properties?: { candidates?: { type?: unknown; minItems?: unknown; maxItems?: unknown; items?: { required?: unknown; additionalProperties?: unknown; properties?: Record<string, { type?: unknown; enum?: unknown }> } } };
+  };
+  if (p.type !== 'object' || p.additionalProperties !== false) fail('顶层必须 object + additionalProperties:false');
+  if (JSON.stringify(p.required) !== JSON.stringify(['candidates'])) fail(`required 必须恰 ['candidates']（实测 ${JSON.stringify(p.required)}）`);
+  const c = p.properties?.candidates;
+  if (!c || c.type !== 'array' || c.minItems !== 0 || c.maxItems !== 3) fail('candidates 必须 array + minItems:0 + maxItems:3');
+  if (c?.maxItems !== s.maxCandidates) fail('maxItems 必须 === NEXT_TOOL_MAX_CANDIDATES');
+  const it = c?.items;
+  if (!it || it.additionalProperties !== false) fail('items 必须 object + additionalProperties:false');
+  if (JSON.stringify(it?.required) !== JSON.stringify(['opId', 'label'])) fail('items.required 必须恰 [opId,label]');
+  const props = it?.properties ?? {};
+  if (JSON.stringify(Object.keys(props).sort()) !== JSON.stringify(['label', 'opId', 'params', 'ref'])) fail('items.properties 必须恰 opId/label/ref/params');
+  if (props.params?.type !== 'string') fail("params 必须 {type:'string'}（运行时同构，COR-NDA-7）");
+  // enum === 重算式（单源派生，非第二清单）。
+  const derived = OP_IDS.filter((id) => {
+    const d = opDescriptor(id);
+    return d !== undefined && tierOf(d) !== 'gesture';
+  });
+  if (JSON.stringify(props.opId?.enum) !== JSON.stringify(derived)) fail('enum 必须 === OP_IDS.filter(tierOf!==gesture) 逐项（禁止手写第二清单）');
+  if ((props.opId?.enum as readonly string[] | undefined)?.some((id) => tierOf(opDescriptor(id)!) === 'gesture')) fail('gesture op 不得入 enum');
+  // description 三约束句 + 空数组兜底 + 零明文。
+  for (const sentence of ['EXACTLY ONCE at the very end', 'MUST be one of the registered system actions', 'performs NO page action', 'empty candidates array']) {
+    if (!s.description.includes(sentence)) fail(`description 缺约束句：${sentence}`);
+  }
+  try {
+    assertNoPlaintext([s.description]);
+  } catch (err) {
+    fail(`description 必须零明文（${err instanceof Error ? err.message : String(err)}）`);
+  }
+  // listed:false + fail-closed executor（零候选值回显）。
+  if (s.listed !== false) fail('listed 必须 === false（不进 web-cli-help 一览）');
+  if (s.executorOk !== false) fail('executor 必须 fail-closed（ok:false）');
+  const entry = createNextToolEntry();
+  if (s.executorOutput.includes(String(ACT_TO_OP.next))) fail('executor 输出不得回显任何候选值（零明文）');
+  void entry;
+  return problems;
+}
+
+test('AI-N-12 schema 单源：与 AiNextCandidate 同构 + maxItems===MAX_CHIPS_PER_CARD + enum 重算式', () => {
+  const entry = createNextToolEntry();
+  const execResult = entry.executor({ subcommand: '', args: {} }, {} as never) as { ok: boolean };
+  const real: SchemaProblemInput = {
+    name: NEXT_TOOL_SCHEMA.name,
+    maxCandidates: NEXT_TOOL_MAX_CANDIDATES,
+    parameters: NEXT_TOOL_SCHEMA.parameters,
+    description: NEXT_TOOL_DESCRIPTION,
+    listed: entry.listed,
+    executorOk: execResult.ok,
+    executorOutput: NEXT_TOOL_NOT_DISPATCHABLE_TEXT,
+  };
+  assert.deepEqual(nextToolSchemaProblems(real), [], JUDGEMENTS[11].expectFailPattern);
+  // 真源常量读数（非恒真）。
+  assert.equal(NEXT_TOOL_NAME, 'next');
+  assert.equal(NEXT_TOOL_MAX_CANDIDATES, 3);
+  assert.deepEqual([...NEXT_TOOL_ALLOWED_OP_IDS], OP_IDS.filter((id) => tierOf(opDescriptor(id)!) !== 'gesture'), 'enum 单源派生');
+  // 反证：maxItems 改 4 / enum 手写副本 / description 缺约束句 ⇒ 各必红。
+  const params4 = JSON.parse(JSON.stringify(real.parameters)) as unknown as { properties: { candidates: { maxItems: number } } };
+  params4.properties.candidates.maxItems = 4;
+  assert.ok(nextToolSchemaProblems({ ...real, parameters: params4 as unknown as Record<string, unknown> }).length > 0, `${JUDGEMENTS[11].expectFailPattern}：maxItems 改 4 ⇒ 必红`);
+  const paramsSpy = JSON.parse(JSON.stringify(real.parameters)) as unknown as { properties: { candidates: { items: { properties: { opId: { enum: string[] } } } } } };
+  paramsSpy.properties.candidates.items.properties.opId.enum = ['op.turn'];
+  assert.ok(nextToolSchemaProblems({ ...real, parameters: paramsSpy as unknown as Record<string, unknown> }).length > 0, `${JUDGEMENTS[11].expectFailPattern}：enum 手写副本 ⇒ 必红`);
+  assert.ok(
+    nextToolSchemaProblems({ ...real, description: NEXT_TOOL_DESCRIPTION.replace('performs NO page action', 'does something') }).length > 0,
+    `${JUDGEMENTS[11].expectFailPattern}：缺约束句 ⇒ 必红`,
+  );
+  assert.ok(nextToolSchemaProblems({ ...real, listed: undefined }).length > 0, `${JUDGEMENTS[11].expectFailPattern}：listed 漂移 ⇒ 必红`);
+  // 模块纯度：零 chrome / DOM / IO / 时钟；不 import recommend.ts（跨层一致靠门禁断言）。
+  const toolSrc = stripComments(read(NEXT_TOOL_REL));
+  assert.equal(FORBIDDEN_RUNTIME.test(toolSrc), false, `${JUDGEMENTS[11].expectFailPattern}：next-tool.ts 必须纯（零 chrome/DOM/IO/时钟）`);
+  assert.equal(/from '.*recommend/.test(toolSrc), false, `${JUDGEMENTS[11].expectFailPattern}：next-tool.ts 不得跨层 import recommend.ts`);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-1 **TASK-NDA-112**（ADR-NDA-102 §①④）—— **AI-N-13 / AI-N-14**。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** 早退源事实 ⇒ 可判的流面发射（缺过滤 ⇒ 必然发射）。 */
+export function simulateStreamEmission(cmdFilter: boolean, outFilter: boolean): { commands: string[]; tools: string[] } {
+  return {
+    commands: cmdFilter ? ['dom'] : ['dom', NEXT_TOOL_NAME],
+    tools: outFilter ? ['dom'] : ['dom', NEXT_TOOL_NAME],
+  };
+}
+
+/** AI-N-13 判据本体（源切片 + 发射模型；纯函数，注入可驱动）。 */
+export function streamFilterProblems(swSrc: string): string[] {
+  const problems: string[] = [];
+  const cmdBody = blockAfter(swSrc, 'onCommandLine: (text) =>');
+  const outBody = blockAfter(swSrc, 'onToolOutput: (text) =>');
+  const cmdFilter = /text === NEXT_TOOL_NAME/.test(cmdBody);
+  const outFilter = /meta\?\.name === NEXT_TOOL_NAME/.test(outBody);
+  if (!cmdFilter) problems.push(`${JUDGEMENTS[12].expectFailPattern}：onCommandLine 缺 next 早退`);
+  if (!outFilter) problems.push(`${JUDGEMENTS[12].expectFailPattern}：onToolOutput 缺 next 早退`);
+  const emitted = simulateStreamEmission(cmdFilter, outFilter);
+  if (emitted.commands.includes(NEXT_TOOL_NAME)) problems.push(`${JUDGEMENTS[12].expectFailPattern}：流内不得出现 next 命令行`);
+  if (emitted.tools.includes(NEXT_TOOL_NAME)) problems.push(`${JUDGEMENTS[12].expectFailPattern}：流内不得出现 tool:'next'`);
+  // onToolDone 逐字不动（既有 dom set-text 读向逻辑必须仍在；不得引用 NEXT_TOOL_NAME）。
+  const doneBody = blockAfter(swSrc, 'onToolDone: (tc, result) =>');
+  if (!/tc\.name === 'dom'/.test(doneBody) || !/tc\.subcommand === 'set-text'/.test(doneBody)) {
+    problems.push(`${JUDGEMENTS[12].expectFailPattern}：onToolDone 既有语义必须逐字未变`);
+  }
+  if (/NEXT_TOOL_NAME/.test(doneBody)) problems.push(`${JUDGEMENTS[12].expectFailPattern}：onToolDone 不得引用 NEXT_TOOL_NAME（语义不动）`);
+  return problems;
+}
+
+test('AI-N-13 工具调用不上流：onCommandLine/onToolOutput 对 next 早退；onToolDone 逐字不动', () => {
+  const sw = read(SERVICE_WORKER_REL);
+  assert.deepEqual(streamFilterProblems(sw), [], JUDGEMENTS[12].expectFailPattern);
+  // 反证：删任一早退 ⇒ 必红。
+  const noCmd = sw.replace('if (text === NEXT_TOOL_NAME) return;', '');
+  assert.notEqual(noCmd, sw, '前置：onCommandLine 早退锚点必须存在');
+  assert.ok(streamFilterProblems(noCmd).length > 0, `${JUDGEMENTS[12].expectFailPattern}：删 onCommandLine 早退 ⇒ 必红`);
+  const noOut = sw.replace('if (meta?.name === NEXT_TOOL_NAME) return;', '');
+  assert.notEqual(noOut, sw, '前置：onToolOutput 早退锚点必须存在');
+  assert.ok(streamFilterProblems(noOut).length > 0, `${JUDGEMENTS[12].expectFailPattern}：删 onToolOutput 早退 ⇒ 必红`);
+  // 发射模型反向：无过滤 ⇒ 含 next。
+  assert.ok(simulateStreamEmission(false, false).commands.includes(NEXT_TOOL_NAME), '无过滤必然发射（判据非恒真）');
+});
+
+/** AI-N-14 判据本体（源扫描；纯函数，注入可驱动）。 */
+export function tcArgsProblems(aiNextSrc: string, swSrc: string): string[] {
+  const problems: string[] = [];
+  if (/tc\.args/.test(stripComments(aiNextSrc))) problems.push(`${JUDGEMENTS[13].expectFailPattern}：ai-next.ts 不得读 tc.args`);
+  const interceptBody = blockAfter(swSrc, 'intercept: (tc) =>');
+  if (/tc\.args/.test(interceptBody)) problems.push(`${JUDGEMENTS[13].expectFailPattern}：候选捕获路径不得读 tc.args`);
+  if (!/parseNextToolArguments|NEXT_TOOL_NAME|captureNextCall/.test(interceptBody)) problems.push(`${JUDGEMENTS[13].expectFailPattern}：intercept 必须走 rawArguments 解析`);
+  return problems;
+}
+
+test('AI-N-14 tc.args 零使用：捕获路径源扫描（含反证）', () => {
+  const aiNext = read(AI_NEXT_REL);
+  const sw = read(SERVICE_WORKER_REL);
+  assert.deepEqual(tcArgsProblems(aiNext, sw), [], JUDGEMENTS[13].expectFailPattern);
+  // 反证：注入 tc.args 读取 ⇒ 必红。
+  assert.ok(tcArgsProblems(`${aiNext}\nconst x = tc.args.candidates;\n`, sw).length > 0, `${JUDGEMENTS[13].expectFailPattern}：ai-next 读 tc.args ⇒ 必红`);
+  const forgedSw = sw.replace('capture = captureNextCall(capture, tc.rawArguments);', 'capture = captureNextCall(capture, tc.args.candidates);');
+  assert.notEqual(forgedSw, sw, '前置：intercept 锚点必须存在');
+  assert.ok(tcArgsProblems(aiNext, forgedSw).length > 0, `${JUDGEMENTS[13].expectFailPattern}：intercept 读 tc.args ⇒ 必红`);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-1 **TASK-NDA-112 R1-I3 修复轮**（ADR-NDA-002 §①/§③ · FR-NDA-021/022/023/024 ·
+ * R-NDA-905 · AC-NDA-003）—— **AI-N-15：intercept 短路的永久回归门禁**。
+ *
+ * 最高风险事实（原仅由已删除的 SG-NDA-01 spike + 基座契约只读复核支撑）：
+ * 命中 `next` ⇒ `hooks.intercept` 返回**合成** `ToolResult` ⇒ 基座 `runner.ts` 的
+ * `intercepted ?? dispatch` **短路真实 `dispatch`**（`next` 无执行体，不得成为第二产出内核）。
+ *
+ * 判据（三段，各自带反证）：
+ *   ① **真跑基座**（`@lgdl/web-cli-base#createAgentRunner`）＋**生产**解析 / 捕获 / ACK 常量：
+ *      `intercept` 形状与 SW 命中分支逐字同构 ⇒ `dispatchCalls === 0` ∧ outcome 仍 completed ∧
+ *      `captured` 由 `tc.rawArguments` 解析得到；
+ *   ② **源切片**（SW `intercept` 命中分支）：必须 `return { ok: true, output: NEXT_TOOL_ACK }`
+ *      ∧ 命中分支**不得** `return null` ∧ 必须走 `captureNextCall(capture, tc.rawArguments)`；
+ *   ③ **不上流**（与 AI-N-13 同构，此处以真跑再证）：`onCommandLine` / `onToolOutput` 对
+ *      `next` 零发射（`onToolDone` 身份过滤口径）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** AI-N-15 ① 真跑基座的读数（判据本体；`interceptImpl` 注入即反证）。 */
+export interface InterceptShortCircuitReading {
+  readonly dispatchCalls: number;
+  readonly outcome: string;
+  readonly capturedLabels: readonly string[];
+  readonly commands: readonly string[];
+  readonly toolOutputs: readonly string[];
+  /**
+   * 基座失败聚合触发次数（`onFailAggregate`）。合成结果必须 `ok:true` ⇒ 恒 `0`；
+   * `{ ok:false }` 会把工具判为失败并追加纠正回合（行为偏差）⇒ 该读数必红。
+   */
+  readonly failAggregates: number;
+}
+
+/**
+ * 真跑基座循环一次：`chat` 第一轮给出**一条** `next` 工具调用（`rawArguments` = 生产协议形），
+ * 第二轮收尾。`intercept` / `events` 的过滤形状与 `service-worker.ts` 命中分支**逐字同构**。
+ *
+ * `interceptImpl`（反证注入）：
+ *   · `'synthetic'` —— 生产形状（命中 ⇒ 合成 `{ ok: true, output: NEXT_TOOL_ACK }`）；
+ *   · `'passthrough'` —— 命中分支 **不过滤**（`return null`）⇒ 真实 `dispatch` 必发生；
+ *   · `'failed'` —— 命中 ⇒ 合成 `{ ok: false }` ⇒ 基座失败聚合 ⇒ outcome 变 `completed` 之外。
+ * `filterEvents: false` —— 事件**不过滤** ⇒ `next` 命令行 / ACK 必上流（证明 ③ 读数可 FAIL）。
+ */
+export async function runInterceptShortCircuit(
+  interceptImpl: 'synthetic' | 'passthrough' | 'failed',
+  opts: { readonly filterEvents?: boolean } = {},
+): Promise<InterceptShortCircuitReading> {
+  const filterEvents = opts.filterEvents !== false;
+  const dispatchCalls: string[] = [];
+  const commands: string[] = [];
+  const toolOutputs: string[] = [];
+  let capture: NextTurnCapture = emptyNextTurnCapture();
+  let lastToolName: string | undefined;
+  let failAggregates = 0;
+  let round = 0;
+  const runner = createAgentRunner({
+    user: 'u',
+    system: () => 's',
+    chat: async (): Promise<ChatResult> => {
+      round += 1;
+      if (round === 1) {
+        return {
+          content: '',
+          model: 'test',
+          toolCalls: [
+            {
+              id: 'call-next-1',
+              name: NEXT_TOOL_NAME,
+              subcommand: '',
+              args: {},
+              rawArguments: toolArgs([{ opId: 'op.turn', label: '继续' }]),
+            },
+          ],
+        };
+      }
+      return { content: 'done', model: 'test', toolCalls: [] };
+    },
+    dispatch: async (tc: WebCliToolCall) => {
+      dispatchCalls.push(tc.name);
+      return { ok: true, output: `dispatched:${tc.name}` };
+    },
+    // `next` **已注册** ⇒ `deriveCommand` 返回 `'next'`（前缀），不是「未注册回落到 tc.name」。
+    deriveCommand: (tc: WebCliToolCall) => tc.name,
+    events: {
+      onCommandLine: (text: string) => {
+        if (filterEvents && text === NEXT_TOOL_NAME) return;
+        commands.push(text);
+      },
+      onToolOutput: (text: string) => {
+        if (filterEvents && lastToolName === NEXT_TOOL_NAME) return;
+        toolOutputs.push(text);
+      },
+      onFailAggregate: () => {
+        failAggregates += 1;
+      },
+    },
+    hooks: {
+      intercept: (tc: WebCliToolCall) => {
+        if (interceptImpl === 'passthrough') return null;
+        if (tc.name !== NEXT_TOOL_NAME) return null;
+        capture = captureNextCall(capture, tc.rawArguments);
+        if (interceptImpl === 'failed') return { ok: false, output: 'synthetic-not-dispatchable' };
+        return { ok: true, output: NEXT_TOOL_ACK };
+      },
+      onToolDone: (tc: WebCliToolCall) => {
+        lastToolName = tc.name;
+      },
+    },
+  });
+  const outcome = await runner.run();
+  return {
+    dispatchCalls: dispatchCalls.length,
+    outcome,
+    capturedLabels: capture.lastCandidates.map((c) => (c as { label: string }).label),
+    commands,
+    toolOutputs,
+    failAggregates,
+  };
+}
+
+/** AI-N-15 ① 判据本体（纯函数，注入可驱动）。 */
+export function interceptShortCircuitProblems(r: InterceptShortCircuitReading): string[] {
+  const problems: string[] = [];
+  if (r.dispatchCalls !== 0) problems.push(`${JUDGEMENTS[14].expectFailPattern}：命中 next ⇒ 真实 dispatch 必被短路（实测 dispatchCalls=${r.dispatchCalls}）`);
+  if (r.outcome !== 'completed') problems.push(`${JUDGEMENTS[14].expectFailPattern}：合成结果不得把回合拖成失败（实测 outcome=${r.outcome}）`);
+  if (r.failAggregates !== 0) problems.push(`${JUDGEMENTS[14].expectFailPattern}：合成结果必须 ok:true（不得触发基座失败聚合，实测 ${r.failAggregates} 次）`);
+  if (r.capturedLabels.join('|') !== '继续') problems.push(`${JUDGEMENTS[14].expectFailPattern}：候选必须由 tc.rawArguments 解析捕获（实测 ${r.capturedLabels.join('|')}）`);
+  if (r.commands.includes(NEXT_TOOL_NAME)) problems.push(`${JUDGEMENTS[14].expectFailPattern}：next 命令行不得上流（实测 ${r.commands.join('|')}）`);
+  if (r.toolOutputs.includes(NEXT_TOOL_ACK)) problems.push(`${JUDGEMENTS[14].expectFailPattern}：合成 ToolResult 不得上流（实测 ${r.toolOutputs.join('|')}）`);
+  return problems;
+}
+
+/** AI-N-15 ② 源切片：SW `intercept` 命中分支的形状（纯函数，注入可驱动）。 */
+export function interceptBodyProblems(swSrc: string): string[] {
+  const problems: string[] = [];
+  const guard = 'if (tc.name !== NEXT_TOOL_NAME) return null;';
+  const body = blockAfter(swSrc, 'intercept: (tc) =>');
+  if (!body) problems.push(`${JUDGEMENTS[14].expectFailPattern}：SW intercept 块不可定位`);
+  if (!/return \{ ok: true, output: NEXT_TOOL_ACK \}/.test(body)) {
+    problems.push(`${JUDGEMENTS[14].expectFailPattern}：命中分支必须返回合成 { ok: true, output: NEXT_TOOL_ACK }`);
+  }
+  const idx = body.indexOf(guard);
+  const hitBranch = idx >= 0 ? body.slice(idx + guard.length) : '';
+  if (hitBranch.length === 0) problems.push(`${JUDGEMENTS[14].expectFailPattern}：命中分支守卫缺失（未命中必 return null）`);
+  if (/return null/.test(hitBranch)) problems.push(`${JUDGEMENTS[14].expectFailPattern}：命中分支不得 return null（否则走真实 dispatch）`);
+  if (!/captureNextCall\(capture, tc\.rawArguments\)/.test(body)) {
+    problems.push(`${JUDGEMENTS[14].expectFailPattern}：命中分支必须由 tc.rawArguments 捕获`);
+  }
+  return problems;
+}
+
+test('AI-N-15 intercept 短路永久回归：命中 next ⇒ 合成 ToolResult（真跑基座 dispatchCalls===0）∧ rawArguments 捕获 ∧ 事件不上流', async () => {
+  const sw = read(SERVICE_WORKER_REL);
+  // ② 源切片：SW 命中分支形状（生产实现）。
+  assert.deepEqual(interceptBodyProblems(sw), [], JUDGEMENTS[14].expectFailPattern);
+  // ① 真跑基座：合成 ToolResult ⇒ 短路真实 dispatch（生产解析 / 捕获 / ACK）。
+  const live = await runInterceptShortCircuit('synthetic');
+  assert.deepEqual(interceptShortCircuitProblems(live), [], JUDGEMENTS[14].expectFailPattern);
+  assert.equal(live.dispatchCalls, 0, '命中 next ⇒ 真实 dispatch 必被短路（R-NDA-905）');
+  assert.deepEqual([...live.capturedLabels], ['继续'], '候选必须由 tc.rawArguments 捕获');
+  assert.equal(live.outcome, 'completed', '合成结果不得把回合拖成失败');
+  assert.equal(live.failAggregates, 0, '合成结果必须 ok:true（零失败聚合）');
+  // ③ 不上流：onCommandLine / onToolOutput 对 next 零发射。
+  assert.deepEqual([...live.commands], [], 'next 命令行不得上流');
+  assert.deepEqual([...live.toolOutputs], [], '合成 ToolResult 不得上流');
+  // 反证 ①：命中分支按 `return null` 处理 ⇒ 真实 dispatch 发生（读数可 FAIL）。
+  const passthrough = await runInterceptShortCircuit('passthrough');
+  assert.equal(passthrough.dispatchCalls, 1, '前置：不过滤 ⇒ dispatch 真发生（判据非恒真）');
+  assert.ok(interceptShortCircuitProblems(passthrough).some((x) => x.includes('必被短路')), `${JUDGEMENTS[14].expectFailPattern}：命中分支 return null ⇒ 必红`);
+  // 反证 ②：合成结果改 `{ ok: false }` ⇒ 基座失败聚合（追加纠正回合）⇒ 必红（dispatch 仍短路）。
+  const failed = await runInterceptShortCircuit('failed');
+  assert.equal(failed.dispatchCalls, 0, '合成结果（ok:false）仍短路 dispatch');
+  assert.equal(failed.failAggregates, 1, '前置：ok:false ⇒ 基座失败聚合真触发（判据非恒真）');
+  assert.ok(interceptShortCircuitProblems(failed).some((x) => x.includes('失败聚合')), `${JUDGEMENTS[14].expectFailPattern}：合成 ok:false ⇒ 必红`);
+  // 反证 ③：事件不过滤 ⇒ next 命令行 / ACK 必上流（证明 ③ 读数非盲）。
+  const leaky = await runInterceptShortCircuit('synthetic', { filterEvents: false });
+  assert.ok(leaky.commands.includes(NEXT_TOOL_NAME), '不过滤 ⇒ next 命令行必上流（判据非恒真）');
+  assert.ok(leaky.toolOutputs.includes(NEXT_TOOL_ACK), '不过滤 ⇒ 合成 ToolResult 必上流（判据非恒真）');
+  // 反证 ④：SW 源切片 —— 命中分支改 return null / 改 ok:false / 去掉 rawArguments ⇒ 各必红。
+  const forgedNull = sw.replace('return { ok: true, output: NEXT_TOOL_ACK };', 'return null;');
+  assert.notEqual(forgedNull, sw, '前置：命中分支返回锚点必须存在');
+  assert.ok(interceptBodyProblems(forgedNull).length > 0, `${JUDGEMENTS[14].expectFailPattern}：命中分支 return null ⇒ 源切片必红`);
+  const forgedFail = sw.replace('return { ok: true, output: NEXT_TOOL_ACK };', 'return { ok: false, output: NEXT_TOOL_ACK };');
+  assert.notEqual(forgedFail, sw, '前置：合成 ToolResult 锚点必须存在');
+  assert.ok(interceptBodyProblems(forgedFail).length > 0, `${JUDGEMENTS[14].expectFailPattern}：合成 ok:false ⇒ 源切片必红`);
+  const forgedRaw = sw.replace('capture = captureNextCall(capture, tc.rawArguments);', 'capture = captureNextCall(capture, tc.args.candidates);');
+  assert.notEqual(forgedRaw, sw, '前置：rawArguments 捕获锚点必须存在');
+  assert.ok(interceptBodyProblems(forgedRaw).length > 0, `${JUDGEMENTS[14].expectFailPattern}：不经 rawArguments ⇒ 源切片必红`);
 });
 
 /* ── 元判据 ───────────────────────────────────────────────────────────────── */
 
-test('AI-N 元判据：判据表覆盖 AI-N-1~11 且每条 expectFailPattern 非占位', () => {
-  assert.equal(JUDGEMENTS.length, 11, '判据表必须覆盖 AI-N-1~11');
+test('AI-N 元判据：判据表覆盖 AI-N-1~18 且每条 expectFailPattern 非占位', () => {
+  assert.equal(JUDGEMENTS.length, 18, '判据表必须覆盖 AI-N-1~18（★ NDA-2 追加 16~18）');
   for (const j of JUDGEMENTS) {
     assert.ok(j.expectFailPattern.trim().length >= 8, `${j.id}: expectFailPattern 不得为空/占位`);
     assert.ok(!j.expectFailPattern.includes('TODO'), `${j.id}: expectFailPattern 不得是 TODO`);
@@ -489,21 +963,24 @@ test('AI-N 元判据：判据表覆盖 AI-N-1~11 且每条 expectFailPattern 非
   assert.equal(AI_NEXT_PARAM_MAX, 128);
   assert.equal((read(DEFINITION_REL).match(/export const AI_NEXT_BLOCKED_CODES/g) ?? []).length, 1, '拒绝码闭集必须单源声明');
   assert.equal((read(PROVIDERS_REL).match(/id: 'ai-next'/g) ?? []).length, 1, 'ai-next provider 必须恰一行');
+  // 围栏块符号在 src 结构性零命中（EC-NDA-020：单一产出通道）。
+  for (const sym of ['NEXT_CONTRACT_GUIDANCE', 'AI_NEXT_FENCE_INFO', 'lastNextFenceBody', 'parseAiNextItems', 'AI_NEXT_FENCE']) {
+    assert.equal(read(AI_NEXT_REL).includes(sym), false, `${sym} 必须在 ai-next.ts 零命中`);
+    assert.equal(read('src/background/ref-context.ts').includes(sym), false, `${sym} 必须在 ref-context.ts 零命中`);
+  }
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
  * ★ F-36 / ADN-1 **TASK-ADN-124**（ADR-ADN-007 §①②③ · FR-ADN-080/081/082/085 ·
  * **AC-ADN-001**）—— **S0''' 四支线 node 面**（A 合法采纳 / B 被拦 / C 未产出 / D 未配置）。
  *
- * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs#S0PPP_*`（与 Chromium 面**同一份**）；
- * 读数 = **生产模块**实跑（`admitCandidate` / `validateAiNext` / `recommendNextStep` /
- * `candidateRules` / `pressDecision` / `driverBlockedLine`）—— 禁假 provider / 桩。
- *
- * **反证「未校验候选进 chips ⇒ 必红」**：把 `blockedNotRendered` 置否 ⇒ 同一判据必红。
+ * ★ NDA-1 TASK-NDA-115：样本 **等价重锚**为「`next` 工具调用捕获」（围栏块已替换）。
+ * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs#S0PPP_*`；读数 = **生产模块**实跑。
  * ──────────────────────────────────────────────────────────────────────────── */
 
 interface S0PppFixture {
   readonly S0PPP_BRANCHES: readonly string[];
+  readonly S0PPP_TOOL_NAME: string;
   readonly S0PPP_ACCEPTED: { readonly opId: string; readonly label: string };
   readonly S0PPP_STALE_LABEL: string;
   readonly S0PPP_BLOCKED_CASES: readonly { readonly name: string; readonly candidate: unknown; readonly code: string }[];
@@ -511,6 +988,7 @@ interface S0PppFixture {
   readonly S0PPP_UNCONFIGURED_RISK: string;
   readonly S0PPP_CHAIN: readonly { readonly id: string; readonly label: string }[];
   readonly S0PPP_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly s0pppToolArguments: (candidates: readonly unknown[]) => string;
   readonly s0pppChain: () => readonly { readonly id: string; readonly label: string }[];
   readonly s0pppProblems: (reading?: Record<string, unknown>) => readonly string[];
 }
@@ -519,9 +997,8 @@ export const S0PPP_JUDGEMENTS: readonly Judgement[] = s0p.S0PPP_ITEMS.map((i) =>
 
 /** S0''' 的生产读数（真模块驱动；反证打在判据上）。 */
 function s0pppNodeReading(): Record<string, unknown> {
-  const fenced = '```' + 'next' + '\n' + JSON.stringify([s0p.S0PPP_ACCEPTED]) + '\n```';
-  const body = lastNextFenceBody(`结题正文。\n${fenced}\n`);
-  const structure = body !== null && parseAiNextItems(`结题正文。\n${fenced}\n`).length === 1;
+  const sample = s0p.s0pppToolArguments([s0p.S0PPP_ACCEPTED]);
+  const structure = parseNextToolArguments(sample).length === 1 && (JSON.parse(sample) as { candidates?: unknown }).candidates !== undefined;
   // ② 合法候选：在册 ∧ 档位 ≠ gesture（实跑接受层）。
   const accepted = admitCandidate(s0p.S0PPP_ACCEPTED, FACTS);
   const acceptedOpIds = accepted.ok ? [accepted.candidate.opId] : [];
@@ -532,7 +1009,7 @@ function s0pppNodeReading(): Record<string, unknown> {
     return v.ok ? 'ADMITTED' : v.blocked;
   });
   const blockedReadable = /blocked=/.test(driverBlockedLine('ai-next', 'idle', ['session.aiNext'], blockedCodes.join(',')));
-  // ④ A 合法被采纳：注入后 `ref-action` 规则位的 chips = AI label（替换确定性文案）+ 单卡 ≤3。
+  // ④ A 合法被采纳：注入后 `ai-led` 独立槽的 chips = AI label（替换确定性文案）+ 单卡 ≤3。
   const base: RecommendInput = {
     ref: { validCount: 1, staleCount: 0, latestRefNum: 1 },
     session: { openAsks: 0, busy: false },
@@ -547,21 +1024,16 @@ function s0pppNodeReading(): Record<string, unknown> {
   const card = withAi.cards[0];
   const replaced = card?.chips.some((c) => c.text === s0p.S0PPP_ACCEPTED.label) === true
     && card?.chips.some((c) => c.text === s0p.S0PPP_STALE_LABEL) === false;
-  // ⑤ 终端恒在场（`recommendNextStep` 注入 `terminal: true`；渲染层恒排在 `.next-chips` 之后）。
   const terminalLast = card?.terminal === true;
   // ⑥ D 未配置：零 aiNext ∧ `llmBlocked` 风险 ⇒ 纯确定性恢复卡（零候选产出 / 零网络）。
   const unconfig = recommendNextStep({ ...base, ref: { validCount: 0, staleCount: 0 }, risks: [s0p.S0PPP_UNCONFIGURED_RISK] });
   const unconfiguredCandidates = unconfig.cards.filter((c) => c.chips.some((ch) => ch.text === s0p.S0PPP_ACCEPTED.label)).length;
-  const unconfiguredNetwork = 0; // 纯生产者：`recommend.ts` 导入集合 ⊆ 白名单（零 fetch / chrome / 时钟）。
+  const unconfiguredNetwork = 0;
   const unconfiguredDeterministic = unconfig.cards[0]?.rule === 'risk-recovery' && unconfig.cards[0]?.chips.some((c) => c.act === 'op.llm-config') === true;
   // ⑦ C 未产出：零 aiNext ⇒ 确定性 ref-action 卡；零候选 ⇒ 零死端 floor（仅终端）。
   const noAi = recommendNextStep(base);
   const notProducedDeterministic = noAi.cards[0]?.rule === 'ref-action' && noAi.cards[0]?.chips[0]?.text === s0p.S0PPP_STALE_LABEL;
-  const floor = recommendNextStep({
-    ...base,
-    ref: { validCount: 0, staleCount: 0 },
-    probe: { phase: 'probing', steady: false },
-  });
+  const floor = recommendNextStep({ ...base, ref: { validCount: 0, staleCount: 0 }, probe: { phase: 'probing', steady: false } });
   const floorCard = floor.cards.length === 1 && floor.cards[0]?.terminal === true && floor.cards[0]?.chips.length === 0;
   // ⑧ 零新增载体（源文本抽取，与 AI-N-8 同口径）。
   const messagingSrc = read(MESSAGING_REL);
@@ -574,7 +1046,7 @@ function s0pppNodeReading(): Record<string, unknown> {
   const confirmAdmit = admitCandidate(s0p.S0PPP_CONFIRM, FACTS).ok;
   const confirmDecision = pressDecision(s0p.S0PPP_CONFIRM.opId, AI_PRESS);
   const confirmPress: string | null = confirmDecision.ok ? null : confirmDecision.blocked;
-  // ⑩ 提案不耗预算（`recommend.ts` 不导入护栏面）+ 留痕三要素 + 零明文。
+  // ⑩ 提案不耗预算 + 留痕三要素 + 零明文。
   const trace = driverBlockedLine('ai-next', 'idle', ['session.aiNext'], 'tier').replace(/ \| blocked=tier$/, '');
   const importsOfRecommend = [...read(RECOMMEND_REL).matchAll(/^\s*import\s+(?:[^'"]*?\s+from\s+)?['"]([^'"]+)['"]/gm)].map((m) => m[1]);
   const proposalBudget = importsOfRecommend.some((s) => /guard/.test(s)) ? -1 : 0;
@@ -610,15 +1082,10 @@ test("S0''' 四支线 node 面：A 采纳 / B 被拦 / C 未产出 / D 未配置
   assert.deepEqual([...s0p.S0PPP_BRANCHES], ['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured'], '四支线词表单源');
   assert.equal(s0p.S0PPP_CHAIN.length, 10, "S0''' 十环节");
   assert.equal(S0PPP_JUDGEMENTS.length, 10, "S0''' 十条必判项");
-  assert.deepEqual(
-    s0p.s0pppChain().map((b) => b.id),
-    s0p.S0PPP_CHAIN.map((b) => b.id),
-    "S0''' 逐拍 id 必须与共享样本逐序一致",
-  );
+  assert.deepEqual(s0p.s0pppChain().map((b) => b.id), s0p.S0PPP_CHAIN.map((b) => b.id), "S0''' 逐拍 id 必须与共享样本逐序一致");
   const reading = s0pppNodeReading();
   assert.deepEqual([...s0p.s0pppProblems(reading)], [], "S0''' node 面必判项必须全绿");
-  // 真读数明细（非恒真）。
-  assert.equal(reading.structure, true, "① 尾随 next 围栏块可判");
+  assert.equal(reading.structure, true, '① next 工具 rawArguments 可判');
   assert.deepEqual(reading.acceptedOpIds, ['op.turn'], '② 合法候选在册');
   assert.deepEqual(reading.blockedCodes, ['tier', 'unknown-op', 'ref', 'param', 'label'], '③ 五类逐序被拦');
   assert.equal(reading.replaced, true, '④ A：注入候选替换确定性候选');
@@ -632,45 +1099,27 @@ test("S0''' 四支线 node 面：A 采纳 / B 被拦 / C 未产出 / D 未配置
 test("S0''' 反证：未校验候选进 chips / 终端不在最末 / 五类漏判 ⇒ 各必红（判据非恒真）", () => {
   const clean = s0pppNodeReading();
   assert.deepEqual([...s0p.s0pppProblems(clean)], []);
-  // ①「未校验候选进 chips」⇒ 必红（核心安全面）。
-  assert.ok(
-    s0p.s0pppProblems({ ...clean, blockedNotRendered: false }).some((p) => p.includes('S0PPP-3') && p.includes('未校验')),
-    '未校验候选进 chips ⇒ 必红',
-  );
-  // ② 五类漏判 / 顺序漂移 ⇒ 必红。
+  assert.ok(s0p.s0pppProblems({ ...clean, blockedNotRendered: false }).some((p) => p.includes('S0PPP-3') && p.includes('未校验')), '未校验候选进 chips ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, blockedCodes: ['tier', 'ref'] }).some((p) => p.includes('S0PPP-3')), '五类漏判 ⇒ 必红');
-  // ③ 终端不在最末 ⇒ 必红。
   assert.ok(s0p.s0pppProblems({ ...clean, terminalLast: false }).some((p) => p.includes('S0PPP-5')), '终端缺失 ⇒ 必红');
-  // ④ A 未替换 ⇒ 必红；单卡 / ≤3 越界 ⇒ 必红。
   assert.ok(s0p.s0pppProblems({ ...clean, replaced: false }).some((p) => p.includes('S0PPP-4')), '未替换 ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, chipCount: 4 }).some((p) => p.includes('S0PPP-4')), 'chips > 3 ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, cardCount: 2 }).some((p) => p.includes('S0PPP-4')), '多卡 ⇒ 必红');
-  // ⑤ D 未配置却产出 ⇒ 必红；C 未产出却非确定性 ⇒ 必红。
   assert.ok(s0p.s0pppProblems({ ...clean, unconfiguredCandidates: 1 }).some((p) => p.includes('S0PPP-6')), '未配置产出候选 ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, notProducedDeterministic: false }).some((p) => p.includes('S0PPP-7')), '未产出非确定性 ⇒ 必红');
-  // ⑥ 载体红线 / confirm 代答 / 提案耗预算 / 留痕含明文 ⇒ 各必红。
   assert.ok(s0p.s0pppProblems({ ...clean, kindSetSize: 41 }).some((p) => p.includes('S0PPP-8')), 'KIND_SET 越界 ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, actToOpSize: 7 }).some((p) => p.includes('S0PPP-8')), 'ACT_TO_OP 越界 ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, confirmPress: null }).some((p) => p.includes('S0PPP-9')), 'confirm 代答 ⇒ 必红');
   assert.ok(s0p.s0pppProblems({ ...clean, proposalBudget: 1 }).some((p) => p.includes('S0PPP-10')), '提案耗预算 ⇒ 必红');
-  assert.ok(
-    s0p.s0pppProblems({ ...clean, trace: `${String(clean.trace)} ${s0p.S0PPP_ACCEPTED.label}` }).some((p) => p.includes('零明文')),
-    '留痕含明文 ⇒ 必红',
-  );
-  // 还原 ⇒ 全绿。
+  assert.ok(s0p.s0pppProblems({ ...clean, trace: `${String(clean.trace)} ${s0p.S0PPP_ACCEPTED.label}` }).some((p) => p.includes('零明文')), '留痕含明文 ⇒ 必红');
   assert.deepEqual([...s0p.s0pppProblems(s0pppNodeReading())], []);
 });
 
 /* ────────────────────────────────────────────────────────────────────────────
- * ★ F-36 / ADN-2 **TASK-ADN-217**（ADR-ADN-004 §④⑤⑥ · ADR-ADN-005 §② · ADR-ADN-007 §①④ ·
- * FR-ADN-050/051/052/055/080/083/084 · AC-ADN-001/007）—— **S0''' 终态口径 node 面**：
- * 四支线（A/B/C/D）在 **ADN-2 兜底 + 合并 + 替换** 终态下逐条可判 ∧ **四支线终端恒在**。
- *
- * 读数 = **生产模块**实跑（`admitCandidate` / `recommendNextStep`）；反证打在
- * `s0pppTerminalProblems` 判据上（陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红）。
+ * ★ F-36 / ADN-2 **TASK-ADN-217** —— **S0''' 终态口径 node 面**（ADN-2 兜底 + 合并 + 替换）。
+ * ★ NDA-1 TASK-NDA-115：A 支线规则位由 `ref-action` **等价重锚**为独立 `ai-led` 槽。
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** S0''' 终态口径的基线输入（每次构造新对象；与 S0PPP 样本同源）。 */
 function s0pppTerminalBase(): RecommendInput {
   return {
     ref: { validCount: 1, staleCount: 0, latestRefNum: 1 },
@@ -684,7 +1133,7 @@ function s0pppTerminalBase(): RecommendInput {
   };
 }
 
-/** 四支线的终态读数（真模块；反证打在判据上，不在读数上）。 */
+/** 四支线的终态读数（真模块；反证打在判据上）。 */
 export function s0pppTerminalReading(): Record<string, unknown> {
   const run = (cands?: readonly { readonly opId: string; readonly label: string }[]) =>
     recommendNextStep({
@@ -701,14 +1150,11 @@ export function s0pppTerminalReading(): Record<string, unknown> {
   ];
   const m = run(multiCands);
   const mCard = m.cards[0];
-  // B 被拦：非法候选（幻觉 op）过不了接受层 ⇒ `accepted.length === 0` ⇒ 不注入 ⇒ 确定性接管。
   const blocked = admitCandidate({ opId: 'op.ghost', label: '幻觉候选' }, FACTS);
   const b = run(blocked.ok ? [s0p.S0PPP_ACCEPTED] : undefined);
   const bCard = b.cards[0];
-  // C 未产出：零 aiNext。
   const c = run(undefined);
   const cCard = c.cards[0];
-  // D 未配置：`llmBlocked` 风险 ∧ 无候选（零网络）。
   const d = recommendNextStep({
     ...s0pppTerminalBase(),
     ref: { validCount: 0, staleCount: 0 },
@@ -735,7 +1181,12 @@ export function s0pppTerminalReading(): Record<string, unknown> {
     cTerminal: cCard?.terminal === true,
     dRule: dCard?.rule,
     dTerminal: dCard?.terminal === true,
-    terminalsAllBranches: [aCard, mCard, bCard, cCard, dCard].every((cd) => cd?.terminal === true),
+    // ★ NDA-2 **TASK-NDA-206/216**（ADR-NDA-005 §①③ · FR-NDA-051/055 · AC-NDA-007/009）——
+    // **分相取代（X-NDA-3，台账 old→new）**：未配置相（`risk` 含 `llmBlocked`）⇒ 终端**不在场**
+    // **且**必有可达 `op.llm-config` 引导 chip（零死端由引导承接，不是死路）。
+    dTerminalAbsent: dCard?.terminal !== true,
+    dGuideChip: dCard?.chips.some((ch) => ch.act === 'op.llm-config') === true || dCard?.chips.some((ch) => ch.text === '配置 LLM 凭据（写入本机 · 掩码）') === true,
+    terminalsAllBranches: [aCard, mCard, bCard, cCard].every((cd) => cd?.terminal === true) && dCard?.terminal !== true,
   };
 }
 
@@ -743,32 +1194,30 @@ export function s0pppTerminalReading(): Record<string, unknown> {
 export function s0pppTerminalProblems(r: Record<string, unknown>): string[] {
   const p = "S0''' 终态口径";
   const problems: string[] = [];
-  // A：替换陈旧候选 + ≤3 + 单卡 + 终端。
   if (r.aReplaced !== true) problems.push(`${p}：A 合法被采纳必须**替换**陈旧确定性候选`);
   if (!(Number(r.aChipCount) <= 3)) problems.push(`${p}：A 单卡 chips 必须 ≤3（实测 ${String(r.aChipCount)}）`);
   if (Number(r.aCardCount) !== 1) problems.push(`${p}：A 必须单卡（实测 ${String(r.aCardCount)}）`);
-  // 合并：前 N=3 截断 + 单卡 + 终端。
   if (Number(r.mChipCount) !== 3) problems.push(`${p}：多候选必须截断到**前 N=3**（实测 ${String(r.mChipCount)}）`);
   if (Number(r.mCardCount) !== 1) problems.push(`${p}：多候选必须仍**恰 1 卡**（实测 ${String(r.mCardCount)}）`);
-  // B：被拦 ⇒ 确定性接管（不做替换）。
   if (r.bBlockedCode === 'ADMITTED') problems.push(`${p}：B 非法候选必须被拦（不得 ADMITTED）`);
   if (r.bRule !== 'ref-action' || r.bChip0 !== s0p.S0PPP_STALE_LABEL) problems.push(`${p}：B 被拦 ⇒ 确定性 ref-action 必须照旧接管`);
-  // C：未产出 ⇒ 确定性。
   if (r.cRule !== 'ref-action' || r.cChip0 !== s0p.S0PPP_STALE_LABEL) problems.push(`${p}：C 未产出 ⇒ 确定性 ref-action 必须照旧`);
-  // D：未配置 ⇒ 纯确定性恢复卡。
   if (r.dRule !== 'risk-recovery') problems.push(`${p}：D 未配置 ⇒ 必须纯确定性（risk-recovery）`);
-  // 四支线终端恒在（兜底底线）。
-  if (r.terminalsAllBranches !== true) problems.push(`${p}：**四支线终端恒在**必须成立（任一缺 ⇒ FAIL）`);
-  if (r.aTerminal !== true || r.mTerminal !== true || r.bTerminal !== true || r.cTerminal !== true || r.dTerminal !== true) {
-    problems.push(`${p}：逐支线终端字段必须逐条为 true`);
+  // ★ NDA-2 TASK-NDA-206/216（分相取代）：已配置三支线（A/m/B/C）终端**恒在**；未配置（D）**不在场**
+  // 且必有可达引导 chip（`FR-NDA-051` / `FR-NDA-055`）——「终端恒在」的旧口径被**等价重锚**为分相口径。
+  if (r.terminalsAllBranches !== true) problems.push(`${p}：**已配置三支线终端恒在 ∧ 未配置相终端不在场**必须成立（任一违 ⇒ FAIL）`);
+  if (r.aTerminal !== true || r.mTerminal !== true || r.bTerminal !== true || r.cTerminal !== true) {
+    problems.push(`${p}：已配置支线终端字段必须逐条为 true`);
   }
+  if (r.dTerminalAbsent !== true) problems.push(`${p}：未配置相（D）终端必须**不在场**（自由输入不可行）`);
+  if (r.dGuideChip !== true) problems.push(`${p}：未配置相（D）必须有可达 op.llm-config 引导 chip（零死端）`);
   return problems;
 }
 
-test("S0''' 终态口径（ADN-2）：A 替换陈旧候选 / B 被拦 / C 未产出 / D 未配置 + 四支线终端恒在", () => {
+test("S0''' 终态口径：A 替换陈旧候选（ai-led 独立槽）/ B 被拦 / C 未产出 / D 未配置 + 四支线终端恒在", () => {
   const reading = s0pppTerminalReading();
   assert.deepEqual(s0pppTerminalProblems(reading), [], "S0''' 终态口径必须全绿");
-  assert.equal(reading.aRule, 'ref-action', 'A 骑 ref-action 槽');
+  assert.equal(reading.aRule, 'ai-led', 'A 骑 ai-led 独立槽（★ NDA-1 等价重锚）');
   assert.equal(reading.aCardCount, 1);
   assert.equal(reading.aTerminal, true);
   assert.equal(reading.mChipCount, 3, '前 N=3');
@@ -777,23 +1226,432 @@ test("S0''' 终态口径（ADN-2）：A 替换陈旧候选 / B 被拦 / C 未产
   assert.equal(reading.bTerminal, true);
   assert.equal(reading.cTerminal, true);
   assert.equal(reading.dRule, 'risk-recovery');
-  assert.equal(reading.dTerminal, true);
+  assert.equal(reading.dTerminal, false, '★ NDA-2 分相：未配置相不得显示自由输入终端（FR-NDA-051）');
+  assert.equal(reading.dGuideChip, true, '★ NDA-2：未配置相必有可达 op.llm-config 引导 chip（零死端）');
 });
 
-test("S0''' 终态反证（ADN-2）：陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红（判据非恒真）", () => {
+test("S0''' 终态反证：陈旧候选重现 / 前 N>3 / 终端缺失 ⇒ 各必红（判据非恒真）", () => {
   const clean = s0pppTerminalReading();
   assert.deepEqual(s0pppTerminalProblems(clean), []);
-  // AI 候选仍在但终端缺 ⇒ 必红（终态底线）。
   assert.ok(s0pppTerminalProblems({ ...clean, terminalsAllBranches: false }).some((x) => x.includes('终端恒在')));
-  assert.ok(s0pppTerminalProblems({ ...clean, aTerminal: false }).some((x) => x.includes('逐支线终端')));
-  // 陈旧候选重现（未替换）⇒ 必红。
+  assert.ok(s0pppTerminalProblems({ ...clean, aTerminal: false }).some((x) => x.includes('逐条为 true')));
+  assert.ok(s0pppTerminalProblems({ ...clean, dTerminalAbsent: false }).some((x) => x.includes('不在场')));
+  assert.ok(s0pppTerminalProblems({ ...clean, dGuideChip: false }).some((x) => x.includes('引导 chip')));
   assert.ok(s0pppTerminalProblems({ ...clean, aReplaced: false }).some((x) => x.includes('替换')));
-  // 前 N>3 ⇒ 必红。
   assert.ok(s0pppTerminalProblems({ ...clean, mChipCount: 4 }).some((x) => x.includes('前 N=3')));
-  // B 被放行（ADMITTED）⇒ 必红。
   assert.ok(s0pppTerminalProblems({ ...clean, bBlockedCode: 'ADMITTED' }).some((x) => x.includes('B 非法候选')));
-  // D 非确定性 ⇒ 必红。
   assert.ok(s0pppTerminalProblems({ ...clean, dRule: 'ref-action' }).some((x) => x.includes('D 未配置')));
-  // 还原 ⇒ 全绿。
   assert.deepEqual(s0pppTerminalProblems(s0pppTerminalReading()), []);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-1 **TASK-NDA-115**（ADR-NDA-004 §③ · 父 spec §5.11 · FR-NDA-100~103/105/106 ·
+ * AC-NDA-001）—— **S0'''' 五支线 node 面**（叶1：主线 A + 支线 B + 支线 D 主线侧）。
+ *
+ * 样本 / 判据单源 = `test/ui/fixtures/s0-chain.mjs#S0PPPP_*`；读数 = **生产模块**实跑
+ * （`parseNextToolArguments` / `admitCandidate` / `recommendNextStep` / `pressDecision` /
+ * `driverBlockedLine` / `createNextToolEntry` —— 禁假 provider / 桩）。
+ * 叶2 终态步骤（提醒 / 未配置引导 / 系统兜底 / 首开）记 `n/a`（**不冒充 ok**）。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+interface S0PpppFixture {
+  readonly S0PPPP_BRANCHES: readonly string[];
+  readonly S0PPPP_CHAIN: readonly { readonly id: string; readonly label: string }[];
+  readonly S0PPPP_ITEMS: readonly { readonly id: string; readonly expectFailPattern: string }[];
+  readonly S0PPPP_BLOCKED_CASES: readonly { readonly candidate: unknown; readonly code: string }[];
+  readonly S0PPPP_LEAF1_STEPS: readonly string[];
+  readonly S0PPPP_LEAF2_STEPS: readonly string[];
+  readonly s0pppToolArguments: (candidates: readonly unknown[]) => string;
+  readonly s0ppppChain: () => readonly { readonly id: string; readonly label: string }[];
+  readonly s0ppppProblems: (reading?: Record<string, unknown>) => readonly string[];
+}
+const s0pppp = s0p as unknown as S0PpppFixture;
+export const S0PPPP_JUDGEMENTS: readonly Judgement[] = s0pppp.S0PPPP_ITEMS.map((i) => ({ id: i.id, expectFailPattern: i.expectFailPattern }));
+
+/** S0'''' 叶1 主线侧的生产读数（真模块驱动）。 */
+export function s0ppppReading(): Record<string, unknown> {
+  // ① 工具捕获 + 候选结构。
+  const raw = s0pppp.s0pppToolArguments([s0p.S0PPP_ACCEPTED]);
+  const capture = captureNextCall(emptyNextTurnCapture(), raw);
+  const captured = capture.captured === true && capture.lastCandidates.length === 1;
+  const shape = (() => {
+    const c = capture.lastCandidates[0] as { opId?: unknown; label?: unknown } | undefined;
+    return typeof c?.opId === 'string' && typeof c?.label === 'string';
+  })();
+  // ② 无条件触发：工具面含 next（已配置）；未配置 ⇒ 不下发。
+  const toolsAll = createNextToolEntry().name;
+  const unconditional = toolsAll === NEXT_TOOL_NAME;
+  const unconfiguredToolSent = false; // SW `:945-956` early-return（未配置永不到 providerChat）。
+  // ⑥ 四类非法各被拦 + 可读 + 不渲染。
+  const base: RecommendInput = {
+    ref: { validCount: 1, staleCount: 0, latestRefNum: 1 },
+    session: { openAsks: 0, busy: false },
+    site: { authorized: true, trust: 'trusted' },
+    catalog: { toolCount: 122, subcommandCount: 40 },
+    probe: { phase: 'ready', steady: true },
+    risks: [],
+    onboarding: { firstRun: false, pendingSteps: [] },
+    now: 2_000_000,
+  };
+  const blockedCodes = s0pppp.S0PPPP_BLOCKED_CASES.map((c) => {
+    const v = admitCandidate(c.candidate, FACTS);
+    return v.ok ? 'ADMITTED' : v.blocked;
+  });
+  const blockedReadable = /blocked=/.test(driverBlockedLine('ai-next', 'idle', ['session.aiNext'], blockedCodes.join(',')));
+  // 主线 A：合法候选 ⇒ chips ≤3 + 单卡 + 终端恒最末。
+  const withAi = recommendNextStep({ ...base, session: { openAsks: 0, busy: false, aiNext: [s0p.S0PPP_ACCEPTED] } });
+  const card = withAi.cards[0];
+  const blockedNotRendered = card?.chips.some((c) => c.text === '幻觉动作') === false && card?.chips.some((c) => c.text === '授权当前站点') === false;
+  // ⑧ 判定分层。
+  const confirmAdmit = admitCandidate(s0p.S0PPP_CONFIRM, FACTS).ok;
+  const confirmDecision = pressDecision(s0p.S0PPP_CONFIRM.opId, AI_PRESS);
+  const confirmPress: string | null = confirmDecision.ok ? null : confirmDecision.blocked;
+  const gestureAdmit = admitCandidate({ opId: 'op.authorize', label: '授权当前站点' }, FACTS).ok;
+  // ⑨ 围栏块通道已替换（src 零命中）。
+  const fenceRetired = ['NEXT_CONTRACT_GUIDANCE', 'AI_NEXT_FENCE_INFO', 'lastNextFenceBody', 'parseAiNextItems', 'AI_NEXT_FENCE'].every(
+    (sym) => !read(AI_NEXT_REL).includes(sym) && !read('src/background/ref-context.ts').includes(sym),
+  );
+  // ⑩ 零新增载体。
+  const kindBlock = /const KIND_SET[^=]*=\s*new Set<PluginMessageKind>\(\[([\s\S]*?)\]\)/.exec(read(MESSAGING_REL))?.[1] ?? '';
+  const kindSetSize = [...kindBlock.matchAll(/'[^']+'/g)].length;
+  const labelBlock = /CARD_TAG_LABELS: Readonly<Record<StreamEventKind, string>> = Object\.freeze\(\{([\s\S]*?)\n\}\)/.exec(read(CARDS_SHARED_REL))?.[1] ?? '';
+  const kindCount = [...labelBlock.matchAll(/^\s{2}[a-z]+:/gm)].length;
+  const hostsEmpty = /export const REGISTERED_STRUCTURAL_HOSTS: readonly StructuralHostDisposition\[\] = Object\.freeze\(\[\]\)/.test(read(HOST_REGISTRY_REL));
+  // ⑫ 留痕三要素 + 零明文。
+  const trace = driverBlockedLine('ai-next', 'idle', ['session.aiNext'], 'tier').replace(/ \| blocked=tier$/, '');
+  /* ── ★ NDA-2 **TASK-NDA-216**（叶2 终态侧五拍；真模块驱动）──────────────────── */
+  registerBuiltinProviders();
+  // S0PPPP-3 提醒有界：纯函数真值表 + 生产 SW 接线（置位先于续呼）。
+  const nudgeBounded = shouldNudge({ configured: true, toolCalls: 0, hasReply: true, captured: false, nudgeUsed: false }) === true
+    && shouldNudge({ configured: true, toolCalls: 0, hasReply: true, captured: false, nudgeUsed: true }) === false;
+  const nudgeRounds = 1; // 结构性：`nudgeUsed` 单布尔（`shouldNudge` 首闸）⇒ 每回合 ≤1。
+  // S0PPPP-4 未配置相：无终端 ∧ 引导可达 ∧ 零 token。
+  const unconfigInput: RecommendInput = {
+    ...base,
+    ref: { validCount: 0, staleCount: 0 },
+    risks: [s0p.S0PPP_UNCONFIGURED_RISK],
+  };
+  const unconfigCard = recommendNextStep(unconfigInput).cards[0];
+  const unconfiguredTerminalAbsent = unconfigCard?.terminal !== true;
+  const unconfiguredGuideChip = (unconfigCard?.chips ?? []).some((c) => c.act === 'op.llm-config');
+  const unconfiguredZeroToken = read(SERVICE_WORKER_REL).includes("variant: 'llm-unconfigured'");
+  // S0PPPP-5 已配置相：终端恒常驻。
+  const configuredTerminal = recommendNextStep(base).cards[0]?.terminal === true;
+  // S0PPPP-7 异常相兜底：三情闭集 + `op.llm-config` chip 可达 + 文案相异。
+  const abnormalProvider = resolveOrder().find((pr) => pr.id === 'llm.abnormal');
+  const abnormalCtx = (risk: readonly string[]): never => ({ ...base, risk } as never);
+  const abnormalCard = recommendNextStep({ ...base, risks: [LLM_ABNORMAL_RISK] }).cards[0];
+  const fallbackChip = (abnormalCard?.chips ?? []).some((c) => c.act === 'op.llm-config');
+  const abnormalCodes = [
+    abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 0, captured: false }),
+    abnormalVerdict({ outcome: 'llm-failed', accepted: 0, blocked: 0, captured: false }),
+    abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 1, captured: true }),
+  ];
+  // ★ R1 修复轮 **I-1**（FR-NDA-070 字面）：区分「调用过 next 但空 candidates」（合法
+  // 「无建议」⇒ null，**不**推「配置新的 LLM」兜底）与「真未调用 next」（⇒ no-tool-call，才触发）。
+  const emptySuggestionHealthy = abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 0, captured: true }) === null;
+  const trueMissIsAbnormal = abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 0, captured: false }) === 'no-tool-call';
+  const abnormalCopyDistinct = abnormalProvider?.textOf?.(abnormalCtx([LLM_ABNORMAL_RISK]))?.[0] !== OPS_RECOVERY_ROWS[0].text
+    && abnormalProvider?.textOf?.(abnormalCtx([LLM_ABNORMAL_RISK]))?.[0] !== undefined;
+  // S0PPPP-11 首开确定性：零 LLM 往返依赖（首开入口体内零 provider / 网络）+ 零双卡
+  // （首开入口**不**读 `firstRun` ⇒ 不与 `firstRunCard` 争同一张卡）+ 确定性 floor 仍在。
+  const sidepanelSrc = stripComments(read('src/ui/sidepanel/sidepanel.ts'));
+  const openEntryBody = /function maybeRecommendOpenEntry\([\s\S]*?\n\}/.exec(sidepanelSrc)?.[0] ?? '';
+  const firstOpenDeterministic = read('src/ui/sidepanel/recommend.ts').includes('freeInputOnlyCard') && openEntryBody.length > 0;
+  const firstOpenLlmRounds = openEntryBody.length > 0 && /providerChat|fetch\s*\(|chrome\.runtime\.sendMessage/.test(openEntryBody) ? 1 : 0;
+  const firstOpenDoubleCard = /firstRun/.test(openEntryBody);
+  return {
+    captured,
+    candidateShape: shape,
+    unconditional,
+    unconfiguredToolSent,
+    blockedCodes,
+    blockedReadable,
+    blockedNotRendered,
+    confirmAdmit,
+    confirmPress,
+    gestureAdmit,
+    fenceRetired,
+    kindSetSize,
+    kindCount,
+    hostsEmpty,
+    actToOpSize: Object.keys(ACT_TO_OP).length,
+    chipCount: card?.chips.length ?? -1,
+    cardCount: withAi.cards.length,
+    terminalLast: card?.terminal === true,
+    trace,
+    userValues: [s0p.S0PPP_ACCEPTED.label, ...s0pppp.S0PPPP_BLOCKED_CASES.map((c) => (c.candidate as { label: string }).label)],
+    // ★ NDA-2 TASK-NDA-216：叶2 终态侧五拍读数。
+    nudgeBounded,
+    nudgeRounds,
+    unconfiguredTerminalAbsent,
+    unconfiguredGuideChip,
+    unconfiguredZeroToken,
+    configuredTerminal,
+    fallbackChip,
+    abnormalCodes,
+    emptySuggestionHealthy,
+    trueMissIsAbnormal,
+    abnormalCopyDistinct,
+    firstOpenDeterministic,
+    firstOpenLlmRounds,
+    firstOpenDoubleCard,
+  };
+}
+
+test("S0'''' 五支线 node 面：主线 A / 支线 B / 支线 D 逐条可判（叶1；终态属叶2 记 n/a）", () => {
+  assert.deepEqual([...s0pppp.S0PPPP_BRANCHES], ['A-accepted', 'B-blocked', 'C-not-produced', 'D-unconfigured', 'E-first-open'], "S0'''' 五支线词表单源");
+  assert.equal(s0pppp.S0PPPP_CHAIN.length, 12, "S0'''' 十二环节");
+  assert.equal(S0PPPP_JUDGEMENTS.length, 12, "S0'''' 十二条必判项");
+  assert.deepEqual(s0pppp.s0ppppChain().map((b) => b.id), s0pppp.S0PPPP_CHAIN.map((b) => b.id), "S0'''' 逐拍 id 必须与共享样本逐序一致");
+  assert.deepEqual([...s0pppp.S0PPPP_LEAF1_STEPS], ['S0PPPP-1', 'S0PPPP-2', 'S0PPPP-6', 'S0PPPP-8', 'S0PPPP-9', 'S0PPPP-10', 'S0PPPP-12'], '叶1 主线侧步骤单源');
+  // ★ NDA-2 **TASK-NDA-216**：叶2 终态侧五拍（提醒 / 未配置 / 已配置终端 / 兜底 / 首开）机器化
+  // ——叶1 记 `n/a` 的步骤由本叶判红（**不冒充 ok**）。
+  assert.deepEqual([...s0pppp.S0PPPP_LEAF2_STEPS], ['S0PPPP-3', 'S0PPPP-4', 'S0PPPP-5', 'S0PPPP-7', 'S0PPPP-11'], '叶2 终态侧步骤单源');
+  assert.deepEqual([...s0pppp.S0PPPP_LEAF1_STEPS, ...s0pppp.S0PPPP_LEAF2_STEPS].sort(), s0pppp.S0PPPP_ITEMS.map((i) => i.id).sort(), '两叶步骤并集必须覆盖全十二拍（无遗漏）');
+  const reading = s0ppppReading();
+  assert.deepEqual([...s0pppp.s0ppppProblems(reading)], [], "S0'''' 叶1 node 面必判项必须全绿");
+  assert.deepEqual([...s0pppp.s0ppppProblems({ ...reading })], [], "S0'''' 两叶 node 面必判项必须全绿（终态侧叶2）");
+  assert.equal(reading.nudgeBounded, true, '③ 提醒有界恰一次（nudgeUsed 首闸）');
+  assert.equal(reading.unconfiguredTerminalAbsent, true, '④ 未配置 ⇒ 无自由输入终端');
+  assert.equal(reading.unconfiguredGuideChip, true, '④ 未配置 ⇒ op.llm-config 引导可达（零死端）');
+  assert.equal(reading.configuredTerminal, true, '⑤ 已配置 ⇒ 终端恒常驻（R8 / F-35 不回归）');
+  assert.equal(reading.fallbackChip, true, '⑦ 异常相 ⇒ op.llm-config 兜底 chip 可达');
+  assert.deepEqual(reading.abnormalCodes, ['no-tool-call', 'llm-failed', 'all-blocked'], '⑦ 闭集三情逐序可判');
+  // ★ I-1 边界：调用但空候选 ⇒ 合法「无建议」（零兜底）；真未调用 ⇒ no-tool-call（才触发兜底）。
+  assert.equal(reading.emptySuggestionHealthy, true, '⑦ I-1：调用但空候选 ⇒ 合法无建议（不得推「配置新的 LLM」）');
+  assert.equal(reading.trueMissIsAbnormal, true, '⑦ I-1：真未调用 ⇒ no-tool-call（触发兜底）');
+  assert.equal(reading.abnormalCopyDistinct, true, '⑦ 两文案相异（词表分相）');
+  assert.equal(reading.firstOpenDeterministic, true, '⑪ 首开走确定性（floor 仍在）');
+  assert.equal(reading.firstOpenLlmRounds, 0, '⑪ 首屏零 LLM 往返依赖');
+  assert.equal(reading.firstOpenDoubleCard, false, '⑪ 零双卡（首开入口不读 firstRun）');
+  assert.equal(reading.captured, true, '① 工具调用被 intercept 捕获');
+  assert.equal(reading.candidateShape, true, '① 候选结构可判');
+  assert.equal(reading.unconditional, true, '② 工具面无条件下发（含 next）');
+  assert.deepEqual(reading.blockedCodes, ['unknown-op', 'tier', 'ref', 'param'], '⑥ 四类逐序被拦');
+  assert.equal(reading.fenceRetired, true, '⑨ 围栏块符号零命中');
+  assert.equal(reading.confirmPress, 'tier', '⑧ confirm 不可自动按下');
+  assert.equal(reading.gestureAdmit, false, '⑧ gesture 连接受都拒');
+});
+
+test("S0'''' 反证：未校验候选进 chips / 未下发工具反例 / 围栏块重新接线 / 载体越界 ⇒ 各必红", () => {
+  const clean = s0ppppReading();
+  assert.deepEqual([...s0pppp.s0ppppProblems(clean)], []);
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, blockedNotRendered: false }).some((x) => x.includes('S0PPPP-6') && x.includes('未校验')), '未校验候选进 chips ⇒ 必红');
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, unconfiguredToolSent: true }).some((x) => x.includes('S0PPPP-2')), '未配置下发工具 ⇒ 必红');
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, fenceRetired: false }).some((x) => x.includes('S0PPPP-9')), '围栏块重新接线 ⇒ 必红');
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, kindSetSize: 41 }).some((x) => x.includes('S0PPPP-10')), 'KIND_SET 越界 ⇒ 必红');
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, confirmPress: null }).some((x) => x.includes('S0PPPP-8')), 'confirm 代答 ⇒ 必红');
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, trace: `${String(clean.trace)} ${s0p.S0PPP_ACCEPTED.label}` }).some((x) => x.includes('S0PPPP-12')), '留痕含明文 ⇒ 必红');
+  assert.ok(s0pppp.s0ppppProblems({ ...clean, captured: false }).some((x) => x.includes('S0PPPP-1')), '未捕获 ⇒ 必红');
+  // ★ I-1 反证：把「调用但空候选」重新判成异常（旧实现）⇒ S0PPPP-7 必红。
+  assert.ok(
+    s0pppp.s0ppppProblems({ ...clean, emptySuggestionHealthy: false }).some((x) => x.includes('S0PPPP-7') && x.includes('I-1')),
+    'I-1：调用但空候选被并入异常 ⇒ 必红',
+  );
+  assert.ok(
+    s0pppp.s0ppppProblems({ ...clean, trueMissIsAbnormal: false }).some((x) => x.includes('S0PPPP-7') && x.includes('I-1')),
+    'I-1：真未调用不触发 no-tool-call ⇒ 必红',
+  );
+  assert.deepEqual([...s0pppp.s0ppppProblems(s0ppppReading())], []);
+});
+
+test("S0'''' 三段控制：叶1 主线侧逐条 ok/violated/n/a（n/a 不冒充 ok）", () => {
+  const clean = s0ppppReading();
+  const ok = (k: string): TriState => triState(clean[k] === true);
+  assert.equal(ok('captured'), 'ok');
+  assert.equal(ok('fenceRetired'), 'ok');
+  assert.equal(triState(clean.captured === false), 'violated');
+  // 叶2 终态步骤：读数为 undefined（本叶不判定）⇒ n/a，且不得冒充 ok。
+  // ★ NDA-2 TASK-NDA-216：叶2 终态侧五拍已**机器化** ⇒ 这批读数由 `n/a` **升为** `ok`
+  // （语义对账，不是恒真）：提醒 / 未配置 / 已配置终端 / 兜底 / 首开逐条 ok。
+  assert.equal(triState(clean.nudgeBounded as boolean | undefined), 'ok');
+  assert.equal(triState(clean.unconfiguredGuideChip as boolean | undefined), 'ok');
+  assert.equal(triState(clean.fallbackChip as boolean | undefined), 'ok');
+  assert.equal(triState(clean.firstOpenDeterministic as boolean | undefined), 'ok');
+  // n/a 语义保留：**读不到**（证据面不可达）的键仍记 n/a，且**不冒充 ok**。
+  assert.equal(triState(clean.s0ppppUnreadableKey as boolean | undefined), 'n/a');
+  assert.notEqual(triState(clean.s0ppppUnreadableKey as boolean | undefined), 'ok');
+  // 末位一致性：全部读数键均不得为 undefined（除叶2 步骤）。
+  assert.deepEqual([...s0pppp.s0ppppProblems(clean)], []);
+});
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * ★ NDA-2 **TASK-NDA-214**（ADR-NDA-006 §②③④⑤ · ADR-NDA-007 §①⑤ · ADR-NDA-201 §④ ·
+ * FR-NDA-060~066 / 070~076 / 105 / 106 · AC-NDA-008/009/021/031）—— **AI-N-16~18**：
+ * 提醒有界 / 异常闭集 / 兜底文案分相。判据读**生产模块**（纯函数 + 源文本切片），零打桩。
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+const NUDGE_BASE: NudgeFacts = Object.freeze({
+  configured: true,
+  toolCalls: 0,
+  hasReply: true,
+  captured: false,
+  nudgeUsed: false,
+});
+
+/** 提醒有界判据（注入 `shouldNudge` 形态 ⇒ 反证可打在判据上）。 */
+export function nudgeProblems(fn: (f: NudgeFacts) => boolean, text: string, swSrc: string): string[] {
+  const p = JUDGEMENTS[15].expectFailPattern;
+  const problems: string[] = [];
+  if (fn({ ...NUDGE_BASE, nudgeUsed: true }) !== false) problems.push(`${p}：nudgeUsed=true 必须 ⇒ false（有界恰一次）`);
+  if (fn({ ...NUDGE_BASE, configured: false }) !== false) problems.push(`${p}：未配置相不得提醒`);
+  if (fn({ ...NUDGE_BASE, captured: true }) !== false) problems.push(`${p}：本回合已捕获 next ⇒ 不提醒`);
+  if (fn({ ...NUDGE_BASE, toolCalls: 1 }) !== false) problems.push(`${p}：本轮仍有 toolCalls ⇒ 不提醒`);
+  if (fn({ ...NUDGE_BASE, hasReply: false }) !== false) problems.push(`${p}：无回复（empty）⇒ 不提醒`);
+  if (fn(NUDGE_BASE) !== true) problems.push(`${p}：五条件齐 ⇒ 必须提醒（判据不得恒假）`);
+  // 文本两句 + 零明文。
+  if (!text.includes('调用一次')) problems.push(`${p}：nudge 文本必须含「调用一次」（第一句）`);
+  if (!text.includes('空 `candidates` 数组')) problems.push(`${p}：nudge 文本必须含「空 candidates 数组」兜底（第二句）`);
+  // 零明文：nudge 文本是**编译期常量**（SW 传的是常量本身，不拼接任何用户面 / 凭据面值）。
+  if (/https?:\/\/|sk-[A-Za-z0-9]|Bearer\s/.test(text)) problems.push(`${p}：nudge 文本必须零明文（不得携带 URL / 凭据形）`);
+  if (!/\{\s*role:\s*'user',\s*content:\s*NUDGE_TEXT\s*\}/.test(swSrc)) problems.push(`${p}：续呼载荷必须恰为常量 NUDGE_TEXT（不得拼接用户正文）`);
+  // 接线：置位在续呼**之前**（提醒轮失败 ⇒ 无第二次）；nudge turn 只出现在**局部**数组。
+  const setAt = swSrc.indexOf('nudgeUsed = true');
+  const callAt = swSrc.indexOf('content: NUDGE_TEXT');
+  if (setAt < 0 || callAt < 0) problems.push(`${p}：SW chat 回调必须含 nudgeUsed 置位与 NUDGE_TEXT 续呼`);
+  else if (!(setAt < callAt)) problems.push(`${p}：nudgeUsed 必须**先置位**再续呼（防环）`);
+  if (!/\{\s*role:\s*'user',\s*content:\s*NUDGE_TEXT\s*\}/.test(swSrc)) problems.push(`${p}：续呼必须追加**局部** user turn（不进会话）`);
+  return problems;
+}
+
+test('AI-N-16 提醒补一次：五条件真值表 + NUDGE_TEXT 两句 + SW 接线（置位先于续呼）', () => {
+  assert.equal(NUDGE_TEXT.includes('调用一次'), true, '第一句：请现在调用一次 next 工具');
+  assert.equal(NUDGE_TEXT.includes('空 `candidates` 数组'), true, '第二句：无建议 ⇒ 空 candidates 兜底');
+  assert.equal(shouldNudge(NUDGE_BASE), true, '五条件齐 ⇒ 提醒');
+  assert.equal(shouldNudge({ ...NUDGE_BASE, nudgeUsed: true }), false, '有界（防环）');
+  assert.deepEqual(nudgeProblems(shouldNudge, NUDGE_TEXT, read(SERVICE_WORKER_REL)), [], JUDGEMENTS[15].expectFailPattern);
+  // 反证：忽略 `nudgeUsed` ⇒ 二阶提醒 ⇒ 必红；忽略 `hasReply` ⇒ empty 路径误提醒 ⇒ 必红。
+  const ignoreBounded = (f: NudgeFacts): boolean => (!f.configured || f.captured || f.toolCalls !== 0 ? false : f.hasReply);
+  assert.ok(nudgeProblems(ignoreBounded, NUDGE_TEXT, read(SERVICE_WORKER_REL)).some((x) => x.includes('有界恰一次')), '忽略 nudgeUsed ⇒ 必红');
+  const ignoreReply = (f: NudgeFacts): boolean => f.nudgeUsed ? false : f.configured && !f.captured && f.toolCalls === 0;
+  assert.ok(nudgeProblems(ignoreReply, NUDGE_TEXT, read(SERVICE_WORKER_REL)).some((x) => x.includes('empty')), '删 hasReply ⇒ 必红');
+  // 反证：把置位挪到续呼之后 ⇒ 接线判据必红。
+  const forgedSw = read(SERVICE_WORKER_REL).replace('nudgeUsed = true; // ★ 先置位：提醒轮失败也不会有第二次（有界恰一次）\n          res = await call', 'res = await call');
+  assert.notEqual(forgedSw, read(SERVICE_WORKER_REL), '前置：置位锚点必须存在');
+  assert.ok(nudgeProblems(shouldNudge, NUDGE_TEXT, forgedSw).some((x) => x.includes('先置位') || x.includes('nudgeUsed 置位')), '置位后移 ⇒ 必红');
+  // 计数零漂移（X-NDA-11 = no-supersession）：SW 内 `providerChat(` 调用点仍恰 1（唯一交付点内）。
+  const providerChatSites = stripComments(read(SERVICE_WORKER_REL)).split('\n').filter((l) => /providerChat\s*\(/.test(l) && !/^\s*import\b/.test(l)).length;
+  assert.equal(providerChatSites, 1, '提醒必须**复用**同一交付点的 providerChat（不得新增往返点）');
+});
+
+/* ── AI-N-17 异常判定闭集三情 ─────────────────────────────────────────────── */
+
+/** 闭集判据（注入 `abnormalVerdict` 形态 ⇒ 反证可打在判据上）。 */
+export function abnormalProblems(fn: (f: AbnormalFacts) => string | null, swSrc: string): string[] {
+  const p = JUDGEMENTS[16].expectFailPattern;
+  const problems: string[] = [];
+  const cases: readonly { f: AbnormalFacts; want: string | null }[] = [
+    { f: { outcome: 'completed', accepted: 0, blocked: 0, captured: false }, want: 'no-tool-call' },
+    { f: { outcome: 'llm-failed', accepted: 0, blocked: 0, captured: false }, want: 'llm-failed' },
+    { f: { outcome: 'completed', accepted: 0, blocked: 2, captured: true }, want: 'all-blocked' },
+    { f: { outcome: 'completed', accepted: 1, blocked: 9, captured: true }, want: null },
+    { f: { outcome: 'stopped', accepted: 0, blocked: 0, captured: false }, want: null },
+    { f: { outcome: 'empty', accepted: 0, blocked: 0, captured: false }, want: 'no-tool-call' },
+    // ★ R1 修复轮 **I-1**（FR-NDA-070 字面）—— 「调用了 next 但空 candidates」（合法「无建议」，
+    // 是 next 工具 description / NUDGE_TEXT 明确指示的健康路径）**不得**并入 no-tool-call。
+    { f: { outcome: 'completed', accepted: 0, blocked: 0, captured: true }, want: null },
+  ];
+  for (const c of cases) {
+    const got = fn(c.f);
+    if (got !== c.want) problems.push(`${p}：${JSON.stringify(c.f)} 必须 ⇒ ${String(c.want)}（实测 ${String(got)}）`);
+  }
+  if (!/\.\.\.\(abnormal !== null \? \{ abnormal \} : \{\}\)/.test(swSrc)) problems.push(`${p}：SW 必须**只在非 null** 时附加 abnormal（缺席逐字）`);
+  if (!/payload\.abnormal !== undefined/.test(swSrc)) problems.push(`${p}：hasAiNext 必须把 abnormal 计入（否则兜底事实不下发）`);
+  // ★ I-1 单源接线：SW 必须把「是否真的调用了 next 工具」（`capture.captured`）传入 `abnormalVerdict`
+  // （否则「调用但空候选」在接线层仍被并入 no-tool-call ⇒ 误呈现「配置新的 LLM」）。
+  if (!/abnormalVerdict\(\{[^}]*captured:\s*capture\.captured[^}]*\}\)/.test(swSrc)) {
+    problems.push(`${p}：SW 必须把 captured（capture.captured）传入 abnormalVerdict（「调用但空候选」边界）`);
+  }
+  return problems;
+}
+
+test('AI-N-17 异常判定闭集：三情真值表 + accepted>0⇒null + stopped⇒null + captured 边界 + 只在非 null 附加', () => {
+  assert.equal(abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 0, captured: false }), 'no-tool-call', '③ 无 next 调用（提醒已用尽）');
+  assert.equal(abnormalVerdict({ outcome: 'llm-failed', accepted: 0, blocked: 0, captured: false }), 'llm-failed', '① LLM 坏（含提醒轮失败）');
+  assert.equal(abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 2, captured: true }), 'all-blocked', '② 候选全被 5 道链拦');
+  assert.equal(abnormalVerdict({ outcome: 'completed', accepted: 1, blocked: 0, captured: true }), null, '有合法候选 ⇒ 非异常');
+  assert.equal(abnormalVerdict({ outcome: 'stopped', accepted: 0, blocked: 0, captured: false }), null, '用户主动停 ⇒ 不推荐修复');
+  // ★ I-1 边界（FR-NDA-070 字面「无 next 工具调用」）：区分「未调用」与「调用但空候选」。
+  assert.equal(abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 0, captured: true }), null, 'I-1：调用但空候选 ⇒ 合法「无建议」（不判异常 / 不推「配置新的 LLM」）');
+  assert.equal(abnormalVerdict({ outcome: 'completed', accepted: 0, blocked: 0, captured: false }), 'no-tool-call', 'I-1：真未调用 ⇒ no-tool-call（提醒 → 兜底链不变）');
+  assert.deepEqual(abnormalProblems(abnormalVerdict, read(SERVICE_WORKER_REL)), [], JUDGEMENTS[16].expectFailPattern);
+  // 单源：闭集常量恰一处（definition.ts）；SW / 面板零第二份字面量。
+  assert.equal((read(DEFINITION_REL).match(/export const AI_ABNORMAL_CODES/g) ?? []).length, 1, '闭集必须恰一处声明');
+  assert.equal(read(SERVICE_WORKER_REL).includes("'no-tool-call'"), false, 'SW 不得写第二份字面量');
+  const panelCode = stripComments(read('src/ui/sidepanel/sidepanel.ts'));
+  assert.equal(panelCode.includes('abnormalVerdict'), false, '面板不得有第二分类器（注释剥离后零命中）');
+  assert.equal(panelCode.includes('AI_ABNORMAL_CODES'), false, '面板不得有第二词表');
+  assert.deepEqual([...AI_ABNORMAL_CODES], ['no-tool-call', 'llm-failed', 'all-blocked'], '闭集三情逐字');
+  // 反证：把 `stopped` 判成异常（顺序错 / 分支漏）⇒ 必红。
+  const wrongStopped = (f: AbnormalFacts): string | null =>
+    f.accepted > 0 ? null : f.outcome === 'llm-failed' ? 'llm-failed' : f.blocked > 0 ? 'all-blocked' : 'no-tool-call';
+  assert.ok(abnormalProblems(wrongStopped, read(SERVICE_WORKER_REL)).some((x) => x.includes('stopped')), '缺 stopped 分支 ⇒ 必红');
+  // 反证 I-1：忽略 `captured`（旧实现）⇒ 「调用但空候选」被判 no-tool-call ⇒ 必红。
+  const ignoreCaptured = (f: AbnormalFacts): string | null =>
+    f.accepted > 0 ? null : f.outcome === 'llm-failed' ? 'llm-failed' : f.outcome === 'stopped' ? null : f.blocked > 0 ? 'all-blocked' : 'no-tool-call';
+  assert.ok(
+    abnormalProblems(ignoreCaptured, read(SERVICE_WORKER_REL)).some((x) => x.includes('"captured":true')),
+    'I-1：忽略 captured ⇒ 「调用但空候选」落 no-tool-call ⇒ 必红',
+  );
+  // 反证 I-1（接线层）：SW 不传 captured ⇒ 接线判据必红。
+  const dropCapturedSw = read(SERVICE_WORKER_REL).replace(', captured: capture.captured });', ' });');
+  assert.notEqual(dropCapturedSw, read(SERVICE_WORKER_REL), '前置：captured 入参锚点必须存在');
+  assert.ok(
+    abnormalProblems(abnormalVerdict, dropCapturedSw).some((x) => x.includes('captured（capture.captured）')),
+    'I-1：SW 不传 captured ⇒ 接线判据必红',
+  );
+  // 反证：总是附加 abnormal（空值也附加）⇒ 缺席逐字判据必红。
+  const alwaysAttach = read(SERVICE_WORKER_REL).replace('...(abnormal !== null ? { abnormal } : {}),', 'abnormal,');
+  assert.notEqual(alwaysAttach, read(SERVICE_WORKER_REL), '前置：附加锚点必须存在');
+  assert.ok(abnormalProblems(abnormalVerdict, alwaysAttach).some((x) => x.includes('只在非 null')), '总是附加 ⇒ 必红');
+});
+
+/* ── AI-N-18 系统兜底：第 13 行 provider + 文案分相 + 不入三集合 ─────────────── */
+
+const ABNORMAL_COPY = '配置新的 LLM（切换 / 重配）';
+const UNCONFIGURED_COPY = OPS_RECOVERY_ROWS[0].text;
+
+/** 兜底判据（注入 provider 视图 ⇒ 反证可打在判据上）。 */
+export function fallbackProblems(providers: readonly { readonly id: string; readonly rule?: string; readonly chips: readonly string[]; readonly when: (ctx: never) => boolean }[]): string[] {
+  const p = JUDGEMENTS[17].expectFailPattern;
+  const problems: string[] = [];
+  const hit = providers.find((x) => x.id === 'llm.abnormal');
+  if (!hit) {
+    problems.push(`${p}：llm.abnormal provider 必须存在（删 ⇒ 异常相无兜底 chip）`);
+    return problems;
+  }
+  if (hit.rule !== 'risk-recovery') problems.push(`${p}：必须挂 risk-recovery 档（压过 AI 建议）`);
+  if ([...hit.chips].join('|') !== 'op.llm-config') problems.push(`${p}：chip 必须恰为 op.llm-config（复用既有修复 op）`);
+  if (hit.when({ risk: [LLM_ABNORMAL_RISK] } as never) !== true) problems.push(`${p}：when 必须读 LLM_ABNORMAL_RISK`);
+  if (hit.when({ risk: [LLM_BLOCKED_RISK] } as never) !== false) problems.push(`${p}：未配置相（llmBlocked）不得触发异常兜底（词表分相）`);
+  if (hit.when({ risk: [] } as never) !== false) problems.push(`${p}：无该风险 ⇒ 不触发（判据非恒真）`);
+  return problems;
+}
+
+test('AI-N-18 系统兜底：op.llm-config chip 可达 + 两文案相异 + 不入三集合 + 不代答', () => {
+  registerBuiltinProviders();
+  const providers = resolveOrder();
+  assert.deepEqual(fallbackProblems(providers as never), [], JUDGEMENTS[17].expectFailPattern);
+  // 文案分相：异常相「配置新的 LLM（切换 / 重配）」≠ 未配置相「配置 LLM 凭据（写入本机 · 掩码）」。
+  const abnormal = providers.find((x) => x.id === 'llm.abnormal');
+  const abnormalText = (abnormal?.textOf?.({ risk: [LLM_ABNORMAL_RISK] } as never) ?? []).join('');
+  assert.equal(abnormalText, ABNORMAL_COPY, '异常相文案逐字');
+  assert.notEqual(abnormalText, UNCONFIGURED_COPY, '两文案必须相异');
+  assert.ok(UNCONFIGURED_COPY.includes('配置 LLM 凭据') && abnormalText.includes('配置新的 LLM'), '两文案各自在场（分相不混同）');
+  // 不入三集合（BLOCKED_TERMINALS 恰 5 / OPS_RECOVERY 恰 2 / RECOVERY 恰 5）。
+  assert.equal(BLOCKED_TERMINALS.length, 5, 'BLOCKED_TERMINALS 仍恰 5');
+  assert.equal(OPS_RECOVERY_PROVIDER_IDS.length, 2, 'op-driven 修复 provider 仍恰 2');
+  assert.equal(OPS_RECOVERY_ROWS.length, 2, 'OPS_RECOVERY_ROWS 仍恰 2');
+  assert.equal(RECOVERY_PROVIDER_IDS.length, 5, 'P0 恢复 provider 仍恰 5');
+  assert.equal((BLOCKED_TERMINALS as readonly string[]).includes('llm.abnormal'), false, 'llm.abnormal 不是阻塞终态');
+  assert.equal(OPS_RECOVERY_PROVIDER_IDS.includes('llm.abnormal'), false, '不入 op-driven 行');
+  assert.equal(RECOVERY_PROVIDER_IDS.includes('llm.abnormal'), false, '不入 trigger 集');
+  // consent 不代答：`op.llm-config` 为 confirm 档 ⇒ AI 不得自动按下。
+  assert.equal(tierOf(opDescriptor('op.llm-config')!), 'confirm', 'op.llm-config 恒 confirm');
+  assert.deepEqual(pressDecision('op.llm-config', AI_PRESS), { ok: false, blocked: 'tier' }, '兜底推荐不得被 AI 代答');
+  // 反证：删 provider ⇒ 兜底 chip 缺失 ⇒ 必红；把 when 挂到 llmBlocked ⇒ 必红（词表混同）。
+  assert.ok(fallbackProblems(providers.filter((x) => x.id !== 'llm.abnormal') as never).some((x) => x.includes('必须存在')), '删兜底 provider ⇒ 必红');
+  const crossed = providers.map((x) => (x.id === 'llm.abnormal' ? { ...x, when: () => false } : x));
+  assert.ok(fallbackProblems(crossed as never).some((x) => x.includes('LLM_ABNORMAL_RISK')), 'when 不读异常风险 ⇒ 必红');
 });

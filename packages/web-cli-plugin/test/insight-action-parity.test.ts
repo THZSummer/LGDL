@@ -200,7 +200,7 @@ const depsAuthorized: { isAuthorized: (o: string) => boolean; trustOf: (o: strin
  * Known conservative divergences: projection `deny` where runtime `allow`, for
  * non-site base-builtin tools with a missing risk tier. Pinned by exact tool name.
  */
-const CONSERVATIVE_DIVERGENCE_TOOLS = new Set(['web-fetch', 'sleep', 'web-cli-help']);
+const CONSERVATIVE_DIVERGENCE_TOOLS = new Set(['web-fetch', 'sleep', 'web-cli-help', 'next']);
 
 /** Compare one projected command node with the real chain; returns a reason or null. */
 async function divergenceOf(node: CommandNode): Promise<string | null> {
@@ -241,8 +241,8 @@ test('T3 parity: the only divergence is the pinned conservative (stricter) class
   const names = [...new Set(mismatches.map((n) => n.name))].sort();
   assert.deepEqual(
     names,
-    ['sleep', 'web-cli-help', 'web-fetch'],
-    '保守方向分歧的工具集合必须被显式钉死；出现新分歧即 FAIL',
+    ['next', 'sleep', 'web-cli-help', 'web-fetch'],
+    '保守方向分歧的工具集合必须被显式钉死；出现新分歧即 FAIL（★ NDA-1 追加纯协议 next）',
   );
   for (const node of mismatches) {
     assert.equal(node.action, 'deny', '投影侧必须是 deny（只收紧）');

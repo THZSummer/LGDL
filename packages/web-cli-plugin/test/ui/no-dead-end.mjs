@@ -556,6 +556,46 @@ async function main() {
       JSON.stringify(widenAllow),
     );
 
+    // ── ★ NDA-2 **TASK-NDA-207**（ADR-NDA-005 §①③ · FR-NDA-051/052/055 · AC-NDA-007 ·
+    //    **X-NDA-3 取代登记**）—— **分相死端守护**（只增；ND-1~ND-10 逐条保留）──────────
+    // 未配置相（`risk: llmBlocked`）⇒ 卡**无** `.next-terminal`，可达 next 由 `op.llm-config`
+    // 引导 chip 承接（FR-NDA-055，非死端）；异常相（`risk: llmAbnormal`）⇒ 兜底 chip 可达
+    // **且**已配置相终端恒常驻（FR-NDA-074，零死端）。两相都经**同一**生产 producer 与**同一**
+    // `risk` 源（测试缝只注入 risk 值，零第二判定面）。
+    console.log('\n▶ ND-11 分相死端守护：未配置 ⇒ 无终端 + 引导 chip 可达；异常 ⇒ 兜底 chip + 终端恒常驻');
+    const PHASING_READING = `(() => {
+      const card = document.querySelector('#stream [data-msg-type="nextstep"]');
+      return JSON.stringify({
+        card: Boolean(card),
+        terminal: Boolean(card && card.querySelector('.next-terminal')),
+        ops: card ? [...card.querySelectorAll('[data-op]')].map((b) => b.getAttribute('data-op')) : [],
+      });
+    })()`;
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('llm'); true`);
+    const unconfigPhase = JSON.parse(await evaluate(cdp, PHASING_READING));
+    check(
+      'ND-11 未配置相：卡在场 ∧ **无** `.next-terminal`（自由输入不可行）∧ `op.llm-config` 引导 chip 可达（零死端）',
+      unconfigPhase.card === true && unconfigPhase.terminal === false && unconfigPhase.ops.includes('op.llm-config'),
+      JSON.stringify(unconfigPhase),
+    );
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('llmAbnormal'); true`);
+    const abnormalPhase = JSON.parse(await evaluate(cdp, PHASING_READING));
+    check(
+      'ND-11 异常相：兜底 chip `op.llm-config` 可达 ∧ 已配置 ⇒ `.next-terminal` 恒常驻（零死端）',
+      abnormalPhase.card === true && abnormalPhase.ops.includes('op.llm-config') && abnormalPhase.terminal === true,
+      JSON.stringify(abnormalPhase),
+    );
+    // 反证（源码面，判据非恒真）：分相不得退回恒真（退回 ⇒ 未配置相会复现终端）。
+    const phasedProviders = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/providers.ts'), 'utf8');
+    check(
+      'ND-11 反证：free-input 的 when 不得退回恒真（分相溯源判据可 FAIL）',
+      !/when:\s*\(ctx\)\s*=>\s*ctx\.session\.busy === true \|\| ctx\.session\.busy === false/.test(phasedProviders) &&
+        /LLM_BLOCKED_RISK/.test(phasedProviders),
+      'phased-when',
+    );
+
     // ── N = 0 口径（源文本：无 sleep / 无轮询） ────────────────────────────────
     const self = readFileSync(new URL('./no-dead-end.mjs', import.meta.url), 'utf8');
     // 死端判据的断言点 === 「派发之后立刻读」：本条扫描保证门禁**没有**在派发与断言之间插入

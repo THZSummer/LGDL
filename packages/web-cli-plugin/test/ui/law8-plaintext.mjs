@@ -650,6 +650,132 @@ async function main() {
       JSON.stringify(aiTerminal.rows.map((t) => t.slice(0, 60))),
     );
 
+    // ── ★ NDA-1 **TASK-NDA-116**（ADR-NDA-101/102 · FR-NDA-013/028 · NFR-NDA-004）——
+    //    **法八扩面（零降级）**：`next` 工具的参数面 / AI label / 留痕仍零明文。
+    //    · 静态面：工具 `description` 与合成 `ToolResult` 常量不含明文形态（无 URL query / 无密钥形）；
+    //    · 运行面（**叶1 review R1 I-1 修复轮**，原「空转恒真」判定为假 PASS）：
+    //      **机制订正**：`window.__v3.testing.aiNext` 是**面板侧**的已结构化载荷缝，它**绕开** SW 的
+    //      5 道校验链（那 5 道链在 `background/ai-next.ts`，本叶 node 面 **AI-N-6** 才是它的判据）。
+    //      运行面真实存在的承载机制是**面板侧第二道闸**：`stream-plaintext.ts#label()` 在**构造期**
+    //      fail-closed（密钥形 ⇒ 抛错）。原先的写法没有复位防抖时钟（`NEXTSTEP_MIN_INTERVAL_MS`
+    //      / `lastNextstepProducedAt`）⇒ `recommendNextStep` 被 `interval` 短路 ⇒ `label()` **从未执行**
+    //      ⇒「三面零哨兵」恒真；且短路一旦消失会抛错致门禁**崩溃**而非判红。故本轮：
+    //      ① **正控**：先 `reset()` 清时钟 ⇒ 同一注入**真的执行生产者**（`suppression===null`）；
+    //         并以「不清时钟 ⇒ 必被 `interval` 短路」作反证 ⇒ 读数可 FAIL（消除恒真空转）；
+    //      ② **负控**：`reset()` 后注入哨兵形 label ⇒ 抛错被**就地捕获**（崩溃 → 可判事实）
+    //         ∧ 流内 / chips / digest 三面零哨兵；
+    //      ③ **反证**：`streamSeed` 直注哨兵 chip ⇒ 三面读数必命中 ⇒ 证明读数非盲。
+    const ndaToolSrc = readFileSync(join(PACKAGE_ROOT, 'src/tools/next-tool.ts'), 'utf8');
+    const ndaDescMatch = /export const NEXT_TOOL_DESCRIPTION = \[([\s\S]*?)\]\.join/.exec(ndaToolSrc);
+    const ndaDesc = ndaDescMatch ? ndaDescMatch[1] : '';
+    check(
+      '★ NDA-1 ⑫ 工具面零明文（静态）：`description` 不含原始标记（< > 反引号）∧ 不含明文形态（URL query / 密钥形）',
+      ndaDesc.length > 0 && !/[<>`]/.test(ndaDesc) && !/[?&][A-Za-z0-9_.~%-]+=/.test(ndaDesc) && !/(?:sk|pk|ghp|xox[baprs])-[A-Za-z0-9_-]{8,}/.test(ndaDesc),
+      JSON.stringify(ndaDesc.slice(0, 80)),
+    );
+    // 正控 + 反证：**同一注入**在 `reset()`（清防抖时钟）后必须真的执行生产者
+    // （`suppression===null`）；不清时钟则必被 `interval` 短路 —— 两者成对 ⇒ 该读数可 FAIL。
+    const ndaLive = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.reset(); window.__v3.testing.streamReset();
+          const afterReset = window.__v3.testing.aiNext({ accepted: [{ opId: 'op.turn', label: '把这页图改成架构图' }] });
+          const liveOutcome = window.__v3.testing.lastRecommend();
+          const again = window.__v3.testing.aiNext({ accepted: [{ opId: 'op.turn', label: '再试一次' }] });
+          const gatedOutcome = window.__v3.testing.lastRecommend();
+          return JSON.stringify({ afterReset, liveOutcome, again, gatedOutcome });
+        })()`,
+      ),
+    );
+    check(
+      '★ NDA-1 ⑫ 运行面正控：`reset()` 清防抖时钟后同一注入真的执行生产者（`suppression===null`）∧ 反证：不清时钟必被 anti-flicker 短路（`interval`）⇒ 判据非空转',
+      ndaLive.liveOutcome?.suppression === null && ndaLive.gatedOutcome?.suppression === 'interval' && ndaLive.again === null,
+      JSON.stringify(ndaLive),
+    );
+    // 负控：哨兵形 label ⇒ 面板 `label()` 构造期 fail-closed（抛错**就地捕获**，不崩溃门禁）
+    // ∧ 流内 / chips / digest 三面零哨兵。
+    const ndaLaw8 = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.reset(); window.__v3.testing.streamReset();
+        let threw = false; let message = '';
+        try { window.__v3.testing.aiNext({ accepted: [{ opId: 'op.turn', label: ${JSON.stringify(SENTINEL)} }] }); }
+        catch (e) { threw = true; message = String((e && e.message) || e).slice(0, 80); }
+        const text = document.querySelector('#stream')?.textContent ?? '';
+        const chips = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')].map((c) => c.textContent ?? '');
+        const digest = JSON.stringify(window.__v3.testing.payloads());
+        return JSON.stringify({ threw, message, chips, textHasSentinel: text.includes(${JSON.stringify(SENTINEL)}), chipsHaveSentinel: chips.some((t) => t.includes(${JSON.stringify(SENTINEL)})), digestHasSentinel: digest.includes(${JSON.stringify(SENTINEL)}) });
+      })()`,
+    ).then((x) => JSON.parse(x));
+    check(
+      '★ NDA-1 ⑫ AI label 零明文（运行面）：哨兵形 label 触发面板 `label()` 构造期 fail-closed（抛错 ∧ 零卡）⇒ 流内 / chips / digest 三面零哨兵',
+      ndaLaw8.threw === true &&
+        ndaLaw8.chips.length === 0 &&
+        ndaLaw8.textHasSentinel === false &&
+        ndaLaw8.chipsHaveSentinel === false &&
+        ndaLaw8.digestHasSentinel === false,
+      JSON.stringify(ndaLaw8),
+    );
+    // 反证（判据非恒真）：把哨兵直注成一张 nextstep 卡的 chip ⇒ 同一三面读数**必命中**
+    // ⇒ 说明「零哨兵」不是读数盲区；随后还原 ⇒ 零命中。
+    const ndaInj = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.streamReset();
+          window.__v3.testing.streamSeed([{ kind: 'nextstep', cardId: 'nda-12-evil', payload: { chips: [${JSON.stringify(SENTINEL)}], nextstepActs: ['next'], nextstepRule: 'ai-led', nextstepTerminal: true } }]);
+          const text = document.querySelector('#stream')?.textContent ?? '';
+          const chips = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')].map((c) => c.textContent ?? '');
+          const digest = JSON.stringify(window.__v3.testing.payloads());
+          return JSON.stringify({ textHasSentinel: text.includes(${JSON.stringify(SENTINEL)}), chipsHaveSentinel: chips.some((t) => t.includes(${JSON.stringify(SENTINEL)})), digestHasSentinel: digest.includes(${JSON.stringify(SENTINEL)}) });
+        })()`,
+      ),
+    );
+    check(
+      '★ NDA-1 ⑫ (FAIL 段) 三面读数非恒真：直注哨兵 chip ⇒ 流内 / chips / digest 必命中',
+      ndaInj.textHasSentinel === true && ndaInj.chipsHaveSentinel === true && ndaInj.digestHasSentinel === true,
+      JSON.stringify(ndaInj),
+    );
+    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.reset(); true`);
+
+    // ── ★ NDA-2 **TASK-NDA-217**（NFR-NDA-004 · FR-NDA-072/076 · AC-NDA-013）—— **兜底文案零明文**
+    //    （只加断言；两文案分相且相异；`op.llm-config` 的 confirm 档由用户作答 ⇒ AI 不代答）──
+    console.log('\n▶ ★ NDA-2 兜底 / 未配置两文案零明文（分相 + 相异 + 不代答）');
+    const nda2Providers = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/next-registry/providers.ts'), 'utf8');
+    const nda2UnconfigCopy = /\{\s*blocked:\s*'llm\.unconfigured'[^}]*text:\s*'([^']+)'/.exec(nda2Providers)?.[1] ?? '';
+    const nda2AbnormalCopy = /textOf:\s*\(\)\s*=>\s*\['([^']+)'\]/.exec(nda2Providers)?.[1] ?? '';
+    check(
+      '★ NDA-2 ⑬ 两文案各自在场且**相异**（未配置「配置 LLM 凭据…」/ 异常「配置新的 LLM（切换 / 重配）」）',
+      nda2UnconfigCopy.length > 0 && nda2AbnormalCopy.length > 0 && nda2UnconfigCopy !== nda2AbnormalCopy,
+      JSON.stringify({ unconfig: nda2UnconfigCopy, abnormal: nda2AbnormalCopy }),
+    );
+    check(
+      '★ NDA-2 ⑬ 兜底 / 未配置文案零明文（无 URL / 凭据形 / 用户正文占位符）',
+      ![nda2UnconfigCopy, nda2AbnormalCopy].some((c) => /https?:\/\/|sk-[A-Za-z0-9]|Bearer\s|\{[a-z]+\}/.test(c)),
+      JSON.stringify({ unconfig: nda2UnconfigCopy, abnormal: nda2AbnormalCopy }),
+    );
+    const nda2AbnormalPhase = JSON.parse(
+      await evaluate(
+        cdp,
+        `(() => {
+          window.__v3.testing.reset(); window.__v3.testing.streamReset();
+          window.__v3.testing.recommend('llmAbnormal');
+          const card = document.querySelector('#stream [data-msg-type="nextstep"]');
+          const text = card ? (card.textContent || '') : '';
+          const ops = card ? [...card.querySelectorAll('[data-op]')].map((b) => b.getAttribute('data-op')) : [];
+          const digest = JSON.stringify(window.__v3.testing.payloads());
+          return JSON.stringify({ ops, hasFallbackCopy: text.includes('配置新的 LLM'), digestHasFallbackCopy: digest.includes('配置新的 LLM') });
+        })()`,
+      ),
+    );
+    check(
+      '★ NDA-2 ⑬ 异常相文案随兜底 chip 呈现（零明文流面：digest 不回显文案正文）',
+      nda2AbnormalPhase.ops.includes('op.llm-config') && nda2AbnormalPhase.hasFallbackCopy === true,
+      JSON.stringify(nda2AbnormalPhase),
+    );
+    await evaluate(cdp, `window.__v3.testing.streamReset(); window.__v3.testing.reset(); true`);
+
     // ── 元判据 ─────────────────────────────────────────────────────────────────
     check('元判据：四面各自声明非占位 expectFailPattern', FACES.length === 4 && FACES.every((f) => f.expectFailPattern.trim().length >= 8), JSON.stringify(FACES.map((f) => f.id)));
     check('无未捕获页面异常（掩码写入全链路干净）', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));

@@ -230,9 +230,14 @@ test('DQ-1 驱动者声明表 ↔ 注册表双向包含（两个手写源）', (
   assert.deepEqual(bidirectionalProblems(DECL_IDS, PROVIDER_IDS), [], JUDGEMENTS[0].expectFailPattern);
   assert.ok(DECL_IDS.length >= 10, '驱动者集合必须覆盖既有 provider 集合（不得空转）');
   // ★ F-36 / ADN-1 TASK-ADN-120：既有 11 行 + `ai-next` 第 12 行 ⇒ 双向包含随 count **12↔12**。
-  assert.equal(DECL_IDS.length, 12, `${JUDGEMENTS[0].expectFailPattern}：声明表必须恰 12 行（11 + ai-next）`);
-  assert.equal(PROVIDER_IDS.length, 12, `${JUDGEMENTS[0].expectFailPattern}：注册表必须恰 12 行（11 + ai-next）`);
-  assert.deepEqual([...DECL_IDS].sort(), [...PROVIDER_IDS].sort(), '12↔12 必须逐项同集（不是只对数）');
+  // ★ NDA-2 **TASK-NDA-212**（ADR-NDA-202 §① · FR-NDA-071/075/130/134 · AC-NDA-026）——
+  // **显式等价重锚 12↔12 → 13↔13**（新增 `llm.abnormal` 第 13 行；**只增**、逐项同集）。
+  assert.equal(DECL_IDS.length, 13, `${JUDGEMENTS[0].expectFailPattern}：声明表必须恰 13 行（11 + ai-next + llm.abnormal）`);
+  assert.equal(PROVIDER_IDS.length, 13, `${JUDGEMENTS[0].expectFailPattern}：注册表必须恰 13 行（11 + ai-next + llm.abnormal）`);
+  assert.deepEqual([...DECL_IDS].sort(), [...PROVIDER_IDS].sort(), '13↔13 必须逐项同集（不是只对数）');
+  // 反证入口（同集判据必须能 FAIL）：幽灵行只在一侧 ⇒ 必红；`llm.abnormal` 必须**两侧都在**。
+  assert.ok([...DECL_IDS, 'ghost-driver'].sort().join() !== [...PROVIDER_IDS].sort().join(), '幽灵行只在声明 ⇒ 同集判据必须能 FAIL');
+  assert.ok(DECL_IDS.includes('llm.abnormal') && PROVIDER_IDS.includes('llm.abnormal'), 'llm.abnormal 必须在两侧都在');
 });
 
 test('DQ-1 反证：声明表多一行 / 少一行 ⇒ 必红 → 还原 PASS', () => {
@@ -371,11 +376,11 @@ test('DQ 元判据：每条 judgement 的 expectFailPattern 非占位', () => {
 });
 
 /* ── ★ F-36 / ADN-2 **TASK-ADN-213**（ADR-ADN-009 §② · FR-ADN-110/111 · AC-ADN-024）——
- * 升级 6 终态：双向包含 **12↔12** 随 count 自动前移（旧 11 行逐字保留 + `ai-next` 第 12 行）。
+ * 升级 6 终态：双向包含 **13↔13** 随 count 自动前移（旧 12 行逐字保留 + NDA-2 `llm.abnormal` 第 13 行）。
  * ──────────────────────────────────────────────────────────────────────────── */
-test('★ ADN-2 213（DQ 终态）：声明表 ↔ 注册表 12↔12 双向包含逐条成立', () => {
-  assert.equal(DECL_IDS.length, 12, '声明表恰 12（11 + ai-next）');
-  assert.equal(PROVIDER_IDS.length, 12, '注册表恰 12（11 + ai-next）');
+test('★ ADN-2 213（DQ 终态）：声明表 ↔ 注册表 13↔13 双向包含逐条成立', () => {
+  assert.equal(DECL_IDS.length, 13, '声明表恰 13（11 + ai-next + llm.abnormal）');
+  assert.equal(PROVIDER_IDS.length, 13, '注册表恰 13（11 + ai-next + llm.abnormal）');
   assert.deepEqual(bidirectionalProblems(DECL_IDS, PROVIDER_IDS), [], '终态双向包含必须逐条成立');
   assert.ok(DECL_IDS.includes('ai-next') && PROVIDER_IDS.includes('ai-next'), 'ai-next 必须在两侧');
 });

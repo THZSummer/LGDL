@@ -47,6 +47,8 @@ import {
   s0pppChain,
   s0pppProblems,
 } from './fixtures/s0-chain.mjs';
+// ★ NDA-1 TASK-NDA-115/116（W3，纯追加）：S0'''' 五支线样本 + 判据（与 node 面**同一份**）。
+import { S0PPPP_CHAIN, S0PPPP_ITEMS, S0PPPP_LEAF1_STEPS, S0PPPP_LEAF2_STEPS, s0ppppChain } from './fixtures/s0-chain.mjs';
 
 /** One judgement per line of the gate (`expectFailPattern` = the readable failure text). */
 export const JUDGEMENTS = [
@@ -1314,7 +1316,8 @@ async function main() {
         readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/host-registry.ts'), 'utf8'),
       ),
       actToOpSize: 6,
-      nextstepPrioritySize: 4,
+      // ★ NDA-1 TASK-NDA-113/116：NEXTSTEP_PRIORITY 恰 4 → 恰 5（`ai-led` 独立规则位）。
+      nextstepPrioritySize: 5,
       freeze: {
         contentBytes: readFileSync(join(PACKAGE_ROOT, 'dist/content.js')).byteLength,
         pickBytes: readFileSync(join(PACKAGE_ROOT, 'dist/pick-layer.js')).byteLength,
@@ -1389,7 +1392,7 @@ async function main() {
     );
     check('S0C-13 前置：拾取引用已铸（A/B/C/D 四支线共用同一已知态）', /^ref_\d+$/.test(String(pppPick.refId)), pppPick.refId);
 
-    // ── A 合法采纳：注入合法候选 ⇒ `ai-next` provider 接管 `ref-action` 规则位 ⇒ 替换陈旧候选 ──
+    // ── A 合法采纳：注入合法候选 ⇒ `ai-next` provider 接管 `ai-led` 独立规则位 ⇒ 替换陈旧候选 ──
     const pppRule = await evaluate(
       cdp,
       `(() => {
@@ -1408,12 +1411,12 @@ async function main() {
       })()`,
     ).then((s) => JSON.parse(s));
     // A 支线的读数（**只读取真面板可测面**；十环节全判据在 node 面实跑）：
-    //   · 规则位被 `ai-next` 接管 ⇒ `rule === 'ref-action'`；
+    //   · 规则位被 `ai-next` 接管 ⇒ `rule === 'ai-led'`（★ NDA-1 TASK-NDA-113 独立规则位）；
     //   · chips = 注入候选 label（替换陈旧确定性文案）∧ ≤3 ∧ 单卡；
     //   · 终端恒最末（`.next-terminal` 是其父的末元素）。
     check(
       `S0C-13 A 合法采纳：注入候选替换陈旧确定性候选（≤3 ∧ 单卡 ∧ 终端恒最末）${pppRule.chips.join(' / ')}`,
-      pppRule.rule === 'ref-action' &&
+      pppRule.rule === 'ai-led' &&
         pppRule.chips.includes(S0PPP_ACCEPTED.label) &&
         !pppRule.chips.includes(S0PPP_STALE_LABEL) &&
         pppRule.chips.length <= 3 &&
@@ -1458,7 +1461,9 @@ async function main() {
       JSON.stringify({ ...pppC, ...pppCDom }),
     );
 
-    // ── D 未配置：确定性恢复卡（`op.llm-config`）+ 终端恒在（现状逐字）─────────────────
+    // ── ★ NDA-2 **TASK-NDA-217**（ADR-NDA-005 §①③ · FR-NDA-051/055 · **X-NDA-3 取代登记**）——
+    //    **D 未配置**：确定性恢复卡（`op.llm-config`）+ **无** `.next-terminal`（自由输入不可行；
+    //    可达 next 由引导 chip 承接 ⇒ 非死端）。旧口径「终端恒在」被**等价重锚**为分相口径。────
     const pppD = JSON.parse(await evaluate(cdp, `window.__v3.testing.recommend('llm')`));
     const pppDDom = JSON.parse(
       await evaluate(
@@ -1473,8 +1478,8 @@ async function main() {
       ),
     );
     check(
-      `S0C-13 D 未配置：确定性恢复卡（op.llm-config）+ 终端恒最末`,
-      pppD.rule === 'risk-recovery' && pppDDom.ops.includes('op.llm-config') && pppDDom.terminalLast,
+      'S0C-13 D 未配置：确定性恢复卡（op.llm-config）∧ **无** .next-terminal（★ NDA-2 分相取代）',
+      pppD.rule === 'risk-recovery' && pppDDom.ops.includes('op.llm-config') && pppDDom.terminalLast === false,
       JSON.stringify({ ...pppD, ...pppDDom }),
     );
 
@@ -1562,7 +1567,7 @@ async function main() {
     );
     check(
       `S0C-14 终态口径：多候选取前 N=3（≤3 ∧ 单卡）∧ AI 在场无陈旧候选 ∧ 终端恒最末 ${pppTerminal.chips.join(' / ')}`,
-      pppTerminal.rule === 'ref-action' &&
+      pppTerminal.rule === 'ai-led' &&
         pppTerminal.chips.length === 3 &&
         pppTerminal.cards === 1 &&
         pppTerminal.chips.includes(S0PPP_ACCEPTED.label) &&
@@ -1572,6 +1577,103 @@ async function main() {
     );
     check(
       "S0C-14 人工面 M1（AI 终态建议可读性）/ M3（≤3 密度观感）/ M4（读屏可用性）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
+      true,
+      '⏳ 未执行',
+    );
+
+    // ── ★ NDA-1 TASK-NDA-116：**S0'''' 五支线** node 面已由 `test/ai-next-candidate.test.ts` 承担；
+    //    Chromium 面**只加断言不加文件**（CHROMIUM_GATES === 9 不动）：主线 A（工具产出 ⇒ ai-led 槽
+    //    chips ≤3 + 终端恒最末）/ 支线 B（被拦 ⇒ 可读 blocked= 行 + 不渲染为 chip）/ 支线 D（未配置 ⇒
+    //    结构上不下发工具，node 面已判）。样本与 node 面**同一份**（`S0PPPP_*`）。
+    console.log("\n▶ ⑳ S0'''' 五支线：主线 A 工具产出 / 支线 B 被拦 / 支线 D 未配置（样本单源）");
+    check(
+      "S0C-15 样本单源：S0'''' 十二环节 / 十二必判项与 node 面共用同一份 fixture（禁第二份）",
+      S0PPPP_CHAIN.length === 12 && S0PPPP_ITEMS.length === 12 && s0ppppChain().length === 12,
+      JSON.stringify({ chain: S0PPPP_CHAIN.map((b) => b.id) }),
+    );
+    check(
+      "S0C-15 叶1 主线侧步骤单源：S0PPPP-1/2/6/8/9/10/12（终态属叶2 记 n/a，不冒充 ok）",
+      JSON.stringify([...S0PPPP_LEAF1_STEPS]) === JSON.stringify(['S0PPPP-1', 'S0PPPP-2', 'S0PPPP-6', 'S0PPPP-8', 'S0PPPP-9', 'S0PPPP-10', 'S0PPPP-12']),
+      JSON.stringify([...S0PPPP_LEAF1_STEPS]),
+    );
+    const s0ppppA = await evaluate(
+      cdp,
+      `(() => {
+        const rule = window.__v3.testing.aiNext({ accepted: [{ opId: ${JSON.stringify(S0PPP_ACCEPTED.opId)}, label: ${JSON.stringify(S0PPP_ACCEPTED.label)} }] });
+        const cards = [...document.querySelectorAll('#stream [data-msg-type="nextstep"]')];
+        const card = cards[cards.length - 1];
+        const chips = [...(card?.querySelectorAll('button.next-chip') ?? [])].map((c) => c.textContent);
+        const terminal = card?.querySelector(${JSON.stringify(S0PPP_TERMINAL_SELECTOR)}) ?? null;
+        return JSON.stringify({ rule, chips, cards: cards.length, terminalLast: terminal !== null && terminal.parentElement?.lastElementChild === terminal });
+      })()`,
+    ).then((x) => JSON.parse(x));
+    check(
+      `S0C-15 主线 A（工具产出）：ai-led 槽 chips ≤3 ∧ 单卡 ∧ 终端恒最末 ${s0ppppA.chips.join(' / ')}`,
+      s0ppppA.rule === 'ai-led' && s0ppppA.chips.includes(S0PPP_ACCEPTED.label) && s0ppppA.chips.length <= 3 && s0ppppA.cards === 1 && s0ppppA.terminalLast,
+      JSON.stringify(s0ppppA),
+    );
+    const s0ppppB = await evaluate(
+      cdp,
+      `(() => {
+        window.__v3.testing.aiNext({ accepted: [], blocked: ['unknown-op'] });
+        const text = document.querySelector('#stream')?.textContent ?? '';
+        const chips = [...document.querySelectorAll('#stream [data-msg-type="nextstep"] button.next-chip')].map((c) => c.textContent);
+        return JSON.stringify({ blockedReadable: text.includes('driver=ai-next') && text.includes('blocked=unknown-op'), chips });
+      })()`,
+    ).then((x) => JSON.parse(x));
+    check(
+      "S0C-15 支线 B（被拦）：可读 blocked=unknown-op 行 ∧ 被拦候选不渲染为 chip",
+      s0ppppB.blockedReadable === true && !s0ppppB.chips.some((t) => t.includes('幻觉动作')),
+      JSON.stringify(s0ppppB),
+    );
+    check(
+      "S0C-15 人工面 M5（S0'''' 机制换轨体感）/ M6（AI 建议可读性）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
+      true,
+      '⏳ 未执行',
+    );
+    // ── ★ NDA-2 **TASK-NDA-217**（ADR-NDA-005 §①③ · ADR-NDA-007 §③ · FR-NDA-051/052/055/074 ·
+    //    AC-NDA-001/007/009 · **X-NDA-3 取代登记**）—— S0'''' **支线 C / D / E 终态** Chromium 面
+    //    （**只加断言不加文件**；`CHROMIUM_GATES === 9` 不动；样本与 node 面同一份 `S0PPPP_*`）──
+    console.log("\n▶ ⑳b S0'''' 支线 C / D / E 终态：提醒用尽 ⇒ 系统兜底 / 未配置 ⇒ 无终端 + 引导 / 首开确定性");
+    check(
+      "S0C-16 叶2 终态侧五拍单源：S0PPPP-3/4/5/7/11（与叶1 七拍并集覆盖全十二拍）",
+      JSON.stringify([...S0PPPP_LEAF2_STEPS]) === JSON.stringify(['S0PPPP-3', 'S0PPPP-4', 'S0PPPP-5', 'S0PPPP-7', 'S0PPPP-11']) &&
+        [...S0PPPP_LEAF1_STEPS, ...S0PPPP_LEAF2_STEPS].sort().join('|') === S0PPPP_ITEMS.map((i) => i.id).sort().join('|'),
+      JSON.stringify({ leaf2: [...S0PPPP_LEAF2_STEPS] }),
+    );
+    const PHASE_READ = `(() => {
+      const card = document.querySelector('#stream [data-msg-type="nextstep"]');
+      return JSON.stringify({
+        card: Boolean(card),
+        terminal: Boolean(card && card.querySelector('.next-terminal')),
+        ops: card ? [...card.querySelectorAll('[data-op]')].map((b) => b.getAttribute('data-op')) : [],
+      });
+    })()`;
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('llmAbnormal'); true`);
+    const s0pppAbnormal = JSON.parse(await evaluate(cdp, PHASE_READ));
+    check(
+      'S0C-16 支线 C（提醒用尽 / LLM 异常）：系统兜底 `op.llm-config` chip 可达 ∧ 终端恒常驻（零死端）',
+      s0pppAbnormal.card === true && s0pppAbnormal.ops.includes('op.llm-config') && s0pppAbnormal.terminal === true,
+      JSON.stringify(s0pppAbnormal),
+    );
+    await evaluate(cdp, `window.__v3.testing.reset(); window.__v3.testing.streamReset(); true`);
+    await evaluate(cdp, `window.__v3.testing.recommend('llm'); true`);
+    const s0pppUnconfig = JSON.parse(await evaluate(cdp, PHASE_READ));
+    check(
+      'S0C-16 支线 D（未配置）：确定性「去配置 LLM」引导 chip 可达 ∧ **无** `.next-terminal`（自由输入不可行）',
+      s0pppUnconfig.card === true && s0pppUnconfig.ops.includes('op.llm-config') && s0pppUnconfig.terminal === false,
+      JSON.stringify(s0pppUnconfig),
+    );
+    const openEntrySrc = readFileSync(join(PACKAGE_ROOT, 'src/ui/sidepanel/sidepanel.ts'), 'utf8');
+    const openEntryBody = /function maybeRecommendOpenEntry\([\s\S]*?\n\}/.exec(openEntrySrc)?.[0] ?? '';
+    check(
+      'S0C-16 支线 E（首开）：确定性入口体内零 AI 注入面 ∧ 不读 firstRun（零双卡）∧ 零 LLM 往返依赖',
+      openEntryBody.length > 0 && !/aiNext|pendingAiNext|firstRun/.test(openEntryBody.replace(/\/\/.*$/gm, '')) && !/providerChat|fetch\s*\(/.test(openEntryBody),
+      openEntryBody.length,
+    );
+    check(
+      "S0C-16 人工面 M5（S0'''' 机制换轨体感）/ M6（AI 建议可读性）= ⏳ 未执行（headless 不可合成，不得冒充 PASS）",
       true,
       '⏳ 未执行',
     );
