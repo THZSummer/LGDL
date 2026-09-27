@@ -1,0 +1,188 @@
+{
+  "meta": {
+    "feature": "NDA-1 next 工具（function calling）产出通道 + intercept 捕获 + 5 道校验链接入 + 无条件触发 + 围栏块替换：机制核心（父：specs-tree-web-cli-plugin-v55-f-next-drive-accuracy / F-37 / v0.11.4）",
+    "featureKey": "specs-tree-nda-1-next-tool-channel",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-27",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（§4 父 ADR 叶内落地定案 + §5 文件影响 A/B 列 + §6 叶内风险 12 条 + §8 交付物 11 项 / 7 步执行序）+ 父 plan.md v1.0（跨切契约 + ADR-NDA-001~009 + §5 文件影响 A/B/C 分列 + §6 风险 20 条 + §7.1 PD 裁决）",
+    "sourceSpec": "本叶 spec.md v1.0（承载父 FR ≈60 条切片：GOV 001~007 / TOOL 010~020 / CAPTURE 021~028 / VERIFY-KEEP 030~036 / UNCOND 040~045 / FENCE 080~083 / S0'''' 100~103·105·106 主线侧 / SUPERSEDE 110·111·114~118·121 / GATE 130~137 改写门禁侧 / VOL 140~145 B 列归因侧）+ 父 spec.md v1.0 + 2 叶级 ADR（ADR-NDA-101 / 102）",
+    "taskCount": 20,
+    "waveCount": 3,
+    "complexity": { "S": 7, "M": 9, "L": 4 },
+    "typeBreakdown": { "implementation": 8, "gate": 7, "spike": 2, "doc": 3, "human": 0, "other": 0 },
+    "numbering": {
+      "namespace": "TASK-NDA-1xx",
+      "globalBlock": "TASK-NDA-101~120",
+      "conflictCheck": "与 TASK-001~040 / TASK-2xx~3xx / TASK-4xx / TASK-5xx~8xx / TASK-V45-1xx / TASK-V5-1xx / TASK-V55-1xx~320 / TASK-V55F-1xx~2xx / TASK-IAN-1xx~2xx / TASK-ADN-1xx~2xx / TASK-NDA-2xx 零冲突（本轮实测 .sddu/** 全库 TASK-NDA 零命中）"
+    },
+    "templateDeviation": {
+      "id": "agent 模板 §5.4 / §8（建议 5~15 任务）",
+      "actual": 20,
+      "reason": "① 本叶 plan.md §8 交付物 11 项 + 7 步执行序；② 过并破坏「每任务独立可验证」（105/107/111/115 各含多层判据但共享同一契约，拆开会产生不可编译或无被测对象的中间态）；③ 与 F-36 叶1（27）/ F-35 叶1（27）/ F-34 叶1（29）同量级显式登记；④ 20 = 可原子执行单元（≈1 文件内 1 项可验证改动 + 其判据），不是 LLM 调用数"
+    },
+    "spikeGateDeviation": {
+      "note": "本叶 plan.md 与 ADR-NDA-001~004/008/009/101/102 未命名 spikeGate 代号；本轮按编排器排布要求落为 SG-NDA-01（W1：intercept 捕获 + rawArguments 解析 + 短路 dispatch + 不上流；覆盖编排器点名的最高风险点之一）与 SG-NDA-02（W2：ai-led 规则位等价重锚 + 密度可判）；探针产物不落版本库（packages/web-cli-plugin/test/_spike/ 探毕删除）",
+      "codes": ["SG-NDA-01", "SG-NDA-02"]
+    },
+    "commitIntervals": {
+      "A": { "wave": "W1", "content": "工具通道与捕获（tools/next-tool.ts NEW + host.ts 注册 + parity 条目 + ai-next.ts 解析入口/删围栏块 + ref-context.ts 删提示句 + service-worker.ts intercept/turnState/events 过滤/装配）+ SG-NDA-01", "atomic": true, "col": "B 列先行（A 列零增量）" },
+      "B": { "wave": "W2", "content": "触发与门禁改写（ai-led 规则位 + NEXTSTEP_PRIORITY 恰 5 + provider rule + ai-next-candidate 改写 + 反证族 + recommendation-sources ③ + 保留面零改复核）+ SG-NDA-02", "atomic": true, "col": "A 列唯一主体增长点（+0.1~0.5 KB）" },
+      "C": { "wave": "W3", "content": "验收与登记（S0'''' 主/B/D node + Chromium 断言增量/样本重锚 + gate-integrity 下界 + 体积叶1 重登记 + X-NDA 骨架 + 红线巡检；收口轮）", "atomic": true, "col": "A 列薄 + 登记" }
+    },
+    "volumeColABudgetBytes": 512,
+    "volumeColAUpperBoundBytes": 512,
+    "volumeColBBudgetBytes": 4096,
+    "volumeColBUpperBoundBytes": 4096,
+    "volumeCaliber": "A 列（sidepanel.js 净增）叶1 +0.1~0.5 KB；B 列（background.js）+1.3~4.0 KB 但不计账；逐模块归因 + 叶1 收口即时重登记 = TASK-NDA-118；判据包线取 spec §5.14.1（更紧）",
+    "runtimeVerified": false
+  },
+  "redlineLegend": {
+    "frozen": {
+      "F1": "dist/content.js 177,076 B / 52a82620…（零容差）；dist/pick-layer.js 34,358 B / 77796bab…（零容差）；packages/web-cli-base/** 零 diff",
+      "F2": "KIND_SET 40 项逐字不增；12 kind 契约不动；REGISTERED_STRUCTURAL_HOSTS === []；ACT_TO_OP 恰 6",
+      "F3": "判定链 policy.ts / auto-authorize.ts 零触碰（zeroDiffFiles pin）；manifest.json 零 diff",
+      "F4": "NEXTSTEP_PRIORITY 恰 5（叶1 重锚；旧 4 项逐字）；DRIVER_TIMINGS 恰 5；MAX_CHIPS_PER_CARD=3；MAX_NEXTSTEP_CARDS_PER_ROUND=1；密度阈值 7/15 · 9/20 · 17/35 逐字不动",
+      "F5": "SPECIAL: 特权 op（op.authorize / op.perm.request）恒 gesture 且不入 schema enum；SW 永不 .request(；法八四面零明文；FR-CHAT-060 零新 LLM 往返；唯一产出通道（围栏块四符号零命中）"
+    },
+    "thresholds": {
+      "T-a": "sidepanel.js 生效上限 634,832 = floor(604,602×1.05)；档位 614,400（距档 9,798）；绝对上限 675,840；SIDEPANEL_CEILING_CAP 保持 record-only",
+      "T-b": "authorConfirmation = pending-author-line（未闭合义务，不得伪称已确认）",
+      "T-c": "op-wiring：requestTurn( 恰 1（不动）；maybeRecommend 1 定义 8 调用点；nextAfterSettle 1 定义 10 调用点（原判据不改）",
+      "T-d": "CHROMIUM_GATES === 9 不动；不新增 Chromium 门禁文件（S0'''' Chromium 面只加断言）",
+      "T-e": "DRIVER_DECLS_SRC 恰 12 逐字（叶1 不加 provider；12→13 只由叶2 一次完成）"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-NDA-101", "TASK-NDA-102", "TASK-NDA-103", "TASK-NDA-104", "TASK-NDA-105", "TASK-NDA-106", "TASK-NDA-107"], "strategy": "101 先验闸门最前；102 ∥ 106（文件不相交）→ 103 ∥ 104 → 105（依赖 102）→ 107（依赖 105）", "interval": "A（B 列先行）" },
+    { "wave": 2, "tasks": ["TASK-NDA-108", "TASK-NDA-109", "TASK-NDA-110", "TASK-NDA-111", "TASK-NDA-112", "TASK-NDA-113", "TASK-NDA-114"], "strategy": "108 先验闸门最前；109 ∥ 110 → 111 → 112；113 ∥ 114", "interval": "B（A 列主体）" },
+    { "wave": 3, "tasks": ["TASK-NDA-115", "TASK-NDA-116", "TASK-NDA-117", "TASK-NDA-118", "TASK-NDA-119", "TASK-NDA-120"], "strategy": "115 → 116（node → Chromium 硬序）；117；118；119；120 末位（全门禁串行 + 红线巡检 + 收口对账）", "interval": "C（收口轮）" }
+  ],
+  "criticalPath": ["TASK-NDA-101", "TASK-NDA-102", "TASK-NDA-103", "TASK-NDA-105", "TASK-NDA-107", "TASK-NDA-108", "TASK-NDA-109", "TASK-NDA-110", "TASK-NDA-111", "TASK-NDA-112", "TASK-NDA-115", "TASK-NDA-116", "TASK-NDA-117", "TASK-NDA-118", "TASK-NDA-120"],
+  "independentParallelGroups": [
+    { "group": "P1", "members": ["TASK-NDA-102", "TASK-NDA-106"], "note": "src/tools/next-tool.ts 与 src/background/ref-context.ts 不相交" },
+    { "group": "P2", "members": ["TASK-NDA-103", "TASK-NDA-104"], "note": "host.ts 与 test/parity/waivers.json 不相交" },
+    { "group": "P3", "members": ["TASK-NDA-109", "TASK-NDA-110"], "note": "recommend.ts 与 providers.ts 不相交" },
+    { "group": "P4", "members": ["TASK-NDA-113", "TASK-NDA-114"], "note": "门禁文件与保留面复核不相交（Chromium 复跑仍串行）" }
+  ],
+  "tasks": [
+    { "id": "TASK-NDA-101", "wave": 1, "complexity": "M", "type": "spike", "title": "SG-NDA-01 intercept 捕获 + rawArguments 严格解析 + 合成 ToolResult 短路 dispatch + next 不上流 可行性探针（先验闸门）", "spikeGate": "SG-NDA-01", "deps": [], "fr": ["FR-NDA-021", "FR-NDA-022", "FR-NDA-023", "FR-NDA-024", "FR-NDA-016", "FR-NDA-018"], "ac": ["AC-NDA-002", "AC-NDA-003"], "adr": ["ADR-NDA-001", "ADR-NDA-002", "ADR-NDA-101", "ADR-NDA-102", "ADR-NDA-009"], "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-nda-01-probe.mjs（探毕删除，不落版本库）" }], "acceptance": ["intercept 在 dispatch 前：返回非 null ⇒ dispatch 零调用（短路）", "tc.rawArguments 严格 JSON.parse 保真；tc.args 对 candidates 恒 undefined", "解析失败 / 顶层非对象 / 缺 candidates ⇒ 零候选且不抛错（不中断回合）", "onCommandLine / onToolOutput 对 next 早退 ⇒ 该回合零 command 变体 / 零 tool:'next'", "零改基座可预演（web-cli-base 零 diff）；零新增 kind 可预演（KIND_SET 40 不动）", "五要素结论（假设 / 方法 / 证据 / 结论 / 被闸门任务影响）"], "gates": ["TASK-NDA-102", "TASK-NDA-103", "TASK-NDA-105", "TASK-NDA-107", "TASK-NDA-111", "TASK-NDA-112"], "stoppingRule": "不可行 ⇒ 暂停上报（禁读 tc.args / 禁改基座 / 禁新增 kind / 禁让 next 走真实 dispatch）" },
+
+    { "id": "TASK-NDA-102", "wave": 1, "complexity": "S", "type": "implementation", "title": "src/tools/next-tool.ts（NEW）：工具名 / schema（enum 派生）/ description 三约束 / listed:false / fail-closed executor", "deps": ["TASK-NDA-101"], "fr": ["FR-NDA-010", "FR-NDA-011", "FR-NDA-012", "FR-NDA-013", "FR-NDA-014"], "ac": ["AC-NDA-002"], "adr": ["ADR-NDA-001"], "col": "B", "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/tools/next-tool.ts" }], "acceptance": ["NEXT_TOOL_NAME === 'next'；NEXT_TOOL_MAX_CANDIDATES === 3", "parameters 结构 = {type:'object', required:['candidates'], additionalProperties:false, properties:{candidates:{type:'array', minItems:0, maxItems:3, items:{type:'object', required:['opId','label'], additionalProperties:false, properties:{opId,label,ref?,params?}}}}}；params: {type:'string'}（运行时口径 COR-NDA-7）", "enum === OP_IDS.filter(id => tierOf(opDescriptor(id)) !== 'gesture') 重算式逐项（7 枚）；gesture 不入 enum", "description 三约束句各在 + 空数组兜底句；assertNoPlaintext([description]) 通过", "listed === false；executor 返回可读 fail-closed（ok:false，零候选值回显）", "模块零 chrome / DOM / IO / 时钟；不 import recommend.ts", "反证：maxItems 改 4 / 手写第二份 op 清单 ⇒ 必红"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-103", "wave": 1, "complexity": "S", "type": "implementation", "title": "host.ts always-registered 段注册 next ⇒ deriveTools() 含 next", "deps": ["TASK-NDA-102"], "fr": ["FR-NDA-010", "FR-NDA-015"], "ac": ["AC-NDA-002"], "adr": ["ADR-NDA-001"], "col": "B", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/host.ts" }], "acceptance": ["deriveTools() 名字集含 'next'（可判）", "既有注册行逐字未改（ask-user / admin_ 恰 6 / web-cli-*）", "无条件下发（已配置 ⇒ 工具面常含 next；未配置 ⇒ SW :945-956 early-return ⇒ 结构性不下发）", "零新 import 副作用"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-104", "wave": 1, "complexity": "S", "type": "implementation", "title": "test/parity/waivers.json#pluginExtras['next']（reason + basis 非空；位置订正 COR-NDA-6）", "deps": ["TASK-NDA-102", "TASK-NDA-103"], "fr": ["FR-NDA-020", "FR-NDA-117"], "ac": ["AC-NDA-016"], "adr": ["ADR-NDA-001"], "col": "B", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/parity/waivers.json" }], "acceptance": ["pluginExtras['next'].reason 与 .basis 均非空（parity.test.ts:232-247 自动机核）", "既有 pluginExtras 条目逐字保留（只追加 1 条）", "baseline-catalog.json 零 diff；toolCount 34 不动", "反证：删条目 / 空 reason ⇒ 必红"], "gate": "parity" },
+
+    { "id": "TASK-NDA-105", "wave": 1, "complexity": "L", "type": "implementation", "title": "ai-next.ts 解析入口 parseNextToolArguments + 删围栏块四符号 + validateAiNext(candidates,facts) 改签名（admitCandidate 逐字保留）", "deps": ["TASK-NDA-101", "TASK-NDA-102"], "fr": ["FR-NDA-022", "FR-NDA-025", "FR-NDA-030", "FR-NDA-031", "FR-NDA-032", "FR-NDA-033", "FR-NDA-034", "FR-NDA-035", "FR-NDA-036", "FR-NDA-081"], "ac": ["AC-NDA-003", "AC-NDA-004"], "adr": ["ADR-NDA-101", "ADR-NDA-004", "ADR-NDA-009"], "col": "B", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/ai-next.ts" }], "acceptance": ["parseNextToolArguments 纯函数；五层筛法逐层可判（合法 / 非法 JSON / 顶层数组 / 缺 candidates / 项非对象 ⇒ 丢弃）", "解析失败 = 未产出（[]、不抛错、不写 blocked）", "NEXT_CONTRACT_GUIDANCE / AI_NEXT_FENCE_INFO / FENCE / lastNextFenceBody / parseAiNextItems 在 src/** 零命中", "admitCandidate 函数体逐字未变（切片哈希）；5 道链顺序即优先级；拒绝码闭集 unknown-op/tier/ref/param/label", "tc.args 零使用（捕捉路径源扫描；反证「第二解析面 ⇒ 必红」）", "≤3 截断在装配层（不在解析层）"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-106", "wave": 1, "complexity": "S", "type": "implementation", "title": "ref-context.ts 删 NEXT_CONTRACT_GUIDANCE 与注入点（REF_SCOPE_GUIDANCE 逐字保留）", "deps": ["TASK-NDA-101"], "fr": ["FR-NDA-041", "FR-NDA-080", "FR-NDA-081"], "ac": ["AC-NDA-010"], "adr": ["ADR-NDA-004"], "col": "B（净负）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/ref-context.ts" }], "acceptance": ["NEXT_CONTRACT_GUIDANCE 在 src/** 零命中", "REF_SCOPE_GUIDANCE 逐字保留；无引用时 refContextSegment([]) === ''", "test/ref-context-in-turn.test.ts（RCT-3/RCT-4）零改且全绿（COR-NDA-12 零门禁代价）", "触发无条件（提示侧）成立"], "gate": "ref-context-in-turn" },
+
+    { "id": "TASK-NDA-107", "wave": 1, "complexity": "L", "type": "implementation", "title": "service-worker.ts：hooks.intercept 接线 + turnState（覆盖式）+ events 过滤 + onFinish 装配改造", "deps": ["TASK-NDA-105"], "fr": ["FR-NDA-021", "FR-NDA-023", "FR-NDA-024", "FR-NDA-025", "FR-NDA-026", "FR-NDA-028", "FR-NDA-017", "FR-NDA-018", "FR-NDA-019"], "ac": ["AC-NDA-003", "AC-NDA-012", "AC-NDA-013", "AC-NDA-017"], "adr": ["ADR-NDA-002", "ADR-NDA-102"], "col": "B", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" }], "acceptance": ["hooks.intercept 存在；tc.name === NEXT_TOOL_NAME ⇒ 写 turnState + 返回合成常量 ToolResult；否则 return null（既有 dispatch 语义零变）", "反证「捕获后仍真实 dispatch ⇒ 必红」；executor 永不被正常路径调用", "onCommandLine / onToolOutput 对 next 早退；onToolDone 函数体逐字未变（切片哈希）", "同回合多次调用 ⇒ 覆盖式取最后一次（反证并集 ⇒ 必红）；候选 ≤3", "aiNext 装配仅 done ∧ openAsks===0；缺席 ⇒ 面板行为逐字；error 结算点零候选", "未配置 ⇒ 零候选零网络；主链零新增 LLM 往返", "blocked= 可读留痕恰一行（零明文）", "turn-queue.ts / chat-runner.ts diff = 0"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-108", "wave": 2, "complexity": "M", "type": "spike", "title": "SG-NDA-02 ai-led 独立规则位等价重锚 + 密度 / 门禁可判 探针（先验闸门）", "spikeGate": "SG-NDA-02", "deps": ["TASK-NDA-105"], "fr": ["FR-NDA-042", "FR-NDA-043", "FR-NDA-114"], "ac": ["AC-NDA-005"], "adr": ["ADR-NDA-003"], "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-nda-02-probe.mjs（探毕删除）" }], "acceptance": ["priorityOf('ai-led') < priorityOf('ref-action') ⇒ 有引用时 AI 候选仍赢 ref-action 槽（行为等价）", "MAX_NEXTSTEP_CARDS_PER_ROUND === 1 / MAX_CHIPS_PER_CARD === 3 / 密度 7/15·9/20·17/35 逐字未改", "DRIVER_TIMINGS === 5 且 DRIVER_TIMINGS_LEGACY4 逐字；零新增触发词", "注入恰 4 规则表 / 位次互换 ⇒ 判据可 FAIL", "结论 ∈ {可行 / 不可行}；五要素写入 build 记录"], "gates": ["TASK-NDA-109", "TASK-NDA-110", "TASK-NDA-113", "TASK-NDA-114", "TASK-NDA-118"], "stoppingRule": "不可行 ⇒ 暂停上报（禁第 6 规则位 / 禁多卡 / 禁抬密度阈值 / 禁绕过 candidateRules）" },
+
+    { "id": "TASK-NDA-109", "wave": 2, "complexity": "S", "type": "implementation", "title": "recommend.ts NEXTSTEP_PRIORITY 恰 5（ai-led 第 2 位）+ NEXTSTEP_LABELS 补项", "deps": ["TASK-NDA-108"], "fr": ["FR-NDA-042", "FR-NDA-044", "FR-NDA-114"], "ac": ["AC-NDA-005"], "adr": ["ADR-NDA-003"], "col": "A（+80~250 B）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/recommend.ts" }], "acceptance": ["NEXTSTEP_PRIORITY.length === 5 且第 2 项 === 'ai-led'；其余 4 项逐字保留", "NEXTSTEP_LABELS 补 ai-led；priorityOf = indexOf+1 判据自适应（:143-145 断言不变）", "risk-recovery 仍最高；recommendNextStep 仍 pure（零 fetch(·chrome.·时钟）", "反证：注入恰 4 / 位次漂移 ⇒ 必红（由 TASK-NDA-113 落判据）"], "gate": "recommendation-sources" },
+
+    { "id": "TASK-NDA-110", "wave": 2, "complexity": "S", "type": "implementation", "title": "providers.ts ai-next.rule='ai-led' + RULE_PROVIDER_IDS 追加 + DRIVER_DECLS_SRC 逐字保留", "deps": ["TASK-NDA-109"], "fr": ["FR-NDA-042", "FR-NDA-114", "FR-NDA-118"], "ac": ["AC-NDA-005", "AC-NDA-026"], "adr": ["ADR-NDA-003"], "col": "A（+40~120 B）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts" }], "acceptance": ["ai-next.rule === 'ai-led'；when 源文本与 F-36 逐字相同（从不读 refs）", "既有 11 行 provider 零改动；chips 静态下界非空（empty-chips 判据不删）", "DRIVER_DECLS_SRC 仍 12 行、ai-next 行逐字保留（evidence:['session.aiNext']）", "零新增触发词；ACT_TO_OP 恰 6 不动"], "gate": "driver-quadruple" },
+
+    { "id": "TASK-NDA-111", "wave": 2, "complexity": "L", "type": "gate", "title": "ai-next-candidate 改写主体（AI-N-1 换机制 + AI-N-2~11 语义对账 + AI-N-12）", "deps": ["TASK-NDA-105", "TASK-NDA-107", "TASK-NDA-109", "TASK-NDA-110"], "fr": ["FR-NDA-082", "FR-NDA-116", "FR-NDA-130", "FR-NDA-131"], "ac": ["AC-NDA-010", "AC-NDA-020"], "adr": ["ADR-NDA-004"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ai-next-candidate.test.ts" }], "acceptance": ["AI-N-1 改写：合法 JSON 对象 + candidates 数组 + 非对象项丢弃；缺 candidates / 非法 JSON / 顶层数组 ⇒ 零候选且不抛；取最后一次；≤3", "AI-N-2~11 语义保留 + 新增 ai-next.rule === 'ai-led' 断言", "AI-N-12：schema 与 AiNextCandidate 同构；maxItems === MAX_CHIPS_PER_CARD；enum === 重算式；description 三约束句齐", "「schema 合法但运行时非法」必拦（params 越界 / 幻觉 op）⇒ schema 不替代运行时校验", "前后对账表：无减少项；assertionsRemoved = 0；每条含 expectFailPattern", "真源切片读生产模块"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-112", "wave": 2, "complexity": "M", "type": "gate", "title": "ai-next-candidate 反证族（五类注入必红）+ AI-N-13（不上流）+ AI-N-14（tc.args 零使用）+ 真源切片 / 三段控制", "deps": ["TASK-NDA-111"], "fr": ["FR-NDA-027", "FR-NDA-105", "FR-NDA-106", "FR-NDA-112", "FR-NDA-131"], "ac": ["AC-NDA-021"], "adr": ["ADR-NDA-004", "ADR-NDA-101", "ADR-NDA-102"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ai-next-candidate.test.ts" }], "acceptance": ["五类注入实跑：幻觉 op ⇒ unknown-op；gesture ⇒ tier；越界/失效 ref ⇒ ref；params 越界 ⇒ param；label 含凭据 ⇒ label；各 注入 ⇒ FAIL ⇒ sha256 还原 ⇒ PASS", "「AI 代答 / 自动提交 confirm consent ⇒ 必红」；gesture op 连接受都拒", "AI-N-13：源文本早退存在 + 运行面「含 next 调用的回合零 command / 零 tool:'next'」；删早退 ⇒ 必红", "AI-N-14：捕获路径 tc.args 零命中；注入读 tc.args ⇒ 必红", "三段控制 ok/violated/n/a 逐态可达；n/a 不冒充 ok；计数只增", "反证恒绿检测记录"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-113", "wave": 2, "complexity": "M", "type": "gate", "title": "recommendation-sources ③ 恰 4 → 恰 5 等价重锚（含注入反证）", "deps": ["TASK-NDA-109", "TASK-NDA-110"], "fr": ["FR-NDA-114", "FR-NDA-130", "FR-NDA-134"], "ac": ["AC-NDA-026"], "adr": ["ADR-NDA-003"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/recommendation-sources.test.ts" }], "acceptance": ["③ 断言 length === 5 ∧ 第 2 项 === 'ai-led' ∧ 逐项值复算；注入恰 4 / 位次互换 ⇒ 必红", "①~④ 零删除（真值 7 / 模块白名单 5 / 单卡 / ④ 零新 LLM）", "recommend.ts 导入面不新增条目（白名单恒 5）；:143-145 / :625 断言不变", "计数只增"], "gate": "recommendation-sources" },
+
+    { "id": "TASK-NDA-114", "wave": 2, "complexity": "M", "type": "gate", "title": "保留面零改复核（9 项；若红 = 实现缺陷，不改判据）", "deps": ["TASK-NDA-107", "TASK-NDA-110"], "fr": ["FR-NDA-006", "FR-NDA-043", "FR-NDA-118", "FR-NDA-121", "FR-NDA-137"], "ac": ["AC-NDA-012", "AC-NDA-018", "AC-NDA-029", "AC-NDA-030", "AC-NDA-031"], "adr": ["ADR-NDA-003", "ADR-NDA-009"], "files": [{ "op": "REVIEW", "path": "packages/web-cli-plugin/test/{driver-timings,driver-quadruple,op-wiring,op-three-tier,sw-op-mirror,next-dispatch-diff0,insight-no-escalation,ref-context-in-turn}.test.ts" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/cards/nextstep.ts" }], "acceptance": ["9 项全绿且文件零改（git diff --stat = 0；若需触碰 ⇒ 只增 + 登记理由）", "requestTurn( 恰 1；DRIVER_TIMINGS === 5；DRIVER_DECLS_SRC 12 行", "insight-no-escalation 绿 ⇒ packages/web-cli-base/** 零 diff", "AI 候选渲染复用既有 chip 面 / data-op 单源分发", "若红 ⇒ 判定实现缺陷，回 105/107/110 修复，不得改判据"], "gate": "op-wiring / driver-timings / driver-quadruple / op-three-tier / sw-op-mirror / next-dispatch-diff0 / insight-no-escalation / ref-context-in-turn" },
+
+    { "id": "TASK-NDA-115", "wave": 3, "complexity": "L", "type": "gate", "title": "S0'''' 主线 A / 支线 B / 支线 D node 面（真源切片 + 双向反证 + 三段控制）", "deps": ["TASK-NDA-112", "TASK-NDA-114"], "fr": ["FR-NDA-100", "FR-NDA-101", "FR-NDA-102", "FR-NDA-103", "FR-NDA-105", "FR-NDA-106", "FR-NDA-044", "FR-NDA-045"], "ac": ["AC-NDA-001"], "adr": ["ADR-NDA-004", "ADR-NDA-007"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ai-next-candidate.test.ts" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts（若存在 ⇒ 只增）" }], "acceptance": ["S0'''' 主线侧环节逐条可判（1 工具产出 / 2 无条件触发 / 6 非法被拦 + 留痕 / 8 判定分层 / 9 围栏块已替换 / 10 零新增载体 / 12 留痕三要素 + 零明文）", "主线 A：合法候选 ⇒ chips ∧ ≤3 ∧ 单卡 ∧ 终端恒最末", "支线 B：五类各一条 blocked= 行 + 非法候选不渲染", "支线 D：未配置 ⇒ 不下发工具（零候选 / 零网络）", "真源切片（禁假 provider / 桩）；双向反证 + 三段控制", "反证「未校验候选进 chips」「围栏块重新接线」⇒ 必红"], "gate": "ai-next-candidate / s0-chain" },
+
+    { "id": "TASK-NDA-116", "wave": 3, "complexity": "M", "type": "gate", "title": "s0-self-driven.mjs + fixtures/s0-chain.mjs 样本重锚（只加断言）+ law8-plaintext.mjs 零明文面", "deps": ["TASK-NDA-115"], "fr": ["FR-NDA-100", "FR-NDA-103", "FR-NDA-104"], "ac": ["AC-NDA-001", "AC-NDA-014", "AC-NDA-019", "AC-NDA-032"], "adr": ["ADR-NDA-004", "ADR-NDA-009"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/fixtures/s0-chain.mjs" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/law8-plaintext.mjs" }], "acceptance": ["样本单源（s0-chain.mjs 内重锚；禁第二份样本）；既有环节逐字保留", "断言只加不删；CHROMIUM_GATES === 9；不新增 Chromium 门禁文件", "test:law8 ≥60 且零降级", "人工面 M1~M6 逐项 ⏳ 未执行（不冒充 PASS）；上游人工面零改写", "KL-N-10：隔离复跑 ≥2 + 日志全量；仍红如实记录不阻塞"], "gate": "s0-self-driven / law8-plaintext / gate-integrity" },
+
+    { "id": "TASK-NDA-117", "wave": 3, "complexity": "S", "type": "gate", "title": "gate-integrity 受审下界只增（改写门禁入集合）", "deps": ["TASK-NDA-111", "TASK-NDA-112"], "fr": ["FR-NDA-135", "FR-NDA-117"], "ac": ["AC-NDA-024"], "adr": ["ADR-NDA-009"], "files": [{ "op": "REVIEW_OR_ADD", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" }], "acceptance": ["受审文件集合含 test/ai-next-candidate.test.ts；下界 ≥ 前值", "CHROMIUM_GATES === 9 逐字；未新增 Chromium 门禁文件", "计数只增；按断言语义 + 语义增量重锚"], "gate": "gate-integrity" },
+
+    { "id": "TASK-NDA-118", "wave": 3, "complexity": "M", "type": "doc", "title": "体积叶1 重登记（五要素 + 三值 + nda1Rows + B 列不计账 + EC-NDA-016 二态）", "deps": ["TASK-NDA-117"], "fr": ["FR-NDA-140", "FR-NDA-141", "FR-NDA-143", "FR-NDA-144", "FR-NDA-145", "FR-NDA-024"], "ac": ["AC-NDA-027", "AC-NDA-028"], "adr": ["ADR-NDA-008"], "col": "A（登记）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-growth-evidence.test.ts（若涉及）" }], "acceptance": ["五要素齐备；三值同源前移；SIDEPANEL_BASELINE_BYTES_TIMELINE 只追加", "算术机核：Σ 逐模块 Δ + 未归因 == 登记增量", "B 列（next-tool / service-worker / ai-next / ref-context / host）不计账且如实标注", "authorConfirmation = pending-author-line（不得伪称）；EC-NDA-016 二态逐项如实（禁预填）", "反证「A 列改动搬 B 列规避 ⇒ 必红」；冻结面 stat + sha256 前后一致", "test:size-ruling-vol3 ≥13"], "gate": "test:size-ruling-vol3" },
+
+    { "id": "TASK-NDA-119", "wave": 3, "complexity": "M", "type": "doc", "title": "xNdaLedger 骨架（X-1/2/5/7/8 superseded + X-6/9/12 keep/no-supersession）+ xNdaGateReconciliation 叶1 行", "deps": ["TASK-NDA-113", "TASK-NDA-117", "TASK-NDA-118"], "fr": ["FR-NDA-110", "FR-NDA-111", "FR-NDA-114", "FR-NDA-115", "FR-NDA-116", "FR-NDA-117", "FR-NDA-118", "FR-NDA-121", "FR-NDA-122", "FR-NDA-132"], "ac": ["AC-NDA-020", "AC-NDA-022"], "adr": ["ADR-NDA-009"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts" }], "acceptance": ["每行 id/status/old（逐字）/new/reason/date/landing/counterCheck；no-supersession 的 reason 非空", "老键逐字保留（git diff 只增）", "xNdaGateReconciliation 叶1 行三态齐、无「未处置」项；间接面登记「保留（未触碰）」", "test:supersession ≥53；本叶零触碰保护段"], "gate": "test:supersession" },
+
+    { "id": "TASK-NDA-120", "wave": 3, "complexity": "M", "type": "doc", "title": "红线巡检 + 本叶收口对账（零改基座 / 冻结面 / 断言零删除 / 停机规则）", "deps": ["TASK-NDA-113", "TASK-NDA-114", "TASK-NDA-116", "TASK-NDA-117", "TASK-NDA-118", "TASK-NDA-119"], "fr": ["FR-NDA-001", "FR-NDA-003", "FR-NDA-004", "FR-NDA-130", "FR-NDA-136", "FR-NDA-142"], "ac": ["AC-NDA-020", "AC-NDA-025", "AC-NDA-027", "AC-NDA-029", "AC-NDA-030"], "adr": ["ADR-NDA-009"], "files": [{ "op": "REVIEW", "path": "packages/web-cli-plugin/**（只读巡检）" }, { "op": "DOC", "path": "本叶 build / validate 记录（收口对账）" }], "acceptance": ["git diff --stat -- packages/web-cli-base/ .sddu/specs-tree-root/ROADMAP.md = 0；zeroDiffFiles 9 项 pin 不变", "content.js 177,076 B / pick-layer.js 34,358 B + sha 前后一致；KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 逐字", "assertionsRemoved === 0；门禁计数只增不减", "门禁严格串行；KL-N-10 首轮异常 ⇒ 隔离复跑 ≥2 + 日志全量", "本叶全门禁清单逐项绿或如实登记；不得伪造", "停机规则 14 条逐条确认；触发项停机上报"], "gate": "npm test / gate-integrity / supersession / law8 / s0-self-driven / dead-end / recommendation / size-*" }
+  ],
+  "spikeGates": [
+    { "code": "SG-NDA-01", "task": "TASK-NDA-101", "leaf": "specs-tree-nda-1-next-tool-channel", "wave": "W1", "topic": "hooks.intercept 捕获 + tc.rawArguments 严格 JSON 解析（tc.args 零使用）+ 合成 ToolResult 短路真实 dispatch + next 不上流；解析失败 ⇒ 未产出不抛错；零改基座 / 零新 kind", "riskRank": "最高风险点 ①（编排器点名：hooks.intercept 捕获 + rawArguments 解析）", "gates": ["TASK-NDA-102", "TASK-NDA-103", "TASK-NDA-105", "TASK-NDA-107", "TASK-NDA-111", "TASK-NDA-112"], "stoppingRule": "不可行 ⇒ 暂停上报（禁读 tc.args / 禁改基座 / 禁新增 kind / 禁让 next 走真实 dispatch）" },
+    { "code": "SG-NDA-02", "task": "TASK-NDA-108", "leaf": "specs-tree-nda-1-next-tool-channel", "wave": "W2", "topic": "ai-led 独立规则位与 F-36 行为等价（有引用时 AI 仍优先）+ NEXTSTEP_PRIORITY 恰 5 逐项可复算 + 密度 / 单卡 / 3-chip / DRIVER_TIMINGS 恰 5 逐字不动", "riskRank": "中高", "gates": ["TASK-NDA-109", "TASK-NDA-110", "TASK-NDA-113", "TASK-NDA-114", "TASK-NDA-118"], "stoppingRule": "不可行 ⇒ 暂停上报（禁第 6 规则位 / 禁多卡 / 禁抬密度阈值 / 禁绕过 candidateRules）" }
+  ],
+  "gateConservation": {
+    "baselineSource": "spec §9.5 + ADR-NDA-009 §④ + state.json#domainBaseline（本轮未复跑）",
+    "npmTestBaseline": 1507,
+    "chromiumGates": "=== 9（不动）",
+    "gates": [
+      { "gate": "npm test", "baseline": 1507, "expected": ">=1507 或如实登记基线差异", "owners": ["TASK-NDA-120"] },
+      { "gate": "ai-next-candidate", "baseline": "族内（F-36 AI-N-1~11）", "expected": "改写（AI-N-1 换机制 + AI-N-12~14；assertionsRemoved=0）", "owners": ["TASK-NDA-111", "TASK-NDA-112", "TASK-NDA-115"] },
+      { "gate": "parity", "baseline": "族内", "expected": "等价重锚：pluginExtras['next']（reason + basis 非空）；旧条目逐字", "owners": ["TASK-NDA-104"] },
+      { "gate": "recommendation-sources", "baseline": "族内", "expected": "显式取代：③ 恰 4 → 恰 5；①~④ 零删除", "owners": ["TASK-NDA-113"] },
+      { "gate": "driver-timings", "baseline": "族内", "expected": "保留（恰 5 / 旧 4 逐字）", "owners": ["TASK-NDA-114"] },
+      { "gate": "driver-quadruple", "baseline": "恰 12", "expected": "保留 12↔12（叶2 再重锚 13↔13）", "owners": ["TASK-NDA-110", "TASK-NDA-114"] },
+      { "gate": "op-wiring", "baseline": 14, "expected": "保留（requestTurn( 恰 1 不动）", "owners": ["TASK-NDA-114"] },
+      { "gate": "op-three-tier", "baseline": "族内", "expected": "保留（tierOf 派生式 + 特权恒 gesture）", "owners": ["TASK-NDA-105", "TASK-NDA-114"] },
+      { "gate": "sw-op-mirror", "baseline": "族内", "expected": "保留（捕获 / 校验读同一单源）", "owners": ["TASK-NDA-105", "TASK-NDA-114"] },
+      { "gate": "next-dispatch-diff0", "baseline": "族内", "expected": "保留（ACT_TO_OP 恰 6）", "owners": ["TASK-NDA-114"] },
+      { "gate": "insight-no-escalation", "baseline": "族内", "expected": "保留（base 零 diff）", "owners": ["TASK-NDA-114", "TASK-NDA-120"] },
+      { "gate": "ref-context-in-turn", "baseline": "族内", "expected": "保留（COR-NDA-12：删契约句零门禁代价）", "owners": ["TASK-NDA-106", "TASK-NDA-114"] },
+      { "gate": "gate-integrity", "baseline": 24, "expected": ">=25（下界只增；CHROMIUM_GATES === 9）", "owners": ["TASK-NDA-117"] },
+      { "gate": "test:law8", "baseline": 60, "expected": ">=60（零降级）", "owners": ["TASK-NDA-116"] },
+      { "gate": "s0-self-driven / fixtures/s0-chain.mjs", "baseline": "族内", "expected": "等价重锚 + 断言增量（只加断言不加文件）", "owners": ["TASK-NDA-116"] },
+      { "gate": "test:dead-end", "baseline": 53, "expected": ">=53", "owners": ["TASK-NDA-120"] },
+      { "gate": "test:recommendation", "baseline": 79, "expected": ">=79", "owners": ["TASK-NDA-120"] },
+      { "gate": "test:supersession", "baseline": 53, "expected": ">=53（X-NDA 骨架）", "owners": ["TASK-NDA-119"] },
+      { "gate": "test:size-ruling-vol3", "baseline": 13, "expected": ">=13（叶1 正增量重登记）", "owners": ["TASK-NDA-118"] },
+      { "gate": "test:journey / test:binding", "baseline": "171 / 192", "expected": ">=基线（本叶不动保护段）", "owners": ["TASK-NDA-120"] }
+    ],
+    "newGates": [],
+    "rewrittenGates": [
+      { "gate": "ai-next-candidate", "rewrite": "AI-N-1 围栏块 → 工具捕获；AI-N-2~11 语义对账；+AI-N-12/13/14；assertionsRemoved = 0", "owners": ["TASK-NDA-111", "TASK-NDA-112"] }
+    ],
+    "upgradedGates": [
+      { "gate": "parity + waivers.json", "upgrade": "pluginExtras['next']（reason + basis 非空）", "owners": ["TASK-NDA-104"] },
+      { "gate": "recommendation-sources", "upgrade": "③ 恰 4 → 恰 5（逐项复算 + 注入反证）", "owners": ["TASK-NDA-113"] },
+      { "gate": "gate-integrity", "upgrade": "受审下界只增（改写门禁入集合）", "owners": ["TASK-NDA-117"] },
+      { "gate": "size-* / test:size-ruling-vol3", "upgrade": "叶1 正增量五要素 + 三值 + nda1Rows + B 列不计账 + EC-NDA-016 二态", "owners": ["TASK-NDA-118"] },
+      { "gate": "supersession-ledger", "upgrade": "xNdaLedger 骨架 + xNdaGateReconciliation 叶1 行（老条目逐字保留）", "owners": ["TASK-NDA-119"] }
+    ],
+    "sizeOnlyIncrease": "全部门禁计数 ≥ 基线（唯一例外 = 保护段显式取代 + 台账；本叶不触保护段）；assertionsRemoved = 0"
+  },
+  "checkpoint": { "id": "CP-NDA-1", "after": "W1~W3（TASK-NDA-120）", "criteria": "next 工具出现在 deriveTools()（schema 同构 / maxItems == MAX_CHIPS_PER_CARD == 3 / enum == 重算式 / description 三约束）；hooks.intercept 捕获（合成常量 ToolResult 短路 dispatch；onToolDone 逐字未变；tc.args 零使用）；events 过滤（next 不上流）；5 道校验链整体保留（admitCandidate 逐字；拒绝码闭集；gesture 恒拒；confirm admit=true ∧ press=blocked:tier）；围栏块四符号与 NEXT_CONTRACT_GUIDANCE 零命中；触发无条件（when 逐字不读 refs）；ai-led 独立规则位 + NEXTSTEP_PRIORITY 恰 5；ai-next-candidate 改写（AI-N-1 换机制 + AI-N-12/13/14；assertionsRemoved=0）；parity pluginExtras['next'] 非空；recommendation-sources ③ 恰 5；保留面 9 项零改全绿（含 base 零 diff）；S0'''' 主/B/D node + Chromium 只加断言（CHROMIUM_GATES === 9）；三冻结面零容差；体积 A 列叶1 重登记 + B 列不计账；xNdaLedger 骨架 + 门禁对账骨架" },
+  "blockers": [
+    { "id": "BLK-NDA-1", "type": "spike-gate", "task": "TASK-NDA-102 / 103 / 105 / 107 / 111 / 112", "desc": "SG-NDA-01（TASK-NDA-101）结论 = 不可行 ⇒ 不得开工（禁读 tc.args / 禁改基座 / 禁新增 kind / 禁让 next 走真实 dispatch）" },
+    { "id": "BLK-NDA-2", "type": "spike-gate", "task": "TASK-NDA-109 / 110 / 113 / 114 / 118", "desc": "SG-NDA-02（TASK-NDA-108）结论 = 不可行 ⇒ 不得开工（禁第 6 规则位 / 禁多卡 / 禁抬密度阈值 / 禁绕过 candidateRules）" },
+    { "id": "BLK-NDA-9", "type": "cross-leaf", "task": "TASK-NDA-201（叶2）", "desc": "叶间硬串行：叶2 以本叶全绿（validated）为前置（R-NDA-001 / R-NDA-905 / N-NDA-021）" }
+  ],
+  "stoppingRules": [
+    { "no": 1, "trigger": "dist/content.js ≠ 177,076 B / 52a82620… 或 dist/pick-layer.js ≠ 34,358 B / 77796bab…", "action": "立即停机（N-NDA-001/002 零容差）" },
+    { "no": 2, "trigger": "manifest.json / packages/web-cli-base/** 出现 diff", "action": "停机（N-NDA-007 / NFR-NDA-005）" },
+    { "no": 3, "trigger": "KIND_SET 新增任一字符串 / 第 13 kind / 新宿主 / 新 variant", "action": "停机（N-NDA-003/004 / EC-NDA-017）" },
+    { "no": 4, "trigger": "围栏块影子产出 / 第二解析面（tc.args）/ 第二校验器 / 第二档位表", "action": "停机（N-NDA-021/022 / R-NDA-902/912）" },
+    { "no": 5, "trigger": "判定链（policy.ts / auto-authorize.ts）内容哈希变化", "action": "停机（N-NDA-018）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）/ 判据恒真", "action": "停机；重写注入点（FR-NDA-131）" },
+    { "no": 7, "trigger": "SG-NDA-01 / SG-NDA-02 结论 = 不可行", "action": "被闸门任务不得开工（见 blockers）" },
+    { "no": 8, "trigger": "体积越绝对上限或静默改档位 / authorConfirmation 被伪称", "action": "停机（硬墙）；升档须显式登记（ADR-NDA-008 / EC-NDA-016）" },
+    { "no": 9, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 10, "trigger": "AI 候选未经 5 道校验即进 chips / 被执行；gesture op 被放行或被写入 enum；confirm 被拒可见", "action": "停机（N-NDA-021 / R-NDA-901/905）" },
+    { "no": 11, "trigger": "特权 op 非 gesture / SW 调用 .request( / AI 自动按下 confirm（含 consent 代答）", "action": "停机（N-NDA-011/017）" },
+    { "no": 12, "trigger": "新增 requestTurn( / nextAfterSettle 调用点（叶1 不应新增）", "action": "停机（X-NDA-11 维持 no-supersession）" }
+  ],
+  "unfilledPoints": [
+    { "id": "NDA-P-001", "topic": "A 列（sidepanel.js）叶1 实测净增 + 是否触发档位上调", "status": "pending-measurement", "owner": "TASK-NDA-118", "rule": "禁预填；二态显式（越生效上限 ⇒ 重登记 / 越档位 ⇒ EC-NDA-016 + 作者一行 / 未越 ⇒ 如实登记）" },
+    { "id": "NDA-P-002", "topic": "改写后 ai-next-candidate 三段控制 ok/violated/n/a 实际可达性", "status": "pending-measurement", "owner": "TASK-NDA-112", "rule": "禁预填；n/a 不得冒充 ok" },
+    { "id": "NDA-P-003", "topic": "人工面 M1~M6（AI 候选真机相关性 / 工具产出稳定性体感 / 提醒 / 兜底 / 未配置体感 / 读屏）", "status": "pending-human", "owner": "TASK-NDA-116", "rule": "逐项 ⏳ 未执行 / PASS，不得冒充 PASS；上游人工面零改写" },
+    { "id": "NDA-P-004", "topic": "authorConfirmation 的作者一句外部确认", "status": "pending-author-line", "owner": "TASK-NDA-118", "rule": "不得伪称已确认（N-NDA-013）" },
+    { "id": "NDA-P-005", "topic": "SG-NDA-02 探针：ai-led 位次与 F-36 行为等价（有引用时 AI 仍优先）可判性", "status": "pending-measurement", "owner": "TASK-NDA-108", "rule": "禁预填；不可行 ⇒ 暂停上报" },
+    { "id": "NDA-P-007", "topic": "params（string 口径）本轮「仅元数据不参与派发」的已知限制是否被后续轮扩展", "status": "deferred", "owner": "TASK-NDA-102", "rule": "不得静默扩卡协议（COR-NDA-7 / PD-NDA-012）" },
+    { "id": "NDA-P-008", "topic": "门禁基线字面量与仓内实况不一致（supersession 引自 53 / npm test 引自 1507）", "status": "resolved-tasks", "owner": "TASK-NDA-117", "rule": "按断言语义 + 语义增量重锚；收口同源前移" },
+    { "id": "NDA-P-009", "topic": "KL-N-10 家族 flake（s0-self-driven / recommendation / binding 相位）", "status": "pending-measurement", "owner": "TASK-NDA-120", "rule": "隔离复跑 ≥2 + 日志全量；仍红如实记录不阻塞收口" },
+    { "id": "NDA-P-010", "topic": "plan 工程估算（A 列 +0.1~0.5 KB）与 spec §5.14.1 保守包线并存", "status": "resolved-tasks", "owner": "TASK-NDA-118", "rule": "判据口径取更紧者 = spec 包线；偏差如实登记" },
+    { "id": "NDA-P-012", "topic": "pluginExtras 位置订正（waivers.json 而非 baseline-catalog.json）", "status": "resolved-tasks", "owner": "TASK-NDA-104", "rule": "按实际位置落地（COR-NDA-6）；toolCount 34 零改" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "NDA-1 叶 tasks：20 任务 / 3 波（TASK-NDA-101~120；S×7 / M×9 / L×4）。首叶 / 底座叶 + 机制安全核心：先立「工具通道 + intercept 捕获 + 5 道校验链 + 判定分层 + 围栏块替换」，中间态即安全可达（S0'''' 支线 B/D 独立可判）。2 个 spikeGate（SG-NDA-01 intercept 捕获 + rawArguments 解析 + 短路 dispatch + 不上流 [最高风险点 ①] / SG-NDA-02 ai-led 规则位等价重锚 + 密度可判）。改写门禁 1（ai-next-candidate：AI-N-1 换机制 + AI-N-12~14 + assertionsRemoved=0）；升级 2（parity / recommendation-sources ③）；保留面零改复核 9 项。体积 A 列叶1 +0.1~0.5 KB（B 列 +1.3~4.0 KB 不计账）。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+}

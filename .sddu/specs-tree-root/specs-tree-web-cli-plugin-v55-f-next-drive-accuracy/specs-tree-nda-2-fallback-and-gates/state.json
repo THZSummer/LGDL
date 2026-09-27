@@ -1,0 +1,415 @@
+{
+  "feature": "specs-tree-nda-2-fallback-and-gates",
+  "featureKey": "specs-tree-nda-2-fallback-and-gates",
+  "version": "v0.11.4",
+  "name": "NDA-2 未配置确定性引导 + 自由输入分相 + 提醒补一次 + LLM 异常兜底链 + 首开边界 + 门禁/体积重锚：兜底与判据叶",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-next-drive-accuracy",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 2,
+  "dependsOn": [
+    "specs-tree-nda-1-next-tool-channel"
+  ],
+  "createdAt": "2026-09-27",
+  "updatedAt": "2026-09-27",
+  "description": "NDA-2 叶规范（末叶 / 兜底与判据叶）：未配 LLM ⇒ next = 确定性「去配置 LLM」引导（复用 llm.unconfigured → OPS_RECOVERY_ROWS → op.llm-config op-direct chip）+ **不显示自由输入终端**（自由输入无 LLM 不可行）；已配置 ⇒ free-input 终端**恒常驻**（R8 / F-35 不回归）；分相判据**单源（configured）**；LLM 未调用 next 工具 ⇒ **提醒补一次**（插件侧恰一次 nudge 续轮；有界；防环）→ 仍失败 / LLM 坏 ⇒ **系统兜底推荐「配置新的 LLM」**（复用 op.llm-config；确定性；必可达；不代答 consent）；LLM 异常判定**闭集三情**（no-tool-call / llm-failed / all-blocked；词表不新写；与 llm.unconfigured 分相）；首开**保持确定性**（PD-ADN-001 不转正，登记 PD-NDA-001）；门禁逐条等价重锚（含保护段）+ 体积分列预算 + X-NDA-1~12 台账终态。",
+  "scope": {
+    "in": [
+      "未配置 ⇒ 确定性「去配置 LLM」引导（op.llm-config op-direct chip）",
+      "未配置 ⇒ 不显示自由输入终端；已配置 ⇒ 恒常驻；分相判据单源（configured）",
+      "不破既有零 token 路径（variant:'llm-unconfigured' 语义不变）",
+      "提醒补一次（判定 + 恰一次 nudge 续轮 + 有界 + 防环 + 计数等价重锚 + 仍失败进兜底）",
+      "LLM 异常判定闭集（no-tool-call / llm-failed / all-blocked；词表不新写；与 llm.unconfigured 分相）",
+      "系统兜底推荐「配置新的 LLM」（复用 op.llm-config；文案分相；确定性；必可达；不代答 consent）",
+      "首开边界落地（保持确定性；未配置首开由引导承接；零 LLM 往返；零双卡；PD-NDA-001 登记）",
+      "S0'''' 支线 C / D / E 终态 + 人工面如实登记（Chromium 面只加断言）",
+      "体积分列预算 + 距档结论 + 逐叶重登记（含 2.8× 最坏核算）",
+      "门禁逐条等价重锚（含保护段决策）+ X-NDA-1~12 台账终态"
+    ],
+    "out": [
+      "next 工具注册 / intercept 捕获 / 围栏块替换 / 规则位重锚（叶1）",
+      "5 道校验链 / 判定分层的首建（叶1）",
+      "新增 op / 动作 / 第二引导面 provider",
+      "提醒无界 / 第二词表 / 首开 AI 化",
+      "断言删除 / 降级 / 保护段静默改写",
+      "新增 kind / 新 op / 新宿主 / recommend.ts 内触达 LLM",
+      "base / content / pick-layer / 判定链改动"
+    ]
+  },
+  "coversFr": [
+    "FR-NDA-050~056",
+    "FR-NDA-060~066",
+    "FR-NDA-070~076",
+    "FR-NDA-090~093",
+    "FR-NDA-100",
+    "FR-NDA-103~104（终态侧）",
+    "FR-NDA-112~113",
+    "FR-NDA-119~120",
+    "FR-NDA-122",
+    "FR-NDA-130~137（等价重锚终态 + 保护段）",
+    "FR-NDA-141~145（终态侧）"
+  ],
+  "openPoints": [
+    "PD-NDA-007",
+    "PD-NDA-008",
+    "PD-NDA-001"
+  ],
+  "openPointsRuled": [
+    "O-NDA-001",
+    "O-NDA-002",
+    "O-NDA-003",
+    "O-NDA-004",
+    "O-NDA-005",
+    "O-NDA-006",
+    "O-NDA-007",
+    "O-NDA-008",
+    "O-NDA-009",
+    "O-NDA-010",
+    "O-NDA-011",
+    "O-NDA-012",
+    "O-NDA-013",
+    "O-NDA-014"
+  ],
+  "notes": "承载父 FR ≈42 条切片；交付 10 项；执行序 8 步（再收未配置 / 异常兜底与门禁口径）；风险 11 条；开放问题 3 条。关键：分相判据单源（configured）；提醒有界恰一次；异常判定闭集三情且词表不新写（与 llm.unconfigured 分相）；系统兜底复用 op.llm-config（文案强调「配置新的 LLM」）；首开保持确定性（PD-ADN-001 不转正）。",
+  "artifacts": [
+    "spec.md",
+    "state.json",
+    "TREE.md",
+    "plan.md",
+    "ADR-NDA-201-abnormal-fact-carrier-and-transport.md",
+    "ADR-NDA-202-gate-count-reanchor-and-open-protected-decisions.md",
+    "tasks.md",
+    "tasks.json",
+    "build.md",
+    "review.md",
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
+  ],
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/TREE.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/ADR-NDA-201-abnormal-fact-carrier-and-transport.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/ADR-NDA-202-gate-count-reanchor-and-open-protected-decisions.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/build.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-2-fallback-and-gates/validate-report.md"
+  ],
+  "dependencies": {
+    "upstream": [
+      "../discovery.md（v1.0）",
+      "../spec.md（v1.0，父级完整规范）",
+      "../specs-tree-nda-1-next-tool-channel/spec.md（v1.0，硬前置：工具通道 + 校验链接入）",
+      "../specs-tree-web-cli-plugin-v55-f-ai-driven-next/**（F-36 v0.11.3；未配置底座 / free-input 终端 / 系统兜底缺口）",
+      "../specs-tree-web-cli-plugin-v55-f-input-as-next/**（F-35 v0.11.2；free-input 终端恒定语义）",
+      "../specs-tree-web-cli-plugin-v55-self-driven/**（F-33；护栏六常量 / 留痕三要素）"
+    ],
+    "downstream": [
+      "@sddu-plan（本叶）；父 Feature 收口依赖本叶终态"
+    ]
+  },
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-spec",
+      "artifact": "spec.md v1.0 + state.json + TREE.md",
+      "note": "spec 阶段：产出叶 spec.md（承载父 FR ≈42 条切片：UNCONF 050~056 / NUDGE 060~066 / ABNORMAL 070~076 / OPEN 090~093 / S0'''' 100·103·104 终态侧 / SUPERSEDE 112·113·119·120·122 / GATE 130~137 等价重锚终态 / VOL 141~145 终态侧）。末叶 / 兜底与判据叶；plan → tasks → build → review → validate 由本叶承接。spec 阶段零运行时验证；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-plan",
+      "artifact": "plan.md v1.0 + ADR-NDA-201-abnormal-fact-carrier-and-transport.md + ADR-NDA-202-gate-count-reanchor-and-open-protected-decisions.md",
+      "note": "plan 阶段（技术设计，末叶/兜底与判据叶，依赖叶1）：父 ADR-NDA-005~009 的叶内落地定案 + 2 组叶内方案对比（闭集判定落点 → SW 纯函数单源；分相读取面 → ctx.risk 的既有 llmBlocked 项）+ 文件影响（A 列从紧 + B 列主体，B 列先行）+ 叶内风险 11 条 + 8 步执行序；叶级 ADR 补两条：ADR-NDA-201（异常事实承载 = AiNextPayload.abnormal? 加法可选子字段 + SW 单源判定 + 面板只消费折进 risk）、ADR-NDA-202（门禁 driver-quadruple/next-registry 12→13 显式重锚 + 四处恰 N 不动 + 首开零行为改动 + 保护段 keep + KL-N-10 处置）。零运行时验证；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-tasks",
+      "artifact": "tasks.md v1.0 + tasks.json v1.0（TASK-NDA-201~221）",
+      "note": "tasks 阶段（任务排布，末叶/兜底与判据叶）：21 个原子任务 / 3 波（W1 分相与提醒 7 / W2 异常与兜底 8 / W3 验收与治理 6；S×3 / M×16 / L×2）+ 1 个 spikeGate（SG-NDA-03 nudge chat 回调内同回合续呼 + nudgeUsed 有界恰一次 + nudge turn 不进会话 + 零计数漂移＝编排器点名的最高风险点②）+ 显式取代 2（free-input-next 恒真→risk.llmBlocked 分相 / ai-next-candidate AI-N-15）+ 等价重锚 3（driver-quadruple 12↔12→13↔13 / next-registry NR-10 12→13 / size-* 逐叶 + 两叶 Σ）+ 四处恰 N 不动（BLOCKED_TERMINALS 5 / OPS_RECOVERY_PROVIDER_IDS 2 / RECOVERY_PROVIDER_IDS 5 / DRIVER_TERMINALS 4 / PROACTIVE_MOMENTS 7 / DRIVER_TIMINGS 5 / NEXT_SOURCE_NAMES 7）+ S0'''' 支线 C/D/E 终态（注入必红 + 逐字节还原）+ X-NDA-1~12 台账终态 + 保护段 keep（字节中立双绿）+ 体积叶2 重登记 + 两叶 Σ + EC-NDA-016 三分支 + 门禁守恒终态对账 + 红线巡检/人工面 M1~M6 如实登记。步序纪律：W1 先落 B 列（next-drive-policy.ts）；W2 的 llm.abnormal 是本叶唯一 A 列主体增长点 ⇒ 落完立即实测再进门禁重锚与体积 Σ。**本轮只做 tasks**：零产品代码改动、零门禁/构建/Chromium；.sddu 外零触碰；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-build",
+      "artifact": "build.md v1.0（源码 NEW 1 / MODIFY 4 + 测试·fixture 17 + 台账 2 + 探针产物已删除）",
+      "note": "build 阶段（末叶 / 兜底与判据叶）：21/21 任务落地 —— SG-NDA-03 18/18 可行（nudge chat 回调内同回合续呼：零会话污染 / nudgeUsed 有界恰一次 / 零计数漂移）；自由输入分相（configured 单源 = risk.llmBlocked）双相各可判 + 双向反证；提醒补一次（shouldNudge 五条件 + NUDGE_TEXT 零明文）；LLM 异常闭集三情（abnormalVerdict） + AiNextPayload.abnormal?（只在非 null 附加）+ 系统兜底 llm.abnormal 第 13 行 provider（复用 op.llm-config，文案分相）；首开零行为改动；S0 支线 C/D/E 终态（node + Chromium 只加断言）；门禁逐条等价重锚（driver-quadruple 12→13 / next-registry NR-10 12→13 / free-input-next 分相 / AI-N-16~18 / r8 · onboarding · s0-chain · size-* 数值）+ 四处恰 N 不动；X-NDA 台账终态（12 行 + 25 行对账三态齐 + 7/1/4）与保护段 keep 双绿；体积叶2 重登记 605,239 → 606,652 B（两叶 Σ A 列 +2,050 B；EC-NDA-016 三分支皆「否」；authorConfirmation 保持 pending-author-line）。npm test 1517 → 1525 / 0；law8 72/0；dead-end 56/0；recommendation 85/0；s0-self-driven 100/3（3 项既有环境 flake，KL-N-10 如实登记）；e2e PASS；typecheck rc=0。零改基座 / 冻结面逐字节 / 法八零明文 / 断言零删除（assertionsRemoved=0）。零运行时外部依赖；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-review",
+      "artifact": "review.md v1.0（C1~C28 审查策略）+ review-report.md v1.0（R1 执行报告）",
+      "note": "review 阶段（末叶 / 兜底与判据叶，静态审查 R1）：产出 review.md（C1~C28 自主审查清单；四维度覆盖；≈42 条父 FR 切片按 8 组各 ≥1 Cx）+ review-report.md（逐项结果：通过 22 / 警告 6 / 失败 0 / **阻塞 0** ⇒ ⚠️ 有条件通过）。静态核验：分相双向反证（注入恒真/恒假 + 逐字节还原）、nudge 有界（五条件 + 置位先于续呼 + 忽略 nudgeUsed 必红）、异常闭集（三情真值表 + stopped 缺分支必红 + 面板零第二分类器）、系统兜底（chip 可达 + 两文案相异 + 删 provider 必红）；五类计数与 HEAD 基线逐一相同（零漂移）；assertionsRemoved=0（25 行机核）；体积 dist/sidepanel.js=606,652 B / background=1,666,594 B / 三冻结面 sha 双锚 / 保护段分段 sha 双双命中 / KIND_SET=40 / ACT_TO_OP=6 全部独立复算命中。改进项 I-1~I-6（0 阻塞）：I-1 = abnormalVerdict 把「调用 next 且空 candidates」并入 no-tool-call（语义边界；触发结果与 EC-NDA-008 一致）建议 validate 优先核对；I-2 命名漂移 / I-3 ADR-202 措辞 / I-4 free-input when 空转合取（设计内）/ I-5 弱读数 / I-6 nudge 观感（人工面）。零运行时验证：npm test 等数值取自 build 未复跑（留 validate）；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-build（R1-FIX 修复轮）",
+      "artifact": "build.md v1.1 §6 + src/background/next-drive-policy.ts + src/background/service-worker.ts + test/ai-next-candidate.test.ts + test/ui/fixtures/s0-chain.mjs + 本叶 plan.md / ADR-NDA-201",
+      "note": "review 修复轮（保留 reviewed 相位，未推进 validate）：处理 R1 改进项 I-1（必修，语义 bug）+ I-2（命名漂移）。I-1：abnormalVerdict 接收 captured（capture.captured）—— 「调用了 next 但 candidates:[]」（合法「无建议」，next 工具 description / NUDGE_TEXT 明确指示的健康路径）由 no-tool-call 分离为 null（**不**附加 abnormal / 不推「配置新的 LLM」），分支序 captured⇒null 插在 all-blocked 之后、no-tool-call 之前（blocked>0 恒优先）；「真未调用」仍 no-tool-call（提醒→兜底链不变）。新判据：AI-N-17 真值表新增 captured 边界行 + SW 接线单源检查 + S0''''-7 终态读数 emptySuggestionHealthy / trueMissIsAbnormal；两条注入必红实测（① policy 删 captured 分支 ⇒ AI-N-17 FAIL actual no-tool-call/expected null；② SW 删 captured 入参 ⇒ 接线判据 FAIL）逐字节还原后复绿。I-2：本叶 plan.md §2.3/§5.1 与 ADR-NDA-201 §③/§④ 的 LLM_ABNORMAL_CODES / AiNextAbnormalCode 统一为真值名 AI_ABNORMAL_CODES / AiAbnormalCode（文档零代码改动）。门禁复跑：tsc rc=0 / npm test 1525/0 / ai-next-candidate 28/0 / supersession 56/0 / gate-integrity 27/0 / dead-end 56/0；assertionsRemoved=0。体积：dist/sidepanel.js 606,652 B **不变（A 列零 delta）**；dist/background.js 1,666,594 → 1,666,653 B（+59 B，B 列不计账）；content.js/pick-layer.js sha 逐字节不变。routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-27",
+      "agent": "sddu-validate",
+      "artifact": "validate.md v1.0（V1~V14 场景矩阵）+ validate-report.md v1.0（R1 执行报告）",
+      "note": "validate 阶段（叶2 兜底与判据叶，动手验证 / 独立复跑不采信自报）：V1~V14 全量执行 —— 全门禁独立复跑（npm test 1525/0 · ai-next-candidate 28/0（AI-N-17 定向 1/0）· supersession 56/0 · gate-integrity 27/0 · size-ruling-vol3 14/0 · law8 72/0 · dead-end 56/0 · density 242/0 · insight PASS · e2e PASS；recommendation 84/1·83/3·85/0 与 s0-self-driven 101/2·100/3 隔离复跑判为环境时序 flake（probe.steady），KL-N-10 如实登记不阻塞，叶内新增判据块恒绿）+ I-1 新边界双向复核并**两条注入必红实测**（① 删 policy captured 分支 ⇒ actual no-tool-call/expected null；② 删 SW captured 入参 ⇒ 接线判据红）逐字节还原复绿 + 作者口径端到端独立脚本 22/0 + 红线机核（基座/ROADMAP/opencode/判定链 diff 全 0；冻结面 content 177,076 B/sha 52a82620… + pick 34,358 B/sha 77796bab…；保护段 journey/binding 分段 sha 命中）+ 体积（A 列 606,652 B 距档 7,748；B 列不计账；EC-NDA-016 三分支皆否）+ 载体守恒（KIND_SET 40 / ACT_TO_OP 6 / 七集合 / CHROMIUM_GATES 9）+ 台账（12/25/7-1-4，assertionsRemoved 全 0）。结论 ⚠️ 有条件通过 / **0 阻塞**。真实 LLM 观感（I-6/PD-NDA-016）与人工面 M1~M6 ⏭️ 不可执行，未冒充 PASS。routing.v1 = local_or_compute → none。"
+    }
+  ],
+  "description_short": "NDA-2：未配置确定性引导 + 自由输入分相 + 提醒补一次（有界）+ LLM 异常兜底链 + 首开确定性 + 门禁/体积重锚（兜底与判据叶）",
+  "featureId": "F-37",
+  "versionSlot": "v0.11.4",
+  "plan": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-plan",
+    "artifact": "plan.md（叶级：兜底与判据落地）+ ADR-NDA-201 / ADR-NDA-202",
+    "adrCount": 2,
+    "adrRefs": [
+      "ADR-NDA-005",
+      "ADR-NDA-006",
+      "ADR-NDA-007",
+      "ADR-NDA-008",
+      "ADR-NDA-009"
+    ],
+    "runtimeVerified": false
+  },
+  "tasks": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-tasks",
+    "artifact": "tasks.md + tasks.json（叶2 可执行任务正文）",
+    "taskCount": 21,
+    "waveCount": 3,
+    "complexity": {
+      "S": 3,
+      "M": 16,
+      "L": 2
+    },
+    "typeBreakdown": {
+      "implementation": 8,
+      "gate": 8,
+      "spike": 1,
+      "doc": 4
+    },
+    "namespace": "TASK-NDA-2xx（201~221）",
+    "spikeGates": [
+      "SG-NDA-03"
+    ],
+    "hardPrereq": "叶1 specs-tree-nda-1-next-tool-channel validated（BLK-NDA-9）",
+    "rewrittenGates": [
+      "free-input-next",
+      "ai-next-candidate（AI-N-15 增量）"
+    ],
+    "upgradedGates": [
+      "driver-quadruple",
+      "next-registry",
+      "size-*",
+      "supersession-ledger"
+    ],
+    "keptGatesReview": [
+      "blocked-terminals",
+      "driver-terminals",
+      "driver-timings",
+      "op-wiring",
+      "turn-arbitration",
+      "proactivity-guard",
+      "r8-open-next-entry",
+      "journey（保护段 keep）",
+      "binding（保护段 keep）"
+    ],
+    "volume": {
+      "colA": "+0.6~1.4 KB（计账）",
+      "colB": "+1.9~3.6 KB（不计账）",
+      "registerTask": "TASK-NDA-219（含两叶 Σ）"
+    },
+    "runtimeVerified": false
+  },
+  "build": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-build",
+    "artifact": "build.md",
+    "taskCount": 21,
+    "completed": 20,
+    "conditional": 1,
+    "spikeGate": {
+      "id": "SG-NDA-03",
+      "result": "可行",
+      "reading": "18/18"
+    },
+    "gates": {
+      "typecheck": "rc=0",
+      "npmTest": "1525/0（基线 1517 ⇒ +8，零删除）",
+      "law8": "72/0（69 → +3）",
+      "deadEnd": "56/0（53 → +3）",
+      "recommendation": "85/0（≥79）",
+      "s0SelfDriven": "100/3（3 项既有环境 flake，KL-N-10 如实登记）",
+      "gateIntegrity": "27/0",
+      "supersession": "56/0（55 → +1）",
+      "sizeRulingVol3": "14/0（≥13）",
+      "e2e": "PASS"
+    },
+    "volume": {
+      "colA": {
+        "before": 605239,
+        "after": 606652,
+        "delta": 1413
+      },
+      "colB": {
+        "before": 1644437,
+        "after": 1666594,
+        "delta": 22157,
+        "counted": false
+      },
+      "twoLeafSumA": 2050,
+      "tier": 614400,
+      "absoluteCeiling": 675840,
+      "effectiveCeiling": 636984,
+      "distanceToTier": 7748,
+      "ecNda016": {
+        "overEffectiveCeiling": false,
+        "overTier": false,
+        "overAbsoluteCeiling": false
+      },
+      "authorConfirmation": "pending-author-line",
+      "leafBudgetNote": "叶2 A 列 +1,413 B 越 ADR-NDA-008 §② 叶2 预算（+0.6~1.4 KB）13 B ⇒ 按「越叶预算登记不停机」如实登记；在 spec §5.14.1 保守包线内；不搬列规避"
+    },
+    "frozenFaces": {
+      "content.js": {
+        "bytes": 177076,
+        "sha256": "52a826205553b46a896ccad54225d63ba62f5f7fe7c969a9bc2e655448d5b5f6"
+      },
+      "pick-layer.js": {
+        "bytes": 34358,
+        "sha256": "77796babd9c93893542195424d160e0877d8acca4142f8faf2232e217fbd575e"
+      }
+    },
+    "ledger": {
+      "xNdaLedger": 12,
+      "xNdaGateReconciliation": 25,
+      "xNdaLedgerFull": {
+        "superseded": 7,
+        "keep": 1,
+        "noSupersession": 4,
+        "keepSubitems": 9
+      },
+      "protectedSegments": "keep（字节中立双绿）",
+      "assertionsRemoved": 0
+    },
+    "reviewFix": {
+      "round": "R1-FIX",
+      "at": "2026-09-27",
+      "agent": "sddu-build",
+      "items": {
+        "I-1": "abnormalVerdict 接收 captured（capture.captured）：分「调用但空候选」（⇒ null，合法无建议，不推「配置新的 LLM」）与「真未调用」（⇒ no-tool-call，走提醒→兜底）；分支序 captured 插在 all-blocked 后 / no-tool-call 前",
+        "I-2": "本叶 plan.md §2.3/§5.1 + ADR-NDA-201 §③/§④：LLM_ABNORMAL_CODES / AiNextAbnormalCode → AI_ABNORMAL_CODES / AiAbnormalCode（文档零代码改动）"
+      },
+      "judgements": [
+        "AI-N-17 真值表新增 {completed,0,0,captured:true} ⇒ null 行 + SW 必须传 capture.captured（接线单源）",
+        "S0''''-7 终态读数 emptySuggestionHealthy / trueMissIsAbnormal（node 面 + fixture 判据）"
+      ],
+      "injectionsRed": [
+        "policy 删 if (f.captured) return null; ⇒ AI-N-17 FAIL（actual no-tool-call / expected null）",
+        "SW 删 captured: capture.captured ⇒ 接线判据 FAIL（captured（capture.captured）传入 abnormalVerdict）"
+      ],
+      "gatesRerun": {
+        "typecheck": "rc=0",
+        "npmTest": "1525/0",
+        "aiNextCandidate": "28/0",
+        "supersession": "56/0",
+        "gateIntegrity": "27/0",
+        "deadEnd": "56/0"
+      },
+      "volume": {
+        "colA": {
+          "after": 606652,
+          "delta": 0
+        },
+        "colB": {
+          "before": 1666594,
+          "after": 1666653,
+          "delta": 59,
+          "counted": false
+        },
+        "frozenFacesUnchanged": true
+      },
+      "assertionsRemoved": 0,
+      "runtimeVerified": true
+    },
+    "openItems": [
+      "PD-NDA-001（登记：首开 AI 化待后续轮；PD-ADN-001 不转正）",
+      "PD-NDA-016（登记：提醒时点早一步 + stop() 窗口内至多 1 次）",
+      "KL-N-10：test:s0-self-driven 3 项既有环境 flake（如实登记，不阻塞收口）",
+      "叶2 A 列越 ADR 叶预算 13 B（登记不停机；在 spec §5.14.1 包线内）",
+      "R1-FIX 残留：父级 specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/{plan.md,tasks.md,ADR-NDA-007} 仍含旧名 LLM_ABNORMAL_CODES / AiNextAbnormalCode（超本叶改动集，留父级收口轮对齐）"
+    ],
+    "runtimeVerified": true
+  },
+  "validate": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-validate",
+    "strategy": "validate.md（V1~V14 验证场景矩阵 + 五维度指引）",
+    "report": "validate-report.md（R1 执行报告）",
+    "round": "R1",
+    "scenarioCount": 14,
+    "passCount": 12,
+    "conditionalCount": 2,
+    "failCount": 0,
+    "skipCount": 0,
+    "blockingCount": 0,
+    "frCoverage": "8/8 目标 = 100%（承载 ≈42 父 FR 切片）",
+    "nfrCoverage": "16/16 = 100%",
+    "buildExitCode": 0,
+    "driftCount": 0,
+    "conclusion": "conditional-pass（⚠️ 有条件通过 / 0 阻塞）",
+    "gates": {
+      "typecheck": "rc=0",
+      "build": "rc=0",
+      "npmTest": "1525/0 rc=0",
+      "aiNextCandidate": "28/0 rc=0（AI-N-17 定向 1/0）",
+      "supersession": "56/0 rc=0",
+      "gateIntegrity": "27/0 rc=0",
+      "sizeRulingVol3": "14/0 rc=0",
+      "law8": "72/0 rc=0",
+      "deadEnd": "56/0 rc=0",
+      "density": "242/0 rc=0",
+      "insight": "PASS（125 assertions）rc=0",
+      "e2e": "PASS rc=0",
+      "recommendation": "85/0 / 84/1 / 83/3（三跑；环境 flake）",
+      "s0SelfDriven": "101/2 · 100/3（隔离复跑 ×2；环境 flake）"
+    },
+    "falsification": [
+      "I-1 注入①：删 next-drive-policy.ts 的 `if (f.captured) return null;` ⇒ AI-N-17 FAIL（actual no-tool-call / expected null）；逐字节还原后 1/0 绿。",
+      "I-1 注入②：删 service-worker.ts 的 `, captured: capture.captured` ⇒ AI-N-17 FAIL（SW 必须传 captured）；逐字节还原后绿（sha256 -c OK）。",
+      "作者口径端到端独立脚本（author-caliber-e2e.mjs，读编译产物）：22/0。",
+      "载体守恒机核：KIND_SET 40 / ACT_TO_OP 6 / 宿主 [] / 七集合逐字 / DRIVER_DECLS_SRC 13 / CHROMIUM_GATES 9。",
+      "台账机核：xNdaLedger 12 / xNdaGateReconciliation 25（assertionsRemoved 全 0、无「未处置」）/ xNdaLedgerFull 7-1-4。"
+    ],
+    "volume": "A 列 dist/sidepanel.js = 606,652 B（距档 7,748 / 距生效上限 636,984 余 30,332）；B 列 background.js = 1,666,653 B（不计账）；content.js 177,076 B/sha 52a82620… + pick-layer.js 34,358 B/sha 77796bab… 逐字节命中；保护段 journey [43484,59347) sha 7b309258aab7… + binding [107780,115930) sha be9ad0e98367… 命中。",
+    "drift": "spec 零漂移（mtime 停在 spec 相位）；叶内命名 I-2 零残留；父级旧名残留属已登记 openItem；test( 调用点只增不减；assertionsRemoved=0；CHROMIUM_GATES===9。",
+    "runtimeVerified": true
+  }
+}

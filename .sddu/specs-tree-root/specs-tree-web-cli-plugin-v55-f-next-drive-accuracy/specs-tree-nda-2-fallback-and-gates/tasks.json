@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "feature": "NDA-2 未配置确定性引导 + 自由输入分相 + 提醒补一次 + LLM 异常兜底链 + 首开边界 + 门禁/体积重锚：兜底与判据叶（父：specs-tree-web-cli-plugin-v55-f-next-drive-accuracy / F-37 / v0.11.4）",
+    "featureKey": "specs-tree-nda-2-fallback-and-gates",
+    "artifact": "tasks.json",
+    "phase": "tasked",
+    "agent": "sddu-tasks",
+    "createdAt": "2026-09-27",
+    "version": "1.0.0",
+    "sourcePlan": "本叶 plan.md v1.0（§4 父 ADR 叶内落地定案 + §5 文件影响 A/B 列 + §6 叶内风险 11 条 + §8 交付物 10 项 / 8 步执行序）+ 父 plan.md v1.0 + 叶级 ADR-NDA-201 / 202",
+    "sourceSpec": "本叶 spec.md v1.0（承载父 FR ≈42 条切片：UNCONF 050~056 / NUDGE 060~066 / ABNORMAL 070~076 / OPEN 090~093 / S0'''' 100·103·104 终态侧 / SUPERSEDE 112·113·119·120·122 / GATE 130~137 等价重锚终态 + 保护段 / VOL 141~145 终态侧）+ 父 spec.md v1.0 + 叶1 spec/plan（硬前置）",
+    "taskCount": 21,
+    "waveCount": 3,
+    "complexity": { "S": 3, "M": 16, "L": 2 },
+    "typeBreakdown": { "implementation": 8, "gate": 8, "spike": 1, "doc": 4, "human": 0, "other": 0 },
+    "numbering": {
+      "namespace": "TASK-NDA-2xx",
+      "globalBlock": "TASK-NDA-201~221",
+      "conflictCheck": "与 TASK-001~040 / TASK-2xx~3xx / TASK-4xx / TASK-5xx~8xx / TASK-V45-1xx / TASK-V5-1xx / TASK-V55-1xx~320 / TASK-V55F-1xx~2xx / TASK-IAN-1xx~2xx / TASK-ADN-1xx~2xx / TASK-NDA-1xx 零冲突（本轮实测 .sddu/** 全库 TASK-NDA 零命中）"
+    },
+    "templateDeviation": {
+      "id": "agent 模板 §5.4 / §8（建议 5~15 任务）",
+      "actual": 21,
+      "reason": "① 本叶 plan.md §8 交付物 10 项 + 8 步执行序；② 过并破坏「每任务独立可验证」（分相 / 有界 / 闭集 / 计数重锚 / 四处恰 N 各为独立可失败判据）；③ 与 F-36 叶2（23）/ F-35 叶2（25）同量级显式登记；④ 21 = 可原子执行单元，不是 LLM 调用数"
+    },
+    "spikeGateDeviation": {
+      "note": "本叶 plan.md 与 ADR-NDA-005~009/201/202 未命名 spikeGate 代号；本轮按编排器排布要求落为 SG-NDA-03（W1：nudge chat 回调内续呼 + 有界 + 零计数漂移；覆盖编排器点名的两个最高风险点之一）；探针产物不落版本库（test/_spike/ 探毕删除）",
+      "codes": ["SG-NDA-03"]
+    },
+    "commitIntervals": {
+      "A": { "wave": "W1", "content": "分相与提醒（free-input.when 分相 + 未配置引导复核 + next-drive-policy.ts shouldNudge/NUDGE_TEXT + SW chat 回调 nudge + free-input-next 重锚 + R8/零死端保留）+ SG-NDA-03", "atomic": true, "col": "B 列为主（A 列仅分相微量）" },
+      "B": { "wave": "W2", "content": "异常与兜底（abnormalVerdict 闭集 + AiNextPayload.abnormal? + SW onFinish(outcome) 装配 + llm.abnormal 第 13 行 + 面板只消费 + 12→13 重锚 + 四处恰 N 不动 + AI-N-15 + 首开零改确认）", "atomic": true, "col": "A 列主体（+0.6~1.4 KB）⇒ 落完即实测" },
+      "C": { "wave": "W3", "content": "验收与治理（S0'''' 支线 C/D/E 终态 + Chromium 面 + X-NDA 台账终态 + 保护段 keep + 体积叶2 重登记 + 两叶 Σ + 门禁守恒终态对账 + 红线巡检/人工面；收口轮·终局）", "atomic": true, "col": "A 列薄 + 登记" }
+    },
+    "volumeColABudgetBytes": 1434,
+    "volumeColAUpperBoundBytes": 1434,
+    "volumeColBBudgetBytes": 3600,
+    "volumeColBUpperBoundBytes": 3600,
+    "volumeColAAccounted": true,
+    "volumeCaliber": "A 列（sidepanel.js 净增）叶2 +0.6~1.4 KB；B 列（background.js）+1.9~3.6 KB 但不计账；逐模块归因 + 叶2 收口重登记（含两叶 Σ）= TASK-NDA-219；判据包线取 spec §5.14.1（更紧）",
+    "crossLeafHardPrereq": "叶1 specs-tree-nda-1-next-tool-channel 须 validated（BLK-NDA-9）",
+    "runtimeVerified": false
+  },
+  "redlineLegend": {
+    "frozen": {
+      "F1": "dist/content.js 177,076 B / 52a82620…（零容差）；dist/pick-layer.js 34,358 B / 77796bab…（零容差）；packages/web-cli-base/** 零 diff",
+      "F2": "KIND_SET 40 项逐字不增；12 kind 契约不动；ARBITRATION_RESULTS 四值逐字；REGISTERED_STRUCTURAL_HOSTS === []；ACT_TO_OP 恰 6",
+      "F3": "判定链 policy.ts / auto-authorize.ts 零触碰（zeroDiffFiles pin）；manifest.json 零 diff",
+      "F4": "NEXTSTEP_PRIORITY 恰 5（叶1 已重锚）；DRIVER_TIMINGS 恰 5；PROACTIVE_MOMENTS 恰 7；DRIVER_TERMINALS 恰 4；BLOCKED_TERMINALS 恰 5；OPS_RECOVERY_PROVIDER_IDS 恰 2；RECOVERY_PROVIDER_IDS 恰 5；NEXT_SOURCE_NAMES 恰 7；密度 7/15·9/20·17/35 逐字不动",
+      "F5": "SPECIAL: 特权 op 恒 gesture；consent（含兜底推荐 op.llm-config）不得被 AI 代答；法八四面零明文；提醒恰一次（不新增计数调用点）；分相判据单源（risk.llmBlocked）"
+    },
+    "thresholds": {
+      "T-a": "sidepanel.js 生效上限 634,832 = floor(604,602×1.05)；档位 614,400（距档 9,798）；绝对上限 675,840；SIDEPANEL_CEILING_CAP 保持 record-only",
+      "T-b": "authorConfirmation = pending-author-line（未闭合义务，不得伪称已确认）",
+      "T-c": "op-wiring：requestTurn( 恰 1 / maybeRecommend 1 定义 8 调用点 / nextAfterSettle 1 定义 10 调用点 / runChatTurn( 2 —— 本叶全部零变（X-NDA-11 = no-supersession）",
+      "T-d": "CHROMIUM_GATES === 9 不动；不新增 Chromium 门禁文件",
+      "T-e": "DRIVER_DECLS_SRC 12 → 13（旧 12 行逐字保留）；driver-quadruple 13↔13；next-registry NR-10 13"
+    }
+  },
+  "waves": [
+    { "wave": 1, "tasks": ["TASK-NDA-201", "TASK-NDA-202", "TASK-NDA-203", "TASK-NDA-204", "TASK-NDA-205", "TASK-NDA-206", "TASK-NDA-207"], "strategy": "201 先验闸门最前；202 ∥ 203 → 205；204（依赖 201/202/203）→ 206 → 207", "interval": "A（B 列为主）" },
+    { "wave": 2, "tasks": ["TASK-NDA-208", "TASK-NDA-209", "TASK-NDA-210", "TASK-NDA-211", "TASK-NDA-212", "TASK-NDA-213", "TASK-NDA-214", "TASK-NDA-215"], "strategy": "208 → 209 → 210（A 列主体 ⇒ 落完即实测）；211；212；213 ∥ 214；215（登记，可与 214 并行）", "interval": "B（A 列主体）" },
+    { "wave": 3, "tasks": ["TASK-NDA-216", "TASK-NDA-217", "TASK-NDA-218", "TASK-NDA-219", "TASK-NDA-220", "TASK-NDA-221"], "strategy": "216 → 217（node → Chromium 硬序）；218 ∥ 219；220（全门禁串行终态对账）；221 末位（红线 + 人工面 + 停机确认）", "interval": "C（收口轮·终局）" }
+  ],
+  "criticalPath": ["TASK-NDA-201", "TASK-NDA-202", "TASK-NDA-204", "TASK-NDA-206", "TASK-NDA-208", "TASK-NDA-209", "TASK-NDA-210", "TASK-NDA-211", "TASK-NDA-212", "TASK-NDA-214", "TASK-NDA-216", "TASK-NDA-217", "TASK-NDA-218", "TASK-NDA-220", "TASK-NDA-221"],
+  "independentParallelGroups": [
+    { "group": "Q1", "members": ["TASK-NDA-202", "TASK-NDA-203"], "note": "next-drive-policy.ts 与 providers.ts 不相交" },
+    { "group": "Q2", "members": ["TASK-NDA-205", "TASK-NDA-206"], "note": "引导复核与门禁重锚不相交（复核结论喂门禁判据）" },
+    { "group": "Q3", "members": ["TASK-NDA-209", "TASK-NDA-210"], "note": "service-worker.ts 与 providers.ts 不相交" },
+    { "group": "Q4", "members": ["TASK-NDA-213", "TASK-NDA-214"], "note": "集合守恒复核与判据扩容不相交" },
+    { "group": "Q5", "members": ["TASK-NDA-218", "TASK-NDA-219"], "note": "台账终态与体积登记不相交（Chromium 复跑仍串行）" }
+  ],
+  "tasks": [
+    { "id": "TASK-NDA-201", "wave": 1, "complexity": "M", "type": "spike", "title": "SG-NDA-03 nudge chat 回调内续呼 + 有界 + 零计数漂移 可行性探针（先验闸门）", "spikeGate": "SG-NDA-03", "deps": ["叶1 validated（BLK-NDA-9）"], "fr": ["FR-NDA-060", "FR-NDA-061", "FR-NDA-062", "FR-NDA-063", "FR-NDA-064"], "ac": ["AC-NDA-008"], "adr": ["ADR-NDA-006"], "files": [{ "op": "SPIKE", "path": "packages/web-cli-plugin/test/_spike/sg-nda-03-probe.mjs（探毕删除）" }], "acceptance": ["可判「无 toolCalls ⇒ 基座唯一去路是 finish('completed')/finish('empty')」；nudge 在同一次 runChatTurn 内", "runChatTurn( 调用点仍 2；requestTurn( 仍恰 1；nextAfterSettle 仍 1 定义 10 调用点", "nudge turn 只出现在局部数组（session.snapshot() 不含 nudge 文本）", "nudgeUsed 每回合重新开始 ⇒ 每回合 nudge ≤1", "结论 ∈ {可行 / 不可行}；五要素写入 build 记录"], "gates": ["TASK-NDA-202", "TASK-NDA-204", "TASK-NDA-206", "TASK-NDA-213", "TASK-NDA-214"], "stoppingRule": "不可行 ⇒ 暂停上报（禁新增回合容器 / 禁改 onToolDone 语义 / 禁新增计数调用点 / 禁进会话历史）" },
+
+    { "id": "TASK-NDA-202", "wave": 1, "complexity": "M", "type": "implementation", "title": "background/next-drive-policy.ts（NEW）shouldNudge 五条件 + NUDGE_TEXT", "deps": ["TASK-NDA-201"], "fr": ["FR-NDA-060", "FR-NDA-061", "FR-NDA-062", "FR-NDA-063", "FR-NDA-106"], "ac": ["AC-NDA-008"], "adr": ["ADR-NDA-006"], "col": "B", "files": [{ "op": "NEW", "path": "packages/web-cli-plugin/src/background/next-drive-policy.ts" }], "acceptance": ["shouldNudge 纯函数（零 chrome / DOM / 时钟 / fetch / IO）；五条件真值表逐条可判", "nudgeUsed === true ⇒ false（有界可 FAIL）；!configured ⇒ false；captured ⇒ false；hasReply === false ⇒ false", "NUDGE_TEXT 含两句（调用一次 + 空数组兜底）；零明文", "模块不 import chrome / 面板模块；node 门禁可直接调用", "反证：忽略 nudgeUsed ⇒ 必红；删 hasReply ⇒ 必红（由 TASK-NDA-214 落判据）"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-203", "wave": 1, "complexity": "S", "type": "implementation", "title": "providers.ts free-input.when 分相（单源 risk.llmBlocked；保留 session.busy 读向）", "deps": ["TASK-NDA-201"], "fr": ["FR-NDA-051", "FR-NDA-052", "FR-NDA-053"], "ac": ["AC-NDA-007", "AC-NDA-018"], "adr": ["ADR-NDA-005"], "col": "A（+~0.1 KB）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts" }], "acceptance": ["when 源文本含 LLM_BLOCKED_RISK 与 session.busy（DQ-3 when-scope ↔ evidence 同源保持）", "未配置 ctx（risk:['llmBlocked']）⇒ when === false；已配置 ctx ⇒ when === true", "chips / textOf 逐字保留；既有 12 行 provider 其余零改", "与 llm.unconfigured 修复 provider 共享同一事实源与常量 ⇒ 分相不漂移", "反证（由 TASK-NDA-206 落判据）：注入恒真 / 恒假 ⇒ 各自必红"], "gate": "free-input-next" },
+
+    { "id": "TASK-NDA-204", "wave": 1, "complexity": "L", "type": "implementation", "title": "service-worker.ts chat 回调 nudge 接线（configured 单源 + 局部 turn + nudgeUsed 先置位）", "deps": ["TASK-NDA-201", "TASK-NDA-202", "TASK-NDA-203"], "fr": ["FR-NDA-060", "FR-NDA-061", "FR-NDA-062", "FR-NDA-063", "FR-NDA-064", "FR-NDA-065", "FR-NDA-066"], "ac": ["AC-NDA-008", "AC-NDA-015"], "adr": ["ADR-NDA-006"], "col": "B", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" }], "acceptance": ["nudge 使用同一 deriveTools() 与同一 provider cfg（同一产出通道，无第二解析器 / 第二校验器）", "nudge turn 不进会话（session.snapshot() 可判）；buildPlan 用最终 res", "nudge 次数 ≤1（运行断言 + 源文本判据双面）；置位在调用之前", "零计数漂移：runChatTurn( 2 / requestTurn( 恰 1 / nextAfterSettle 1·10 / maybeRecommend 1·8 全未变", "不绕护栏（六常量零改）；在飞 pending 硬门不动", "nudge 轮失败 ⇒ finish('llm-failed') ⇒ 系统兜底可达（由 TASK-NDA-216 端到端判）", "turn-queue.ts / chat-runner.ts diff = 0"], "gate": "op-wiring / driver-timings / turn-arbitration" },
+
+    { "id": "TASK-NDA-205", "wave": 1, "complexity": "S", "type": "implementation", "title": "未配置确定性引导复核（零新增面：llm.unconfigured → OPS_RECOVERY_ROWS → op.llm-config 可达）", "deps": ["TASK-NDA-203"], "fr": ["FR-NDA-050", "FR-NDA-054", "FR-NDA-055", "FR-NDA-056"], "ac": ["AC-NDA-006", "AC-NDA-017"], "adr": ["ADR-NDA-005"], "files": [{ "op": "REVIEW", "path": "packages/web-cli-plugin/src/background/service-worker.ts（:945-956）" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts（:4167-4194 / :1484-1486 / :2059-2062）" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts（:52-61 / :131-141）" }], "acceptance": ["未配置 ⇒ op.llm-config 引导 chip 可达；反证「未配置无引导 ⇒ 必红」", "零 token / 零网络：未配置提交仍走 variant:'llm-unconfigured'", "零新增面：OPS_RECOVERY_ROWS / OPS_RECOVERY_PROVIDER_IDS 仍恰 2；BLOCKED_TERMINALS 仍恰 5；零新增 op / 动作", "未配置相文案与异常相文案相异（由 TASK-NDA-214 断言）"], "gate": "blocked-terminals / free-input-next" },
+
+    { "id": "TASK-NDA-206", "wave": 1, "complexity": "M", "type": "gate", "title": "free-input-next 分相重锚（FIN-0~9 只增 + 双向反证非恒真）", "deps": ["TASK-NDA-203", "TASK-NDA-205"], "fr": ["FR-NDA-051", "FR-NDA-052", "FR-NDA-053"], "ac": ["AC-NDA-007", "AC-NDA-018"], "adr": ["ADR-NDA-005", "ADR-NDA-009"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/free-input-next.test.ts" }], "acceptance": ["两相判据均非恒真（各自可 FAIL）；已配置相仍恒常驻（恒最末，非 .next-chip，不进 MAX_CHIPS_PER_CARD）", "反证 ① 未配置仍显示自由输入 ⇒ 必红；反证 ② 已配置删终端 ⇒ 必红（各附 sha256 逐字节还原）", "FIN-0~9 零删除；计数只增（≥22）", "未配置相可达 next 由 llm.unconfigured 引导 chip 提供（非死端）"], "gate": "free-input-next" },
+
+    { "id": "TASK-NDA-207", "wave": 1, "complexity": "M", "type": "gate", "title": "r8-open-next-entry 保留零改 + no-dead-end 未配置相覆盖（只增）", "deps": ["TASK-NDA-206"], "fr": ["FR-NDA-090", "FR-NDA-091", "FR-NDA-092", "FR-NDA-093", "FR-NDA-045"], "ac": ["AC-NDA-011", "AC-NDA-007"], "adr": ["ADR-NDA-202", "ADR-NDA-005"], "files": [{ "op": "REVIEW", "path": "packages/web-cli-plugin/test/r8-open-next-entry.test.ts（预期零改）" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/no-dead-end.mjs（只增）" }], "acceptance": ["R8-1~6 绿且文件零改（若红 = 实现缺陷，不改判据）", "no-dead-end 新增未配置相覆盖（可达 op.llm-config 引导）；只增不删（≥53）", "零双卡判据绿（firstRunCard.visible === !(configured ∧ authorized) 逐字不动）", "首屏零 LLM 往返依赖"], "gate": "r8-open-next-entry / no-dead-end" },
+
+    { "id": "TASK-NDA-208", "wave": 2, "complexity": "M", "type": "implementation", "title": "abnormalVerdict 闭集三情 + definition.ts AI_ABNORMAL_CODES + AiNextPayload.abnormal?（type-only 单源）", "deps": ["TASK-NDA-204"], "fr": ["FR-NDA-070", "FR-NDA-071", "FR-NDA-075"], "ac": ["AC-NDA-009"], "adr": ["ADR-NDA-007", "ADR-NDA-201"], "col": "B（判定）+ A（definition.ts +120~300 B）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/next-drive-policy.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/definition.ts" }], "acceptance": ["三情真值表（no-tool-call / llm-failed / all-blocked）+ accepted > 0 ⇒ null + stopped ⇒ null", "AI_ABNORMAL_CODES 恰一处声明（零第二份字面量 / 零第二词表）", "abnormal? 为 aiNext 子字段（零新 kind / 零新 variant / 零新宿主；KIND_SET 40 / ARBITRATION_RESULTS 四值逐字）", "abnormal 只在非 null 时附加，且此时 accepted 恰空（反证「有 accepted 却带 abnormal ⇒ 必红」）", "与 llm.unconfigured 不混同；NEXT_SOURCE_NAMES 仍恰 7；recommend.ts 零新导入"], "gate": "ai-next-candidate / messaging" },
+
+    { "id": "TASK-NDA-209", "wave": 2, "complexity": "M", "type": "implementation", "title": "service-worker.ts onFinish(outcome) 消费 + abnormal 附加 + hasAiNext 扩展（事件作用域一次性）", "deps": ["TASK-NDA-208"], "fr": ["FR-NDA-070", "FR-NDA-073", "FR-NDA-074", "FR-NDA-019"], "ac": ["AC-NDA-009", "AC-NDA-002"], "adr": ["ADR-NDA-201"], "col": "B", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/background/service-worker.ts" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/src/background/chat-events.ts（预期零改）" }], "acceptance": ["onFinish 接收并使用 outcome；abnormal 仅当 abnormalVerdict !== null 时附加", "缺席 ⇒ 现状逐字（正常回合字段集合与今天一致；反证「总是附加空 abnormal ⇒ 必红」）", "ChatResultEvent.aiNext? 逐字不改", "事件作用域一次性：第二次正常回合不再出现 llmAbnormal 风险项 / 兜底 chip", "零改基座；零新增 LLM 往返"], "gate": "ai-next-candidate / chat-events" },
+
+    { "id": "TASK-NDA-210", "wave": 2, "complexity": "M", "type": "implementation", "title": "providers.ts llm.abnormal 第 13 行 + LLM_ABNORMAL_RISK + DRIVER_DECLS_SRC 第 13 行（文案分相）", "deps": ["TASK-NDA-209"], "fr": ["FR-NDA-072", "FR-NDA-073", "FR-NDA-075", "FR-NDA-076"], "ac": ["AC-NDA-009"], "adr": ["ADR-NDA-007", "ADR-NDA-202"], "col": "A（+250~600 B；叶2 A 列主体）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/next-registry/providers.ts" }], "acceptance": ["llm.abnormal 行：rule:'risk-recovery' / priority:0 / when 读 LLM_ABNORMAL_RISK / chips:['op.llm-config'] / textOf = ['配置新的 LLM（切换 / 重配）']", "chip = op.llm-config（零新增 op / 动作）；confirm 档 ⇒ 用户作答（AI 不代答）", "两文案相异且各自在场（未配置「配置 LLM 凭据…」/ 异常「配置新的 LLM（切换 / 重配）」）", "DRIVER_DECLS_SRC['llm.abnormal']：timings:['idle'] / moments:['turn-end'] / driverClass:'deterministic' / priority:0 / evidence:['risk']（与 when 实读同源）", "不入 BLOCKED_TERMINALS / OPS_RECOVERY_PROVIDER_IDS / RECOVERY_PROVIDER_IDS；DRIVER_TIMINGS 仍恰 5", "旧 12 行 DRIVER_DECLS_SRC 逐字保留"], "gate": "driver-quadruple / next-registry / blocked-terminals" },
+
+    { "id": "TASK-NDA-211", "wave": 2, "complexity": "M", "type": "implementation", "title": "sidepanel.ts noteLlmAbnormalFact + risk 折叠 + consumeAiNext 只消费（零第二分类器）", "deps": ["TASK-NDA-208", "TASK-NDA-209"], "fr": ["FR-NDA-073", "FR-NDA-074"], "ac": ["AC-NDA-009"], "adr": ["ADR-NDA-007", "ADR-NDA-201"], "col": "A（+200~500 B）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/src/ui/sidepanel/sidepanel.ts" }], "acceptance": ["noteLlmAbnormalFact 与 noteLlmBlockedFact 同构（事件作用域 Set；一次性，不持久化）", "零第二分类器：abnormalVerdict / AI_ABNORMAL_CODES 在 sidepanel.ts 零实现（只 import LLM_ABNORMAL_RISK）；反证「面板写第二判定 ⇒ 必红」", "不新增 maybeRecommend 调用点（复用 consumeAiNext 尾部既有调用）", "NEXT_SOURCE_NAMES 仍恰 7；异常相推荐卡 = 兜底 chip + 已配置终端 ⇒ 零死端", "兜底推荐不代答 consent"], "gate": "recommendation-sources / no-dead-end" },
+
+    { "id": "TASK-NDA-212", "wave": 2, "complexity": "M", "type": "gate", "title": "driver-quadruple 12↔12 → 13↔13 + next-registry NR-10 12→13（逐项同集 + 幽灵行必红）", "deps": ["TASK-NDA-210"], "fr": ["FR-NDA-071", "FR-NDA-075", "FR-NDA-130", "FR-NDA-134"], "ac": ["AC-NDA-026"], "adr": ["ADR-NDA-202"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/driver-quadruple.test.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/next-registry.test.ts" }], "acceptance": ["DECL_IDS.length === 13 ∧ PROVIDER_IDS.length === 13 ∧ 逐项同集；NR-10 两处 === 13", "四条反证各自必红：声明 13/注册 12；反向；幽灵行；少一行", "DRIVER_DECLS_SRC['llm.abnormal'].evidence === ['risk'] 且与 when 实读同源", "断言零删除、计数只增；NEXT_SOURCE_NAMES 仍恰 7（NR-0 保持）"], "gate": "driver-quadruple / next-registry" },
+
+    { "id": "TASK-NDA-213", "wave": 2, "complexity": "M", "type": "gate", "title": "四处恰 N 不动（7 个集合）+ llm.abnormal 不入三集合", "deps": ["TASK-NDA-210", "TASK-NDA-212"], "fr": ["FR-NDA-075", "FR-NDA-130"], "ac": ["AC-NDA-020", "AC-NDA-026"], "adr": ["ADR-NDA-202"], "files": [{ "op": "REVIEW", "path": "packages/web-cli-plugin/test/blocked-terminals.test.ts（预期零改）" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/test/driver-terminals.test.ts（预期零改）" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/test/driver-timings.test.ts（预期零改）" }], "acceptance": ["7 个集合计数逐字未变（BLOCKED_TERMINALS 5 / OPS_RECOVERY_PROVIDER_IDS 2 / OPS_RECOVERY_ROWS 2 / RECOVERY_PROVIDER_IDS 5 / DRIVER_TERMINALS 4 / PROACTIVE_MOMENTS 7 / DRIVER_TIMINGS 5 / NEXT_SOURCE_NAMES 7）", "对应门禁文件零改且绿", "llm.abnormal 不在 BLOCKED_TERMINALS / OPS_RECOVERY_ROWS / RECOVERY_PROVIDER_IDS 中", "零第二阈值 / 零第二词表（源码扫描）", "op-wiring（requestTurn( 恰 1）/ turn-arbitration（四值逐字）/ proactivity-guard（六常量）零改"], "gate": "blocked-terminals / driver-terminals / driver-timings / proactivity-guard" },
+
+    { "id": "TASK-NDA-214", "wave": 2, "complexity": "M", "type": "gate", "title": "ai-next-candidate AI-N-15（有界 / 三情 / 两文案相异 / 分相非恒真 / 缺席逐字）", "deps": ["TASK-NDA-208", "TASK-NDA-210", "TASK-NDA-211", "TASK-NDA-212"], "fr": ["FR-NDA-062", "FR-NDA-070", "FR-NDA-071", "FR-NDA-105", "FR-NDA-106", "FR-NDA-019"], "ac": ["AC-NDA-008", "AC-NDA-009", "AC-NDA-021", "AC-NDA-031"], "adr": ["ADR-NDA-006", "ADR-NDA-007", "ADR-NDA-202"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ai-next-candidate.test.ts" }], "acceptance": ["AI-N-15 逐条可判且非恒真（各自可注入违反面 ⇒ 必红 + sha256 还原）", "反证：提醒两次 / 无限续轮 ⇒ 必红；忽略 nudgeUsed ⇒ 必红；删 hasReply ⇒ 必红；删 llm.abnormal ⇒ 兜底 chip 缺失 ⇒ 必红；未配置被判成异常 ⇒ 必红", "两文案不相同且各自在场", "提醒往返次数 ≤1（源文本 + 运行断言双面）；recommend.ts 仍 pure（④ 保持绿）", "三段控制逐态可达；断言只增"], "gate": "ai-next-candidate" },
+
+    { "id": "TASK-NDA-215", "wave": 2, "complexity": "S", "type": "doc", "title": "首开零行为改动确认 + PD-NDA-001 / PD-NDA-016 登记", "deps": ["TASK-NDA-207"], "fr": ["FR-NDA-090", "FR-NDA-091", "FR-NDA-092", "FR-NDA-093"], "ac": ["AC-NDA-011"], "adr": ["ADR-NDA-202"], "files": [{ "op": "DOC", "path": "本叶 build / validate 记录（PD-NDA-001 / PD-NDA-016 登记条目）" }], "acceptance": ["maybeRecommendOpenEntry / firstRunCard 零改（git diff = 0）", "PD-NDA-001 登记存在（首开确定性保持；PD-ADN-001 不转正）；PD-NDA-016 登记存在（nudge 时点偏差 + 有界 ≤1）", "零双卡判据绿；首屏零 LLM 往返依赖", "未配置首开由「去配置 LLM」引导承接（且无自由输入终端）"], "gate": "r8-open-next-entry" },
+
+    { "id": "TASK-NDA-216", "wave": 3, "complexity": "L", "type": "gate", "title": "S0'''' 支线 C / D / E 终态 node 面（注入必红 + 逐字节还原）", "deps": ["TASK-NDA-214"], "fr": ["FR-NDA-100", "FR-NDA-103", "FR-NDA-104", "FR-NDA-044", "FR-NDA-045", "FR-NDA-065", "FR-NDA-073", "FR-NDA-074"], "ac": ["AC-NDA-001", "AC-NDA-009", "AC-NDA-011"], "adr": ["ADR-NDA-006", "ADR-NDA-007", "ADR-NDA-202"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ai-next-candidate.test.ts" }, { "op": "REVIEW", "path": "packages/web-cli-plugin/test/s0-self-driven-chain.test.ts（若存在 ⇒ 只增）" }], "acceptance": ["支线 C：no-tool-call / llm-failed / all-blocked 三情形各 ⇒ op.llm-config 兜底 chip 可达 + 确定性候选 + 已配置终端（零死端）", "支线 D：未配置 ⇒ 引导可达 ∧ 卡无 .next-terminal ∧ 零 token / 零网络", "支线 E：首开走确定性 ∧ 零 LLM 往返 ∧ 零双卡", "注入必红：删兜底 provider / 未配置仍显示自由输入 / 提醒两次 / AI 代答 consent —— 各附 expectFailPattern + 逐字节还原", "真源切片（禁假 provider / 桩）；三段控制逐态可达"], "gate": "ai-next-candidate / s0-chain / no-dead-end" },
+
+    { "id": "TASK-NDA-217", "wave": 3, "complexity": "M", "type": "gate", "title": "Chromium 面（s0-self-driven / recommendation / law8 只加断言）+ 人工面 ⏳", "deps": ["TASK-NDA-216"], "fr": ["FR-NDA-100", "FR-NDA-103", "FR-NDA-104"], "ac": ["AC-NDA-001", "AC-NDA-014", "AC-NDA-019", "AC-NDA-032"], "adr": ["ADR-NDA-004", "ADR-NDA-202"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/s0-self-driven.mjs" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/recommendation.mjs" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/ui/law8-plaintext.mjs" }], "acceptance": ["断言只加不删；CHROMIUM_GATES === 9；不新增 Chromium 门禁文件", "recommendation.mjs：已配置 ⇒ 终端恒最末；未配置 ⇒ 无终端 + 引导 chip；异常 ⇒ 兜底 chip", "test:law8 ≥60 零降级；test:recommendation ≥79", "人工面 M1~M6 逐项 ⏳ 未执行（不冒充 PASS）；上游人工面零改写", "门禁串行；KL-N-10 首轮异常 ⇒ 隔离复跑 ≥2 + 日志全量；仍红如实记录不阻塞"], "gate": "s0-self-driven / recommendation / law8-plaintext / gate-integrity" },
+
+    { "id": "TASK-NDA-218", "wave": 3, "complexity": "M", "type": "doc", "title": "xNdaLedger 终态（X-3/4/10/11）+ xNdaLedgerFull 全 12 条 + 保护段 keep 决策", "deps": ["TASK-NDA-216"], "fr": ["FR-NDA-112", "FR-NDA-113", "FR-NDA-119", "FR-NDA-120", "FR-NDA-122", "FR-NDA-132", "FR-NDA-133"], "ac": ["AC-NDA-022", "AC-NDA-023"], "adr": ["ADR-NDA-009", "ADR-NDA-202"], "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/docs/v4-supersession-ledger.json" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/supersession-ledger.test.ts" }], "acceptance": ["xNdaLedger 补叶2 四行（X-3 superseded / X-4 superseded（新增项）/ X-10 no-supersession / X-11 no-supersession（含「由预登记降级」判定依据））", "xNdaLedgerFull：已发生取代 7 / 保留 1（9 子项）/ 未发生取代 4，逐条 counterCheck", "xNdaGateReconciliation 25 行三态齐、无「未处置」项；间接面逐条确认", "老条目逐字保留（git diff 只增）", "保护段零改动 ⇒ sha + startByte 双绿；modifiedRanges 为空；journey / binding git diff = 0", "test:supersession ≥53；assertionsRemoved = 0"], "gate": "test:supersession" },
+
+    { "id": "TASK-NDA-219", "wave": 3, "complexity": "M", "type": "doc", "title": "体积叶2 重登记 + 两叶 Σ + EC-NDA-016 三分支终态", "deps": ["TASK-NDA-217"], "fr": ["FR-NDA-140", "FR-NDA-141", "FR-NDA-143", "FR-NDA-144", "FR-NDA-145"], "ac": ["AC-NDA-028"], "adr": ["ADR-NDA-008"], "col": "A（登记）", "files": [{ "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-baseline.ts" }, { "op": "MODIFY", "path": "packages/web-cli-plugin/test/size-growth-evidence.test.ts（若涉及）" }], "acceptance": ["叶2 五要素 + 三值同源前移；nda2Rows 逐模块；两叶 Σ 与逐模块归因算术机核绿", "EC-NDA-016 三分支逐项如实（禁预填）；越档须走 EC 显式路径 + 作者一行", "authorConfirmation 读值 = pending-author-line（不得伪称）", "B 列标注「不计账」；反证「搬列规避 ⇒ 必红」", "冻结面 stat + sha256 前后一致", "test:size-ruling-vol3 ≥13；判据口径取 spec §5.14.1 保守包线"], "gate": "test:size-ruling-vol3 / size-*" },
+
+    { "id": "TASK-NDA-220", "wave": 3, "complexity": "M", "type": "gate", "title": "门禁守恒终态对账（三态齐 / 间接面 / assertionsRemoved = 0 / 串行 / KL-N-10）", "deps": ["TASK-NDA-212", "TASK-NDA-213", "TASK-NDA-214", "TASK-NDA-218", "TASK-NDA-219"], "fr": ["FR-NDA-130", "FR-NDA-134", "FR-NDA-135", "FR-NDA-136", "FR-NDA-137"], "ac": ["AC-NDA-020", "AC-NDA-024", "AC-NDA-025", "AC-NDA-026"], "adr": ["ADR-NDA-009", "ADR-NDA-202"], "files": [{ "op": "REVIEW_OR_ADD", "path": "packages/web-cli-plugin/test/gate-integrity.test.ts" }, { "op": "DOC", "path": "本叶 build / validate 门禁对账表" }], "acceptance": ["25 行 + 间接面逐条三态齐（无「未处置」）；assertionsRemoved === 0；计数只增不减", "gate-integrity 下界 ≥ 前值；CHROMIUM_GATES === 9 逐字", "门禁严格串行执行记录齐备（test / test:ui / test:binding 不并发；一次一个 Chromium）", "KL-N-10 首轮异常 ⇒ 隔离复跑 ≥2 + 日志全量 + 仍红如实记录不阻塞收口", "npm test ≥1507 或如实登记基线差异；e2e PASS"], "gate": "gate-integrity / supersession / size-ruling-vol3 / e2e / npm test" },
+
+    { "id": "TASK-NDA-221", "wave": 3, "complexity": "M", "type": "doc", "title": "红线巡检 + 人工面 M1~M6 如实登记 + 本叶收口对账", "deps": ["TASK-NDA-218", "TASK-NDA-219", "TASK-NDA-220"], "fr": ["FR-NDA-003", "FR-NDA-004", "FR-NDA-104", "FR-NDA-130", "FR-NDA-142"], "ac": ["AC-NDA-027", "AC-NDA-029", "AC-NDA-032"], "adr": ["ADR-NDA-009", "ADR-NDA-202"], "files": [{ "op": "REVIEW", "path": "packages/web-cli-plugin/**（只读巡检）" }, { "op": "DOC", "path": "本叶 build / validate 记录（人工面清单 + 收口对账）" }], "acceptance": ["git diff --stat -- packages/web-cli-base/ .sddu/specs-tree-root/ROADMAP.md .opencode/opencode.json = 0；zeroDiffFiles 9 项 pin 不变", "content.js 177,076 B / pick-layer.js 34,358 B + sha 前后一致；KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6 逐字", "法八四面零明文不退化；特权 op 恒 gesture；consent（含兜底推荐）不被 AI 代答", "人工面 M1~M6 逐项 ⏳ 未执行 / PASS，不得冒充 PASS", "停机规则 14 条逐条确认未触发；触发项停机上报"], "gate": "law8 / dead-end / npm test" }
+  ],
+  "spikeGates": [
+    { "code": "SG-NDA-03", "task": "TASK-NDA-201", "leaf": "specs-tree-nda-2-fallback-and-gates", "wave": "W1", "topic": "nudge 可在 SW chat 回调内同回合续呼且零计数漂移（nudgeUsed 每回合局部 ⇒ 有界恰一次；nudge turn 不进会话；零新增 requestTurn( / nextAfterSettle / runChatTurn( 调用点）", "riskRank": "最高风险点 ②（编排器点名：nudge 回调内续呼）", "gates": ["TASK-NDA-202", "TASK-NDA-204", "TASK-NDA-206", "TASK-NDA-213", "TASK-NDA-214"], "stoppingRule": "不可行 ⇒ 暂停上报（禁新增回合容器 / 禁改 onToolDone 语义 / 禁新增计数调用点 / 禁进会话历史）" }
+  ],
+  "gateConservation": {
+    "baselineSource": "spec §9.5 + ADR-NDA-009 §④ / §ADR-NDA-202（源自 F-36 收口 + 本轮只读实测；本轮未复跑）",
+    "npmTestBaseline": 1507,
+    "chromiumGates": "=== 9（不动）",
+    "gates": [
+      { "gate": "npm test", "baseline": 1507, "expected": ">=1507 或如实登记基线差异", "owners": ["TASK-NDA-220", "TASK-NDA-221"] },
+      { "gate": "free-input-next", "baseline": 22, "expected": ">=22（恒真 → configured 分相；FIN-0~9 只增）", "owners": ["TASK-NDA-206"] },
+      { "gate": "r8-open-next-entry", "baseline": "R8 新", "expected": "保留（零改全绿；首开确定性不回归）", "owners": ["TASK-NDA-207", "TASK-NDA-215"] },
+      { "gate": "no-dead-end", "baseline": 53, "expected": ">=53（新增未配置相与异常相覆盖，只增）", "owners": ["TASK-NDA-207", "TASK-NDA-211", "TASK-NDA-216"] },
+      { "gate": "driver-quadruple", "baseline": "恰 12", "expected": "13↔13（逐项同集 + 幽灵行必红）", "owners": ["TASK-NDA-212"] },
+      { "gate": "next-registry", "baseline": "族内", "expected": "NR-10 声明行 12 → 13（只增）；NR-0 顶层 7 源保持", "owners": ["TASK-NDA-212"] },
+      { "gate": "blocked-terminals", "baseline": "恰 5 / 2 / 5", "expected": "零改（BLOCKED_TERMINALS 5 / OPS_RECOVERY_PROVIDER_IDS 2 / RECOVERY_PROVIDER_IDS 5）", "owners": ["TASK-NDA-213"] },
+      { "gate": "driver-terminals / driver-timings", "baseline": "4 / 5 / 7", "expected": "零改（DRIVER_TERMINALS 4 / DRIVER_TIMINGS 5 / PROACTIVE_MOMENTS 7）", "owners": ["TASK-NDA-213"] },
+      { "gate": "op-wiring", "baseline": 14, "expected": "保留（requestTurn( 恰 1 / maybeRecommend 1·8 / nextAfterSettle 1·10 零变）", "owners": ["TASK-NDA-204", "TASK-NDA-213"] },
+      { "gate": "turn-arbitration", "baseline": 7, "expected": "保留（四值逐字；nudge 无独立回合 ⇒ 更强满足）", "owners": ["TASK-NDA-204", "TASK-NDA-214"] },
+      { "gate": "proactivity-guard", "baseline": "族内", "expected": "保留（六常量单源；nudge 不绕护栏；零第二阈值）", "owners": ["TASK-NDA-204", "TASK-NDA-213"] },
+      { "gate": "ai-next-candidate", "baseline": "族内（叶1 已改写）", "expected": "新增 AI-N-15（有界 / 三情 / 两文案相异 / 分相非恒真 / 缺席逐字）", "owners": ["TASK-NDA-214", "TASK-NDA-216"] },
+      { "gate": "supersession-ledger", "baseline": 53, "expected": ">=53（X-NDA-1~12 终态 + 保护段 keep）", "owners": ["TASK-NDA-218"] },
+      { "gate": "gate-integrity", "baseline": 24, "expected": ">=25（下界只增；CHROMIUM_GATES === 9）", "owners": ["TASK-NDA-220"] },
+      { "gate": "test:journey / test:binding", "baseline": "171 / 192", "expected": ">=基线（保护段 keep ⇒ 字节中立双绿）", "owners": ["TASK-NDA-218", "TASK-NDA-220"] },
+      { "gate": "test:recommendation", "baseline": 79, "expected": ">=79（分相终端 / 兜底 chip）", "owners": ["TASK-NDA-217"] },
+      { "gate": "test:s0-self-driven", "baseline": "族内", "expected": ">=前值（支线 C/D/E 终态；只加断言）", "owners": ["TASK-NDA-217"] },
+      { "gate": "test:law8", "baseline": 60, "expected": ">=60（零降级）", "owners": ["TASK-NDA-217", "TASK-NDA-221"] },
+      { "gate": "test:l0 / test:l1", "baseline": "251 / 132", "expected": ">=基线", "owners": ["TASK-NDA-221"] },
+      { "gate": "test:size-ruling-vol3", "baseline": 13, "expected": ">=13（叶2 正增量 + 两叶 Σ）", "owners": ["TASK-NDA-219"] },
+      { "gate": "e2e", "baseline": "PASS", "expected": "PASS", "owners": ["TASK-NDA-220"] },
+      { "gate": "messaging / stream-model / host-registry / next-dispatch-diff0", "baseline": "族内", "expected": "保留（KIND_SET 40 / 12 kind / 零宿主 / ACT_TO_OP 6）", "owners": ["TASK-NDA-208", "TASK-NDA-213"] }
+    ],
+    "newGates": [],
+    "rewrittenGates": [
+      { "gate": "free-input-next", "rewrite": "恒真 → risk.llmBlocked 分相（两相各可判 + 双向反证）；已配置相仍恒常驻；FIN-0~9 只增", "owners": ["TASK-NDA-206"] },
+      { "gate": "ai-next-candidate（增量）", "rewrite": "新增 AI-N-15（不改叶1 已有改写）", "owners": ["TASK-NDA-214"] }
+    ],
+    "upgradedGates": [
+      { "gate": "driver-quadruple", "upgrade": "12↔12 → 13↔13（llm.abnormal 第 13 行 + 逐项同集 + 幽灵行必红）", "owners": ["TASK-NDA-212"] },
+      { "gate": "next-registry", "upgrade": "NR-10 12 → 13（只增）", "owners": ["TASK-NDA-212"] },
+      { "gate": "size-* / test:size-ruling-vol3", "upgrade": "叶2 五要素 + 三值 + nda2Rows + 两叶 Σ + EC-NDA-016 三分支", "owners": ["TASK-NDA-219"] },
+      { "gate": "supersession-ledger", "upgrade": "xNdaLedger 终态 + xNdaLedgerFull + xNdaGateReconciliation 25 行 + 保护段 keep", "owners": ["TASK-NDA-218"] },
+      { "gate": "no-dead-end / s0-self-driven / recommendation", "upgrade": "支线 C/D/E 终态 + 分相终端 + 兜底 chip（只加断言）", "owners": ["TASK-NDA-207", "TASK-NDA-216", "TASK-NDA-217"] }
+    ],
+    "indirect": [
+      { "gate": "test/op-protocol.test.ts", "note": "保留（未触碰，逐条确认）", "owners": ["TASK-NDA-220"] },
+      { "gate": "test/next-obligation-table.test.ts", "note": "保留（ai-next 静态 chips 面）", "owners": ["TASK-NDA-220"] },
+      { "gate": "test/chat-events.test.ts / design-contract / settings", "note": "保留（abnormal 为 aiNext 子字段 ⇒ 契约不改；若涉及 ⇒ 只增）", "owners": ["TASK-NDA-209", "TASK-NDA-220"] },
+      { "gate": "test/capability-wiring.test.ts", "note": "保留（特权恒 gesture）", "owners": ["TASK-NDA-213"] }
+    ],
+    "sizeOnlyIncrease": "全部门禁计数 ≥ 基线（唯一例外 = 保护段显式取代 + 台账；本 Feature 预期 keep ⇒ 无需取代）；assertionsRemoved = 0"
+  },
+  "checkpoint": { "id": "CP-NDA-2", "after": "W1~W3（TASK-NDA-221）", "criteria": "未配置 ⇒ 不显示自由输入终端 ∧ op.llm-config 引导可达 ∧ 零 token 零网络；已配置 ⇒ 终端恒常驻（R8 / F-35 不回归）；分相判据单源（risk.llmBlocked；NEXT_SOURCE_NAMES 恰 7）；提醒恰一次（nudgeUsed 首闸；nudge turn 不进会话；零新增计数调用点）；异常判定闭集三情 + stopped ⇒ null + accepted>0 ⇒ null；llm.abnormal 第 13 行（chip=op.llm-config；两文案相异）；abnormal 缺席 ⇒ 现状逐字；面板零第二分类器；driver-quadruple 13↔13 + next-registry NR-10 13；四处恰 N 不动（7 个集合）；AI-N-15；首开零行为改动（PD-NDA-001 + PD-NDA-016 登记）；S0'''' 支线 C/D/E 终态（注入必红 + 逐字节还原）；X-NDA-1~12 台账终态（取代 7 / 保留 1（9 子项）/ 未发生 4；25 行三态齐）；保护段 keep（journey [43484,59347) sha 7b309258… / binding [107780,115930) sha be9ad0e9…；字节中立双绿）；体积叶2 + 两叶 Σ + EC-NDA-016 三分支；authorConfirmation=pending-author-line；门禁守恒（npm test ≥1507 或如实登记 / 只增不减 / CHROMIUM_GATES === 9 / 串行 / KL-N-10 隔离复跑 ≥2）；人工面 M1~M6 ⏳ 未执行；e2e PASS" },
+  "blockers": [
+    { "id": "BLK-NDA-3", "type": "spike-gate", "task": "TASK-NDA-202 / 204 / 206 / 213 / 214", "desc": "SG-NDA-03（TASK-NDA-201）结论 = 不可行 ⇒ 不得开工（禁新增回合容器 / 禁改 onToolDone 语义 / 禁新增计数调用点 / 禁进会话历史）" },
+    { "id": "BLK-NDA-9", "type": "cross-leaf", "task": "TASK-NDA-201（本叶起点）", "desc": "叶间硬串行：本叶以叶1（specs-tree-nda-1-next-tool-channel）全绿（validated）为前置（R-NDA-001 / R-NDA-905 / N-NDA-021）" }
+  ],
+  "stoppingRules": [
+    { "no": 1, "trigger": "dist/content.js ≠ 177,076 B / 52a82620… 或 dist/pick-layer.js ≠ 34,358 B / 77796bab…", "action": "立即停机（N-NDA-001/002 零容差）" },
+    { "no": 2, "trigger": "manifest.json / packages/web-cli-base/** 出现 diff", "action": "停机（N-NDA-007 / NFR-NDA-005）" },
+    { "no": 3, "trigger": "KIND_SET 新增任一字符串 / 第 13 kind / 新宿主 / 新 variant", "action": "停机（N-NDA-003/004 / EC-NDA-017）" },
+    { "no": 4, "trigger": "第二分相判据 / 第二异常判定（面板侧分类器）/ 第二词表 / 第二引导面", "action": "停机（NFR-NDA-013 / R-NDA-915 / N-NDA-026）" },
+    { "no": 5, "trigger": "判定链（policy.ts / auto-authorize.ts）内容哈希变化", "action": "停机（N-NDA-018）" },
+    { "no": 6, "trigger": "反证恒绿（注入后仍 PASS）/ 判据恒真", "action": "停机；重写注入点（FR-NDA-131）" },
+    { "no": 7, "trigger": "SG-NDA-03 结论 = 不可行 / 不可构造", "action": "被闸门任务不得开工（见 blockers）" },
+    { "no": 8, "trigger": "体积越绝对上限 / 静默改档位 / authorConfirmation 被伪称", "action": "停机（硬墙）；升档须显式登记（ADR-NDA-008 / EC-NDA-016）" },
+    { "no": 9, "trigger": "任一门禁计数 < 基线（除保护段显式取代且已留痕）", "action": "停机；还原并重锚" },
+    { "no": 10, "trigger": "12→13 重锚静默放宽（改成「>=12」）/ 四处恰 N 被顺手放开", "action": "停机（N-NDA-012 / R-NDA-914）" },
+    { "no": 11, "trigger": "特权 op 非 gesture / consent（含兜底推荐）被 AI 代答 / AI 自动按下 confirm", "action": "停机（N-NDA-011/017）" },
+    { "no": 12, "trigger": "提醒 ≥2 次 / nudge 进会话历史 / 新增 requestTurn( 或 nextAfterSettle 调用点", "action": "停机（N-NDA-024 / X-NDA-11 = no-supersession）" },
+    { "no": 13, "trigger": "未配置相显示自由输入终端 / 已配置相终端被删 / 未配置被推荐「配置新的 LLM」", "action": "停机（N-NDA-008/025/026）" },
+    { "no": 14, "trigger": "首开引入 LLM 往返依赖 / 提案被记账成回合预算 / A 列改动搬 B 列规避账本", "action": "停机（N-NDA-028 / FR-NDA-145）" }
+  ],
+  "unfilledPoints": [
+    { "id": "NDA-P-003", "topic": "人工面 M1~M6（AI 候选相关性 / 工具产出稳定性体感 / 提醒体感 / 兜底体感 / 未配置体感 / 读屏）", "status": "pending-human", "owner": "TASK-NDA-217 / TASK-NDA-221", "rule": "逐项 ⏳ 未执行 / PASS，不得冒充 PASS；上游人工面零改写" },
+    { "id": "NDA-P-004", "topic": "authorConfirmation 的作者一句外部确认（跨叶共享）", "status": "pending-author-line", "owner": "TASK-NDA-219", "rule": "不得伪称已确认（N-NDA-013）" },
+    { "id": "NDA-P-006", "topic": "A 列（叶2）实测净增 + 两叶 Σ + 是否触发档位上调（与 plan 预算偏差）", "status": "pending-measurement", "owner": "TASK-NDA-219", "rule": "禁预填；偏差须显式登记" },
+    { "id": "NDA-P-008", "topic": "门禁基线字面量与仓内实况不一致（supersession 引自 53 / npm test 引自 1507）", "status": "resolved-tasks", "owner": "TASK-NDA-220", "rule": "按断言语义 + 语义增量重锚；收口同源前移" },
+    { "id": "NDA-P-009", "topic": "KL-N-10 家族 flake（s0-self-driven / recommendation / binding 相位）", "status": "pending-measurement", "owner": "TASK-NDA-220 / TASK-NDA-221", "rule": "隔离复跑 ≥2 + 日志全量；仍红如实记录不阻塞收口" },
+    { "id": "NDA-P-010", "topic": "plan 工程估算（A 列 +0.6~1.4 KB）与 spec §5.14.1 保守包线并存", "status": "resolved-tasks", "owner": "TASK-NDA-219", "rule": "判据口径取更紧者 = spec 包线；偏差如实登记" },
+    { "id": "NDA-P-011", "topic": "PD-NDA-016（nudge 时点比 spec 字面早一步；stop() 窗口内至多多发一次）", "status": "registered", "owner": "TASK-NDA-215", "rule": "如实登记为已知偏差；stop() 窗口有界 ≤1" }
+  ],
+  "artifacts": ["tasks.md", "tasks.json", "state.json", "TREE.md"],
+  "note": "NDA-2 叶 tasks：21 任务 / 3 波（TASK-NDA-201~221；S×3 / M×16 / L×2）。末叶 / 兜底与判据叶（强依赖叶1 validated）：分相（free-input.when 单源）+ 未配置确定性引导（零新增面）+ 提醒补一次（chat 回调内续呼 / 有界恰一次 / 防环 / 零计数漂移）+ 异常判定闭集三情 + 系统兜底 llm.abnormal（复用 op.llm-config；文案强调「配置新的 LLM」）+ 首开保持确定性 + S0'''' 支线 C/D/E 终态 + 门禁显式取代 2 / 等价重锚 3 / 四处恰 N 不动 + X-NDA 台账终态 + 保护段 keep + 体积叶2 + 两叶 Σ + EC-NDA-016 三分支。1 个 spikeGate（SG-NDA-03 nudge 回调内续呼 + 有界 [最高风险点 ②]）。体积 A 列叶2 +0.6~1.4 KB（B 列 +1.9~3.6 KB 不计账）。**本轮只做 tasks**：零 src/test/dist/docs/design/ROADMAP 改动；未跑门禁 / 构建 / Chromium；未调用任何受管 Provider（routing.v1 = local_or_compute → none）。"
+}

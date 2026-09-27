@@ -1,0 +1,350 @@
+{
+  "feature": "specs-tree-nda-1-next-tool-channel",
+  "featureKey": "specs-tree-nda-1-next-tool-channel",
+  "version": "v0.11.4",
+  "name": "NDA-1 next 工具产出通道 + 无条件触发 + 5 道校验链接入：机制核心",
+  "phase": "validated",
+  "status": "completed",
+  "workflow": "7.validate",
+  "agent": "sddu-validate",
+  "depth": 2,
+  "parent": "specs-tree-web-cli-plugin-v55-f-next-drive-accuracy",
+  "childrens": [],
+  "leaf": true,
+  "deliveryOrder": 1,
+  "dependsOn": [],
+  "createdAt": "2026-09-27",
+  "updatedAt": "2026-09-27",
+  "description": "NDA-1 叶规范（首叶 / 底座叶 + 机制核心）：把 F-36 的「文本 next 围栏块口述 + 正则解析」替换为**真正的函数调用** —— 注册 `next` 工具（LlmToolDef schema `{candidates:[{opId,label,ref?,params?}]}`，maxItems ≤3，description 三约束）+ 经基座 `hooks.intercept` 缝捕获（合成 ToolResult 跳过真实 dispatch；零改基座）+ 5 道校验链整体保留接入（输入从围栏块解析项 → 工具参数项）+ 判定分层保持（admitCandidate vs pressDecision）+ `chat-result.aiNext` 加法字段装配保持 + **触发范围无条件**（不再只并入有引用分支）+ `ai-next` 规则位等价重锚 + **围栏块通道替换**（单一产出通道）+ parity 新 pluginExtra 条目 + ai-next-candidate 门禁改写（断言只增）+ S0'''' 主线 A / 支线 B node 面 + 体积 B 列归因。",
+  "scope": {
+    "in": [
+      "next 工具注册（LlmToolDef schema + description 三约束；纯协议工具）",
+      "hooks.intercept 接线与捕获（tc.name==='next'；合成 ToolResult；不动 onToolDone）",
+      "5 道校验链保留接入（工具参数项；顺序即优先级；纯函数）",
+      "判定分层保持（admitCandidate 接受层 / pressDecision 按下层 diff=0；tierOf 单源）",
+      "触发范围无条件（NEXT_CONTRACT_GUIDANCE 停止；不再只并入有引用分支）",
+      "ai-next 规则位等价重锚（独立通道；NEXTSTEP_PRIORITY 等价重锚）",
+      "围栏块通道替换（FENCE / lastNextFenceBody / parseAiNextItems 停止承载；单一产出通道）",
+      "chat-result.aiNext 加法字段装配保持；零新增 kind / 零宿主",
+      "parity 新 pluginExtra 条目（reason + basis 非空）",
+      "ai-next-candidate 门禁改写（等价或更强；assertionsRemoved = 0）",
+      "S0'''' 主线 A / 支线 B node 面 + 注入反证族",
+      "体积 B 列归因（捕获 / 校验在 background.js，不计 sidepanel 账本）+ A 列薄接线预算"
+    ],
+    "out": [
+      "未配置确定性引导 / 自由输入分相（叶2）",
+      "提醒补一次 / LLM 异常判定 / 系统兜底推荐（叶2）",
+      "首开（open/ready）边界落地（叶2）",
+      "体积终态重登记 + 等价重锚 + 保护段决策 + X-NDA 台账终态（叶2）",
+      "在 recommend.ts 内直接调用 LLM / 新 op / 新 kind / 新宿主",
+      "pressCandidate / driveAnsweredTurn / turn-queue.ts 语义改动",
+      "next 工具有执行体 / 双产出通道（围栏块并存）",
+      "base / content / pick-layer / 判定链改动"
+    ]
+  },
+  "coversFr": [
+    "FR-NDA-001~007",
+    "FR-NDA-010~020",
+    "FR-NDA-021~028",
+    "FR-NDA-030~036",
+    "FR-NDA-040~045",
+    "FR-NDA-080~083",
+    "FR-NDA-100~103",
+    "FR-NDA-105~106（主线侧）",
+    "FR-NDA-110~111",
+    "FR-NDA-114~118",
+    "FR-NDA-121",
+    "FR-NDA-130~137（改写门禁侧）",
+    "FR-NDA-140~145（B 列归因侧）"
+  ],
+  "openPoints": [
+    "PD-NDA-002",
+    "PD-NDA-003",
+    "PD-NDA-004",
+    "PD-NDA-005",
+    "PD-NDA-006",
+    "PD-NDA-009",
+    "PD-NDA-010",
+    "PD-NDA-011"
+  ],
+  "openPointsRuled": [
+    "O-NDA-001",
+    "O-NDA-002",
+    "O-NDA-003",
+    "O-NDA-004",
+    "O-NDA-005",
+    "O-NDA-006",
+    "O-NDA-007",
+    "O-NDA-008",
+    "O-NDA-009",
+    "O-NDA-010",
+    "O-NDA-011",
+    "O-NDA-012",
+    "O-NDA-013",
+    "O-NDA-014"
+  ],
+  "notes": "承载父 FR ≈60 条切片；交付 11 项；执行序 7 步（先立工具通道与安全闸）；风险 13 条；开放问题 8 条。关键：next 工具 schema 是软约束，运行时 5 道校验链是权威；围栏块通道替换（单一产出通道）；零改基座（只复用 hooks.intercept）；触发无条件；规则位等价重锚。",
+  "artifacts": [
+    "spec.md",
+    "state.json",
+    "TREE.md",
+    "plan.md",
+    "ADR-NDA-101-capture-parameter-surface-and-parse-failure.md",
+    "ADR-NDA-102-next-tool-not-on-stream.md",
+    "tasks.md",
+    "tasks.json",
+    "build.md",
+    "review.md",
+    "review-report.md",
+    "validate.md",
+    "validate-report.md"
+  ],
+  "files": [
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/spec.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/state.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/TREE.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/plan.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/ADR-NDA-101-capture-parameter-surface-and-parse-failure.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/ADR-NDA-102-next-tool-not-on-stream.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/tasks.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/tasks.json",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/build.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/review.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/review-report.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/validate.md",
+    ".sddu/specs-tree-root/specs-tree-web-cli-plugin-v55-f-next-drive-accuracy/specs-tree-nda-1-next-tool-channel/validate-report.md"
+  ],
+  "dependencies": {
+    "upstream": [
+      "../discovery.md（v1.0）",
+      "../spec.md（v1.0，父级完整规范）",
+      "../specs-tree-web-cli-plugin-v55-f-ai-driven-next/**（F-36 v0.11.3；被修正对象 + 保留资产来源）",
+      "../specs-tree-web-cli-plugin-v55-self-driven/**（F-33；pressCandidate / driveAnsweredTurn / 三档 / 护栏六常量）",
+      "../specs-tree-web-cli-plugin-v55-f-input-as-next/**（F-35 v0.11.2；free-input / floor / op.turn 槽）",
+      "packages/web-cli-base/src/llm.ts（function calling 底座）+ runner.ts（hooks.intercept 缝）——只读复用，零 diff"
+    ],
+    "downstream": [
+      "specs-tree-nda-2-fallback-and-gates（依赖本叶已建立工具通道与校验链接入）",
+      "@sddu-plan（本叶）"
+    ]
+  },
+  "phaseHistory": [
+    {
+      "phase": "specified",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-spec",
+      "artifact": "spec.md v1.0 + state.json + TREE.md",
+      "note": "spec 阶段：产出叶 spec.md（承载父 FR ≈60 条切片：GOV 001~007 / TOOL 010~020 / CAPTURE 021~028 / VERIFY-KEEP 030~036 / UNCOND 040~045 / FENCE 080~083 / S0'''' 100·101·102·103·105·106 主线侧 / SUPERSEDE 110·111·114~118·121 / GATE 130~137 改写门禁侧 / VOL 140~145 B 列归因侧）。首叶 / 底座叶 + 机制核心；plan → tasks → build → review → validate 由本叶承接。spec 阶段零运行时验证；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "planned",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-plan",
+      "artifact": "plan.md v1.0 + ADR-NDA-101-capture-parameter-surface-and-parse-failure.md + ADR-NDA-102-next-tool-not-on-stream.md",
+      "note": "plan 阶段（技术设计，首叶/机制叶）：父 ADR-NDA-001~004/008/009 的叶内落地定案 + 2 组叶内方案对比（next 工具定义落点 → 独立 src/tools/next-tool.ts；validateAiNext 输入面 → 改签名 + 上游解析分离）+ 文件影响（B 列主体 + A 列薄接线，B 列先行）+ 叶内风险 12 条 + 7 步执行序；叶级 ADR 补两条硬细节：ADR-NDA-101（捕获参数面 = tc.rawArguments 严格 JSON，tc.args 零使用；解析失败 ⇒ 未产出不抛错；覆盖式取最后一次）、ADR-NDA-102（next 调用不上流：onCommandLine/onToolOutput 加法过滤，onToolDone 语义逐字不动；零改基座）。零运行时验证；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "tasked",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-tasks",
+      "artifact": "tasks.md v1.0 + tasks.json v1.0（TASK-NDA-101~120）",
+      "note": "tasks 阶段（任务排布，首叶/机制叶）：20 个原子任务 / 3 波（W1 工具通道与捕获 7 / W2 触发与门禁改写 7 / W3 验收与登记 6；S×7 / M×9 / L×4）+ 2 个 spikeGate（SG-NDA-01 intercept 捕获 + rawArguments 严格解析 + 合成常量 ToolResult 短路 dispatch + next 不上流＝编排器点名的最高风险点①；SG-NDA-02 ai-led 独立规则位等价重锚 + 密度/门禁可判）+ 改写门禁 1（ai-next-candidate：AI-N-1 换机制 + AI-N-12/13/14 + 语义对账 assertionsRemoved=0）+ 升级 2（parity pluginExtras['next'] / recommendation-sources ③ 恰 4→5）+ 保留面零改复核 9 项 + S0'''' 主线 A / 支线 B·D node 面 + Chromium 断言增量/样本重锚（只加断言）+ 体积叶1 重登记（五要素 + 三值 + nda1Rows + B 列不计账 + EC-NDA-016 二态）+ xNdaLedger/X-NDA 骨架 + 红线巡检收口。步序纪律：W1 只落 B 列（A 列零增量）⇒ 体积压力最迟在 W2 出现；叶2 以本叶 validated 为硬前置（BLK-NDA-9）。**本轮只做 tasks**：零产品代码改动、零门禁/构建/Chromium；.sddu 外零触碰；routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "builded",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-build",
+      "artifact": "build.md v1.0 + 7 源码文件（1 NEW）+ 18 测试/台账/文档",
+      "note": "build 阶段（叶1 机制核心）：20/20 任务落地。NEW src/tools/next-tool.ts；MODIFY host.ts（注册 next）/ ai-next.ts（删围栏块四符号 → parseNextToolArguments + validateAiNext 改签名 + captureNextCall）/ ref-context.ts（删契约句）/ service-worker.ts（hooks.intercept + turnState + events 过滤 + onFinish 装配 + slice≤3）/ recommend.ts（NEXTSTEP_PRIORITY 恰 4→5，ai-led 第 2 位）/ providers.ts（ai-next.rule ref-action→ai-led + priority 2→1 + RULE_PROVIDER_IDS 追加）。门禁：npx tsc --noEmit EXIT 0；npm test 1516/0（基线 1507 ⇒ +9 零删除）；test:law8 67/0；test:s0-self-driven 95/98（3 项既有环境 flake：probe.steady 未置稳导致 risk-recovery 抢 priority-1 槽；git stash 到本叶工作前 HEAD 独立复跑确认同样失败 ⇒ 非本叶引入；KL-N-10 如实登记不阻塞）。spikeGate：SG-NDA-01 可行 8/8（intercept 短路 dispatch / rawArguments 保真 tc.args 无 candidates / 五层筛法不抛 / events 零发射 / 覆盖式+≤3）；SG-NDA-02 可行 12/12（ai-led<ref-action 等价 / 密度常量逐字 / DRIVER_TIMINGS 5 / 注入可 FAIL）。门禁改写：ai-next-candidate AI-N-1~14（断言零删除，语义对账）+ recommendation-sources ③ 恰5 + parity pluginExtras[next] + gate-integrity 元门禁（受审下界只增 48 / CHROMIUM_GATES 9）+ xNdaLedger 8 行 / xNdaGateReconciliation 12 行。体积叶1 重登记：604,602 → 605,239 B（+637 B；A 列 recommend.ts +459 / providers.ts +178；B 列 background.js +2,565 B 不计账）；档位 614,400 / 绝对上限 675,840 不变；生效上限 635,500；EC-NDA-016 二态皆「否」；authorConfirmation 保持 pending-author-line。红线：零改基座（零 diff）/ 冻结面 content.js 177,076 B sha 52a82620… + pick-layer.js 34,358 B sha 77796bab… 逐字节不变 / KIND_SET 40 / ACT_TO_OP 6 / 零新 kind 零宿主 / .sddu 外零触碰（ROADMAP 零 diff）。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-review",
+      "artifact": "review.md v1.0（C1~C28 审查策略）+ review-report.md v1.0（R1 执行报告）",
+      "note": "review 阶段（叶1 机制核心，静态审查 / 零运行时验证）：自主定义 C1~C28 清单（四维度；≈60 条父 FR 切片按 13 组各≥1 Cx）；结论 ⚠️ 有条件通过（通过 22 / 警告 6 / 失败 0 / 阻塞 0 / 改进 4 / 规范符合性偏差 0）。关键证据：admitCandidate 与 onToolDone 函数体切片 sha256 与本叶前 HEAD 逐字节相同；围栏块五符号 + NEXT_CONTRACT_GUIDANCE 在 src/** 结构性零命中；enum 独立复算 = OP_IDS − gesture = 7；KIND_SET=40 亲验；dist/content.js sha 52a82620… / pick-layer.js sha 77796bab… 双锚命中；packages/web-cli-base/** 零 diff。改进项：I-1 law8 ★NDA-1 ⑫ 运行面判据空转 + 机制陈述错误 + 潜在崩溃；I-2 xNdaGateReconciliation 未机核 assertionsRemoved=0（弱于 X-ADN/X-IIAN 同构段）；I-3 intercept 短路 dispatch 无永久回归门禁（仅已删除的 SG-NDA-01 spike 支撑）；I-4 三处文档/判据稳健性（ADR-NDA-102 §① 机制陈述、text===NEXT_TOOL_NAME 不鲁棒、RULE_PROVIDER_IDS 注释计数）。观察项 O-1~O-6（含 evidence=session.aiNext 与父 FR-NDA-028 字面差异、额外 agent step 的助手文本上流、KL-N-10 ≥2 次独立复跑留 validate）。routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "reviewed",
+      "status": "tracked",
+      "at": "2026-09-27",
+      "agent": "sddu-build（R1-FIX 修复轮）",
+      "artifact": "review-report.md R1-FIX 段 + test/** 与 docs/v4-supersession-ledger.json 修复",
+      "note": "review 修复轮（保留 reviewed 相位，未推进 validate）：处理 R1 改进项 I-1~I-4（全部必修，无 deferred）。I-1：law8 ★NDA-1 ⑫ 由「空转恒真」改为「正控 + 负控 + 反证」三段可判红（机制陈述同步订正；原判据注释误称「第 5 道链丢弃」而被 seam 绕开且未 reset 致防抖短路）。I-2：xNdaGateReconciliation 12 行补 `assertionsRemoved` 机核 + 反证。I-3：新增 AI-N-15 永久门禁（真跑基座 dispatchCalls===0 + rawArguments 捕获 + 事件不上流 + 四类反证）。I-4：RULE_PROVIDER_IDS 注释订正（注释-only，零输出字节）。门禁复跑：tsc rc=0 / npm test 1517/0 / law8 69/0 / supersession 55/0 / gate-integrity 27/0；两次注入反证实跑各自判红后还原。体积零变化。routing.v1 = local_or_compute → none。"
+    },
+    {
+      "phase": "validated",
+      "status": "completed",
+      "at": "2026-09-27",
+      "agent": "sddu-validate",
+      "artifact": "validate.md v1.0（V1~V18 场景矩阵）+ validate-report.md v1.0（R1 执行报告）",
+      "note": "validate 阶段（叶1 机制核心，动手验证 / 独立复跑不采信自报）：V1~V18 全量执行 —— 12 门禁独立复跑（npm test 1517/0、law8 69/0、supersession 55/0、gate-integrity 27/0、size-ruling-vol3 14/0、insight 125 断言、density 242/0、dead-end 53/0；s0-self-driven 96/2 与 recommendation 81/1 经工作树 ×2 + HEAD 基线 ×2 隔离复跑判为环境 flake prober.steady 时序，KL-N-10 不阻塞）+ 五组注入反证全判红并逐字节还原（I-1 正控/负控/反证三段 + I-2 ledger assertionsRemoved=1 + I-3 SW intercept return null）+ 红线/保护段/体积/载体独立复算（基座零 diff；admitCandidate 与 onToolDone byte-identical to HEAD；journey/binding 保护段 sha 双锚；A 列 605,239 / B 列 1,644,437；冻结面逐字节不变）+ 漂移 0。结论 ⚠️ 有条件通过 / 0 阻塞 / FR 13/13 组 / NFR 15/15。routing.v1 = local_or_compute → none。"
+    }
+  ],
+  "description_short": "NDA-1：next 工具（function calling）产出通道 + intercept 捕获 + 5 道校验链接入 + 无条件触发 + 围栏块替换（机制核心）",
+  "featureId": "F-37",
+  "versionSlot": "v0.11.4",
+  "plan": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-plan",
+    "artifact": "plan.md（叶级：机制换轨落地）+ ADR-NDA-101 / ADR-NDA-102",
+    "adrCount": 2,
+    "adrRefs": [
+      "ADR-NDA-001",
+      "ADR-NDA-002",
+      "ADR-NDA-003",
+      "ADR-NDA-004",
+      "ADR-NDA-008",
+      "ADR-NDA-009"
+    ],
+    "runtimeVerified": false
+  },
+  "tasks": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-tasks",
+    "artifact": "tasks.md + tasks.json（叶1 可执行任务正文）",
+    "taskCount": 20,
+    "waveCount": 3,
+    "complexity": {
+      "S": 7,
+      "M": 9,
+      "L": 4
+    },
+    "typeBreakdown": {
+      "implementation": 8,
+      "gate": 7,
+      "spike": 2,
+      "doc": 3
+    },
+    "namespace": "TASK-NDA-1xx（101~120）",
+    "spikeGates": [
+      "SG-NDA-01",
+      "SG-NDA-02"
+    ],
+    "rewrittenGates": [
+      "ai-next-candidate"
+    ],
+    "upgradedGates": [
+      "parity",
+      "recommendation-sources"
+    ],
+    "keptGatesReview": [
+      "driver-timings",
+      "driver-quadruple",
+      "op-wiring",
+      "op-three-tier",
+      "sw-op-mirror",
+      "next-dispatch-diff0",
+      "insight-no-escalation",
+      "ref-context-in-turn",
+      "cards/nextstep"
+    ],
+    "volume": {
+      "colA": "+0.1~0.5 KB（计账）",
+      "colB": "+1.3~4.0 KB（不计账）",
+      "registerTask": "TASK-NDA-118"
+    },
+    "blockingNext": "BLK-NDA-9（叶2 以本叶 validated 为前置）",
+    "runtimeVerified": false
+  },
+  "review": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-review",
+    "strategy": "review.md（C1~C28 审查清单 + 四维度指引）",
+    "report": "review-report.md（R1）",
+    "round": "R1",
+    "itemCount": 28,
+    "passCount": 22,
+    "warningCount": 6,
+    "failCount": 0,
+    "blockingCount": 0,
+    "improvementCount": 4,
+    "specConformityDeviations": 0,
+    "conclusion": "conditional-pass",
+    "runtimeVerified": false
+  },
+  "reviewFix": {
+    "round": "R1-FIX（review 修复轮，进入 validate 前）",
+    "at": "2026-09-27",
+    "agent": "sddu-build（按 review-report R1 改进项执行）",
+    "reviewedPhasePreserved": true,
+    "fixed": [
+      "I-1 law8 ★NDA-1 ⑫ 运行面判据**空转 → 真实判红**：`test/ui/law8-plaintext.mjs` 重写为「正控 + 负控 + 反证」三段 —— ① `reset()` 清防抖时钟 ⇒ 生产者真跑（`suppression===null`），并以「不清时钟 ⇒ 必被 interval 短路」为反证；② 哨兵形 label ⇒ 面板 `label()` 构造期 fail-closed 抛错**就地捕获**（崩溃 → 可判事实）∧ 流内/chips/digest 三面零哨兵；③ `streamSeed` 直注哨兵 chip ⇒ 三面读数必命中（证明读数非盲）。机制陈述订正为「面板侧第二道闸 fail-closed + SW 第 5 道链由 node 面 AI-N-6 证」。",
+      "I-2 `xNdaGateReconciliation` 补 `assertionsRemoved` 机核：`XNdaReconRow` 增字段 + `xNdaReconProblems` 增「!==0 ⇒ 必红」+ 12 行台账逐行补 `assertionsRemoved: 0` + 两条注入反证（值 1 / 缺字段）。对齐父 FR-NDA-082/116 与 X-ADN/X-IIAN 同构段。",
+      "I-3 intercept 短路永久回归门禁 **AI-N-15**（`test/ai-next-candidate.test.ts`）：真跑基座 `createAgentRunner` + 生产解析/捕获/ACK 常量 ⇒ `dispatchCalls===0` ∧ 候选由 `tc.rawArguments` 捕获 ∧ 事件不上流；SW 命中分支源切片（必须合成 `{ok:true,output:NEXT_TOOL_ACK}` ∧ 不得 `return null` ∧ 必须走 rawArguments）；四类注入反证（null / ok:false / 事件不过滤 / 源切片三类篡改）逐条必红。JUDGEMENTS 14 → 15。",
+      "I-4 `RULE_PROVIDER_IDS` 注释「the 5 rules」→ 订正为「NEXTSTEP_PRIORITY 5 项中由注册表规则组 provider 承担的 4 个；第 5 项 risk-recovery 由恢复类 provider（RECOVERY_PROVIDER_IDS + OPS_RECOVERY_ROWS）承担」（注释-only 最小改动，零行为 / 零输出字节，理由已登记）。I-4 的另两处（ADR-NDA-102 §① 机制理由、`text === NEXT_TOOL_NAME` 对附带 subcommand/args 的稳健性）如实登记于 review-report §8：**不改已完成 plan 产物字节 / 不改生产行为**；机制真值已按 `next` 已注册（`deriveCommand` 返回 `'next'` 前缀）订正登记，稳健性残余转 validate/叶2 复核。"
+    ],
+    "gates": {
+      "tsc": "rc=0",
+      "npmTest": "1517/0（基线 1516 ⇒ +1：AI-N-15；零删除）",
+      "test:law8": "69/0（基线 67/0 ⇒ +2 判据：⑫ 正控 + ⑫ 反证段）",
+      "test:supersession": "55/0",
+      "test:gate-integrity": "27/0",
+      "test:s0-self-driven": "95/3（与 build.md §4.1 同 3 项既有环境 flake，非本轮引入；未被要求）"
+    },
+    "falsification": [
+      "正控反证实跑：临时禁用 `recommend.ts` 的 anti-flicker 短路（`NEXTSTEP_MIN_INTERVAL_MS`）⇒ law8 68/1，红点 = ★NDA-1 ⑫ 运行面正控（rc=1）；还原 ⇒ 69/0。",
+      "负控反证实跑：临时去掉 `stream-plaintext.ts#label()` 的 `assertStreamPlaintext` ⇒ law8 68/1，红点 = ★NDA-1 ⑫ 运行面负控（`threw:false`，rc=1）；还原 ⇒ 69/0。"
+    ],
+    "volume": "零变化：A 列 `dist/sidepanel.js` = 605,239 B；B 列 `dist/background.js` = 1,644,437 B；冻结面 content.js 177,076 B / sha 52a82620… + pick-layer.js 34,358 B / sha 77796bab… 逐字节不变；`providers.ts` 注释订正经 esbuild metafile 复算 **bytesInOutput 零变化**。",
+    "srcChanges": "仅 `src/ui/sidepanel/next-registry/providers.ts` 一处注释订正（I-4；最小改动，零行为/零输出字节，已登记理由）。I-1 未改 `src/**`（复用既有 `testing.aiNext` 缝 + `reset()`）。"
+  },
+  "validate": {
+    "version": "v1.0",
+    "createdAt": "2026-09-27",
+    "agent": "sddu-validate",
+    "strategy": "validate.md（V1~V18 验证场景矩阵 + 五维度指引）",
+    "report": "validate-report.md（R1 执行报告）",
+    "round": "R1",
+    "scenarioCount": 18,
+    "passCount": 15,
+    "conditionalCount": 3,
+    "failCount": 0,
+    "skipCount": 0,
+    "blockingCount": 0,
+    "frCoverage": "13/13 组 = 100%",
+    "nfrCoverage": "15/15 = 100%（NFR-NDA-010 终态属叶2，记不适用）",
+    "buildExitCode": 0,
+    "driftCount": 0,
+    "falsification": [
+      "I-1 正控：禁用 recommend.ts anti-flicker ⇒ law8 68/1（红点 = ★NDA-1 ⑫ 运行面正控）；还原 69/0。",
+      "I-1 负控：去掉 stream-plaintext.ts#label() 的 assertStreamPlaintext ⇒ law8 68/1（红点 = ⑫ AI label 零明文（运行面），threw:false）；还原 69/0。",
+      "I-1 反证：把 ⑫ 反证 seed 载荷换成非哨兵 ⇒ law8 68/1（红点 = ⑫ FAIL 段）；还原 69/0。",
+      "I-2：ledger 行 assertionsRemoved=1 ⇒ supersession 54/1（红点 = ★ NDA-1 xNdaGateReconciliation）；还原 55/0。",
+      "I-3：SW intercept 命中分支 return null ⇒ ai-next-candidate 24/1（红点 = AI-N-15）；还原绿。"
+    ],
+    "gates": {
+      "npmTest": "1517/0 rc=0",
+      "test:law8": "69/0 rc=0",
+      "test:supersession": "55/0 rc=0",
+      "test:gate-integrity": "27/0 rc=0",
+      "test:size-ruling-vol3": "14/0 rc=0",
+      "test:insight": "125 assertions PASS rc=0",
+      "test:density": "242/0 rc=0",
+      "test:dead-end": "53/0 rc=0",
+      "test:recommendation": "81/1 → 82/0 ×4（flake；HEAD 基线亦 flake）",
+      "test:s0-self-driven": "96/2 ×2（rc=1；HEAD 基线 91/2 ×2 同根因 ⇒ 环境 flake，KL-N-10 不阻塞）",
+      "typecheck": "rc=0",
+      "build": "rc=0"
+    },
+    "volume": "A 列 dist/sidepanel.js = 605,239 B（距生效上限 635,500 余 30,261 / 距档 614,400 余 9,161）；B 列 background.js = 1,644,437 B（不计账）；冻结面 content.js 177,076 B / sha 52a82620… + pick-layer.js 34,358 B / sha 77796bab… 逐字节不变；保护段 journey [43484,59347) sha 7b309258… / binding [107780,115930) sha be9ad0e9… 双锚命中。",
+    "redlines": "零改基座（web-cli-base/** 零 diff）；admitCandidate / onToolDone 函数体 byte-identical to HEAD；判定链（press-decision.ts / ai-drive.ts / turn-queue.ts）零 diff；围栏块 5 符号 src/** 零命中；KIND_SET 40 / ACT_TO_OP 6 / CHROMIUM_GATES 9 / EXPECTED_AUDITED_FILES 48 / JUDGEMENTS 15。",
+    "drift": "孤立代码 0 / 需求缺失 0 / 规格漂移 0（spec·plan mtime 早于 build）。",
+    "observations": [
+      "O-1 S0''''-2 的 unconditional / unconfiguredToolSent 为常量读数（AI-N 元判据面），不可 FAIL；实质保障在 parity.test.ts + SW early-return。",
+      "O-3 onAssistantText（service-worker.ts:1011）未过滤 next ⇒ 额外 agent step 助手文本可能上流（ADR-NDA-102 只覆盖 command/tool）。",
+      "O-4 KL-N-10 已完成工作树 ×2 + 基线 HEAD ×2 隔离复跑。",
+      "O-6 A 列 +637 B 略超 ADR-NDA-008 §② 叶1 估，未跨档位，不搬列规避。"
+    ],
+    "conclusion": "conditional-pass",
+    "runtimeVerified": true
+  }
+}
